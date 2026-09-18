@@ -35,7 +35,7 @@ Read:
 
 Inspect `WORK_STATUS.md`.
 
-For a fresh build, begin with **WP-0001** unless another agent has already claimed/completed it.
+For a fresh build, **you are the default owner of WP-0001**. Claim it immediately unless repository state shows it already claimed/completed by an authorized fallback.
 
 Select the first eligible TODO package whose dependencies are DONE and that is not claimed by another agent.
 
