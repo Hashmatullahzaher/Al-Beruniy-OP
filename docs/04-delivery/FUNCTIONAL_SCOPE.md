@@ -1592,35 +1592,157 @@ Headline capabilities:
 
 ---
 
-# 21. AI Intelligence Layer
+# 21. AI Core / Enterprise Intelligence Control Plane
 
-Pages/Surfaces:
-- Contextual Copilot
-- Executive AI Briefing
-- AI Search
-- AI Insight/Alert Detail
+The AI capability is a platform core, not an isolated chatbot. It is available from F1A and expands with each domain.
+
+## 21.1 AI Core Command Center
+Pages:
+- AI Core Overview
+- Provider Connections
+- Model Registry / Routing
+- Model Health
+- Usage / Cost
+- Knowledge Index Status
+- Knowledge Sources
+- Tool Registry
+- Agent Runs
+- Conversations
 - AI Audit Log
-- Model/Provider Configuration (admin)
+- AI Policy / Guardrails
+- Machine Identities
 
 Functions:
-- permission-trimmed context
-- typed tool/domain-service calls
-- NLQ
-- executive narrative
-- document extraction/analysis hooks
-- collection risk
-- cash-flow prediction
+- connect one or more LLM/model providers
+- authentication via approved API key, service credential, OAuth/provider sign-in, or private endpoint
+- choose default/fallback models
+- provider/model health
+- region/data-residency metadata
+- allowed data classifications
+- cost/rate limits
+- credential rotation hooks
+- source/index freshness
+- failed ingestion/rebuild
+- tool enable/disable
+- model/tool policy
+- full AI run audit
+
+## 21.2 Enterprise Knowledge Plane
+Sources:
+- repository documentation
+- policies/procedures
+- master data
+- domain entities/read projections
+- published documents
+- workflow state
+- event bus/domain events
+- audit metadata
+- BI semantic measures
+- reports/KPIs
+- schema/service metadata
+
+Functions:
+- classify
+- security tag
+- normalize/chunk
+- semantic/keyword index
+- entity links/knowledge graph
+- version/source tracking
+- incremental event refresh
+- scheduled reconciliation/rebuild
+- stale-index detection
+- deletion/retention propagation
+
+Every indexed object must include source ID/version, company/legal entity, project, department, party scope where applicable, sensitivity and ACL/security tags.
+
+## 21.3 AI Copilot / Search
+Surfaces:
+- persistent global Copilot
+- contextual Copilot on major entity/detail pages
+- AI Search
+- Executive AI Briefing
+- Approval Inbox Assistant
+- Document AI
+- Smart Alerts
+
+Functions:
+- natural-language cross-module question answering
+- source-grounded answers with record/document links
+- current company/project/page context
+- role/project/department/field/party trimmed retrieval
+- summarize
+- compare
+- explain
+- find
+- draft
+- recommend
+- create action proposal
+- follow-up conversation
+- task memory scoped to user/conversation
+
+## 21.4 Typed Tools / Agent Runtime
+Functions:
+- intent classification
+- task planning
+- typed tool selection
+- read/query tools
+- draft tools
+- policy-approved action tools
+- tool input validation
+- authorization proxy
+- domain service execution
+- workflow handoff
+- source citations
+- result grounding
+- human confirmation for material actions
+
+Hard rule:
+**Never LLM → arbitrary SQL → database.**
+
+## 21.5 Predictive / Analytical AI
+Capabilities:
+- cash-flow forecast
 - sales forecast
+- collection risk
+- late-payment prediction
 - cost-overrun signal
-- delay signal
+- project-delay signal
 - supplier risk
-- duplicate invoice/anomaly signal
-- source citations/record links
-- confidence/explanation
-- human approval for actions
-- prompt/output/context-scope audit
-- no arbitrary SQL
-- no direct posting
+- duplicate invoice signal
+- anomaly detection
+- document extraction/analysis
+- contract analysis
+- management recommendations
+
+Actuals, deterministic calculations and forecasts must be clearly distinguished.
+
+## 21.6 AI Security / Audit
+Functions:
+- permission-trimmed retrieval
+- provider/data-classification policy
+- prompt-injection defense
+- output redaction/DLP
+- tool allowlists
+- step-up requirement for sensitive actions
+- model/provider/version logging
+- source logging
+- tool-call logging
+- prompt/output retention controls
+- latency/token/cost telemetry
+- low-confidence/high-risk human escalation
+
+## 21.7 Cross-Module AI Contract
+Every domain module must expose:
+- typed read tools
+- typed draft/action tools where appropriate
+- domain events
+- AI-indexable read projection
+- source IDs/deep links
+- permission/security metadata
+- document relationships
+- audit integration
+
+A business module is not AI-complete until these hooks exist.
 
 ---
 
@@ -1669,7 +1791,7 @@ Security:
 
 ---
 
-# 23. Integrations
+# 23. Integrations & Communication Channels
 
 Admin Pages:
 - Integration Catalog
@@ -1678,8 +1800,16 @@ Admin Pages:
 - Event/Message Monitor
 - Dead-Letter Queue
 - Import Jobs
+- LLM Provider Connections
+- Telegram Bot Admin
+- Telegram Identity Bindings
+- Telegram Webhook Health
+- Telegram Message / Delivery Audit
+- Telegram Notification Rules
 
 Integration targets:
+- LLM/model providers
+- Telegram Bot API
 - banks
 - payment gateways
 - email/SMS/WhatsApp
@@ -1692,6 +1822,7 @@ Integration targets:
 
 Required behavior:
 - authentication/secrets
+- API key/service-account/OAuth/provider-sign-in support where relevant
 - mapping
 - idempotency
 - retry
@@ -1701,6 +1832,51 @@ Required behavior:
 - audit
 - failure visibility
 - no silent partial posting
+
+## 23.1 LLM / Model Gateway
+Functions:
+- provider registry
+- model registry
+- auth method
+- secret/token reference
+- endpoint/region
+- default/fallback model
+- allowed classifications
+- rate/cost limits
+- health checks
+- request/model audit
+
+No domain module calls a model provider directly.
+
+## 23.2 Telegram Bot Channel
+Inbound:
+**Telegram → webhook → identity binding → permission context → AI Core → typed tool/domain service**
+
+Outbound:
+**ABOS event/workflow/alert → Notification Service → Telegram Gateway → authorized chat**
+
+Functions:
+- official bot configuration
+- managed bot token
+- webhook secret verification
+- user linking/revocation
+- private chat
+- approved notification channels
+- AI question/answer
+- approval/task summary
+- alerts
+- secure deep links
+- attachment intake through Document Service
+- callback/action requests
+- delivery status
+- full message/audit correlation
+
+Security:
+- Telegram username alone is never trusted
+- group membership never grants ABOS authorization
+- sensitive group output disabled by default
+- high-risk actions require step-up or secure ABOS workflow
+- bot/webhook credentials never appear in source/client logs
 
 ---
 
@@ -1764,7 +1940,9 @@ Every implementation must preserve these links:
 - Every material transaction ↔ Audit
 - Every report/KPI ↔ source transaction
 - Every external portal record ↔ own party
-- Every AI answer/action ↔ user authorization context
+- Every AI answer/action ↔ user authorization context ↔ model/tool/source audit
+- Every domain ↔ AI Core through typed tools + events/read projections
+- Telegram ↔ bound UserAccount ↔ Permission Context ↔ AI Core ↔ Domain Service ↔ Audit
 
 ---
 
