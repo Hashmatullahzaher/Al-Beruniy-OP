@@ -34,8 +34,9 @@
 | Payroll | BP-15 | A7 | F9 | deterministic calc→dual approval→allocation→GL |
 | BI | BP-19 | A9 | F10 | secured/reconciled dashboards |
 | Executive Command Center | BP-18 | A9 | F10 | company/project KPI + drilldown |
-| AI | BP-20 | A9 | F11 | permission-bounded tool calls + AI audit |
+| AI Core / LLM Gateway | BP-20, BP-22 | A9 | F1A + F11 | provider connection, knowledge ingestion, typed tools, source grounding, AI audit |
 | Data / Integration | BP-22 | A9/A10 | F11 | idempotency/retry/DLQ/audit |
+| Telegram AI Channel | BP-20, BP-22 | A9 | F1A + F11 | identity binding, webhook security, permission-trimmed AI, step-up/workflow, message audit |
 | External Portals | BP-24 | A9 | F11 | own-party security |
 | Cross-System Relationships | BP-25 | A0-A9 | all | no orphan module; finance/workflow/docs/audit links |
 | Transaction Traceability | BP-26 | A3-A9 | all, especially F10 | forward + reverse trace J1–J5 |
@@ -76,6 +77,13 @@ Builders should attach requirement IDs to tests/PR notes where possible.
 - REQ-AI-002 AI actions use typed domain tools/services.
 - REQ-AI-003 AI cannot post directly or run arbitrary SQL.
 - REQ-AI-004 AI prompt/context/output audit is retained.
+- REQ-AI-005 All LLM providers are accessed only through the central Model Gateway.
+- REQ-AI-006 Enterprise Knowledge Plane objects retain source/version/security tags and are re-authorized at query time.
+- REQ-AI-007 Every major domain exposes typed AI tools and AI-indexable events/read projections.
+- REQ-TG-001 Telegram identity is bound to an authenticated ABOS Type A UserAccount.
+- REQ-TG-002 Telegram requests reuse ABOS RBAC/project/department/field/party authorization.
+- REQ-TG-003 High-risk Telegram actions cannot bypass step-up/workflow/SoD.
+- REQ-TG-004 Telegram webhook/message/action delivery is idempotent and audited.
 
 ### Operations
 - REQ-OPS-001 Releases identify exact Git SHA.
@@ -95,6 +103,7 @@ Builders should attach requirement IDs to tests/PR notes where possible.
 | J3 IPC→Payment | F3, F6, F8 | measurement, certification, retention/advance, payable/payment/project cost |
 | J4 Payroll→Allocation | F2, F3, F9 | attendance inputs, deterministic payroll, approval, bank, allocation, GL |
 | J5 Executive Reverse Trace | F10 + all source modules | KPI→source→party→docs→approvers→payment→journal→ledger |
+| J6 Telegram AI Channel | F1A + F11 + relevant domains | Telegram identity→AI run→source/tool→domain/workflow→audit→response |
 
 ---
 
