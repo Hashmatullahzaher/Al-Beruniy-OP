@@ -1,55 +1,21 @@
-# AL-BERUNIY OS — Gesture Control Reference Table
+# Gesture Reference — AL-BERUNIY OS 3D World
 
-**Quick Reference Guide for Presenters and Demonstrators**
+Engine: `src/services/gestureEngine.ts` (MediaPipe HandLandmarker, local WASM + `hand_landmarker.task`, GPU delegate, 2 hands, 640×480 @ 30 fps). Mapping: `src/input/InputController.ts::applyGesture` — the same `CameraRig` / `WorldScene` calls the mouse and keyboard use.
 
----
+| Gesture | Detection | World action | Guard |
+|---|---|---|---|
+| **Open palm** (one hand) | four fingers extended (tip farther from wrist than PIP ×1.08) | **arms gesture control** — nothing else acts until seen | gate against accidental triggers |
+| **Index point** | index extended, others curled | 3D reticle / hover via raycast; **dwell 850 ms** on a node selects it | dead zone 0.0045; EMA α = 0.38 |
+| **Pinch** | thumb–index distance ≤ 0.050 (release ≥ 0.078) | onset over a node → **select**; pinch + move → **orbit** (Δx·4.2, Δy·3.0) | hysteresis; pinch state carried frame to frame |
+| **Two-hand spread / close** | wrist distance change, EMA 0.35, incremental | continuous **zoom** `dolly(exp(−z·2.2))` | dead zone 1 % |
+| **Fist** | four fingers curled | **back / collapse** (pops selection or exits trace) | 120 ms pose stability + 650 ms engine cooldown + 900 ms controller cooldown |
+| **Both palms** | two open palms | **enterprise view** (reset) | 1.3 s engine cooldown + 1.5 s controller cooldown |
 
-## 1. Primary Hand Gesture Vocabulary
+Confidence threshold 0.60 (handedness score); frames below are ignored. Hand loss resets pinch, two-hand reference and the gesture gate.
 
-The AL-BERUNIY 3D Holographic Presentation uses an intentional, minimal, and highly reliable gesture vocabulary designed to distinguish intentional presentation commands from natural conversational speech movement.
-
-| Gesture Name | Hand Pose / Action | System Reaction | 3D Visual Feedback | Primary Use Case |
-| :--- | :--- | :--- | :--- | :--- |
-| **OPEN PALM** | Hand flat, fingers extended, palm facing camera directly | **Wake / Engage** Gesture Engine | Cyan holographic ring expands around cursor with pulsing sonar ripple | Presenter raises hand to begin presenting or re-engage after pause. |
-| **INDEX POINT** | Index finger extended, other fingers gently curled | **Holographic Cursor Tracking** | Luminous reticle tracks finger tip; magnetic snap-brackets surround hovered node | Move cursor across 3D model, examine module tags and preview stats. |
-| **PINCH** | Thumb tip + Index tip touch together (< 45px) | **Select / Activate** | Reticle collapses into bright starburst; node expands; details appear | Select a module, enter drill-down view, or trigger transaction pulse. |
-| **PINCH + MOVE** | Maintain pinch contact while moving hand horizontally/vertically | **3D Orbit / Rotate** | Rotational gimbal ring appears; model tilts and rotates smoothly in 3D | Showcase spatial depth, inspect relationships from different angles. |
-| **TWO-HAND SPREAD** | Both hands open, moving outward away from center | **Zoom In** | Holographic magnification bracket; camera dollys into current focal zone | Zoom into AI Core, Finance subledgers, or construction WBS details. |
-| **TWO-HAND CLOSE** | Both hands open, moving inward toward center | **Zoom Out** | Holographic field-of-view bracket; camera pulls back to broader view | Return to multi-domain perspective. |
-| **CLOSED FIST** | Clench fingers into a solid fist | **Back / Collapse / Step Back** | Holographic retreat arrow; active overlay collapses | Exit module inspection, collapse AI Core, or return to previous view. |
-| **BOTH PALMS OPEN** | Both hands flat, palms facing camera simultaneously | **Enterprise Reset (Overview)** | Full cyan perimeter pulse; camera smoothly resets to Scene 02 macro view | Instant emergency recovery to full company overview from any drilldown. |
-
----
-
-## 2. Gesture Stability & Noise Rejection Rules
-
-To avoid false triggers while the presenter talks or moves naturally:
-
-1. **Activation Confidence Threshold:** Requires minimum 65% landmark detector confidence. Hand poses below threshold are completely ignored.
-2. **Landmark Smoothing (EMA):** Finger tip coordinates pass through Exponential Moving Average ($\alpha = 0.35$) to eliminate jitter and tremors.
-3. **Dead-Zone Filtering:** Motions under 8 pixels are treated as stable holding, keeping the cursor rock-solid on targeted nodes.
-4. **Dwell Selection:** Holding the Index Point steadily over any node for 1.2 seconds triggers an automatic soft-select preview.
-5. **Pinch Hysteresis:** Pinch engages at $\le 42\text{px}$ Euclidean distance and only disengages when separation exceeds $\ge 65\text{px}$, preventing flickering.
-6. **Command Cooldown / Debounce:** Discrete commands (Fist Back, Both Palms Reset) enforce a 600ms refractory period to avoid double triggers.
-
----
-
-## 3. Instant Keyboard & Mouse Equivalents (Fail-Safe Matrix)
-
-If webcam tracking is disabled, low lighting occurs, or safe mode is engaged, all gestures map directly to standard keyboard and mouse inputs:
-
-| Action | Hand Gesture | Keyboard Shortcut | Mouse Action |
-| :--- | :--- | :--- | :--- |
-| **Next Scene** | *(Dwell on Next / Advance)* | `ArrowRight` / `Space` | Click Next Arrow in HUD |
-| **Previous Scene** | *(Dwell on Prev)* | `ArrowLeft` | Click Prev Arrow in HUD |
-| **Hover Node** | **Index Point** | `Tab` / `Shift+Tab` | Hover cursor over 3D node |
-| **Select / Drill Down** | **Pinch** | `Enter` | Left-Click node |
-| **Rotate Model** | **Pinch + Drag** | `W` / `A` / `S` / `D` | Left-Click + Drag on background |
-| **Zoom In / Out** | **Two-Hand Spread / Close** | `+` / `-` | Mouse Scroll Wheel |
-| **Back / Collapse** | **Closed Fist** | `Escape` / `Backspace` | Click Close (✕) or right-click |
-| **Reset to Overview** | **Both Palms Open** | `R` | Click Reset Icon in HUD |
-| **Toggle Gestures** | *(N/A)* | `G` | Click Gesture icon in HUD |
-| **Toggle Safe Mode** | *(N/A)* | `S` | Click Shield/Safe icon in HUD |
-| **Toggle Presenter HUD** | *(N/A)* | `H` | Press H |
-| **Fullscreen** | *(N/A)* | `F` | Click Fullscreen icon in HUD |
-| **Direct Scene Jump** | *(N/A)* | `1` to `9`, `0` | Click Scene dots in HUD |
+## Presenter tips
+- Stand 0.8–1.5 m from the camera, hand in the upper half of the frame, plain background.
+- Arm with an open palm, then point. Hold still on a node for a second to select, or pinch.
+- For orbiting, pinch first, then move — release to stop.
+- If gestures fight the mouse, press **G** to pause them.
+- Everything gestures do is also available on the keyboard (see `INTERACTION_MODEL.md`).

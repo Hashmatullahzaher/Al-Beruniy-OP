@@ -1,3 +1,9 @@
+> **SUPERSEDED (2026-09-18).** This document described the earlier page/overlay-based holographic presentation.
+> The presentation was rebuilt as ONE continuous interactive 3D world. Current documentation:
+> `TRUE_3D_WORLD_SPEC.md`, `INTERACTION_MODEL.md`, `RELATIONSHIP_VISUAL_LANGUAGE.md`,
+> `PRESENTER_RUNBOOK.md`, `GESTURE_REFERENCE.md`, `PREFLIGHT_CHECKLIST.md`.
+> Kept for history only; do not use for the client presentation.
+
 # AL-BERUNIY OS — Client Presentation Demo Script
 
 **Speaker Script & Stage Direction for Tomorrow's Client Meeting**  

@@ -1,32 +1,24 @@
-# React + TypeScript + Vite
+# AL-BERUNIY OS — True Interactive 3D World
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+One continuous, explorable Three.js world of the entire AL-BERUNIY Operating System: AI Core at the centre, all 26 blueprint sections as 3D nodes in depth, the approved relationships wired as typed, animated 3D edges, and mouse / keyboard / MediaPipe hand gestures driving the same camera and selection model.
 
-Currently, two official plugins are available:
-
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+npm install
+npm run dev            # http://localhost:5173
+npm run build          # tsc -b && vite build
+npm run preview -- --port 4173
+npm run lint
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+Fully offline: MediaPipe WASM + hand model in `public/wasm` and `public/models`; background render in `public/assets/al-beruniy-background.jpg`.
+
+Docs: `../../docs/07-presentation/` (spec, interaction model, relationship visual language, presenter runbook, gesture reference, preflight).
+
+Structure
+- `src/data/graph/` — nodes, typed edges, journeys (extracted from the blueprints; every edge carries a reference)
+- `src/world/` — `WorldScene` (selection → spatial expansion, trace, filters), `EdgeRenderer`, `NodeFactory`, `Environment`, `CameraRig`, `Labels`
+- `src/input/InputController.ts` — mouse + keyboard + gesture → one world API
+- `src/services/gestureEngine.ts` — MediaPipe gesture recognition with smoothing, hysteresis, cooldowns
+- `src/ui/Hud.tsx` — minimal presentation HUD (legend, selection, trace breadcrumb, help, presenter panel)
+
+Keys: drag orbit · wheel zoom · click select · Esc back · R reset · 1–6 journeys · 7/8/9 AI Core/Finance/Telegram · Space tour · H help · P presenter · G gestures · L labels · X safe mode · F fullscreen.

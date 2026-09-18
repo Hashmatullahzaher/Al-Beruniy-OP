@@ -1,92 +1,39 @@
-# AL-BERUNIY OS — Presenter Runbook
+# Presenter Runbook — AL-BERUNIY OS 3D World
 
-**Mission-Critical Guide for Live Client Presentation**
-
----
-
-## 1. Quick Launch Commands
-
-To start the presentation application on the presenter laptop:
-
+## Start
 ```bash
-# Navigate to presentation app directory
 cd apps/holographic-presentation
-
-# Install dependencies (first-time only)
-npm install
-
-# Start local high-performance presentation server
-npm run dev
-
-# Or build and run production bundle (recommended for presentation)
-npm run build
-npm run preview
+npm install          # once
+npm run build && npm run preview -- --port 4173   # or: npm run dev
 ```
+Open `http://localhost:4173/` in Chrome/Edge, press **F** for fullscreen. Everything runs locally (MediaPipe WASM + hand model and the background render are served from `public/`; no CDN needed).
 
-The presentation interface will be available at:
-`http://localhost:5173/` (or `http://localhost:4173/` for preview)
+Low-power laptop / projector trouble: open `http://localhost:4173/?safe` (or press **X**) — same network, no bloom.
 
----
+## Recommended 8-minute narrative (all inside one world)
+| # | Do | Say |
+|---|---|---|
+| 1 | Open in enterprise view (nothing selected) | "This is the whole AL-BERUNIY Operating System — 26 blueprint sections, one intelligent network. AI Core in the centre, Finance at the front, every approved relationship wired." |
+| 2 | Double-click the **Financial posting** legend chip (solo) | "Every operational domain converges on Finance. Finance is the only accounting engine." Click **all** to restore. |
+| 3 | Press **7** (AI Core) | "The Core expands into Model Gateway, Orchestrator, Knowledge Plane, Typed Tools, Memory, Guardrails, Audit, Document Intelligence, Prediction. Teal streams flow in — knowledge; violet streams flow out — typed tools. Never SQL, never posting." |
+| 4 | **Esc**, then press **8** (Finance) | "GL, AR, AP, Cash & Bank, Journal, Budget, Project Accounting, Cost Centers, Fixed Assets — with incoming postings lit." |
+| 5 | Press **1** (J1 Sale to Cash), then **N** a few times | "Lead → Customer → Unit → Reservation → Contract → Installment → Receipt → AR → Bank → Journal → GL → Dashboard." |
+| 6 | Press **2** (J2 Procure to Pay) | "Site request → PR → RFQ → Supplier → PO → GRN → Stock → Issue → Project cost → Invoice → AP → Payment → GL." |
+| 7 | Press **9** (Telegram) | "Telegram is a governed channel: Bot API → Gateway → Identity Binding to a Type-A account → Permission context → AI Core. Step-up or a secure deep link for anything sensitive. No own logic, no direct database." |
+| 8 | Press **6** (J6 Telegram → AI Core) | "A Telegram request becomes an audited AI run, a typed tool, a domain service, a workflow task — and a response." |
+| 9 | Press **R** | "All parts, one intelligent whole." |
 
-## 2. Physical Staging & Hardware Layout
+Or press **Space** repeatedly — the guided tour runs these ten steps through the same world; **Shift+Space** goes back.
 
-```
-         [ TV SCREEN / PROJECTOR ] (Behind or beside presenter)
-                        ▲
-                        │ HDMI / Wireless Display
-                        │
-                  [ PRESENTER ] (Standing ~1.2 to 1.8 meters back)
-                        │
-                        ▼
-                 [ LAPTOP WEBCAM ]
-                 (Elevated to chest/shoulder height on podium or stand)
-```
+## Gestures (optional)
+Press **G**; allow the camera. Show one **open palm** to arm control. Point to hover, hold still to select (or pinch), pinch-and-move to orbit, spread/close two hands to zoom, **fist** to go back, **both palms** for the enterprise view. Status is shown bottom-right. If the camera is unavailable the app continues with mouse/keyboard.
 
-1. **Laptop Position:** Place on a stable table or podium, slightly angled toward the presenter so the webcam field of view captures head, shoulders, and raised hands.
-2. **Lighting Rules:**
-   * **Front-Lighting:** Ensure presenter's face and hands are clearly illuminated from the front or 45-degree angle.
-   * **Back-Lighting Warning:** Never position presenter directly in front of a bright sunny window. Backlight washes out hand contrast in computer vision models.
-3. **Presenter Distance:** 1.2 to 1.8 meters (4 to 6 feet) from the laptop screen.
-4. **Display Output:** Duplicate or Extend desktop to TV/Projector at 1920×1080 resolution. Press `F` to engage Fullscreen.
+## Recovery
+- Lost in space → **R** (or both palms).
+- Wrong node expanded → **Esc** (or fist).
+- Too many lines → double-click a legend chip to solo a relationship kind; **all** to restore.
+- Labels in the way → **L** toggles labels.
+- Stutter → **X** for Safe Mode (rebuilds the renderer in place).
 
----
-
-## 3. 30-Second Preflight & Calibration Sequence
-
-1. Open `http://localhost:5173/` (or preview).
-2. The **Preflight Diagnostic Screen** will display automatically:
-   * **WebGL2 Support:** `[ PASS ]`
-   * **Webcam Access:** `[ PASS ]`
-   * **Vision Hand Model:** `[ PASS ]` (or fallback active)
-   * **Resolution Check:** `1920x1080`
-   * **Asset Bundle:** `[ LOADED ]`
-   * **Synthetic Data:** `[ LOADED ]`
-3. Click **"Calibrate & Test Hand"**:
-   * Raise your right hand with fingers open.
-   * Verify the green tracking box centers on your hand and confidence displays $> 80\%$.
-   * Perform a quick index point, pinch, and fist to confirm gesture recognition feedback.
-4. Click **"START PRESENTATION"** (or press `Enter`).
-5. Press `F` on the keyboard to enter clean fullscreen mode.
-
----
-
-## 4. In-Meeting Emergency Recovery (Fail-Safe Procedures)
-
-| Scenario | Symptom | Action (Invisible to Client) |
-| :--- | :--- | :--- |
-| **Room Lighting Drops / Hand Tracking Drifts** | Cursor jitters or doesn't track | Press `S` on keyboard to activate **Safe Mode**. Gesture engine sleeps silently. Use laptop trackpad / mouse or arrow keys to navigate. |
-| **Webcam Hardware Disconnects** | Browser camera error | Presenter HUD displays amber indicator. Continue speaking and press `ArrowRight` to advance scenes seamlessly. |
-| **Client asks to inspect a specific module out of order** | Client asks: *"Can we see Warehouse?"* | Press `Space` to enter **Free Explore**, click Warehouse in the 3D map, or press number key corresponding to that zone. Press `Escape` or `R` to return. |
-| **Camera View needs to be reset** | Model was rotated awkwardly | Press `R` or raise both open palms to instantly snap camera back to default angle. |
-| **Presenter needs hidden notes** | Need quick reminder of scene key points | Press `H` to briefly toggle the discreet presenter telemetry and script HUD. |
-
----
-
-## 5. Transition to Client Blueprint Approval
-
-At Scene 12:
-1. Transition to the final slide showing:
-   **AL-BERUNIY OPERATING SYSTEM**  
-   **CLIENT BLUEPRINT APPROVAL**
-2. Hand the physical or digital Blueprint Signature Sheet to the client.
-3. Keep the 3D model floating in background idle rotation with subtle ambient glow while taking client questions.
+## Presenter console (advanced)
+The live world is exposed as `window.__world` (and the input controller as `window.__input`) for scripted demos, e.g. `__world.traceJourney('j3')`, `__world.select('procurement')`, `__world.soloFilter('ai_tool')`.
