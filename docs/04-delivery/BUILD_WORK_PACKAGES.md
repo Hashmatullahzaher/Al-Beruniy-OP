@@ -187,7 +187,7 @@ AI enablement is therefore built with each module, not postponed until the end.
 # PHASE F2 — Master Data & Multi-Project
 
 ## WP-0201 Company / Legal Entity Master
-**Depends on:** F1  
+**Depends on:** F1 + F1A  
 **Blueprint:** BP-03, BP-21
 
 ## WP-0202 Project Hierarchy
@@ -198,11 +198,11 @@ AI enablement is therefore built with each module, not postponed until the end.
 **Depends on:** WP-0201
 
 ## WP-0204 Party Master Foundation
-**Depends on:** F1  
+**Depends on:** F1 + F1A  
 **Scope:** BusinessParty base + profile-type extension pattern.
 
 ## WP-0205 Material / Service / Warehouse Masters
-**Depends on:** F1
+**Depends on:** F1 + F1A
 
 ## WP-0206 MDM Governance
 **Depends on:** WP-0201..0205  
