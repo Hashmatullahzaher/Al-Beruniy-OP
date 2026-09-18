@@ -13,7 +13,8 @@
   <a href="25-cross-system-relationships.html">25 · Relationships</a>
   <a href="26-transaction-traceability.html">26 · Traceability</a>
   <a href="18-executive-command-center.html">18 · Exec Center</a>
-  <a href="04-financial-architecture.html">04 · Finance</a>
+  <a href="20-ai-architecture.html">20 · AI Core</a>
+  <a href="23-security-architecture.html">23 · Security</a>
   <span class="screen-note">Print → A3 · Landscape · Margins None · Background graphics ON</span>
 </nav>
 
@@ -22,14 +23,15 @@
     <div class="tb-brand"><div class="os">AL-BERUNIY</div><div class="sub">OPERATING SYSTEM</div></div>
     <div class="tb-title">
       <div class="no">BLUEPRINT 26 · END-TO-END TRANSACTION TRACEABILITY</div>
-      <div class="name">Five Real Journeys — Including the AI / Telegram Operating Channel</div>
-      <div class="desc">Business scenarios run source → approval → posting → ledger → executive view; the fifth traces Telegram/AI → source/tool → domain action → audit.</div>
+      <div class="name">Five Real Journeys — Proof of One Integrated, AI-Aware Platform</div>
+      <div class="desc">Each scenario runs source → approval → posting → ledger → executive view, and the AI/Telegram journey runs message → identity → AI run → tool → domain → audit → response. All traceable both ways.</div>
     </div>
     <div class="tb-meta">
-      <span class="k">Version</span><b>1.0</b>
-      <span class="k">Date</span><b>2026-09-17</b>
+      <span class="k">Version</span><b>1.2</b>
+      <span class="k">Date</span><b>2026-09-18</b>
       <span class="k">Connector</span><b>TRACE-01</b>
       <span class="k">Sheet</span><b>26 / 26</b>
+      <span class="stat">CLIENT APPROVAL CANDIDATE</span>
     </div>
   </div>
 
@@ -41,19 +43,20 @@
     <span class="legend-item"><span class="sw" style="background:var(--const)"></span>Construction/Contractor</span>
     <span class="legend-item"><span class="sw" style="background:var(--hr)"></span>HR/Payroll</span>
     <span class="legend-item"><span class="sw" style="background:var(--fin)"></span>Finance/GL</span>
+    <span class="legend-item"><span class="sw" style="background:#2AABEE"></span>Telegram</span>
+    <span class="legend-item"><span class="sw" style="background:#0E8A8A"></span>AI Core</span>
     <span class="legend-item"><span class="sw" style="background:var(--exec)"></span>Executive</span>
   </div>
 
   <div class="canvas">
 
-    <!-- SCENARIO 1 -->
     <div class="card d-sales" style="flex:0 0 auto"><div class="hd">SCENARIO 1 · UNIT SALE → CASH → LEDGER → DASHBOARD</div>
-      <div class="bd"><div class="chain">
+      <div class="bd" style="padding:4px 9px"><div class="chain">
         <div class="step"><b>Lead</b><span class="mini">Agent · SALE-01</span></div>
         <div class="step"><b>Customer</b><span class="mini">KYC · Type B</span></div>
         <div class="step"><b>Unit</b><span class="mini">availability</span></div>
         <div class="step"><b>Contract</b><span class="mini">e-sign · DOC-01</span></div>
-        <div class="step"><b>Installment</b><span class="mini">schedule · COLL-01</span></div>
+        <div class="step"><b>Installment</b><span class="mini">COLL-01</span></div>
         <div class="step" style="--c:var(--fin);--ci:var(--fin-ink)"><b>Receipt</b><span class="mini">Dr Bank</span></div>
         <div class="step" style="--c:var(--fin);--ci:var(--fin-ink)"><b>Bank</b><span class="mini">Cr AR</span></div>
         <div class="step" style="--c:var(--fin);--ci:var(--fin-ink)"><b>Journal Entry</b><span class="mini">auto</span></div>
@@ -62,12 +65,11 @@
       </div></div>
     </div>
 
-    <!-- SCENARIO 2 -->
     <div class="card d-proc" style="flex:0 0 auto"><div class="hd">SCENARIO 2 · SITE MATERIAL → PROCURE → RECEIVE → CONSUME → PAY → LEDGER</div>
-      <div class="bd"><div class="chain">
+      <div class="bd" style="padding:4px 9px"><div class="chain">
         <div class="step" style="--c:var(--const);--ci:var(--const-ink)"><b>Material Request</b><span class="mini">Site · CONST-01</span></div>
         <div class="step"><b>Purchase Req</b><span class="mini">approval · WF-01</span></div>
-        <div class="step"><b>RFQ</b><span class="mini">suppliers</span></div>
+        <div class="step"><b>RFQ</b><span class="mini">AI bid compare</span></div>
         <div class="step"><b>PO</b><span class="mini">Commitment · COST-01</span></div>
         <div class="step" style="--c:var(--wh);--ci:var(--wh-ink)"><b>Delivery + GRN</b><span class="mini">Dr Inv · Cr GRNI</span></div>
         <div class="step" style="--c:var(--wh);--ci:var(--wh-ink)"><b>Material Issue</b><span class="mini">Dr Project Cost</span></div>
@@ -78,13 +80,12 @@
       </div></div>
     </div>
 
-    <!-- SCENARIO 3 -->
     <div class="card d-const" style="flex:0 0 auto"><div class="hd">SCENARIO 3 · CONTRACTOR WORK → CERTIFY → PAYABLE → PAY → PROJECT COST → LEDGER</div>
-      <div class="bd"><div class="chain">
-        <div class="step"><b>Contractor Work</b><span class="mini">on site · CON-01</span></div>
+      <div class="bd" style="padding:4px 9px"><div class="chain">
+        <div class="step"><b>Contractor Work</b><span class="mini">CON-01</span></div>
         <div class="step"><b>Progress Measurement</b><span class="mini">QS</span></div>
-        <div class="step"><b>Engineer Approval</b><span class="mini">verify · WF-01</span></div>
-        <div class="step"><b>Payment Certificate (IPC)</b><span class="mini">certified value</span></div>
+        <div class="step"><b>Engineer Approval</b><span class="mini">WF-01</span></div>
+        <div class="step"><b>IPC</b><span class="mini">certified · TG notice</span></div>
         <div class="step" style="--c:var(--fin);--ci:var(--fin-ink)"><b>Retention + Advance</b><span class="mini">deductions</span></div>
         <div class="step" style="--c:var(--fin);--ci:var(--fin-ink)"><b>Contractor Payable</b><span class="mini">Cr Payable</span></div>
         <div class="step" style="--c:var(--fin);--ci:var(--fin-ink)"><b>Payment</b><span class="mini">Dr Payable · Cr Bank</span></div>
@@ -94,12 +95,11 @@
       </div></div>
     </div>
 
-    <!-- SCENARIO 4 -->
     <div class="card d-hr" style="flex:0 0 auto"><div class="hd">SCENARIO 4 · EMPLOYEE → ATTENDANCE → PAYROLL → PAY → PROJECT ALLOCATION → LEDGER</div>
-      <div class="bd"><div class="chain">
+      <div class="bd" style="padding:4px 9px"><div class="chain">
         <div class="step"><b>Employee</b><span class="mini">HR-01 · Type B</span></div>
         <div class="step"><b>Attendance</b><span class="mini">biometric · BP-22</span></div>
-        <div class="step"><b>Payroll Calculation</b><span class="mini">gross→net</span></div>
+        <div class="step"><b>Payroll Calculation</b><span class="mini">deterministic</span></div>
         <div class="step"><b>Approval</b><span class="mini">HR + Finance · WF-01</span></div>
         <div class="step" style="--c:var(--fin);--ci:var(--fin-ink)"><b>Payment</b><span class="mini">Dr Payable · Cr Bank</span></div>
         <div class="step" style="--c:var(--const);--ci:var(--const-ink)"><b>Project Allocation</b><span class="mini">60/40 split</span></div>
@@ -109,55 +109,59 @@
       </div></div>
     </div>
 
-    <!-- SCENARIO 5 -->
-    <div class="card d-data" style="flex:0 0 auto"><div class="hd">SCENARIO 5 · TELEGRAM → AI CORE → AUTHORIZED TOOL → DOMAIN / WORKFLOW → AUDIT → RESPONSE</div>
-      <div class="bd"><div class="chain">
-        <div class="step"><b>Telegram User</b><span class="mini">bound Type A identity</span></div>
-        <div class="step"><b>Permission Context</b><span class="mini">project · dept · field</span></div>
-        <div class="step" style="--c:var(--data);--ci:var(--data-ink)"><b>AI Core</b><span class="mini">Model Gateway + knowledge</span></div>
-        <div class="step" style="--c:var(--data);--ci:var(--data-ink)"><b>Typed Tool</b><span class="mini">source-grounded</span></div>
-        <div class="step"><b>Domain Service</b><span class="mini">validation · auth</span></div>
-        <div class="step" style="--c:var(--exec);--ci:var(--exec-ink)"><b>Workflow / Step-Up</b><span class="mini">if material action</span></div>
-        <div class="step"><b>Audit + Response</b><span class="mini">sources · model · tool · result</span></div>
+    <div class="card d-tg" style="flex:0 0 auto;border-color:#2AABEE"><div class="hd" style="background:#2AABEE">SCENARIO 5 · TELEGRAM MESSAGE → BOUND USER → AI RUN → TYPED TOOL → DOMAIN → WORKFLOW → AUDIT → RESPONSE <span class="tag">new in v1.2</span></div>
+      <div class="bd" style="padding:4px 9px"><div class="chain">
+        <div class="step" style="--c:#2AABEE;--ci:#136a99"><b>Telegram message</b><span class="mini">“draft expense for site fuel” · webhook verified</span></div>
+        <div class="step" style="--c:var(--infra);--ci:var(--infra-ink)"><b>Bound User</b><span class="mini">TelegramIdentityBinding → Type A</span></div>
+        <div class="step" style="--c:var(--const);--ci:var(--const-ink)"><b>Permission Context</b><span class="mini">role · project · field · authority</span></div>
+        <div class="step" style="--c:#0E8A8A;--ci:#0a6666"><b>AI Run</b><span class="mini">run ID · model · version · MG-01</span></div>
+        <div class="step" style="--c:#0E8A8A;--ci:#0a6666"><b>Retrieved Sources</b><span class="mini">policy · budget line · KP-01 IDs</span></div>
+        <div class="step" style="--c:#0E8A8A;--ci:#0a6666"><b>Typed Tool</b><span class="mini">draft_expense_request</span></div>
+        <div class="step" style="--c:var(--fin);--ci:var(--fin-ink)"><b>Domain Service</b><span class="mini">validate · authorize · EXP-01</span></div>
+        <div class="step" style="--c:var(--exec);--ci:var(--exec-ink)"><b>Workflow</b><span class="mini">normal tier · WF-01</span></div>
+        <div class="step" style="--c:var(--fin);--ci:var(--fin-ink)"><b>Transaction · Document · Journal</b><span class="mini">only after human approval</span></div>
+        <div class="step" style="--c:var(--const);--ci:var(--const-ink)"><b>Audit</b><span class="mini">correlation ID</span></div>
+        <div class="step" style="--c:#2AABEE;--ci:#136a99"><b>Telegram response</b><span class="mini">“pending approval” + secure deep link</span></div>
       </div></div>
     </div>
 
-    <!-- REVERSE DRILL -->
     <div class="row grow">
-      <div class="card d-exec grow" style="flex:1.7"><div class="hd">REVERSE TRACE — one click from a number to its origin (Executive drill-down)</div>
-        <div class="bd"><div class="chain">
-          <div class="step" style="--c:var(--exec);--ci:var(--exec-ink)"><b>CEO sees $250,000 Project Expense</b></div>
+      <div class="card d-exec grow" style="flex:1.5"><div class="hd">REVERSE TRACE A — from a number to its origin (Executive drill-down)</div>
+        <div class="bd" style="padding:4px 9px"><div class="chain">
+          <div class="step" style="--c:var(--exec);--ci:var(--exec-ink)"><b>CEO sees $250,000 expense</b></div>
           <div class="step" style="--c:var(--exec);--ci:var(--exec-ink)"><b>Project</b></div>
           <div class="step" style="--c:var(--fin);--ci:var(--fin-ink)"><b>Cost Center</b></div>
-          <div class="step" style="--c:var(--fin);--ci:var(--fin-ink)"><b>Expense</b></div>
-          <div class="step" style="--c:var(--proc);--ci:var(--proc-ink)"><b>Purchase Order</b></div>
-          <div class="step" style="--c:var(--proc);--ci:var(--proc-ink)"><b>Supplier</b></div>
+          <div class="step" style="--c:var(--proc);--ci:var(--proc-ink)"><b>PO · Supplier</b></div>
           <div class="step" style="--c:var(--fin);--ci:var(--fin-ink)"><b>Invoice</b></div>
-          <div class="step" style="--c:var(--wh);--ci:var(--wh-ink)"><b>Goods Receipt</b></div>
-          <div class="step" style="--c:var(--const);--ci:var(--const-ink)"><b>Original Request + Requester</b></div>
+          <div class="step" style="--c:var(--wh);--ci:var(--wh-ink)"><b>GRN</b></div>
+          <div class="step" style="--c:var(--const);--ci:var(--const-ink)"><b>Request · Requester</b></div>
           <div class="step" style="--c:var(--exec);--ci:var(--exec-ink)"><b>Approver</b></div>
-          <div class="step" style="--c:var(--fin);--ci:var(--fin-ink)"><b>Payment + Bank Txn</b></div>
-          <div class="step" style="--c:var(--fin);--ci:var(--fin-ink)"><b>Journal Entry → Ledger Account</b></div>
+          <div class="step" style="--c:var(--fin);--ci:var(--fin-ink)"><b>Payment · Bank · JE · Ledger</b></div>
         </div></div>
       </div>
-      <div class="col" style="flex:1">
-        <p class="band d-exec">What Every Trace Answers</p>
-        <div class="card d-exec soft grow"><div class="bd mini">
-          ✔ Which <b>project</b> · ✔ Which <b>cost center</b> · ✔ <b>Who created</b> · ✔ <b>Who approved</b> ·
-          ✔ Which <b>document</b> supports it · ✔ Which <b>party</b> (customer/supplier/contractor/employee) ·
-          ✔ Which <b>ledger account</b> &amp; <b>Dr/Cr</b> impact · ✔ Which <b>budget</b> affected ·
-          ✔ How it <b>reached Finance</b> · ✔ How it <b>reached management</b> · ✔ How it is <b>audited</b> · ✔ If AI/Telegram was used, which <b>identity · model · sources · tool</b> were involved.
-          <hr class="dash">
-          <b>One data set, two directions:</b> forward (operation → ledger) and reverse (dashboard → origin). This is the definition of one integrated operating platform.
+      <div class="card d-ai grow" style="flex:1.3;border-color:#0E8A8A"><div class="hd" style="background:#0E8A8A">REVERSE TRACE B — from an AI answer or action to its origin <span class="tag">new in v1.2</span></div>
+        <div class="bd" style="padding:4px 9px"><div class="chain">
+          <div class="step" style="--c:#0E8A8A;--ci:#0a6666"><b>AI response / action</b></div>
+          <div class="step" style="--c:#0E8A8A;--ci:#0a6666"><b>AI Run</b><span class="mini">ID · channel</span></div>
+          <div class="step" style="--c:#5B3FA0;--ci:#3f2b73"><b>Model</b><span class="mini">provider · version</span></div>
+          <div class="step" style="--c:#0E8A8A;--ci:#0a6666"><b>Sources</b><span class="mini">IDs · versions</span></div>
+          <div class="step" style="--c:#0E8A8A;--ci:#0a6666"><b>Tool</b><span class="mini">args · result ref</span></div>
+          <div class="step" style="--c:var(--infra);--ci:var(--infra-ink)"><b>User / Machine Identity</b><span class="mini">scope evaluated</span></div>
+          <div class="step" style="--c:var(--fin);--ci:var(--fin-ink)"><b>Resulting transaction · audit</b></div>
         </div></div>
       </div>
     </div>
+
+    <div class="card d-exec soft" style="flex:0 0 auto"><div class="bd mini">
+      <b>What every trace answers:</b> ✔ which project · ✔ which cost center · ✔ who created · ✔ who approved · ✔ which document · ✔ which party · ✔ which ledger account &amp; Dr/Cr · ✔ which budget · ✔ how it reached Finance · ✔ how it reached management · ✔ how it is audited ·
+      <b>and for AI/Telegram:</b> ✔ initiating user or machine identity · ✔ channel · ✔ run ID · ✔ company/project context · ✔ permission scope · ✔ model/provider/version · ✔ source IDs &amp; versions · ✔ tools &amp; arguments · ✔ workflow initiated · ✔ resulting transaction · ✔ delivery status. <b>One data set, two directions, every channel.</b>
+    </div></div>
 
   </div>
   <div class="foot">
     <span><b>AL-BERUNIY OPERATING SYSTEM</b> · Enterprise Architecture Blueprint</span>
-    <span>Blueprint 26 · End-to-End Transaction Traceability · v1.1 · 2026-09-18</span>
-    <span>Forward/reverse traceable · AI/Telegram runs source-linked · every hop inspectable</span>
+    <span>Blueprint 26 · End-to-End Transaction Traceability · v1.2 · 2026-09-18 · Client Approval Candidate</span>
+    <span>Forward &amp; reverse traceable · human, AI and Telegram journeys · every hop one click</span>
   </div>
 </section>
 </body>

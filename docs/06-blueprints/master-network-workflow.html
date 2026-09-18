@@ -15,21 +15,19 @@
   svg .band{font:800 12px 'Segoe UI',Arial,sans-serif;letter-spacing:1px}
   svg .mini{font:700 9.5px 'Segoe UI',Arial,sans-serif}
   svg .card-of{font:600 9.5px 'Segoe UI',Arial,sans-serif;fill:#5b6470}
-  /* ---- relationship label chip ---- */
   svg .lt{font:700 9.5px 'Segoe UI',Arial,sans-serif;fill:#1d2a35}
-  /* ---- off-page connector chip ---- */
   svg .oc{font:800 9px 'Segoe UI',Arial,sans-serif}
-  /* ---- EDGE TYPES: thicker, clearly defined, orthogonal ---- */
   .e-proc{stroke:#2f3b49;stroke-width:2.2;fill:none;stroke-linejoin:round;marker-end:url(#mProc)}
   .e-fin {stroke:#E8730C;stroke-width:3.2;fill:none;stroke-linejoin:round;marker-end:url(#mFin)}
   .e-appr{stroke:#C6362F;stroke-width:2.2;stroke-dasharray:2 4.5;stroke-linecap:round;fill:none;marker-end:url(#mAppr)}
   .e-data{stroke:#0E8A8A;stroke-width:2;stroke-dasharray:7 4;fill:none;stroke-linejoin:round;marker-end:url(#mData)}
+  .e-ai  {stroke:#0E8A8A;stroke-width:2.2;stroke-dasharray:2 4;stroke-linecap:round;fill:none;stroke-linejoin:round;marker-end:url(#mData)}
+  .e-tg  {stroke:#2AABEE;stroke-width:2.2;stroke-dasharray:9 3 2 3;fill:none;stroke-linejoin:round;marker-end:url(#mTg)}
   .e-doc {stroke:#7A5230;stroke-width:2;stroke-dasharray:5 4;fill:none;stroke-linejoin:round;marker-end:url(#mDoc)}
   .e-acc {stroke:#5B6470;stroke-width:2;fill:none;stroke-linejoin:round;marker-end:url(#mAcc)}
   .e-rep {stroke:#0E8A8A;stroke-width:2.6;fill:none;stroke-linejoin:round;marker-end:url(#mRep)}
   .e-int {stroke:#5B6470;stroke-width:2;stroke-dasharray:9 3 2 3;fill:none;stroke-linejoin:round;marker-end:url(#mAcc)}
-  /* bus lines carry no arrowhead themselves */
-  .bus-md {stroke:#0E8A8A;stroke-width:2;stroke-dasharray:7 4;fill:none}
+  .bus-md {stroke:#5B6470;stroke-width:1.6;fill:none}
   .bus-doc{stroke:#7A5230;stroke-width:2;stroke-dasharray:5 4;fill:none}
 </style>
 </head>
@@ -40,28 +38,11 @@
   <a href="master-network-workflow.html">★ Master Network</a>
   <a href="01-enterprise-master-map.html">01 · Master Map</a>
   <a href="02-organization-access.html">02 · Org</a>
-  <a href="03-multi-project.html">03 · Projects</a>
   <a href="04-financial-architecture.html">04 · Finance</a>
-  <a href="05-sales-crm.html">05 · Sales</a>
-  <a href="06-installments-collections.html">06 · Collections</a>
-  <a href="07-construction.html">07 · Construction</a>
-  <a href="08-boq-cost-control.html">08 · BOQ</a>
-  <a href="09-procurement.html">09 · Procurement</a>
-  <a href="10-supplier-management.html">10 · Suppliers</a>
-  <a href="11-contractor-management.html">11 · Contractors</a>
-  <a href="12-inventory-warehouse.html">12 · Warehouse</a>
-  <a href="13-expense-management.html">13 · Expense</a>
-  <a href="14-human-resources.html">14 · HR</a>
-  <a href="15-payroll.html">15 · Payroll</a>
-  <a href="16-document-management.html">16 · Docs</a>
   <a href="17-workflow-approvals.html">17 · Workflow</a>
-  <a href="18-executive-command-center.html">18 · Exec</a>
-  <a href="19-business-intelligence.html">19 · BI</a>
-  <a href="20-ai-architecture.html">20 · AI</a>
-  <a href="21-master-data.html">21 · Master Data</a>
-  <a href="22-data-integration.html">22 · Integration</a>
+  <a href="20-ai-architecture.html">20 · AI Core</a>
+  <a href="22-data-integration.html">22 · Data · AI · Integration</a>
   <a href="23-security-architecture.html">23 · Security</a>
-  <a href="24-external-portals.html">24 · Portals</a>
   <a href="25-cross-system-relationships.html">25 · Relationships</a>
   <a href="26-transaction-traceability.html">26 · Traceability</a>
   <span class="screen-note">Print → A3 · Landscape · Margins None · Background graphics ON</span>
@@ -72,158 +53,153 @@
     <div class="tb-brand"><div class="os">AL-BERUNIY</div><div class="sub">OPERATING SYSTEM</div></div>
     <div class="tb-title">
       <div class="no">BLUEPRINT 01 · MASTER NETWORK WORKFLOW</div>
-      <div class="name">Master Network Workflow Blueprint</div>
-      <div class="desc">Enterprise Process, Data, Financial &amp; Control Relationship Map — the navigation page for all detailed blueprints.</div>
+      <div class="name">Master Network Workflow Blueprint — with the AI Core as a Cross-Cutting Intelligence Plane</div>
+      <div class="desc">Enterprise Process, Data, Financial, Control &amp; AI/Channel Relationship Map. Direct UI → domain flows remain; the AI Core is an additional governed operating plane, never a mandatory path.</div>
     </div>
     <div class="tb-meta">
-      <span class="k">Version</span><b>1.1</b>
+      <span class="k">Version</span><b>1.2</b>
       <span class="k">Date</span><b>2026-09-18</b>
       <span class="k">Layer</span><b>Enterprise L0</b>
       <span class="k">Type</span><b>Network Map</b>
+      <span class="stat">CLIENT APPROVAL CANDIDATE</span>
     </div>
   </div>
 
   <div class="legend">
     <span class="lg-title">EDGE TYPES</span>
-    <span class="legend-item"><svg width="30" height="10"><line x1="0" y1="5" x2="22" y2="5" stroke="#2f3b49" stroke-width="2.2"/><path d="M22,2 L28,5 L22,8 Z" fill="#2f3b49"/>  <text class="ns" x="1310" y="1080" fill="#0a6666">Telegram → Identity → AI Core → Typed Tool → Domain Service → Workflow/Audit</text>
-</svg>Process</span>
-    <span class="legend-item"><svg width="30" height="10"><line x1="0" y1="5" x2="22" y2="5" stroke="#E8730C" stroke-width="3.2"/><path d="M22,1.5 L28,5 L22,8.5 Z" fill="#E8730C"/></svg>Financial posting</span>
-    <span class="legend-item"><svg width="30" height="10"><line x1="0" y1="5" x2="22" y2="5" stroke="#C6362F" stroke-width="2.2" stroke-dasharray="2 4.5"/><path d="M22,2 L28,5 L22,8 Z" fill="#C6362F"/></svg>Approval</span>
-    <span class="legend-item"><svg width="30" height="10"><line x1="0" y1="5" x2="22" y2="5" stroke="#0E8A8A" stroke-width="2" stroke-dasharray="7 4"/><path d="M22,2 L28,5 L22,8 Z" fill="#0E8A8A"/></svg>Data</span>
+    <span class="legend-item"><svg width="30" height="10"><line x1="0" y1="5" x2="22" y2="5" stroke="#2f3b49" stroke-width="2.2"/><path d="M22,2 L28,5 L22,8 Z" fill="#2f3b49"/></svg>Process (solid)</span>
+    <span class="legend-item"><svg width="30" height="10"><line x1="0" y1="5" x2="22" y2="5" stroke="#E8730C" stroke-width="3.2"/><path d="M22,1.5 L28,5 L22,8.5 Z" fill="#E8730C"/></svg>Financial posting (thick)</span>
+    <span class="legend-item"><svg width="30" height="10"><line x1="0" y1="5" x2="22" y2="5" stroke="#C6362F" stroke-width="2.2" stroke-dasharray="2 4.5"/><path d="M22,2 L28,5 L22,8 Z" fill="#C6362F"/></svg>Approval (dotted)</span>
+    <span class="legend-item"><svg width="30" height="10"><line x1="0" y1="5" x2="22" y2="5" stroke="#0E8A8A" stroke-width="2" stroke-dasharray="7 4"/><path d="M22,2 L28,5 L22,8 Z" fill="#0E8A8A"/></svg>Data / reference (dashed)</span>
+    <span class="legend-item"><svg width="30" height="10"><line x1="0" y1="5" x2="22" y2="5" stroke="#0E8A8A" stroke-width="2.2" stroke-dasharray="2 4"/><path d="M22,2 L28,5 L22,8 Z" fill="#0E8A8A"/></svg>AI / audit event (dotted)</span>
+    <span class="legend-item"><svg width="30" height="10"><line x1="0" y1="5" x2="22" y2="5" stroke="#2AABEE" stroke-width="2.2" stroke-dasharray="9 3 2 3"/><path d="M22,2 L28,5 L22,8 Z" fill="#2AABEE"/></svg>Telegram / channel (dash-dot)</span>
     <span class="legend-item"><svg width="30" height="10"><line x1="0" y1="5" x2="22" y2="5" stroke="#7A5230" stroke-width="2" stroke-dasharray="5 4"/><path d="M22,2 L28,5 L22,8 Z" fill="#7A5230"/></svg>Document</span>
     <span class="legend-item"><svg width="30" height="10"><line x1="0" y1="5" x2="22" y2="5" stroke="#5B6470" stroke-width="2"/><path d="M22,2 L28,5 L22,8 Z" fill="#5B6470"/></svg>Access</span>
     <span class="legend-item"><svg width="30" height="10"><line x1="0" y1="5" x2="22" y2="5" stroke="#0E8A8A" stroke-width="2.6"/><path d="M22,2 L28,5 L22,8 Z" fill="#0E8A8A"/></svg>Reporting</span>
-    <span class="legend-item"><svg width="30" height="10"><line x1="0" y1="5" x2="22" y2="5" stroke="#5B6470" stroke-width="2" stroke-dasharray="9 3 2 3"/><path d="M22,2 L28,5 L22,8 Z" fill="#5B6470"/></svg>Integration</span>
-    <span class="lg-title" style="margin-left:8px">READING THE LINES</span>
-    <span class="legend-item"><svg width="54" height="14"><rect x="1" y="1" width="52" height="12" rx="6" fill="#fff" stroke="#2f3b49"/><text x="27" y="10" text-anchor="middle" style="font:700 7.5px Segoe UI">verb label</text></svg>every line is labelled</span>
+    <span class="lg-title" style="margin-left:6px">READING</span>
     <span class="legend-item"><b>▸ ID</b> / <b>◂ ID</b> off-page connector</span>
     <span class="legend-item"><b>1:N</b> cardinality</span>
-    <span class="legend-item"><svg width="16" height="12"><rect x="1" y="1" width="14" height="10" rx="2" fill="#fff" stroke="#5B6470" stroke-dasharray="3 2"/></svg>A·User</span>
-    <span class="legend-item"><svg width="16" height="12"><rect x="1" y="1" width="14" height="10" rx="5" fill="#fff" stroke="#1560BD" stroke-width="1.6"/></svg>B·Party</span>
-    <span class="legend-item"><svg width="16" height="12"><rect x="1" y="1" width="14" height="10" fill="#fff" stroke="#E8730C" stroke-width="1.6"/><rect x="3" y="3" width="10" height="6" fill="none" stroke="#E8730C"/></svg>C·Ledger</span>
+    <span class="legend-item"><b>Ⓐ–Ⓔ</b> traceable paths</span>
   </div>
 
   <div class="netwrap">
-  <svg viewBox="0 0 2000 1210" width="100%" height="100%" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
+  <svg viewBox="0 0 2000 1290" width="100%" height="100%" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
     <defs>
       <marker id="mProc" markerWidth="10" markerHeight="10" refX="7.5" refY="3.5" orient="auto"><path d="M0,0 L8,3.5 L0,7 Z" fill="#2f3b49"/></marker>
       <marker id="mFin"  markerWidth="10" markerHeight="10" refX="7.5" refY="3.5" orient="auto"><path d="M0,0 L8,3.5 L0,7 Z" fill="#E8730C"/></marker>
       <marker id="mAppr" markerWidth="10" markerHeight="10" refX="7.5" refY="3.5" orient="auto"><path d="M0,0 L8,3.5 L0,7 Z" fill="#C6362F"/></marker>
       <marker id="mData" markerWidth="10" markerHeight="10" refX="7.5" refY="3.5" orient="auto"><path d="M0,0 L8,3.5 L0,7 Z" fill="#0E8A8A"/></marker>
+      <marker id="mTg"   markerWidth="10" markerHeight="10" refX="7.5" refY="3.5" orient="auto"><path d="M0,0 L8,3.5 L0,7 Z" fill="#2AABEE"/></marker>
       <marker id="mDoc"  markerWidth="10" markerHeight="10" refX="7.5" refY="3.5" orient="auto"><path d="M0,0 L8,3.5 L0,7 Z" fill="#7A5230"/></marker>
       <marker id="mAcc"  markerWidth="10" markerHeight="10" refX="7.5" refY="3.5" orient="auto"><path d="M0,0 L8,3.5 L0,7 Z" fill="#5B6470"/></marker>
       <marker id="mRep"  markerWidth="10" markerHeight="10" refX="7.5" refY="3.5" orient="auto"><path d="M0,0 L8,3.5 L0,7 Z" fill="#0E8A8A"/></marker>
     </defs>
 
-    <!-- ============================ ROUTING CHANNEL TINTS (very light, show the lanes) -->
-    <rect x="20"  y="116" width="32"  height="775" fill="#f2f9f9"/>
-    <rect x="1948" y="116" width="32" height="775" fill="#f2f9f9"/>
-    <rect x="196" y="344" width="24"  height="478" fill="#f2f9f9"/>
-    <rect x="1780" y="344" width="24" height="478" fill="#faf5f0"/>
-    <rect x="220" y="296" width="1560" height="48" fill="#fdf5f4"/>
-    <rect x="220" y="484" width="1560" height="54" fill="#f6f7f9"/>
-    <rect x="220" y="632" width="1560" height="54" fill="#fef6ec"/>
+    <!-- routing channel tints -->
+    <rect x="20"  y="116" width="32"  height="850" fill="#f2f9f9"/>
+    <rect x="1948" y="116" width="32" height="200" fill="#eef7fd"/>
+    <rect x="196" y="402" width="24"  height="478" fill="#f2f9f9"/>
+    <rect x="1780" y="402" width="24" height="478" fill="#faf5f0"/>
+    <rect x="220" y="358" width="1560" height="44" fill="#fdf5f4"/>
+    <rect x="220" y="542" width="1560" height="54" fill="#f6f7f9"/>
+    <rect x="220" y="690" width="1560" height="54" fill="#fef6ec"/>
 
-    <!-- ============================================================ -->
-    <!-- EDGES (drawn before nodes; labels drawn after, on top)        -->
-    <!-- ============================================================ -->
+    <!-- ================= EDGES ================= -->
+    <!-- CHANNELS -> (right channel) -> AI CORE band -->
+    <path class="e-tg" d="M1964,116 V272 H1784"/>
+    <!-- IDENTITY -> AI CORE band (access) -->
+    <path class="e-acc" d="M300,226 V240"/>
+    <!-- AI CORE -> WORKFLOW (AI actions always via workflow) -->
+    <path class="e-ai" d="M1000,300 V314"/>
+    <!-- MASTER DATA rail -> AI band (golden records) & DOC rail -> AI band (published docs) -->
+    <path class="e-ai" d="M126,402 V300 H216"/>
+    <path class="e-ai" d="M1874,402 V300 H1784"/>
 
-    <!-- ACCESS: Identity & Access -> Workflow Engine -->
-    <path class="e-acc" d="M300,226 V252"/>
+    <!-- APPROVAL: workflow bus -> row1 -->
+    <path class="e-appr" d="M340,358 V398"/>
+    <path class="e-appr" d="M604,358 V398"/>
+    <path class="e-appr" d="M868,358 V398"/>
+    <path class="e-appr" d="M1132,358 V398"/>
+    <path class="e-appr" d="M1396,358 V398"/>
+    <path class="e-appr" d="M1660,358 V398"/>
 
-    <!-- APPROVAL: Workflow bus -> each core column (orthogonal, one per column) -->
-    <path class="e-appr" d="M340,296 V340"/>
-    <path class="e-appr" d="M604,296 V340"/>
-    <path class="e-appr" d="M868,296 V340"/>
-    <path class="e-appr" d="M1132,296 V340"/>
-    <path class="e-appr" d="M1396,296 V340"/>
-    <path class="e-appr" d="M1660,296 V340"/>
+    <!-- PROCESS row1<->row2 -->
+    <path class="e-proc" d="M340,542 V592"/>
+    <path class="e-proc" d="M604,596 V546"/>
+    <path class="e-proc" d="M868,596 V546"/>
+    <path class="e-proc" d="M1132,542 V592"/>
+    <path class="e-proc" d="M1396,542 V592"/>
+    <path class="e-proc" d="M1660,542 V592"/>
+    <!-- cross-network -->
+    <path class="e-proc" d="M680,542 V582 H796 V592"/>
+    <path class="e-data" d="M1030,542 V586 H560 V592"/>
+    <path class="e-proc" d="M724,472 H740"/>
 
-    <!-- PROCESS: row1 <-> row2, one per column -->
-    <path class="e-proc" d="M340,484 V534"/>
-    <path class="e-proc" d="M604,538 V488"/>
-    <path class="e-proc" d="M868,538 V488"/>
-    <path class="e-proc" d="M1132,484 V534"/>
-    <path class="e-proc" d="M1396,484 V534"/>
-    <path class="e-proc" d="M1660,484 V534"/>
+    <!-- FINANCIAL row2 -> Finance -->
+    <path class="e-fin" d="M340,690 V740"/>
+    <path class="e-fin" d="M604,690 V740"/>
+    <path class="e-fin" d="M868,690 V740"/>
+    <path class="e-fin" d="M1132,690 V740"/>
+    <path class="e-fin" d="M1396,690 V740"/>
+    <path class="e-fin" d="M1660,690 V740"/>
 
-    <!-- CROSS-NETWORK (orthogonal routes inside the process channel) -->
-    <!-- Construction -> Contractor -->
-    <path class="e-proc" d="M680,484 V524 H796 V534"/>
-    <!-- Procurement -> Warehouse (delivery -> GRN) -->
-    <path class="e-data" d="M1030,484 V528 H560 V534"/>
-    <!-- Construction -> BOQ (intra-row, in the column gap) -->
-    <path class="e-proc" d="M724,414 H740"/>
+    <!-- MASTER DATA BUS & DOC BUS -->
+    <path class="bus-md" d="M208,402 V880"/>
+    <path class="e-data" d="M208,438 H216"/><path class="e-data" d="M208,628 H216"/><path class="e-data" d="M208,798 H216"/>
+    <path class="bus-doc" d="M1792,402 V880"/>
+    <path class="e-doc" d="M1792,438 H1784"/><path class="e-doc" d="M1792,628 H1784"/><path class="e-doc" d="M1792,798 H1784"/>
 
-    <!-- FINANCIAL POSTINGS: row2 -> Financial Engine, one per column -->
-    <path class="e-fin" d="M340,632 V682"/>
-    <path class="e-fin" d="M604,632 V682"/>
-    <path class="e-fin" d="M868,632 V682"/>
-    <path class="e-fin" d="M1132,632 V682"/>
-    <path class="e-fin" d="M1396,632 V682"/>
-    <path class="e-fin" d="M1660,632 V682"/>
+    <!-- Finance -> BI ; BI -> Exec (left channel) -->
+    <path class="e-data" d="M400,880 V896"/>
+    <path class="e-rep" d="M56,943 H36 V64 H52"/>
+    <!-- AI audit -> notification -> Telegram (off-page shown in cards) -->
+    <!-- INTEGRATION -> EXTERNAL -->
+    <path class="e-int" d="M1276,1072 H1292"/>
 
-    <!-- MASTER DATA BUS (left gutter) + stubs into each band -->
-    <path class="bus-md" d="M208,344 V822"/>
-    <path class="e-data" d="M208,380 H216"/>
-    <path class="e-data" d="M208,570 H216"/>
-    <path class="e-data" d="M208,740 H216"/>
-
-    <!-- DOCUMENT BUS (right gutter) + stubs into each band -->
-    <path class="bus-doc" d="M1792,344 V822"/>
-    <path class="e-doc" d="M1792,380 H1784"/>
-    <path class="e-doc" d="M1792,570 H1784"/>
-    <path class="e-doc" d="M1792,740 H1784"/>
-
-    <!-- DATA: Finance -> BI -->
-    <path class="e-data" d="M400,822 V840"/>
-
-    <!-- REPORTING: BI -> Executive Command Center (dedicated left channel) -->
-    <path class="e-rep" d="M56,887 H36 V64 H52"/>
-    <!-- REPORTING: AI alerts -> Executive Command Center (dedicated right channel) -->
-    <path class="e-rep" d="M1944,887 H1964 V64 H1948"/>
-
-    <!-- INTEGRATION: Integration layer -> External actors & portals -->
-    <path class="e-int" d="M1276,1016 H1292"/>
-
-    <!-- ============================================================ -->
-    <!-- NODES                                                         -->
-    <!-- ============================================================ -->
-
-    <!-- ===== BAND 0 · EXECUTIVE GOVERNANCE ===== -->
+    <!-- ================= NODES ================= -->
+    <!-- BAND 0: EXEC CC + CHANNELS -->
     <g>
-      <rect x="56" y="20" width="1888" height="96" rx="10" fill="#0B1F3A"/>
+      <rect x="56" y="20" width="1384" height="96" rx="10" fill="#0B1F3A"/>
       <text class="nt2" x="76" y="50" fill="#fff">EXECUTIVE COMMAND CENTER</text>
-      <text class="ns" x="76" y="70" fill="#c7d6ea">Consolidated &amp; per-project KPIs · consumes from every module · approves high-level transactions</text>
-      <text class="ns" x="76" y="88" fill="#c7d6ea">Drill-down: Company → Project → Department → Transaction → Source Document</text>
-      <text class="ns" x="76" y="106" fill="#8fb3dd">◂ receives  FIN-01 · BI-01 · AI-01 · COLL-01 · COST-01</text>
-      <!-- governance roles inside the exec card -->
+      <text class="ns" x="76" y="70" fill="#c7d6ea">Consolidated &amp; per-project KPIs · Executive AI briefing (“What changed today?”) · approves high-value transactions</text>
+      <text class="ns" x="76" y="88" fill="#c7d6ea">Drill-down: Company → Project → Department → Transaction → Source Document · AI answers carry source links</text>
+      <text class="ns" x="76" y="106" fill="#8fb3dd">◂ receives  FIN-01 · BI-01 · AI-01 · COLL-01 · COST-01 · briefings also via TG-01</text>
       <g>
-        <rect x="1180" y="34" width="140" height="28" rx="14" fill="#1b3a63"/><text class="nsw" x="1250" y="52" text-anchor="middle">Chairman</text>
-        <rect x="1330" y="34" width="140" height="28" rx="14" fill="#1b3a63"/><text class="nsw" x="1400" y="52" text-anchor="middle">Board</text>
-        <rect x="1480" y="34" width="140" height="28" rx="14" fill="#1b3a63"/><text class="nsw" x="1550" y="52" text-anchor="middle">CEO</text>
-        <rect x="1630" y="34" width="140" height="28" rx="14" fill="#1b3a63"/><text class="nsw" x="1700" y="52" text-anchor="middle">COO</text>
-        <rect x="1780" y="34" width="140" height="28" rx="14" fill="#1b3a63"/><text class="nsw" x="1850" y="52" text-anchor="middle">CFO</text>
-        <text class="ns" x="1180" y="80" fill="#8fb3dd">Governance layer — consumes information &amp; approves high-value transactions</text>
+        <rect x="900" y="34" width="100" height="26" rx="13" fill="#1b3a63"/><text class="nsw" x="950" y="51" text-anchor="middle">Chairman</text>
+        <rect x="1008" y="34" width="100" height="26" rx="13" fill="#1b3a63"/><text class="nsw" x="1058" y="51" text-anchor="middle">Board</text>
+        <rect x="1116" y="34" width="100" height="26" rx="13" fill="#1b3a63"/><text class="nsw" x="1166" y="51" text-anchor="middle">CEO</text>
+        <rect x="1224" y="34" width="100" height="26" rx="13" fill="#1b3a63"/><text class="nsw" x="1274" y="51" text-anchor="middle">COO</text>
+        <rect x="1332" y="34" width="100" height="26" rx="13" fill="#1b3a63"/><text class="nsw" x="1382" y="51" text-anchor="middle">CFO</text>
       </g>
-      <rect x="1780" y="90" width="140" height="20" rx="5" fill="#E8730C"/><text class="nid" x="1850" y="104" text-anchor="middle">EXEC-01 · BP-18</text>
+      <rect x="1290" y="88" width="140" height="20" rx="5" fill="#E8730C"/><text class="nid" x="1360" y="102" text-anchor="middle">EXEC-01 · BP-18</text>
+    </g>
+    <g>
+      <rect x="1460" y="20" width="484" height="96" rx="10" fill="#136a99"/>
+      <text class="nt" x="1476" y="44" fill="#fff">CHANNELS</text>
+      <rect x="1476" y="54" width="82" height="22" rx="11" fill="#fff"/><text class="mini" x="1517" y="69" text-anchor="middle" fill="#136a99">Web</text>
+      <rect x="1564" y="54" width="82" height="22" rx="11" fill="#fff"/><text class="mini" x="1605" y="69" text-anchor="middle" fill="#136a99">Mobile</text>
+      <rect x="1652" y="54" width="82" height="22" rx="11" fill="#fff"/><text class="mini" x="1693" y="69" text-anchor="middle" fill="#136a99">Portals</text>
+      <rect x="1740" y="54" width="94" height="22" rx="11" fill="#2AABEE"/><text class="mini" x="1787" y="69" text-anchor="middle" fill="#fff">Telegram</text>
+      <rect x="1840" y="54" width="92" height="22" rx="11" fill="#fff"/><text class="mini" x="1886" y="69" text-anchor="middle" fill="#136a99">Exec Center</text>
+      <text class="ns" x="1476" y="96" fill="#d6ecf9">All channels → Identity → Permission → AI Core or direct domain UI · Telegram = bound Type-A user only</text>
+      <rect x="1840" y="88" width="94" height="20" rx="5" fill="#2AABEE"/><text class="nid" x="1887" y="102" text-anchor="middle">TG-01 · BP-22</text>
     </g>
 
-    <!-- ===== BAND 1 · IDENTITY / ACCOUNT TYPES / PROJECT ===== -->
+    <!-- BAND 1 -->
     <g>
       <rect x="56" y="134" width="520" height="92" rx="9" fill="#eff1f3" stroke="#5B6470" stroke-width="1.6"/>
       <text class="nt" x="70" y="156" fill="#3d444d">IDENTITY &amp; ACCESS</text>
       <rect x="420" y="140" width="144" height="19" rx="5" fill="#5B6470"/><text class="nid" x="492" y="154" text-anchor="middle">ORG-01 · BP-02</text>
-      <text class="ns" x="70" y="176">User —assigned to→ Role —contains→ Permissions</text>
-      <text class="ns" x="70" y="194">User —belongs to→ Department · —assigned to→ Project(s) <tspan font-weight="700">N:N</tspan></text>
-      <text class="ns" x="70" y="212">Permission —controls→ Module · Action · Data Scope</text>
+      <text class="ns" x="70" y="176">User —assigned to→ Role —contains→ Permissions · —assigned to→ Project(s) <tspan font-weight="700">N:N</tspan></text>
+      <text class="ns" x="70" y="194">Telegram Identity Binding —binds→ Type-A User (one-time link · revocable) · Machine Identity for AI indexing</text>
+      <text class="ns" x="70" y="212">Permission —controls→ Module · Action · Data Scope · AI retrieval &amp; tool scope</text>
       <text class="oc" x="420" y="218" fill="#8f2621">enforced by ▸ SEC-01</text>
     </g>
     <g>
       <rect x="596" y="134" width="660" height="92" rx="9" fill="#fff" stroke="#c9d1da" stroke-width="1.6"/>
       <text class="nt" x="610" y="154" fill="#12181f">THREE ACCOUNT TYPES — never mixed</text>
       <rect x="610" y="162" width="200" height="56" rx="4" fill="#eff1f3" stroke="#5B6470" stroke-width="1.5" stroke-dasharray="4 3"/>
-      <text class="mini" x="622" y="180" fill="#3d444d">A · USER ACCOUNT</text><text class="ns" x="622" y="196">Employee / portal login</text><text class="ns" x="622" y="212">—authenticates→ Portal</text>
+      <text class="mini" x="622" y="180" fill="#3d444d">A · USER ACCOUNT</text><text class="ns" x="622" y="196">Employee / portal login</text><text class="ns" x="622" y="212">Telegram binds here</text>
       <rect x="822" y="162" width="200" height="56" rx="16" fill="#eaf2fc" stroke="#1560BD" stroke-width="1.7"/>
       <text class="mini" x="834" y="180" fill="#0f4a94">B · BUSINESS PARTY</text><text class="ns" x="834" y="196">Customer·Supplier·</text><text class="ns" x="834" y="212">Contractor·Employee</text>
       <rect x="1034" y="162" width="208" height="56" fill="#fdf0e4" stroke="#E8730C" stroke-width="1.7"/>
@@ -235,354 +211,330 @@
       <text class="nt" x="1290" y="156" fill="#0B1F3A">PROJECT STRUCTURE</text>
       <rect x="1790" y="140" width="144" height="19" rx="5" fill="#0B1F3A"/><text class="nid" x="1862" y="154" text-anchor="middle">PROJ-01 · BP-03</text>
       <text class="ns" x="1290" y="178">Company —1:N→ Project —1:N→ Phase —1:N→ Block/Tower —1:N→ Floor —1:N→ Unit</text>
-      <text class="ns" x="1290" y="198">Every transaction carries Company · Project · Department · Cost Center</text>
-      <text class="ns" x="1290" y="216">Projects run independently &amp; consolidate upward to the Executive Command Center</text>
+      <text class="ns" x="1290" y="198">Every transaction carries Company · Project · Department · Cost Center — AI results are project-scoped per user</text>
+      <text class="ns" x="1290" y="216">Projects run independently &amp; consolidate upward; executives get authorized consolidated AI analysis</text>
     </g>
 
-    <!-- ===== BAND 2 · WORKFLOW BUS ===== -->
+    <!-- BAND AI CORE PLANE -->
     <g>
-      <rect x="220" y="256" width="1560" height="40" rx="10" fill="#0B1F3A"/>
-      <rect x="220" y="256" width="1560" height="40" rx="10" fill="none" stroke="#C6362F" stroke-width="1.8" stroke-dasharray="2.5 5"/>
-      <text class="nt" x="240" y="274" fill="#fff">WORKFLOW &amp; APPROVAL ENGINE</text>
-      <text class="ns" x="240" y="290" fill="#c7d6ea">Requester → Reviewer → Approver → Final Approver → Execution · routing by amount / role / project / department · escalation · delegation · reject · return-for-correction</text>
-      <rect x="1622" y="266" width="144" height="20" rx="5" fill="#E8730C"/><text class="nid" x="1694" y="280" text-anchor="middle">WF-01 · BP-17</text>
+      <rect x="220" y="244" width="1560" height="56" rx="10" fill="#0a5f5f"/>
+      <rect x="220" y="244" width="1560" height="56" rx="10" fill="none" stroke="#7fd3d3" stroke-width="1.6" stroke-dasharray="2.5 5"/>
+      <text class="nt" x="240" y="264" fill="#fff">AI CORE / ENTERPRISE INTELLIGENCE CONTROL PLANE</text>
+      <text class="ns" x="240" y="281" fill="#cdeeee">Permission &amp; Policy Gateway → AI Orchestrator → Enterprise Knowledge Plane (security-tagged) · Typed Tool Registry · Memory · Guardrails · AI Audit</text>
+      <text class="ns" x="240" y="295" fill="#cdeeee">Governed additional plane — direct UI → domain flows remain. Reads: authorized knowledge · Acts: typed tool → domain → workflow. Never SQL, never posting, never bypass.</text>
+      <rect x="1300" y="252" width="150" height="20" rx="5" fill="#5B3FA0"/><text class="nid" x="1375" y="266" text-anchor="middle">MODEL GATEWAY · MG-01</text>
+      <text class="ns" x="1300" y="292" fill="#cdeeee">→ LLM Provider A · B · Private model</text>
+      <rect x="1622" y="252" width="146" height="20" rx="5" fill="#E8730C"/><text class="nid" x="1695" y="266" text-anchor="middle">AI-01 · KP-01 · TOOL-01</text>
+      <text class="ns" x="1622" y="292" fill="#cdeeee">Machine Identity ▸ MID-01</text>
     </g>
 
-    <!-- ===== LEFT RAIL · MASTER DATA ===== -->
+    <!-- WORKFLOW BUS -->
     <g>
-      <rect x="56" y="344" width="140" height="478" rx="9" fill="#eff1f3" stroke="#5B6470" stroke-width="1.6"/>
-      <text class="band" x="70" y="368" fill="#3d444d">MASTER DATA</text>
-      <rect x="66" y="376" width="122" height="19" rx="5" fill="#5B6470"/><text class="nid" x="127" y="390" text-anchor="middle">MDM-01 · BP-21</text>
-      <text class="ns" x="70" y="416">Projects · Units</text>
-      <text class="ns" x="70" y="434">Customers · Suppliers</text>
-      <text class="ns" x="70" y="452">Contractors</text>
-      <text class="ns" x="70" y="470">Employees</text>
-      <text class="ns" x="70" y="488">Materials · Services</text>
-      <text class="ns" x="70" y="506">Assets · Warehouses</text>
-      <text class="ns" x="70" y="524">Departments</text>
-      <text class="ns" x="70" y="542">Cost Centers</text>
-      <text class="ns" x="70" y="560">Chart of Accounts</text>
-      <text class="ns" x="70" y="578">Currencies · Banks</text>
-      <text class="ns" x="70" y="596">Tax Codes</text>
-      <text class="ns" x="70" y="614">Document Types</text>
-      <text class="ns" x="70" y="632">Approval Policies</text>
-      <line x1="70" y1="648" x2="182" y2="648" stroke="#c9d1da"/>
-      <text class="ns" x="70" y="668" font-weight="700" fill="#3d444d">Golden records:</text>
-      <text class="ns" x="70" y="686">defined once ·</text>
-      <text class="ns" x="70" y="704">governed &amp; versioned ·</text>
-      <text class="ns" x="70" y="722">consumed everywhere</text>
-      <text class="oc" x="70" y="750" fill="#0a6666">feeds ▸ FIN-01</text>
-      <text class="oc" x="70" y="768" fill="#0a6666">feeds ▸ BI-01 · AI-01</text>
-      <text class="oc" x="70" y="796" fill="#8f2621">changes ▸ WF-01</text>
+      <rect x="220" y="318" width="1560" height="40" rx="10" fill="#0B1F3A"/>
+      <rect x="220" y="318" width="1560" height="40" rx="10" fill="none" stroke="#C6362F" stroke-width="1.8" stroke-dasharray="2.5 5"/>
+      <text class="nt" x="240" y="336" fill="#fff">WORKFLOW &amp; APPROVAL ENGINE</text>
+      <text class="ns" x="240" y="352" fill="#c7d6ea">Requester → Reviewer → Approver → Final → Execution · AI proposals and Telegram approvals enter here — AI never approves; Telegram never bypasses the hierarchy</text>
+      <rect x="1622" y="328" width="144" height="20" rx="5" fill="#E8730C"/><text class="nid" x="1694" y="342" text-anchor="middle">WF-01 · BP-17</text>
     </g>
 
-    <!-- ===== RIGHT RAIL · DOCUMENTS ===== -->
+    <!-- LEFT RAIL MASTER DATA -->
     <g>
-      <rect x="1804" y="344" width="140" height="478" rx="9" fill="#f5ede4" stroke="#7A5230" stroke-width="1.6"/>
-      <text class="band" x="1818" y="368" fill="#5a3c22">DOCUMENTS</text>
-      <rect x="1814" y="376" width="122" height="19" rx="5" fill="#7A5230"/><text class="nid" x="1875" y="390" text-anchor="middle">DOC-01 · BP-16</text>
-      <text class="ns" x="1818" y="416">Contracts · Drawings</text>
-      <text class="ns" x="1818" y="434">BOQ · PO · GRN</text>
-      <text class="ns" x="1818" y="452">Invoices · Receipts</text>
-      <text class="ns" x="1818" y="470">IPC Certificates</text>
-      <text class="ns" x="1818" y="488">Employee files</text>
-      <text class="ns" x="1818" y="506">Customer files</text>
-      <text class="ns" x="1818" y="524">Supplier files</text>
-      <text class="ns" x="1818" y="542">Expense receipts</text>
-      <text class="ns" x="1818" y="560">Legal · permits · titles</text>
+      <rect x="56" y="402" width="140" height="478" rx="9" fill="#eff1f3" stroke="#5B6470" stroke-width="1.6"/>
+      <text class="band" x="70" y="426" fill="#3d444d">MASTER DATA</text>
+      <rect x="66" y="434" width="122" height="19" rx="5" fill="#5B6470"/><text class="nid" x="127" y="448" text-anchor="middle">MDM-01 · BP-21</text>
+      <text class="ns" x="70" y="474">Projects · Units</text><text class="ns" x="70" y="492">Customers · Suppliers</text><text class="ns" x="70" y="510">Contractors · Employees</text>
+      <text class="ns" x="70" y="528">Materials · Services</text><text class="ns" x="70" y="546">Assets · Warehouses</text><text class="ns" x="70" y="564">Departments · CC</text>
+      <text class="ns" x="70" y="582">Chart of Accounts</text><text class="ns" x="70" y="600">Currencies · Banks · Tax</text><text class="ns" x="70" y="618">Doc Types · Policies</text>
+      <line x1="70" y1="632" x2="182" y2="632" stroke="#c9d1da"/>
+      <text class="ns" x="70" y="652" font-weight="700" fill="#3d444d">Golden records:</text>
+      <text class="ns" x="70" y="670">defined once ·</text><text class="ns" x="70" y="688">governed &amp; versioned</text>
+      <text class="oc" x="70" y="716" fill="#0a6666">feeds ▸ KP-01 (AI)</text>
+      <text class="oc" x="70" y="734" fill="#0a6666">feeds ▸ FIN-01 · BI-01</text>
+      <text class="oc" x="70" y="760" fill="#8f2621">changes ▸ WF-01</text>
+      <text class="ns" x="70" y="786">AI dedup suggests;</text><text class="ns" x="70" y="804">steward approves</text>
+    </g>
+
+    <!-- RIGHT RAIL DOCUMENTS -->
+    <g>
+      <rect x="1804" y="402" width="140" height="478" rx="9" fill="#f5ede4" stroke="#7A5230" stroke-width="1.6"/>
+      <text class="band" x="1818" y="426" fill="#5a3c22">DOCUMENTS</text>
+      <rect x="1814" y="434" width="122" height="19" rx="5" fill="#7A5230"/><text class="nid" x="1875" y="448" text-anchor="middle">DOC-01 · BP-16</text>
+      <text class="ns" x="1818" y="474">Contracts · Drawings</text><text class="ns" x="1818" y="492">BOQ · PO · GRN</text><text class="ns" x="1818" y="510">Invoices · Receipts</text>
+      <text class="ns" x="1818" y="528">IPC · Employee files</text><text class="ns" x="1818" y="546">Customer · Supplier files</text><text class="ns" x="1818" y="564">Legal · permits</text>
       <line x1="1818" y1="578" x2="1930" y2="578" stroke="#e3d5c6"/>
-      <text class="ns" x="1818" y="598" font-weight="700" fill="#5a3c22">Document lifecycle:</text>
-      <text class="ns" x="1818" y="616">Version → Approval →</text>
-      <text class="ns" x="1818" y="634">e-Signature →</text>
-      <text class="ns" x="1818" y="652">Audit Trail →</text>
-      <text class="ns" x="1818" y="670">Related Transaction</text>
-      <text class="ns" x="1818" y="698" font-weight="700" fill="#5a3c22">Every transaction</text>
-      <text class="ns" x="1818" y="716">links to its evidence</text>
-      <text class="oc" x="1818" y="746" fill="#8f2621">approvals ▸ WF-01</text>
-      <text class="oc" x="1818" y="764" fill="#3d444d">access ▸ SEC-01</text>
-      <text class="oc" x="1818" y="792" fill="#2b4256">external ▸ PORT-01</text>
+      <text class="ns" x="1818" y="598" font-weight="700" fill="#5a3c22">Lifecycle:</text>
+      <text class="ns" x="1818" y="616">Version → Approval →</text><text class="ns" x="1818" y="634">e-Sign → Audit →</text><text class="ns" x="1818" y="652">Related Transaction</text>
+      <text class="oc" x="1818" y="680" fill="#0a6666">published ▸ KP-01</text>
+      <text class="ns" x="1818" y="698">(classified · ACL ·</text><text class="ns" x="1818" y="716">source ID · version)</text>
+      <text class="oc" x="1818" y="744" fill="#136a99">◂ TG-01 attachments</text>
+      <text class="ns" x="1818" y="762">via Document Service</text>
+      <text class="oc" x="1818" y="790" fill="#3d444d">access ▸ SEC-01</text>
     </g>
 
-    <!-- ===== CORE ROW 1 (x = 220 / 484 / 748 / 1012 / 1276 / 1540, y=344 h=140 w=240) ===== -->
+    <!-- CORE ROW 1 (y=402 h=140) -->
     <g>
-      <rect x="220" y="344" width="240" height="140" rx="9" fill="#eaf2fc" stroke="#1560BD" stroke-width="1.7"/>
-      <text class="nt" x="232" y="366" fill="#0f4a94">SALES &amp; CRM</text>
-      <rect x="330" y="350" width="122" height="19" rx="5" fill="#1560BD"/><text class="nid" x="391" y="364" text-anchor="middle">SALE-01 · BP-05</text>
-      <text class="ns" x="232" y="388">Lead → Opportunity →</text>
-      <text class="ns" x="232" y="406">Customer → Unit →</text>
-      <text class="ns" x="232" y="424">Quotation → Reservation</text>
-      <text class="ns" x="232" y="442">→ Contract → Handover</text>
-      <text class="card-of" x="232" y="462">1 Customer : N Contracts</text>
-      <text class="card-of" x="232" y="477">1 Contract : 1..N Units</text>
-      <circle cx="437" cy="466" r="11" fill="#1560BD"/><text class="nid" x="437" y="470" text-anchor="middle">A</text>
+      <rect x="220" y="402" width="240" height="140" rx="9" fill="#eaf2fc" stroke="#1560BD" stroke-width="1.7"/>
+      <text class="nt" x="232" y="424" fill="#0f4a94">SALES &amp; CRM</text>
+      <rect x="330" y="408" width="122" height="19" rx="5" fill="#1560BD"/><text class="nid" x="391" y="422" text-anchor="middle">SALE-01 · BP-05</text>
+      <text class="ns" x="232" y="446">Lead → Opportunity → Customer →</text>
+      <text class="ns" x="232" y="464">Unit → Quote → Reservation →</text>
+      <text class="ns" x="232" y="482">Contract → Handover</text>
+      <text class="card-of" x="232" y="502">1 Customer : N Contracts</text>
+      <text class="oc" x="232" y="520" fill="#0a6666">⇡ KP-01 events · tools: units · pipeline · risk</text>
+      <text class="oc" x="232" y="534" fill="#136a99">◂ TG-01 sales summaries</text>
+      <circle cx="437" cy="524" r="11" fill="#1560BD"/><text class="nid" x="437" y="528" text-anchor="middle">A</text>
     </g>
     <g>
-      <rect x="484" y="344" width="240" height="140" rx="9" fill="#fbeae9" stroke="#C6362F" stroke-width="1.7"/>
-      <text class="nt" x="496" y="366" fill="#8f2621">CONSTRUCTION</text>
-      <rect x="586" y="350" width="126" height="19" rx="5" fill="#C6362F"/><text class="nid" x="649" y="364" text-anchor="middle">CONST-01 · BP-07</text>
-      <text class="ns" x="496" y="388">WBS → Schedule →</text>
-      <text class="ns" x="496" y="406">Site Activity → Progress</text>
-      <text class="ns" x="496" y="424">→ Measurement</text>
-      <text class="ns" x="496" y="442">RFI · QA/QC · Safety · EVM</text>
-      <text class="card-of" x="496" y="462">Variation · claims · delay</text>
-      <text class="card-of" x="496" y="477">Forecast · cost-to-complete</text>
+      <rect x="484" y="402" width="240" height="140" rx="9" fill="#fbeae9" stroke="#C6362F" stroke-width="1.7"/>
+      <text class="nt" x="496" y="424" fill="#8f2621">CONSTRUCTION</text>
+      <rect x="586" y="408" width="126" height="19" rx="5" fill="#C6362F"/><text class="nid" x="649" y="422" text-anchor="middle">CONST-01 · BP-07</text>
+      <text class="ns" x="496" y="446">WBS → Schedule → Site Activity</text>
+      <text class="ns" x="496" y="464">→ Progress → Measurement</text>
+      <text class="ns" x="496" y="482">RFI · QA/QC · Safety · EVM</text>
+      <text class="card-of" x="496" y="502">Variation · claims · delay</text>
+      <text class="oc" x="496" y="520" fill="#0a6666">⇡ KP-01 · tools: status · delays · RFI</text>
+      <text class="oc" x="496" y="534" fill="#136a99">◂ TG-01 site / delay alerts</text>
     </g>
     <g>
-      <rect x="748" y="344" width="240" height="140" rx="9" fill="#fbeae9" stroke="#C6362F" stroke-width="1.7"/>
-      <text class="nt" x="760" y="366" fill="#8f2621">BOQ &amp; COST CONTROL</text>
-      <rect x="854" y="350" width="122" height="19" rx="5" fill="#C6362F"/><text class="nid" x="915" y="364" text-anchor="middle">BOQ-01 · BP-08</text>
-      <text class="ns" x="760" y="388">BOQ Item = Qty × Rate</text>
-      <text class="ns" x="760" y="406">Budget → Committed →</text>
-      <text class="ns" x="760" y="424">Actual → Forecast → EAC</text>
-      <text class="ns" x="760" y="442">Budget vs Actual · CPI</text>
-      <text class="card-of" x="760" y="462">Material·Labor·Equip·Subcon</text>
-      <text class="card-of" x="760" y="477">EAC &gt; BAC ▸ overrun alert</text>
+      <rect x="748" y="402" width="240" height="140" rx="9" fill="#fbeae9" stroke="#C6362F" stroke-width="1.7"/>
+      <text class="nt" x="760" y="424" fill="#8f2621">BOQ &amp; COST CONTROL</text>
+      <rect x="854" y="408" width="122" height="19" rx="5" fill="#C6362F"/><text class="nid" x="915" y="422" text-anchor="middle">BOQ-01 · BP-08</text>
+      <text class="ns" x="760" y="446">BOQ Item = Qty × Rate</text>
+      <text class="ns" x="760" y="464">Budget → Committed → Actual →</text>
+      <text class="ns" x="760" y="482">Forecast → EAC · CPI</text>
+      <text class="card-of" x="760" y="502">EAC &gt; BAC ▸ overrun alert</text>
+      <text class="oc" x="760" y="520" fill="#0a6666">⇡ KP-01 · tools: variance · EAC explain</text>
+      <text class="oc" x="760" y="534" fill="#136a99">◂ TG-01 cost-overrun alerts</text>
     </g>
     <g>
-      <rect x="1012" y="344" width="240" height="140" rx="9" fill="#f1ebfa" stroke="#6B3FA0" stroke-width="1.7"/>
-      <text class="nt" x="1024" y="366" fill="#4e2c78">PROCUREMENT</text>
-      <rect x="1118" y="350" width="124" height="19" rx="5" fill="#6B3FA0"/><text class="nid" x="1180" y="364" text-anchor="middle">PROC-01 · BP-09</text>
-      <text class="ns" x="1024" y="388">Requirement → PR →</text>
-      <text class="ns" x="1024" y="406">RFQ → Quotation →</text>
-      <text class="ns" x="1024" y="424">Bid Comparison → PO →</text>
-      <text class="ns" x="1024" y="442">GRN → 3-way match</text>
-      <text class="card-of" x="1024" y="462">PO —creates→ Commitment</text>
-      <text class="card-of" x="1024" y="477">1 PO : N Deliveries</text>
-      <circle cx="1229" cy="466" r="11" fill="#6B3FA0"/><text class="nid" x="1229" y="470" text-anchor="middle">B</text>
+      <rect x="1012" y="402" width="240" height="140" rx="9" fill="#f1ebfa" stroke="#6B3FA0" stroke-width="1.7"/>
+      <text class="nt" x="1024" y="424" fill="#4e2c78">PROCUREMENT</text>
+      <rect x="1118" y="408" width="124" height="19" rx="5" fill="#6B3FA0"/><text class="nid" x="1180" y="422" text-anchor="middle">PROC-01 · BP-09</text>
+      <text class="ns" x="1024" y="446">Requirement → PR → RFQ →</text>
+      <text class="ns" x="1024" y="464">Quotation → Compare → PO →</text>
+      <text class="ns" x="1024" y="482">GRN → 3-way match</text>
+      <text class="card-of" x="1024" y="502">PO —creates→ Commitment</text>
+      <text class="oc" x="1024" y="520" fill="#0a6666">⇡ KP-01 · tools: PR/PO status · bid compare</text>
+      <text class="oc" x="1024" y="534" fill="#136a99">◂ TG-01 procurement delay</text>
+      <circle cx="1229" cy="524" r="11" fill="#6B3FA0"/><text class="nid" x="1229" y="528" text-anchor="middle">B</text>
     </g>
     <g>
-      <rect x="1276" y="344" width="240" height="140" rx="9" fill="#fbf4dd" stroke="#C79A1E" stroke-width="1.7"/>
-      <text class="nt" x="1288" y="366" fill="#8f6d10">HUMAN RESOURCES</text>
-      <rect x="1386" y="350" width="118" height="19" rx="5" fill="#C79A1E"/><text class="nid" x="1445" y="364" text-anchor="middle">HR-01 · BP-14</text>
-      <text class="ns" x="1288" y="388">Candidate → Employee →</text>
-      <text class="ns" x="1288" y="406">Department · Position ·</text>
-      <text class="ns" x="1288" y="424">Project Assignment →</text>
-      <text class="ns" x="1288" y="442">Attendance · Leave · OT</text>
-      <text class="card-of" x="1288" y="462">1 Employee : N Projects</text>
-      <text class="oc" x="1288" y="478" fill="#3d444d">◂ INT-01 biometric device</text>
+      <rect x="1276" y="402" width="240" height="140" rx="9" fill="#fbf4dd" stroke="#C79A1E" stroke-width="1.7"/>
+      <text class="nt" x="1288" y="424" fill="#8f6d10">HUMAN RESOURCES</text>
+      <rect x="1386" y="408" width="118" height="19" rx="5" fill="#C79A1E"/><text class="nid" x="1445" y="422" text-anchor="middle">HR-01 · BP-14</text>
+      <text class="ns" x="1288" y="446">Candidate → Employee →</text>
+      <text class="ns" x="1288" y="464">Dept · Position · Project →</text>
+      <text class="ns" x="1288" y="482">Attendance · Leave · OT</text>
+      <text class="card-of" x="1288" y="502">1 Employee : N Projects</text>
+      <text class="oc" x="1288" y="520" fill="#0a6666">⇡ KP-01 · tools: field-restricted</text>
+      <text class="oc" x="1288" y="534" fill="#136a99">◂ TG-01 ESS notices · no sensitive data</text>
     </g>
     <g>
-      <rect x="1540" y="344" width="240" height="140" rx="9" fill="#eef2f8" stroke="#0B1F3A" stroke-width="1.7"/>
-      <text class="nt" x="1552" y="366" fill="#0B1F3A">PROJECT MANAGEMENT</text>
-      <rect x="1650" y="350" width="118" height="19" rx="5" fill="#0B1F3A"/><text class="nid" x="1709" y="364" text-anchor="middle">PROJ-01 · BP-03</text>
-      <text class="ns" x="1552" y="388">Portfolio · Phase · Zone ·</text>
-      <text class="ns" x="1552" y="406">Block · Floor · Unit</text>
-      <text class="ns" x="1552" y="424">Project budget &amp; bank</text>
-      <text class="ns" x="1552" y="442">accounts · team · assets</text>
-      <text class="card-of" x="1552" y="462">Data isolated per project,</text>
-      <text class="card-of" x="1552" y="477">consolidated at corporate</text>
-    </g>
-
-    <!-- ===== CORE ROW 2 (y=538 h=94) ===== -->
-    <g>
-      <rect x="220" y="538" width="240" height="94" rx="9" fill="#eaf2fc" stroke="#1560BD" stroke-width="1.7"/>
-      <text class="nt" x="232" y="560" fill="#0f4a94">INSTALLMENTS</text>
-      <rect x="330" y="544" width="122" height="19" rx="5" fill="#1560BD"/><text class="nid" x="391" y="558" text-anchor="middle">COLL-01 · BP-06</text>
-      <text class="ns" x="232" y="580">Due → Notification →</text>
-      <text class="ns" x="232" y="598">Officer → Receipt → Settle</text>
-      <text class="ns" x="232" y="616">Overdue·Penalty·Waiver·Reschedule</text>
-      <text class="oc" x="232" y="630" fill="#3d444d">◂ INT-01 payment gateway</text>
-    </g>
-    <g>
-      <rect x="484" y="538" width="240" height="94" rx="9" fill="#e9f6ef" stroke="#1E8E5A" stroke-width="1.7"/>
-      <text class="nt" x="496" y="560" fill="#146b43">WAREHOUSE</text>
-      <rect x="594" y="544" width="118" height="19" rx="5" fill="#1E8E5A"/><text class="nid" x="653" y="558" text-anchor="middle">WH-01 · BP-12</text>
-      <text class="ns" x="496" y="580">GRN → Stock → Material</text>
-      <text class="ns" x="496" y="598">Request → Issue → Site</text>
-      <text class="ns" x="496" y="616">Transfer·Return·Adjust·Count</text>
-    </g>
-    <g>
-      <rect x="748" y="538" width="240" height="94" rx="9" fill="#fbeae9" stroke="#C6362F" stroke-width="1.7"/>
-      <text class="nt" x="760" y="560" fill="#8f2621">CONTRACTOR</text>
-      <rect x="858" y="544" width="118" height="19" rx="5" fill="#C6362F"/><text class="nid" x="917" y="558" text-anchor="middle">CONT-01 · BP-11</text>
-      <text class="ns" x="760" y="580">Contract · BOQ → Work →</text>
-      <text class="ns" x="760" y="598">Measure → Engineer OK →</text>
-      <text class="ns" x="760" y="616">IPC − Retention − Advance</text>
-      <circle cx="965" cy="612" r="11" fill="#C6362F"/><text class="nid" x="965" y="616" text-anchor="middle">C</text>
-    </g>
-    <g>
-      <rect x="1012" y="538" width="240" height="94" rx="9" fill="#f1ebfa" stroke="#6B3FA0" stroke-width="1.7"/>
-      <text class="nt" x="1024" y="560" fill="#4e2c78">SUPPLIER</text>
-      <rect x="1124" y="544" width="118" height="19" rx="5" fill="#6B3FA0"/><text class="nid" x="1183" y="558" text-anchor="middle">SUP-01 · BP-10</text>
-      <text class="ns" x="1024" y="580">KYC · Prequalify · Portal</text>
-      <text class="ns" x="1024" y="598">Quotation · PO · Delivery</text>
-      <text class="ns" x="1024" y="616">Invoice → 3-way → Payment</text>
-    </g>
-    <g>
-      <rect x="1276" y="538" width="240" height="94" rx="9" fill="#fbf4dd" stroke="#C79A1E" stroke-width="1.7"/>
-      <text class="nt" x="1288" y="560" fill="#8f6d10">PAYROLL</text>
-      <rect x="1386" y="544" width="118" height="19" rx="5" fill="#C79A1E"/><text class="nid" x="1445" y="558" text-anchor="middle">PAY-01 · BP-15</text>
-      <text class="ns" x="1288" y="580">Calculation → Approval →</text>
-      <text class="ns" x="1288" y="598">Payslip → Bank Payment</text>
-      <text class="ns" x="1288" y="616">Allocated: Project·Dept·CC</text>
-      <circle cx="1493" cy="612" r="11" fill="#C79A1E"/><text class="nid" x="1493" y="616" text-anchor="middle">D</text>
-    </g>
-    <g>
-      <rect x="1540" y="538" width="240" height="94" rx="9" fill="#fdf0e4" stroke="#E8730C" stroke-width="1.7"/>
-      <text class="nt" x="1552" y="560" fill="#a9520a">EXPENSE &amp; ASSETS</text>
-      <rect x="1650" y="544" width="118" height="19" rx="5" fill="#E8730C"/><text class="nid" x="1709" y="558" text-anchor="middle">EXP·FA-01 · BP-13</text>
-      <text class="ns" x="1552" y="580">Request → Budget check →</text>
-      <text class="ns" x="1552" y="598">Approval → Payment</text>
-      <text class="ns" x="1552" y="616">Asset purchase → Register</text>
+      <rect x="1540" y="402" width="240" height="140" rx="9" fill="#eef2f8" stroke="#0B1F3A" stroke-width="1.7"/>
+      <text class="nt" x="1552" y="424" fill="#0B1F3A">PROJECT MANAGEMENT</text>
+      <rect x="1650" y="408" width="118" height="19" rx="5" fill="#0B1F3A"/><text class="nid" x="1709" y="422" text-anchor="middle">PROJ-01 · BP-03</text>
+      <text class="ns" x="1552" y="446">Portfolio · Phase · Zone ·</text>
+      <text class="ns" x="1552" y="464">Block · Floor · Unit</text>
+      <text class="ns" x="1552" y="482">Budget · bank accounts · team</text>
+      <text class="card-of" x="1552" y="502">Isolated per project, consolidated at group</text>
+      <text class="oc" x="1552" y="520" fill="#0a6666">⇡ KP-01 · tools: project summary</text>
+      <text class="oc" x="1552" y="534" fill="#136a99">◂ TG-01 /projects</text>
     </g>
 
-    <!-- ===== BAND 5 · FINANCIAL ENGINE ===== -->
+    <!-- CORE ROW 2 (y=596 h=94) -->
     <g>
-      <rect x="220" y="686" width="1560" height="136" rx="10" fill="#fdf0e4" stroke="#E8730C" stroke-width="2.2"/>
-      <text class="nt" x="236" y="706" fill="#a9520a">FINANCIAL ENGINE — single source of financial truth · every posting carries Project · Cost Center · Department</text>
-      <rect x="1620" y="692" width="146" height="20" rx="5" fill="#0B1F3A"/><text class="nid" x="1693" y="706" text-anchor="middle">FIN-01 · BP-04</text>
+      <rect x="220" y="596" width="240" height="94" rx="9" fill="#eaf2fc" stroke="#1560BD" stroke-width="1.7"/>
+      <text class="nt" x="232" y="618" fill="#0f4a94">INSTALLMENTS</text>
+      <rect x="330" y="602" width="122" height="19" rx="5" fill="#1560BD"/><text class="nid" x="391" y="616" text-anchor="middle">COLL-01 · BP-06</text>
+      <text class="ns" x="232" y="638">Due → Notify → Officer → Receipt → Settle</text>
+      <text class="ns" x="232" y="656">Overdue · Penalty · Waiver · Reschedule</text>
+      <text class="oc" x="232" y="674" fill="#0a6666">AI risk / late-pay predict · no balance change</text>
+      <text class="oc" x="232" y="686" fill="#136a99">◂ TG-01 reminders · ◂ INT-01 gateway</text>
+    </g>
+    <g>
+      <rect x="484" y="596" width="240" height="94" rx="9" fill="#e9f6ef" stroke="#1E8E5A" stroke-width="1.7"/>
+      <text class="nt" x="496" y="618" fill="#146b43">WAREHOUSE</text>
+      <rect x="594" y="602" width="118" height="19" rx="5" fill="#1E8E5A"/><text class="nid" x="653" y="616" text-anchor="middle">WH-01 · BP-12</text>
+      <text class="ns" x="496" y="638">GRN → Stock → Request → Issue → Site</text>
+      <text class="ns" x="496" y="656">Transfer · Return · Adjust · Count</text>
+      <text class="oc" x="496" y="674" fill="#0a6666">tools: stock on hand · low stock · consumption</text>
+      <text class="oc" x="496" y="686" fill="#136a99">◂ TG-01 low-stock alerts</text>
+    </g>
+    <g>
+      <rect x="748" y="596" width="240" height="94" rx="9" fill="#fbeae9" stroke="#C6362F" stroke-width="1.7"/>
+      <text class="nt" x="760" y="618" fill="#8f2621">CONTRACTOR</text>
+      <rect x="858" y="602" width="118" height="19" rx="5" fill="#C6362F"/><text class="nid" x="917" y="616" text-anchor="middle">CONT-01 · BP-11</text>
+      <text class="ns" x="760" y="638">Contract · BOQ → Work → Measure →</text>
+      <text class="ns" x="760" y="656">Engineer OK → IPC − Retention − Advance</text>
+      <text class="oc" x="760" y="674" fill="#0a6666">tools: IPC · retention · claims explain</text>
+      <text class="oc" x="760" y="686" fill="#136a99">◂ TG-01 IPC status</text>
+      <circle cx="965" cy="674" r="11" fill="#C6362F"/><text class="nid" x="965" y="678" text-anchor="middle">C</text>
+    </g>
+    <g>
+      <rect x="1012" y="596" width="240" height="94" rx="9" fill="#f1ebfa" stroke="#6B3FA0" stroke-width="1.7"/>
+      <text class="nt" x="1024" y="618" fill="#4e2c78">SUPPLIER</text>
+      <rect x="1124" y="602" width="118" height="19" rx="5" fill="#6B3FA0"/><text class="nid" x="1183" y="616" text-anchor="middle">SUP-01 · BP-10</text>
+      <text class="ns" x="1024" y="638">KYC · Prequalify · Quote · PO · Delivery</text>
+      <text class="ns" x="1024" y="656">Invoice → 3-way → Payment</text>
+      <text class="oc" x="1024" y="674" fill="#0a6666">AI supplier risk · performance analysis</text>
+      <text class="oc" x="1024" y="686" fill="#136a99">◂ TG-01 internal supplier alerts</text>
+    </g>
+    <g>
+      <rect x="1276" y="596" width="240" height="94" rx="9" fill="#fbf4dd" stroke="#C79A1E" stroke-width="1.7"/>
+      <text class="nt" x="1288" y="618" fill="#8f6d10">PAYROLL</text>
+      <rect x="1386" y="602" width="118" height="19" rx="5" fill="#C79A1E"/><text class="nid" x="1445" y="616" text-anchor="middle">PAY-01 · BP-15</text>
+      <text class="ns" x="1288" y="638">Calculation → Approval → Payslip → Bank</text>
+      <text class="ns" x="1288" y="656">Allocated: Project · Dept · Cost Center</text>
+      <text class="oc" x="1288" y="674" fill="#8f2621">AI: anomaly only · no modify / no pay</text>
+      <text class="oc" x="1288" y="686" fill="#136a99">◂ TG-01 status per policy only</text>
+      <circle cx="1493" cy="674" r="11" fill="#C79A1E"/><text class="nid" x="1493" y="678" text-anchor="middle">D</text>
+    </g>
+    <g>
+      <rect x="1540" y="596" width="240" height="94" rx="9" fill="#fdf0e4" stroke="#E8730C" stroke-width="1.7"/>
+      <text class="nt" x="1552" y="618" fill="#a9520a">EXPENSE &amp; ASSETS</text>
+      <rect x="1650" y="602" width="118" height="19" rx="5" fill="#E8730C"/><text class="nid" x="1709" y="616" text-anchor="middle">EXP·FA-01 · BP-13</text>
+      <text class="ns" x="1552" y="638">Request → Budget check → Approval → Pay</text>
+      <text class="ns" x="1552" y="656">Asset purchase → Register</text>
+      <text class="oc" x="1552" y="674" fill="#0a6666">AI duplicate / anomaly · draft via WF-01</text>
+      <text class="oc" x="1552" y="686" fill="#136a99">◂ TG-01 approval notices</text>
+    </g>
+
+    <!-- FINANCE ENGINE (y=744 h=136) -->
+    <g>
+      <rect x="220" y="744" width="1560" height="136" rx="10" fill="#fdf0e4" stroke="#E8730C" stroke-width="2.2"/>
+      <text class="nt" x="236" y="764" fill="#a9520a">FINANCIAL ENGINE — authoritative · every posting carries Project · Cost Center · Department · AI reads via typed tools, never posts</text>
+      <rect x="1620" y="750" width="146" height="20" rx="5" fill="#0B1F3A"/><text class="nid" x="1693" y="764" text-anchor="middle">FIN-01 · BP-04</text>
       <g text-anchor="middle">
-        <!-- ledger row A (y=716 h=48) : double-border = Type C -->
-        <rect x="236" y="716" width="208" height="48" rx="5" fill="#fff" stroke="#E8730C" stroke-width="1.4"/><rect x="240" y="720" width="200" height="40" fill="none" stroke="#E8730C" stroke-width=".8"/><text class="mini" x="340" y="745" fill="#a9520a">General Ledger</text>
-        <rect x="456" y="716" width="208" height="48" rx="5" fill="#fff" stroke="#E8730C" stroke-width="1.4"/><rect x="460" y="720" width="200" height="40" fill="none" stroke="#E8730C" stroke-width=".8"/><text class="mini" x="560" y="739" fill="#a9520a">Accounts Receivable</text><text class="ns" x="560" y="754">customer sub-ledger</text>
-        <rect x="676" y="716" width="208" height="48" rx="5" fill="#fff" stroke="#E8730C" stroke-width="1.4"/><rect x="680" y="720" width="200" height="40" fill="none" stroke="#E8730C" stroke-width=".8"/><text class="mini" x="780" y="739" fill="#a9520a">Contractor Payable</text><text class="ns" x="780" y="754">+ retention · advance</text>
-        <rect x="896" y="716" width="208" height="48" rx="5" fill="#fff" stroke="#E8730C" stroke-width="1.4"/><rect x="900" y="720" width="200" height="40" fill="none" stroke="#E8730C" stroke-width=".8"/><text class="mini" x="1000" y="739" fill="#a9520a">Accounts Payable</text><text class="ns" x="1000" y="754">supplier sub-ledger</text>
-        <rect x="1116" y="716" width="208" height="48" rx="5" fill="#fff" stroke="#E8730C" stroke-width="1.4"/><rect x="1120" y="720" width="200" height="40" fill="none" stroke="#E8730C" stroke-width=".8"/><text class="mini" x="1220" y="739" fill="#a9520a">Employee Payable</text><text class="ns" x="1220" y="754">payroll &amp; statutory</text>
-        <rect x="1336" y="716" width="208" height="48" rx="5" fill="#fff" stroke="#E8730C" stroke-width="1.4"/><rect x="1340" y="720" width="200" height="40" fill="none" stroke="#E8730C" stroke-width=".8"/><text class="mini" x="1440" y="745" fill="#a9520a">Cash · Bank</text>
-        <rect x="1556" y="716" width="208" height="48" rx="5" fill="#fff" stroke="#E8730C" stroke-width="1.4"/><rect x="1560" y="720" width="200" height="40" fill="none" stroke="#E8730C" stroke-width=".8"/><text class="mini" x="1660" y="739" fill="#a9520a">Revenue</text><text class="ns" x="1660" y="754">IFRS recognition policy</text>
-        <!-- ledger row B (y=772) -->
-        <rect x="236" y="772" width="208" height="40" rx="5" fill="#fff" stroke="#E8730C" stroke-width="1.4"/><text class="mini" x="340" y="796" fill="#a9520a">Journal Entries</text>
-        <rect x="456" y="772" width="208" height="40" rx="5" fill="#fff" stroke="#E8730C" stroke-width="1.4"/><text class="mini" x="560" y="796" fill="#a9520a">Project Accounting</text>
-        <rect x="676" y="772" width="208" height="40" rx="5" fill="#fff" stroke="#E8730C" stroke-width="1.4"/><text class="mini" x="780" y="796" fill="#a9520a">Cost Centers</text>
-        <rect x="896" y="772" width="208" height="40" rx="5" fill="#fff" stroke="#E8730C" stroke-width="1.4"/><text class="mini" x="1000" y="796" fill="#a9520a">Budget vs Actual</text>
-        <rect x="1116" y="772" width="208" height="40" rx="5" fill="#fff" stroke="#E8730C" stroke-width="1.4"/><text class="mini" x="1220" y="796" fill="#a9520a">Expense</text>
-        <rect x="1336" y="772" width="208" height="40" rx="5" fill="#fff" stroke="#E8730C" stroke-width="1.4"/><text class="mini" x="1440" y="796" fill="#a9520a">Assets · Liab · Equity</text>
-        <rect x="1556" y="772" width="208" height="40" rx="5" fill="#fff" stroke="#E8730C" stroke-width="1.4"/><text class="mini" x="1660" y="796" fill="#a9520a">Multi-currency · Tax</text>
+        <rect x="236" y="774" width="208" height="48" rx="5" fill="#fff" stroke="#E8730C" stroke-width="1.4"/><rect x="240" y="778" width="200" height="40" fill="none" stroke="#E8730C" stroke-width=".8"/><text class="mini" x="340" y="803" fill="#a9520a">General Ledger</text>
+        <rect x="456" y="774" width="208" height="48" rx="5" fill="#fff" stroke="#E8730C" stroke-width="1.4"/><rect x="460" y="778" width="200" height="40" fill="none" stroke="#E8730C" stroke-width=".8"/><text class="mini" x="560" y="797" fill="#a9520a">Accounts Receivable</text><text class="ns" x="560" y="812">customer sub-ledger</text>
+        <rect x="676" y="774" width="208" height="48" rx="5" fill="#fff" stroke="#E8730C" stroke-width="1.4"/><rect x="680" y="778" width="200" height="40" fill="none" stroke="#E8730C" stroke-width=".8"/><text class="mini" x="780" y="797" fill="#a9520a">Contractor Payable</text><text class="ns" x="780" y="812">+ retention · advance</text>
+        <rect x="896" y="774" width="208" height="48" rx="5" fill="#fff" stroke="#E8730C" stroke-width="1.4"/><rect x="900" y="778" width="200" height="40" fill="none" stroke="#E8730C" stroke-width=".8"/><text class="mini" x="1000" y="797" fill="#a9520a">Accounts Payable</text><text class="ns" x="1000" y="812">supplier sub-ledger</text>
+        <rect x="1116" y="774" width="208" height="48" rx="5" fill="#fff" stroke="#E8730C" stroke-width="1.4"/><rect x="1120" y="778" width="200" height="40" fill="none" stroke="#E8730C" stroke-width=".8"/><text class="mini" x="1220" y="797" fill="#a9520a">Employee Payable</text><text class="ns" x="1220" y="812">payroll &amp; statutory</text>
+        <rect x="1336" y="774" width="208" height="48" rx="5" fill="#fff" stroke="#E8730C" stroke-width="1.4"/><rect x="1340" y="778" width="200" height="40" fill="none" stroke="#E8730C" stroke-width=".8"/><text class="mini" x="1440" y="803" fill="#a9520a">Cash · Bank</text>
+        <rect x="1556" y="774" width="208" height="48" rx="5" fill="#fff" stroke="#E8730C" stroke-width="1.4"/><rect x="1560" y="778" width="200" height="40" fill="none" stroke="#E8730C" stroke-width=".8"/><text class="mini" x="1660" y="797" fill="#a9520a">Revenue</text><text class="ns" x="1660" y="812">IFRS recognition policy</text>
+        <rect x="236" y="830" width="208" height="40" rx="5" fill="#fff" stroke="#E8730C" stroke-width="1.4"/><text class="mini" x="340" y="854" fill="#a9520a">Journal Entries</text>
+        <rect x="456" y="830" width="208" height="40" rx="5" fill="#fff" stroke="#E8730C" stroke-width="1.4"/><text class="mini" x="560" y="854" fill="#a9520a">Project Accounting</text>
+        <rect x="676" y="830" width="208" height="40" rx="5" fill="#fff" stroke="#E8730C" stroke-width="1.4"/><text class="mini" x="780" y="854" fill="#a9520a">Cost Centers</text>
+        <rect x="896" y="830" width="208" height="40" rx="5" fill="#fff" stroke="#E8730C" stroke-width="1.4"/><text class="mini" x="1000" y="854" fill="#a9520a">Budget vs Actual</text>
+        <rect x="1116" y="830" width="208" height="40" rx="5" fill="#fff" stroke="#E8730C" stroke-width="1.4"/><text class="mini" x="1220" y="854" fill="#a9520a">Expense</text>
+        <rect x="1336" y="830" width="208" height="40" rx="5" fill="#fff" stroke="#E8730C" stroke-width="1.4"/><text class="mini" x="1440" y="854" fill="#a9520a">Assets · Liab · Equity</text>
+        <rect x="1556" y="830" width="208" height="40" rx="5" fill="#fff" stroke="#E8730C" stroke-width="1.4"/><text class="mini" x="1660" y="854" fill="#a9520a">Multi-currency · Tax</text>
       </g>
-      <circle cx="560" cy="702" r="10" fill="#1560BD"/><text class="nid" x="560" y="706" text-anchor="middle">A</text>
-      <circle cx="1000" cy="702" r="10" fill="#6B3FA0"/><text class="nid" x="1000" y="706" text-anchor="middle">B</text>
-      <circle cx="780" cy="702" r="10" fill="#C6362F"/><text class="nid" x="780" y="706" text-anchor="middle">C</text>
-      <circle cx="1220" cy="702" r="10" fill="#C79A1E"/><text class="nid" x="1220" y="706" text-anchor="middle">D</text>
+      <circle cx="560" cy="760" r="10" fill="#1560BD"/><text class="nid" x="560" y="764" text-anchor="middle">A</text>
+      <circle cx="1000" cy="760" r="10" fill="#6B3FA0"/><text class="nid" x="1000" y="764" text-anchor="middle">B</text>
+      <circle cx="780" cy="760" r="10" fill="#C6362F"/><text class="nid" x="780" y="764" text-anchor="middle">C</text>
+      <circle cx="1220" cy="760" r="10" fill="#C79A1E"/><text class="nid" x="1220" y="764" text-anchor="middle">D</text>
     </g>
 
-    <!-- ===== BAND 6 · BI + AI ===== -->
+    <!-- BI + AI AUDIT / MODEL PROVIDERS (y=900 h=86) -->
     <g>
-      <rect x="56" y="844" width="1140" height="86" rx="9" fill="#e4f4f4" stroke="#0E8A8A" stroke-width="1.7"/>
-      <text class="nt" x="70" y="866" fill="#0a6666">REPORTING &amp; BUSINESS INTELLIGENCE</text>
-      <rect x="1040" y="850" width="144" height="19" rx="5" fill="#0E8A8A"/><text class="nid" x="1112" y="864" text-anchor="middle">BI-01 · BP-19</text>
-      <text class="ns" x="70" y="886">Operational Data → Data Warehouse → BI → Dashboards (Executive · Finance · Sales · Collections · Construction · Procurement · Warehouse · HR · Project)</text>
-      <text class="ns" x="70" y="904">Drill-down: KPI → Report → Transaction → Document → User · real-time KPI · trend · project &amp; period comparison · filters · export · scheduled distribution</text>
-      <text class="ns" x="70" y="922" font-weight="700" fill="#0a6666">Row/field security-trimmed per role &amp; project (◂ SEC-01) · reconciles to the General Ledger (◂ FIN-01)</text>
-    </g>
-    <g>
-      <rect x="1216" y="844" width="728" height="86" rx="9" fill="#e4f4f4" stroke="#0E8A8A" stroke-width="1.7"/>
-      <text class="nt" x="1230" y="866" fill="#0a6666">AI CORE · ENTERPRISE INTELLIGENCE CONTROL PLANE</text>
-      <rect x="1790" y="850" width="144" height="19" rx="5" fill="#0E8A8A"/><text class="nid" x="1862" y="864" text-anchor="middle">AI-01 · BP-20</text>
-      <text class="ns" x="1230" y="886" font-weight="700" fill="#0a6666">Web / Telegram → Identity → Permission → AI Core → Knowledge / Typed Tools</text>
-      <text class="ns" x="1230" y="904">Model Gateway (API/OAuth/private) · Enterprise Knowledge Plane · Copilot · NLQ · Executive briefing · prediction · document AI</text>
-      <text class="ns" x="1230" y="922"><tspan fill="#8f2621" font-weight="700">Never: LLM → arbitrary SQL → database.</tspan> Every domain publishes typed tools/events; every answer/action is source &amp; audit linked.</text>
-    </g>
-
-    <!-- ===== BAND 7 · FOUNDATION ===== -->
-    <g>
-      <rect x="56" y="950" width="600" height="132" rx="9" fill="#eff1f3" stroke="#5B6470" stroke-width="1.7"/>
-      <text class="nt" x="70" y="972" fill="#3d444d">SECURITY &amp; AUDIT FOUNDATION</text>
-      <rect x="500" y="956" width="144" height="19" rx="5" fill="#5B6470"/><text class="nid" x="572" y="970" text-anchor="middle">SEC-01 · BP-23</text>
-      <text class="ns" x="70" y="994">Authentication · MFA · RBAC · Authorization</text>
-      <text class="ns" x="70" y="1012">Project security · Department security · Field-level</text>
-      <text class="ns" x="70" y="1030">Approval authority · Session management · SoD</text>
-      <text class="ns" x="70" y="1048">Audit log · Login log · Financial audit trail</text>
-      <text class="ns" x="70" y="1066">Encryption (rest/transit) · Backup · DR · HA · Monitoring</text>
-      <text class="oc" x="440" y="1066" fill="#8f2621">◂ ORG-01 · governs every band</text>
+      <rect x="56" y="900" width="1140" height="86" rx="9" fill="#e4f4f4" stroke="#0E8A8A" stroke-width="1.7"/>
+      <text class="nt" x="70" y="922" fill="#0a6666">REPORTING &amp; BUSINESS INTELLIGENCE</text>
+      <rect x="1040" y="906" width="144" height="19" rx="5" fill="#0E8A8A"/><text class="nid" x="1112" y="920" text-anchor="middle">BI-01 · BP-19</text>
+      <text class="ns" x="70" y="942">Operational data → DWH → Semantic layer → Dashboards · semantic measures are governed AI inputs ▸ KP-01</text>
+      <text class="ns" x="70" y="960">Drill-down: KPI → Report → Transaction → Document → User · Actual vs Forecast vs AI recommendation always labelled</text>
+      <text class="ns" x="70" y="978" font-weight="700" fill="#0a6666">Row/field security-trimmed per role &amp; project (◂ SEC-01) · reconciles to the General Ledger (◂ FIN-01)</text>
     </g>
     <g>
-      <rect x="676" y="950" width="600" height="132" rx="9" fill="#eff1f3" stroke="#5B6470" stroke-width="1.7"/>
-      <text class="nt" x="690" y="972" fill="#3d444d">API &amp; INTEGRATION LAYER</text>
-      <rect x="1120" y="956" width="144" height="19" rx="5" fill="#5B6470"/><text class="nid" x="1192" y="970" text-anchor="middle">INT-01 · BP-22</text>
-      <text class="ns" x="690" y="994">REST API · Webhooks · Event bus · Message queue · AI Model Gateway</text>
-      <text class="ns" x="690" y="1012">Banking · Payment gateway ▸ COLL-01</text>
-      <text class="ns" x="690" y="1030">Email · SMS · WhatsApp · Telegram Bot · Biometric ▸ HR-01 · Barcode/QR ▸ WH-01</text>
-      <text class="ns" x="690" y="1048">Primavera · Microsoft Project · BIM · Revit ▸ CONST-01</text>
-      <text class="ns" x="690" y="1066">LLM Providers (API/OAuth/private) · Government/Tax · external accounting &amp; banking</text>
+      <rect x="1216" y="900" width="728" height="86" rx="9" fill="#eee9f8" stroke="#5B3FA0" stroke-width="1.7"/>
+      <text class="nt" x="1230" y="922" fill="#3f2b73">AI AUDIT · OBSERVABILITY · MODEL PROVIDERS</text>
+      <rect x="1790" y="906" width="144" height="19" rx="5" fill="#5B3FA0"/><text class="nid" x="1862" y="920" text-anchor="middle">MG-01 · BP-20</text>
+      <text class="ns" x="1230" y="942">Every AI run: identity · channel · model/provider/version · sources &amp; versions · scope · tools · approvals · cost → audit store ▸ BP-23</text>
+      <text class="ns" x="1230" y="960">Model Gateway → External Provider A · External Provider B · Private model (API key · service account · OAuth · private endpoint)</text>
+      <text class="ns" x="1230" y="978"><tspan fill="#8f2621" font-weight="700">Never: module → LLM direct · LLM → SQL · AI → posting.</tspan> Alerts → Notification Service → Telegram ▸ TG-01</text>
+    </g>
+
+    <!-- FOUNDATION (y=1006 h=132) -->
+    <g>
+      <rect x="56" y="1006" width="600" height="132" rx="9" fill="#eff1f3" stroke="#5B6470" stroke-width="1.7"/>
+      <text class="nt" x="70" y="1028" fill="#3d444d">SECURITY &amp; AUDIT FOUNDATION</text>
+      <rect x="500" y="1012" width="144" height="19" rx="5" fill="#5B6470"/><text class="nid" x="572" y="1026" text-anchor="middle">SEC-01 · BP-23</text>
+      <text class="ns" x="70" y="1050">AuthN · MFA · RBAC · project / dept / field security · SoD · approval authority</text>
+      <text class="ns" x="70" y="1068">AI: query-time re-authorization · knowledge ACL tags · prompt-injection controls · DLP · tool allow-list</text>
+      <text class="ns" x="70" y="1086">Telegram: identity binding · webhook verification · replay protection · step-up · group-chat restriction</text>
+      <text class="ns" x="70" y="1104">Audit log · financial audit trail · AI run audit · Telegram correlation · encryption · backup · DR</text>
+      <text class="oc" x="440" y="1122" fill="#8f2621">◂ ORG-01 · governs every band</text>
     </g>
     <g>
-      <rect x="1296" y="950" width="648" height="132" rx="9" fill="#e9eef3" stroke="#3E5C76" stroke-width="1.7"/>
-      <text class="nt" x="1310" y="972" fill="#2b4256">EXTERNAL ACTORS &amp; PORTALS</text>
-      <rect x="1790" y="956" width="144" height="19" rx="5" fill="#3E5C76"/><text class="nid" x="1862" y="970" text-anchor="middle">PORT-01 · BP-24</text>
-      <rect x="1310" y="982" width="190" height="26" rx="13" fill="#fff" stroke="#1560BD" stroke-width="1.5"/><text class="mini" x="1405" y="999" text-anchor="middle" fill="#0f4a94">Customer (Party B)</text>
-      <rect x="1512" y="982" width="190" height="26" rx="13" fill="#fff" stroke="#6B3FA0" stroke-width="1.5"/><text class="mini" x="1607" y="999" text-anchor="middle" fill="#4e2c78">Supplier (Party B)</text>
-      <rect x="1714" y="982" width="216" height="26" rx="13" fill="#fff" stroke="#C6362F" stroke-width="1.5"/><text class="mini" x="1822" y="999" text-anchor="middle" fill="#8f2621">Contractor (Party B)</text>
-      <text class="ns" x="1310" y="1028">Customer Portal ▸ Contracts · Installments · Statements · Payments · Receipts · Documents · Support</text>
-      <text class="ns" x="1310" y="1046">Supplier Portal ▸ RFQs · Quotations · POs · Deliveries · Invoices · Payments</text>
-      <text class="ns" x="1310" y="1064">Contractor Portal ▸ Contracts · BOQ · Progress · Certificates · Claims · Payments</text>
-      <text class="oc" x="1310" y="1078" fill="#2b4256">Portal login = Account Type A · sees own party data only (◂ SEC-01) · also Banks · Payment Gateway · Government</text>
+      <rect x="676" y="1006" width="600" height="132" rx="9" fill="#eff1f3" stroke="#5B6470" stroke-width="1.7"/>
+      <text class="nt" x="690" y="1028" fill="#3d444d">API · EVENT · INTEGRATION LAYER</text>
+      <rect x="1120" y="1012" width="144" height="19" rx="5" fill="#5B6470"/><text class="nid" x="1192" y="1026" text-anchor="middle">INT-01 · BP-22</text>
+      <text class="ns" x="690" y="1050">API Gateway · Event bus · Webhooks · Jobs · Model Gateway ▸ MG-01 · Telegram Gateway ▸ TG-01</text>
+      <text class="ns" x="690" y="1068">Domain events → Finance · Notifications · AI Knowledge ingestion · DWH (idempotent, replayable)</text>
+      <text class="ns" x="690" y="1086">Banks · Payment gateway · Email/SMS/WhatsApp · Biometric · Barcode/QR · Primavera · BIM · Government</text>
+      <text class="ns" x="690" y="1104">Five traffic classes kept distinct: business API · events · AI model · Telegram · analytics</text>
     </g>
-
-    <!-- ===== BAND 8 · FOUR TRACEABLE PATHS ===== -->
     <g>
-      <rect x="56" y="1098" width="1888" height="102" rx="9" fill="#fbfcfe" stroke="#c9d1da"/>
-      <text class="band" x="72" y="1118" fill="#0B1F3A">FOUR END-TO-END TRACEABLE PATHS — follow the badges Ⓐ Ⓑ Ⓒ Ⓓ through the network above</text>
-      <circle cx="82" cy="1138" r="9" fill="#1560BD"/><text class="nid" x="82" y="1142" text-anchor="middle">A</text>
-      <text class="mini" x="100" y="1142" fill="#0f4a94">SALES</text>
-      <text class="ns" x="152" y="1142">Sales Agent → Customer → Unit → Contract → Installment → Payment → Receipt → <tspan font-weight="700">Dr Bank / Cr Accounts Receivable</tspan> → Journal Entry → General Ledger → Executive Dashboard</text>
-      <circle cx="82" cy="1158" r="9" fill="#6B3FA0"/><text class="nid" x="82" y="1162" text-anchor="middle">B</text>
-      <text class="mini" x="100" y="1162" fill="#4e2c78">PROCURE</text>
-      <text class="ns" x="152" y="1162">Site Engineer → Material Request → PR → Approval → RFQ → Supplier → PO → Delivery → GRN → Invoice → 3-way match → <tspan font-weight="700">Dr GRNI / Cr Accounts Payable</tspan> → Payment → General Ledger</text>
-      <circle cx="82" cy="1178" r="9" fill="#C6362F"/><text class="nid" x="82" y="1182" text-anchor="middle">C</text>
-      <text class="mini" x="100" y="1182" fill="#8f2621">CONTRACT</text>
-      <text class="ns" x="152" y="1182">Project Manager → Contractor Work → Progress Measurement → Engineer Approval → IPC − Retention − Advance → <tspan font-weight="700">Dr Project Cost / Cr Contractor Payable</tspan> → Payment → General Ledger</text>
-      <circle cx="82" cy="1198" r="9" fill="#C79A1E"/><text class="nid" x="82" y="1202" text-anchor="middle">D</text>
-      <text class="mini" x="100" y="1202" fill="#8f6d10">PAYROLL</text>
-      <text class="ns" x="152" y="1202">Employee → Attendance → Payroll Calculation → Approval → Bank Payment → Project / Cost-Center Allocation → <tspan font-weight="700">Dr Payroll Expense / Cr Employee Payable</tspan> → General Ledger</text>
+      <rect x="1296" y="1006" width="648" height="132" rx="9" fill="#e9eef3" stroke="#3E5C76" stroke-width="1.7"/>
+      <text class="nt" x="1310" y="1028" fill="#2b4256">EXTERNAL ACTORS &amp; PORTALS</text>
+      <rect x="1790" y="1012" width="144" height="19" rx="5" fill="#3E5C76"/><text class="nid" x="1862" y="1026" text-anchor="middle">PORT-01 · BP-24</text>
+      <rect x="1310" y="1038" width="190" height="24" rx="12" fill="#fff" stroke="#1560BD" stroke-width="1.5"/><text class="mini" x="1405" y="1054" text-anchor="middle" fill="#0f4a94">Customer (Party B)</text>
+      <rect x="1512" y="1038" width="190" height="24" rx="12" fill="#fff" stroke="#6B3FA0" stroke-width="1.5"/><text class="mini" x="1607" y="1054" text-anchor="middle" fill="#4e2c78">Supplier (Party B)</text>
+      <rect x="1714" y="1038" width="216" height="24" rx="12" fill="#fff" stroke="#C6362F" stroke-width="1.5"/><text class="mini" x="1822" y="1054" text-anchor="middle" fill="#8f2621">Contractor (Party B)</text>
+      <text class="ns" x="1310" y="1082">Portal login = Type-A account bound to one Party B · own-party data only · optional Telegram binding stays own-party</text>
+      <text class="ns" x="1310" y="1100">Customer: contracts · installments · payments · docs · Supplier: RFQ · PO · invoices · Contractor: BOQ · progress · IPC</text>
+      <text class="oc" x="1310" y="1122" fill="#2b4256">Telegram is a channel, not a Business Party · portal users never escape own-party boundary (◂ SEC-01)</text>
     </g>
 
-    <!-- ============================================================ -->
-    <!-- RELATIONSHIP LABEL CHIPS (drawn last, always on top)          -->
-    <!-- ============================================================ -->
+    <!-- PATHS (y=1154 h=114) -->
+    <g>
+      <rect x="56" y="1154" width="1888" height="114" rx="9" fill="#fbfcfe" stroke="#c9d1da"/>
+      <text class="band" x="72" y="1172" fill="#0B1F3A">FIVE END-TO-END TRACEABLE PATHS — follow Ⓐ Ⓑ Ⓒ Ⓓ Ⓔ through the network above</text>
+      <circle cx="82" cy="1190" r="9" fill="#1560BD"/><text class="nid" x="82" y="1194" text-anchor="middle">A</text>
+      <text class="ns" x="100" y="1194">Sales Agent → Customer → Unit → Contract → Installment → Receipt → <tspan font-weight="700">Dr Bank / Cr AR</tspan> → Journal → General Ledger → Executive Dashboard</text>
+      <circle cx="82" cy="1208" r="9" fill="#6B3FA0"/><text class="nid" x="82" y="1212" text-anchor="middle">B</text>
+      <text class="ns" x="100" y="1212">Site Engineer → Material Request → PR → Approval → RFQ → Supplier → PO → GRN → Invoice → 3-way → <tspan font-weight="700">Dr GRNI / Cr AP</tspan> → Payment → GL</text>
+      <circle cx="82" cy="1226" r="9" fill="#C6362F"/><text class="nid" x="82" y="1230" text-anchor="middle">C</text>
+      <text class="ns" x="100" y="1230">Project Manager → Contractor Work → Measurement → Engineer Approval → IPC − Retention − Advance → <tspan font-weight="700">Dr Project Cost / Cr Contractor Payable</tspan> → Payment → GL</text>
+      <circle cx="82" cy="1244" r="9" fill="#C79A1E"/><text class="nid" x="82" y="1248" text-anchor="middle">D</text>
+      <text class="ns" x="100" y="1248">Employee → Attendance → Payroll → Approval → Bank Payment → Project / CC allocation → <tspan font-weight="700">Dr Payroll Expense / Cr Employee Payable</tspan> → GL</text>
+      <circle cx="82" cy="1262" r="9" fill="#2AABEE"/><text class="nid" x="82" y="1266" text-anchor="middle">E</text>
+      <text class="ns" x="100" y="1266"><tspan font-weight="700">Telegram message</tspan> → Bound User → Permission context → AI run (model · sources) → Typed tool → Domain service → Workflow → Transaction / Document → Journal if applicable → Audit → Telegram response / deep link</text>
+    </g>
 
-    <!-- access -->
-    <g><rect x="227" y="232" width="146" height="17" rx="8" fill="#fff" stroke="#5B6470"/><text class="lt" x="300" y="244" text-anchor="middle">grants approval authority</text></g>
+    <!-- ================= LABEL CHIPS ================= -->
+    <g transform="rotate(-90 1964 190)"><rect x="1870" y="181" width="188" height="17" rx="8" fill="#fff" stroke="#2AABEE"/><text class="lt" x="1964" y="193" text-anchor="middle">authenticated → identity → policy gate</text></g>
+    <g><rect x="232" y="224" width="136" height="17" rx="8" fill="#fff" stroke="#5B6470"/><text class="lt" x="300" y="236" text-anchor="middle">grants scope to AI Core</text></g>
+    <g><rect x="905" y="299" width="190" height="17" rx="8" fill="#fff" stroke="#0E8A8A"/><text class="lt" x="1000" y="311" text-anchor="middle">AI action proposal → workflow (never approves)</text></g>
+    <g><rect x="58" y="330" width="136" height="17" rx="8" fill="#fff" stroke="#0E8A8A"/><text class="lt" x="126" y="342" text-anchor="middle">golden records → KP-01</text></g>
+    <g><rect x="1806" y="330" width="136" height="17" rx="8" fill="#fff" stroke="#0E8A8A"/><text class="lt" x="1874" y="342" text-anchor="middle">published docs → KP-01</text></g>
 
-    <!-- approval (what the engine gates for each column) -->
-    <g><rect x="260" y="311" width="160" height="17" rx="8" fill="#fff" stroke="#C6362F"/><text class="lt" x="340" y="323" text-anchor="middle">discount · contract · waiver</text></g>
-    <g><rect x="524" y="311" width="160" height="17" rx="8" fill="#fff" stroke="#C6362F"/><text class="lt" x="604" y="323" text-anchor="middle">variation · stock adjust</text></g>
-    <g><rect x="806" y="311" width="124" height="17" rx="8" fill="#fff" stroke="#C6362F"/><text class="lt" x="868" y="323" text-anchor="middle">budget revision · IPC</text></g>
-    <g><rect x="1080" y="311" width="104" height="17" rx="8" fill="#fff" stroke="#C6362F"/><text class="lt" x="1132" y="323" text-anchor="middle">PR · PO · payment</text></g>
-    <g><rect x="1341" y="311" width="110" height="17" rx="8" fill="#fff" stroke="#C6362F"/><text class="lt" x="1396" y="323" text-anchor="middle">leave · payroll run</text></g>
-    <g><rect x="1590" y="311" width="140" height="17" rx="8" fill="#fff" stroke="#C6362F"/><text class="lt" x="1660" y="323" text-anchor="middle">project budget · expense</text></g>
+    <g><rect x="260" y="369" width="160" height="17" rx="8" fill="#fff" stroke="#C6362F"/><text class="lt" x="340" y="381" text-anchor="middle">discount · contract · waiver</text></g>
+    <g><rect x="524" y="369" width="160" height="17" rx="8" fill="#fff" stroke="#C6362F"/><text class="lt" x="604" y="381" text-anchor="middle">variation · stock adjust</text></g>
+    <g><rect x="806" y="369" width="124" height="17" rx="8" fill="#fff" stroke="#C6362F"/><text class="lt" x="868" y="381" text-anchor="middle">budget revision · IPC</text></g>
+    <g><rect x="1080" y="369" width="104" height="17" rx="8" fill="#fff" stroke="#C6362F"/><text class="lt" x="1132" y="381" text-anchor="middle">PR · PO · payment</text></g>
+    <g><rect x="1341" y="369" width="110" height="17" rx="8" fill="#fff" stroke="#C6362F"/><text class="lt" x="1396" y="381" text-anchor="middle">leave · payroll run</text></g>
+    <g><rect x="1590" y="369" width="140" height="17" rx="8" fill="#fff" stroke="#C6362F"/><text class="lt" x="1660" y="381" text-anchor="middle">project budget · expense</text></g>
 
-    <!-- process row1<->row2 -->
-    <g><rect x="267" y="502" width="146" height="17" rx="8" fill="#fff" stroke="#2f3b49"/><text class="lt" x="340" y="514" text-anchor="middle">contract → schedule (1:N)</text></g>
-    <g><rect x="539" y="502" width="130" height="17" rx="8" fill="#fff" stroke="#2f3b49"/><text class="lt" x="604" y="514" text-anchor="middle">issues material to site</text></g>
-    <g><rect x="793" y="502" width="150" height="17" rx="8" fill="#fff" stroke="#2f3b49"/><text class="lt" x="868" y="514" text-anchor="middle">certified IPC → actual cost</text></g>
-    <g><rect x="1085" y="502" width="94" height="17" rx="8" fill="#fff" stroke="#2f3b49"/><text class="lt" x="1132" y="514" text-anchor="middle">PO placed (1:N)</text></g>
-    <g><rect x="1316" y="502" width="160" height="17" rx="8" fill="#fff" stroke="#2f3b49"/><text class="lt" x="1396" y="514" text-anchor="middle">attendance · salary structure</text></g>
-    <g><rect x="1587" y="502" width="146" height="17" rx="8" fill="#fff" stroke="#2f3b49"/><text class="lt" x="1660" y="514" text-anchor="middle">tags project · cost center</text></g>
+    <g><rect x="267" y="560" width="146" height="17" rx="8" fill="#fff" stroke="#2f3b49"/><text class="lt" x="340" y="572" text-anchor="middle">contract → schedule (1:N)</text></g>
+    <g><rect x="539" y="560" width="130" height="17" rx="8" fill="#fff" stroke="#2f3b49"/><text class="lt" x="604" y="572" text-anchor="middle">issues material to site</text></g>
+    <g><rect x="793" y="560" width="150" height="17" rx="8" fill="#fff" stroke="#2f3b49"/><text class="lt" x="868" y="572" text-anchor="middle">certified IPC → actual cost</text></g>
+    <g><rect x="1085" y="560" width="94" height="17" rx="8" fill="#fff" stroke="#2f3b49"/><text class="lt" x="1132" y="572" text-anchor="middle">PO placed (1:N)</text></g>
+    <g><rect x="1316" y="560" width="160" height="17" rx="8" fill="#fff" stroke="#2f3b49"/><text class="lt" x="1396" y="572" text-anchor="middle">attendance · salary structure</text></g>
+    <g><rect x="1587" y="560" width="146" height="17" rx="8" fill="#fff" stroke="#2f3b49"/><text class="lt" x="1660" y="572" text-anchor="middle">tags project · cost center</text></g>
+    <g><rect x="688" y="574" width="104" height="17" rx="8" fill="#fff" stroke="#2f3b49"/><text class="lt" x="740" y="586" text-anchor="middle">subcontracts work</text></g>
+    <g><rect x="936" y="578" width="94" height="17" rx="8" fill="#fff" stroke="#0E8A8A"/><text class="lt" x="983" y="590" text-anchor="middle">delivery → GRN</text></g>
+    <g transform="rotate(-90 734 472)"><rect x="686" y="464" width="96" height="16" rx="8" fill="#fff" stroke="#2f3b49"/><text class="lt" x="734" y="475" text-anchor="middle">progress → cost</text></g>
 
-    <!-- cross-network -->
-    <g><rect x="688" y="516" width="104" height="17" rx="8" fill="#fff" stroke="#2f3b49"/><text class="lt" x="740" y="528" text-anchor="middle">subcontracts work</text></g>
-    <g><rect x="936" y="520" width="94" height="17" rx="8" fill="#fff" stroke="#0E8A8A"/><text class="lt" x="983" y="532" text-anchor="middle">delivery → GRN</text></g>
-    <g transform="rotate(-90 734 414)"><rect x="686" y="406" width="96" height="16" rx="8" fill="#fff" stroke="#2f3b49"/><text class="lt" x="734" y="417" text-anchor="middle">progress → cost</text></g>
+    <g><rect x="267" y="708" width="146" height="17" rx="8" fill="#fff" stroke="#E8730C"/><text class="lt" x="340" y="720" text-anchor="middle">receipt · Dr Bank / Cr AR</text></g>
+    <g><rect x="498" y="708" width="212" height="17" rx="8" fill="#fff" stroke="#E8730C"/><text class="lt" x="604" y="720" text-anchor="middle">issue · Dr Project Cost / Cr Inventory</text></g>
+    <g><rect x="768" y="708" width="200" height="17" rx="8" fill="#fff" stroke="#E8730C"/><text class="lt" x="868" y="720" text-anchor="middle">IPC · Dr WIP / Cr Contractor Payable</text></g>
+    <g><rect x="1059" y="708" width="146" height="17" rx="8" fill="#fff" stroke="#E8730C"/><text class="lt" x="1132" y="720" text-anchor="middle">invoice · Dr GRNI / Cr AP</text></g>
+    <g><rect x="1293" y="708" width="206" height="17" rx="8" fill="#fff" stroke="#E8730C"/><text class="lt" x="1396" y="720" text-anchor="middle">payroll · Dr Expense / Cr Emp Payable</text></g>
+    <g><rect x="1575" y="708" width="170" height="17" rx="8" fill="#fff" stroke="#E8730C"/><text class="lt" x="1660" y="720" text-anchor="middle">expense · Dr Expense / Cr Bank</text></g>
 
-    <!-- financial postings (Dr / Cr on every line) -->
-    <g><rect x="267" y="650" width="146" height="17" rx="8" fill="#fff" stroke="#E8730C"/><text class="lt" x="340" y="662" text-anchor="middle">receipt · Dr Bank / Cr AR</text></g>
-    <g><rect x="498" y="650" width="212" height="17" rx="8" fill="#fff" stroke="#E8730C"/><text class="lt" x="604" y="662" text-anchor="middle">issue · Dr Project Cost / Cr Inventory</text></g>
-    <g><rect x="768" y="650" width="200" height="17" rx="8" fill="#fff" stroke="#E8730C"/><text class="lt" x="868" y="662" text-anchor="middle">IPC · Dr WIP / Cr Contractor Payable</text></g>
-    <g><rect x="1059" y="650" width="146" height="17" rx="8" fill="#fff" stroke="#E8730C"/><text class="lt" x="1132" y="662" text-anchor="middle">invoice · Dr GRNI / Cr AP</text></g>
-    <g><rect x="1293" y="650" width="206" height="17" rx="8" fill="#fff" stroke="#E8730C"/><text class="lt" x="1396" y="662" text-anchor="middle">payroll · Dr Expense / Cr Emp Payable</text></g>
-    <g><rect x="1575" y="650" width="170" height="17" rx="8" fill="#fff" stroke="#E8730C"/><text class="lt" x="1660" y="662" text-anchor="middle">expense · Dr Expense / Cr Bank</text></g>
-
-    <!-- finance -> BI -->
-    <g><rect x="341" y="824" width="118" height="17" rx="8" fill="#fff" stroke="#0E8A8A"/><text class="lt" x="400" y="836" text-anchor="middle">feeds data warehouse</text></g>
-
-    <!-- bus labels (rotated in their gutters) -->
-    <g transform="rotate(-90 208 560)"><rect x="102" y="551" width="212" height="17" rx="8" fill="#fff" stroke="#0E8A8A"/><text class="lt" x="208" y="563" text-anchor="middle">supplies golden records — uses →</text></g>
-    <g transform="rotate(-90 1792 560)"><rect x="1714" y="551" width="156" height="17" rx="8" fill="#fff" stroke="#7A5230"/><text class="lt" x="1792" y="563" text-anchor="middle">evidences every transaction</text></g>
-
-    <!-- long-haul reporting labels (rotated in their channels) -->
-    <g transform="rotate(-90 36 500)"><rect x="-114" y="491" width="300" height="17" rx="8" fill="#fff" stroke="#0E8A8A"/><text class="lt" x="36" y="503" text-anchor="middle">reports to ▲ KPI → Report → Transaction → Document → User</text></g>
-    <g transform="rotate(-90 1964 500)"><rect x="1874" y="491" width="180" height="17" rx="8" fill="#fff" stroke="#0E8A8A"/><text class="lt" x="1964" y="503" text-anchor="middle">smart alerts &amp; forecasts ▲</text></g>
-
-    <!-- integration label (rotated in the gap) -->
-    <g transform="rotate(-90 1284 1016)"><rect x="1224" y="1008" width="120" height="16" rx="8" fill="#fff" stroke="#5B6470"/><text class="lt" x="1284" y="1019" text-anchor="middle">APIs · AI · Telegram</text></g>
-
+    <g><rect x="341" y="882" width="118" height="17" rx="8" fill="#fff" stroke="#0E8A8A"/><text class="lt" x="400" y="894" text-anchor="middle">feeds data warehouse</text></g>
+    <g transform="rotate(-90 208 640)"><rect x="102" y="631" width="212" height="17" rx="8" fill="#fff" stroke="#5B6470"/><text class="lt" x="208" y="643" text-anchor="middle">supplies golden records — uses →</text></g>
+    <g transform="rotate(-90 1792 640)"><rect x="1714" y="631" width="156" height="17" rx="8" fill="#fff" stroke="#7A5230"/><text class="lt" x="1792" y="643" text-anchor="middle">evidences every transaction</text></g>
+    <g transform="rotate(-90 36 520)"><rect x="-114" y="511" width="300" height="17" rx="8" fill="#fff" stroke="#0E8A8A"/><text class="lt" x="36" y="523" text-anchor="middle">reports to ▲ KPI → Report → Transaction → Document → User</text></g>
+    <g transform="rotate(-90 1284 1072)"><rect x="1224" y="1064" width="120" height="16" rx="8" fill="#fff" stroke="#5B6470"/><text class="lt" x="1284" y="1075" text-anchor="middle">APIs · webhooks</text></g>
   </svg>
   </div>
 
   <div class="foot">
     <span><b>AL-BERUNIY OPERATING SYSTEM</b> · Master Network Workflow Blueprint</span>
-    <span>Enterprise Architecture • Process • Data • Finance • AI Core • Telegram · v1.1 · 2026-09-18</span>
-    <span>Orthogonal routing · every relationship labelled · ▸ ◂ connectors link to detailed blueprints</span>
+    <span>Enterprise Architecture • Process • Data • Finance • Control • AI Core • Telegram · v1.2 · 2026-09-18 · Client Approval Candidate</span>
+    <span>Orthogonal routing · every relationship labelled · AI Core is an additional governed plane, not a mandatory path</span>
   </div>
 </section>
 </body>

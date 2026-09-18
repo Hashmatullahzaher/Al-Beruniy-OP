@@ -26,10 +26,11 @@
       <div class="desc">Schedules, receipts, overdue, penalties, rescheduling, escalation and handover eligibility.</div>
     </div>
     <div class="tb-meta">
-      <span class="k">Version</span><b>1.0</b>
-      <span class="k">Date</span><b>2026-09-17</b>
+      <span class="k">Version</span><b>1.2</b>
+      <span class="k">Date</span><b>2026-09-18</b>
       <span class="k">Connector</span><b>COLL-01</b>
       <span class="k">Sheet</span><b>06 / 26</b>
+      <span class="stat">CLIENT APPROVAL CANDIDATE</span>
     </div>
   </div>
 
@@ -41,6 +42,7 @@
     <span class="legend-item"><span class="arrow">→</span> generates / settles</span>
     <span class="legend-item"><span class="cid in">◂ SALE-01</span> from Sales</span>
     <span class="legend-item"><span class="cid out">FIN-AR-01</span> Receivable ledger</span>
+      <span class="legend-item"><span class="cid ai">AI-01</span> typed tools · knowledge · <span class="cid tg">TG-01</span> Telegram channel</span>
   </div>
 
   <div class="canvas">
@@ -128,10 +130,19 @@
       </div>
     </div>
 
+  
+    <div class="aistrip">
+      <div class="ah">AI CORE &amp; TELEGRAM CONTRACT <span class="tag">AI-01</span><span class="tag" style="background:#2AABEE">TG-01</span><span style="font-weight:600;color:#3d444d;letter-spacing:0">— this module exposes typed tools, publishes events to the Knowledge Plane and is reachable from Telegram under the same permissions · <span class="cid">COLL-01</span> ↔ <span class="cid">BP-20</span></span></div>
+      <div class="ac"><span class="t">Typed read tools</span>get_overdue_installments · get_customer_statement · predict_late_payment · rank_collection_risk · get_promise_to_pay</div>
+      <div class="ac"><span class="t">Draft / action tools → workflow</span>draft_reminder · draft_reschedule_request · draft_waiver_request → Workflow (FM approves waivers)</div>
+      <div class="ac"><span class="t">Events → Knowledge Plane (KP-01)</span>InstallmentDue · ReceiptPosted · PromiseBroken · aging buckets → projection (customer party · project)</div>
+      <div class="ac tg"><span class="t">Telegram queries &amp; notifications</span>installment reminders to customers via portal binding · officer queue / overdue alerts to Collection Officers · promise follow-ups</div>
+      <div class="ac no"><span class="t">Hard guardrail</span>AI never changes a balance, penalty or schedule. Risk scores are labelled as predictions and are never totalled with posted amounts.</div>
+    </div>
   </div>
   <div class="foot">
     <span><b>AL-BERUNIY OPERATING SYSTEM</b> · Enterprise Architecture Blueprint</span>
-    <span>Blueprint 06 · Installments &amp; Collections · v1.0 · 2026-09-17</span>
+    <span>Blueprint 06 · Installments &amp; Collections · v1.2 · 2026-09-18 · Client Approval Candidate</span>
     <span>Receipt settles Receivable · posts Bank/Cash · frees Handover</span>
   </div>
 </section>

@@ -26,10 +26,11 @@
       <div class="desc">The masters that guarantee consistency — defined once, consumed everywhere, versioned &amp; owned.</div>
     </div>
     <div class="tb-meta">
-      <span class="k">Version</span><b>1.0</b>
-      <span class="k">Date</span><b>2026-09-17</b>
+      <span class="k">Version</span><b>1.2</b>
+      <span class="k">Date</span><b>2026-09-18</b>
       <span class="k">Connector</span><b>MDM-01</b>
       <span class="k">Sheet</span><b>21 / 26</b>
+      <span class="stat">CLIENT APPROVAL CANDIDATE</span>
     </div>
   </div>
 
@@ -39,6 +40,7 @@
     <span class="legend-item"><span class="arrow">→</span> consumed by</span>
     <span class="legend-item"><b>Owner</b> data steward</span>
     <span class="legend-item"><span class="cid">MDM-01</span> master-data connector</span>
+      <span class="legend-item"><span class="cid ai">AI-01</span> typed tools · knowledge · <span class="cid tg">TG-01</span> Telegram channel</span>
   </div>
 
   <div class="canvas">
@@ -100,10 +102,19 @@
       </div>
     </div>
 
+  
+    <div class="aistrip">
+      <div class="ah">AI CORE &amp; TELEGRAM CONTRACT <span class="tag">AI-01</span><span class="tag" style="background:#2AABEE">TG-01</span><span style="font-weight:600;color:#3d444d;letter-spacing:0">— this module exposes typed tools, publishes events to the Knowledge Plane and is reachable from Telegram under the same permissions · <span class="cid">MDM-01</span> ↔ <span class="cid">BP-20</span></span></div>
+      <div class="ac"><span class="t">Typed read tools</span>find_customer · find_supplier · find_material · get_chart_of_accounts · resolve_entity — golden records feed domain services, BI and the Knowledge Plane</div>
+      <div class="ac"><span class="t">Draft / action tools → workflow</span>suggest_duplicate_merge · propose_master_change → Workflow (Data Steward approves — authoritative)</div>
+      <div class="ac"><span class="t">Events → Knowledge Plane (KP-01)</span>MasterCreated · MasterChanged · MasterMerged → Knowledge Plane entity graph (effective-dated, versioned)</div>
+      <div class="ac tg"><span class="t">Telegram queries &amp; notifications</span>master-change approval notices to stewards · no master data edits from Telegram</div>
+      <div class="ac no"><span class="t">Hard guardrail</span>AI assists duplicate detection and matching; steward approval remains the only path to change a golden record.</div>
+    </div>
   </div>
   <div class="foot">
     <span><b>AL-BERUNIY OPERATING SYSTEM</b> · Enterprise Architecture Blueprint</span>
-    <span>Blueprint 21 · Master Data · v1.1 · 2026-09-18</span>
+    <span>Blueprint 21 · Master Data · v1.2 · 2026-09-18 · Client Approval Candidate</span>
     <span>Defined once · governed · consumed by every module</span>
   </div>
 </section>

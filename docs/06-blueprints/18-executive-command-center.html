@@ -13,6 +13,7 @@
   <a href="17-workflow-approvals.html">17 · Workflow</a>
   <a href="18-executive-command-center.html">18 · Exec Center</a>
   <a href="19-business-intelligence.html">19 · BI</a>
+  <a href="20-ai-architecture.html">20 · AI Core</a>
   <a href="26-transaction-traceability.html">26 · Traceability</a>
   <span class="screen-note">Print → A3 · Landscape · Margins None · Background graphics ON</span>
 </nav>
@@ -22,117 +23,125 @@
     <div class="tb-brand"><div class="os">AL-BERUNIY</div><div class="sub">OPERATING SYSTEM</div></div>
     <div class="tb-title">
       <div class="no">BLUEPRINT 18 · EXECUTIVE COMMAND CENTER</div>
-      <div class="name">The Chairman &amp; CEO Cockpit — One Screen, Whole Company</div>
-      <div class="desc">Live company &amp; portfolio KPIs with drill-down: Company → Project → Department → Transaction.</div>
+      <div class="name">The Chairman &amp; CEO Cockpit — One Screen, Whole Company, with an Executive AI Copilot</div>
+      <div class="desc">Live company &amp; portfolio KPIs, an AI briefing that explains them with sources, and drill-down: Company → Project → Department → Transaction → Source Document.</div>
     </div>
     <div class="tb-meta">
-      <span class="k">Version</span><b>1.0</b>
-      <span class="k">Date</span><b>2026-09-17</b>
+      <span class="k">Version</span><b>1.2</b>
+      <span class="k">Date</span><b>2026-09-18</b>
       <span class="k">Connector</span><b>EXEC-01</b>
       <span class="k">Sheet</span><b>18 / 26</b>
+      <span class="stat">CLIENT APPROVAL CANDIDATE</span>
     </div>
   </div>
 
   <div class="legend">
     <span class="lg-title">LEGEND</span>
     <span class="legend-item"><span class="sw" style="background:var(--exec)"></span>Executive KPI</span>
-    <span class="legend-item"><span class="sw" style="background:var(--data)"></span>AI signal</span>
+    <span class="legend-item"><span class="sw" style="background:#0E8A8A"></span>AI briefing / signal</span>
+    <span class="legend-item"><span class="sw" style="background:#2AABEE"></span>Telegram delivery</span>
     <span class="legend-item"><span class="arrow">→</span> drill down</span>
-    <span class="legend-item"><span class="cid in">◂ all modules</span> live feeds</span>
-    <span class="legend-item"><span class="cid out">BP-26</span> to source transaction</span>
+    <span class="legend-item"><span class="ln ai"></span>AI event</span>
+    <span class="legend-item"><span class="cid in">◂ all modules</span> live feeds · <span class="cid ai">AI-01</span> · <span class="cid tg">TG-01</span> · <span class="cid out">BP-26</span> to source</span>
   </div>
 
   <div class="canvas">
 
     <div class="row" style="flex:0 0 auto">
-      <div class="card d-exec grow"><div class="hd">COMPANY / PORTFOLIO — headline KPIs</div>
+      <div class="card d-exec grow"><div class="hd">COMPANY / PORTFOLIO — headline KPIs (actuals from Finance · forecasts from cost services · AI labels its own inferences)</div>
         <div class="bd"><div class="grid cols-6" style="gap:5px">
           <div class="kpi d-const"><div class="v">▦</div><div class="k">Total Projects</div></div>
           <div class="kpi d-exec"><div class="v">◱</div><div class="k">Project Health</div></div>
           <div class="kpi d-fin"><div class="v">Σ</div><div class="k">Development Value</div></div>
           <div class="kpi d-const"><div class="v">%</div><div class="k">Construction Progress</div></div>
-          <div class="kpi d-sales"><div class="v">#</div><div class="k">Total Units</div></div>
-          <div class="kpi d-sales"><div class="v">#</div><div class="k">Available Units</div></div>
-          <div class="kpi d-sales"><div class="v">#</div><div class="k">Reserved Units</div></div>
-          <div class="kpi d-sales"><div class="v">#</div><div class="k">Sold Units</div></div>
-          <div class="kpi d-sales"><div class="v">Σ</div><div class="k">Sales Value</div></div>
-          <div class="kpi d-fin"><div class="v">Σ</div><div class="k">Cash Collected</div></div>
-          <div class="kpi d-fin"><div class="v">▲</div><div class="k">Outstanding Receivables</div></div>
-          <div class="kpi d-fin"><div class="v">◷</div><div class="k">Upcoming Installments</div></div>
-        </div></div>
-      </div>
-    </div>
-
-    <div class="row" style="flex:0 0 auto">
-      <div class="card d-fin grow"><div class="hd">FINANCIAL &amp; COST</div>
-        <div class="bd"><div class="grid cols-6" style="gap:5px">
-          <div class="kpi d-const"><div class="v">▲</div><div class="k">Overdue Installments</div></div>
-          <div class="kpi d-fin"><div class="v">Σ</div><div class="k">Revenue</div></div>
-          <div class="kpi d-fin"><div class="v">Σ</div><div class="k">Expenses</div></div>
-          <div class="kpi d-fin"><div class="v">±</div><div class="k">Profit / Loss</div></div>
-          <div class="kpi d-fin"><div class="v">≈</div><div class="k">Cash Flow</div></div>
-          <div class="kpi d-const"><div class="v">Σ</div><div class="k">Project Cost</div></div>
-          <div class="kpi d-fin"><div class="v">Δ</div><div class="k">Budget Variance</div></div>
-          <div class="kpi d-proc"><div class="v">▲</div><div class="k">Supplier Payables</div></div>
-          <div class="kpi d-const"><div class="v">▲</div><div class="k">Contractor Payables</div></div>
-          <div class="kpi d-hr"><div class="v">Σ</div><div class="k">Payroll</div></div>
-          <div class="kpi d-proc"><div class="v">Σ</div><div class="k">Procurement Commitments</div></div>
+          <div class="kpi d-sales"><div class="v">#</div><div class="k">Units · Available · Reserved · Sold</div></div>
+          <div class="kpi d-fin"><div class="v">Σ</div><div class="k">Cash Collected · Receivables</div></div>
+          <div class="kpi d-const"><div class="v">▲</div><div class="k">Overdue · Upcoming Installments</div></div>
+          <div class="kpi d-fin"><div class="v">±</div><div class="k">Revenue · Expenses · Profit</div></div>
+          <div class="kpi d-fin"><div class="v">≈</div><div class="k">Cash Flow · Budget Variance</div></div>
+          <div class="kpi d-proc"><div class="v">▲</div><div class="k">Supplier · Contractor Payables</div></div>
+          <div class="kpi d-hr"><div class="v">Σ</div><div class="k">Payroll · Commitments</div></div>
           <div class="kpi d-wh"><div class="v">Σ</div><div class="k">Warehouse Value</div></div>
         </div></div>
       </div>
     </div>
 
     <div class="row grow">
-      <div class="col" style="flex:1.4">
-        <p class="band d-exec">Drill-Down Path (traceability spine)</p>
-        <div class="card d-exec soft grow"><div class="bd">
-          <div class="chain">
-            <div class="step"><span class="n">1</span><b>Company</b><span class="mini">consolidated</span></div>
-            <div class="step"><span class="n">2</span><b>Project</b><span class="mini">portfolio → one</span></div>
-            <div class="step"><span class="n">3</span><b>Department / Cost Center</b><span class="mini">responsibility</span></div>
-            <div class="step"><span class="n">4</span><b>Transaction</b><span class="mini">source record <span class="cid out">BP-26</span></span></div>
+      <div class="col" style="flex:1.35">
+        <p class="band d-ai">Executive AI Copilot / Daily Briefing <span class="cid ai">AI-01</span></p>
+        <div class="card d-ai soft grow"><div class="bd">
+          <div class="grid cols-2" style="gap:5px">
+            <div class="blk d-ai"><span class="t">“What changed today?”</span>delta of KPIs · new approvals · events since last briefing</div>
+            <div class="blk d-ai"><span class="t">“Which projects require my attention?”</span>health · overdue · EAC · delays ranked by exposure</div>
+            <div class="blk d-ai"><span class="t">“Why did cash decline?”</span>receipts vs outflows explained from ledger entries</div>
+            <div class="blk d-ai"><span class="t">“Which collections are at risk?”</span>predicted late-pay accounts (labelled prediction)</div>
+            <div class="blk d-ai"><span class="t">“Which projects are over budget?”</span>EAC &gt; BAC by WBS with variance drivers</div>
+            <div class="blk d-ai"><span class="t">“Which IPCs are waiting?” · “Summarize construction delays.”</span>pending certificates · delay causes with sources</div>
           </div>
           <hr class="dash">
-          <div class="mini"><b>Example:</b> CEO sees a $250k project expense → clicks → Project → Cost Center → Expense → PO → Supplier → Invoice → GRN → Original Request → Requester → Approver → Payment → Bank Txn → Journal Entry → Ledger Account. <b>Every hop is one click.</b></div>
-          <hr class="dash">
-          <div class="mini"><b>Two views, one button:</b> toggle <b>Project-Level</b> ↔ <b>Corporate Consolidated</b> <span class="cid">BP-03</span>. Data access still bounded by role — a Project Director's cockpit shows only their projects.</div>
+          <div class="chain">
+            <div class="step" style="--c:var(--exec);--ci:var(--exec-ink)"><b>Executive KPI</b><span class="mini">actual / forecast</span></div>
+            <div class="step" style="--c:#0E8A8A;--ci:#0a6666"><b>AI analysis</b><span class="mini">grounded on authorized sources</span></div>
+            <div class="step" style="--c:#0E8A8A;--ci:#0a6666"><b>Source links</b><span class="mini">JE · IPC · contract · doc IDs</span></div>
+            <div class="step" style="--c:var(--fin);--ci:var(--fin-ink)"><b>Transaction / document drill-down</b><span class="mini"><span class="cid">BP-26</span></span></div>
+          </div>
+          <div class="mini" style="margin-top:4px"><b>Actual · Forecast · AI recommendation are always visually distinct.</b> The Chairman receives consolidated analysis because the Chairman is authorized for it — a Project Director asking the same questions receives only their projects. Every briefing is an audited AI run <span class="cid">BP-23</span>.</div>
         </div></div>
       </div>
 
       <div class="col" style="flex:1">
-        <p class="band d-data">Top Risks &amp; AI Core Briefing</p>
-        <div class="card d-data grow"><div class="bd mini">
-          <div class="blk d-data"><span class="t">⚠ Collection Risk</span><br>projects with rising overdue &amp; late-payment probability</div>
-          <div class="blk d-data"><span class="t">⚠ Cost Overrun</span><br>EAC &gt; BAC flagged before completion</div>
-          <div class="blk d-data"><span class="t">⚠ Project Delay</span><br>SPI &lt; 1 &amp; predicted slippage</div>
-          <div class="blk d-data"><span class="t">⚠ Liquidity</span><br>predicted cash shortfall next N weeks</div>
-          <div class="blk d-data"><span class="t">⚠ Supplier / Contractor Risk</span><br>performance &amp; concentration</div>
-          <div class="blk d-data"><span class="t">⚠ Anomaly / Fraud</span><br>duplicate invoice · unusual approval <span class="cid">BP-20</span></div>
+        <p class="band d-exec">Drill-Down Path (traceability spine)</p>
+        <div class="card d-exec soft"><div class="bd">
+          <div class="chain">
+            <div class="step"><span class="n">1</span><b>Company</b></div>
+            <div class="step"><span class="n">2</span><b>Project</b></div>
+            <div class="step"><span class="n">3</span><b>Dept / CC</b></div>
+            <div class="step"><span class="n">4</span><b>Transaction</b></div>
+            <div class="step"><span class="n">5</span><b>Source doc</b></div>
+          </div>
+          <div class="mini" style="margin-top:4px">CEO sees $250k expense → Project → Cost Center → Expense → PO → Supplier → Invoice → GRN → Request → Requester → Approver → Payment → Bank → JE → Ledger. <b>Every hop one click; AI answers link into the same spine.</b></div>
+        </div></div>
+        <p class="band d-exec">Needs your decision</p>
+        <div class="card d-exec grow"><div class="bd tight mini">
+          <div style="padding:6px 10px;border-bottom:1px solid var(--line)"><b>Supplier payment</b> · $284,000 · Mazar Mall · 2 days past SLA · <span class="cid tg">TG-01</span> notified → deep link</div>
+          <div style="padding:6px 10px;border-bottom:1px solid var(--line)"><b>Discount above policy</b> · 12% · Unit B-0904 · AI margin impact attached</div>
+          <div style="padding:6px 10px"><b>Budget revision</b> · +$1.4M · Alberuniy Park · AI EAC explanation attached</div>
         </div></div>
       </div>
 
       <div class="col" style="flex:.9">
-        <p class="band d-exec">Cockpit Users</p>
-        <div class="card d-exec soft"><div class="bd"><div class="pills">
-          <span class="pill solid">Chairman</span><span class="pill solid">CEO</span><span class="pill solid">COO</span><span class="pill solid">CFO</span>
-          <span class="pill">Project Director (own)</span><span class="pill">Board (read)</span>
-        </div></div></div>
-        <p class="band d-exec">Feeds From</p>
-        <div class="card d-exec soft grow"><div class="bd"><div class="pills">
-          <span class="pill">Sales</span><span class="pill">Collections</span><span class="pill">Finance</span><span class="pill">Cost</span>
-          <span class="pill">Construction</span><span class="pill">Procurement</span><span class="pill">Warehouse</span><span class="pill">HR/Payroll</span>
-          <span class="pill">BI / DWH</span><span class="pill">AI</span>
-        </div>
-        <div class="mini" style="margin-top:5px">Real-time KPIs from the operational DB + curated DWH; heavy analytics served from BI layer <span class="cid">BP-19</span>.</div>
+        <p class="band d-data">Risk &amp; AI alerts</p>
+        <div class="card d-data grow"><div class="bd mini">
+          <div class="blk d-ai"><span class="t">⚠ Collection risk</span> predicted late-pay exposure by project</div>
+          <div class="blk d-ai"><span class="t">⚠ Cost overrun</span> EAC &gt; BAC before completion</div>
+          <div class="blk d-ai"><span class="t">⚠ Project delay</span> SPI &lt; 1 &amp; predicted slippage</div>
+          <div class="blk d-ai"><span class="t">⚠ Liquidity</span> predicted cash shortfall</div>
+          <div class="blk d-ai"><span class="t">⚠ Anomaly / duplicate</span> unusual approvals · duplicate invoices</div>
+          <div class="mini" style="margin-top:3px">Raised by background monitoring under Machine Identity <span class="cid">MID-01</span> — alerts and tasks only, never decisions.</div>
+        </div></div>
+        <p class="band d-tg">Telegram executive channel</p>
+        <div class="card d-tg soft"><div class="bd mini">
+          Daily briefing · risk alerts · “/approvals” summary · “/ask” questions — <b>private chat, bound Chairman/CEO/CFO account only</b>. High-value approval → secure ABOS deep link + step-up. Allow-listed executive alert channel is read-only. <span class="cid tg">TG-01</span>
         </div></div>
       </div>
+    </div>
+
+    <div class="facets d-exec">
+      <div class="f"><span class="ft">Actors</span>Chairman · CEO · COO · CFO · Project Director (own) · Board (read)</div>
+      <div class="f"><span class="ft">Inputs</span>Finance · Sales · Collections · Cost · Construction · Procurement · WH · HR · BI · AI</div>
+      <div class="f"><span class="ft">Process</span>KPI → AI briefing → drill → decide</div>
+      <div class="f"><span class="ft">Decisions</span>Top-tier approvals via WF-01</div>
+      <div class="f"><span class="ft">Documents</span>Every figure resolves to a source doc</div>
+      <div class="f"><span class="ft">Notifications</span>In-app · email · Telegram briefing</div>
+      <div class="f"><span class="ft">Audit</span>Views · AI runs · approvals · channel</div>
+      <div class="f"><span class="ft">Security</span>Consolidated view only for authorized executives</div>
     </div>
 
   </div>
   <div class="foot">
     <span><b>AL-BERUNIY OPERATING SYSTEM</b> · Enterprise Architecture Blueprint</span>
-    <span>Blueprint 18 · Executive Command Center · v1.1 · 2026-09-18</span>
-    <span>Every KPI drills to its source transaction (BP-26)</span>
+    <span>Blueprint 18 · Executive Command Center · v1.2 · 2026-09-18 · Client Approval Candidate</span>
+    <span>KPI → AI analysis → source links → transaction / document drill-down</span>
   </div>
 </section>
 </body>

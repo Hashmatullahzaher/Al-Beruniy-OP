@@ -27,10 +27,11 @@
       <div class="desc">Subcontract lifecycle with certified progress mapped precisely to Contractor Payable.</div>
     </div>
     <div class="tb-meta">
-      <span class="k">Version</span><b>1.0</b>
-      <span class="k">Date</span><b>2026-09-17</b>
+      <span class="k">Version</span><b>1.2</b>
+      <span class="k">Date</span><b>2026-09-18</b>
       <span class="k">Connector</span><b>CON-01</b>
       <span class="k">Sheet</span><b>11 / 26</b>
+      <span class="stat">CLIENT APPROVAL CANDIDATE</span>
     </div>
   </div>
 
@@ -42,6 +43,7 @@
     <span class="legend-item"><span class="cid in">◂ CONST-01</span> progress</span>
     <span class="legend-item"><span class="cid out">COST-01</span> subcontract cost</span>
     <span class="legend-item"><span class="cid out">FIN-AP-01</span> payable</span>
+      <span class="legend-item"><span class="cid ai">AI-01</span> typed tools · knowledge · <span class="cid tg">TG-01</span> Telegram channel</span>
   </div>
 
   <div class="canvas">
@@ -126,10 +128,19 @@
       </div>
     </div>
 
+  
+    <div class="aistrip">
+      <div class="ah">AI CORE &amp; TELEGRAM CONTRACT <span class="tag">AI-01</span><span class="tag" style="background:#2AABEE">TG-01</span><span style="font-weight:600;color:#3d444d;letter-spacing:0">— this module exposes typed tools, publishes events to the Knowledge Plane and is reachable from Telegram under the same permissions · <span class="cid">CON-01</span> ↔ <span class="cid">BP-20</span></span></div>
+      <div class="ac"><span class="t">Typed read tools</span>get_ipc_status · explain_retention_and_advance · summarize_claims · get_measurement_summary · get_contractor_payable</div>
+      <div class="ac"><span class="t">Draft / action tools → workflow</span>draft_measurement_sheet · draft_claim_response · draft_ipc_summary → Workflow (QS → Engineer → PM → Finance)</div>
+      <div class="ac"><span class="t">Events → Knowledge Plane (KP-01)</span>MeasurementSubmitted · IPCCertified · RetentionReleased · ClaimLodged → projection (project · contractor party)</div>
+      <div class="ac tg"><span class="t">Telegram queries &amp; notifications</span>IPC status · certification / payment stage alerts to PM, QS and Finance · contractor portal users see own contracts only</div>
+      <div class="ac no"><span class="t">Hard guardrail</span>AI analyses measurements and summarizes claim documents with source citations; certification and payment approval stay with engineers, PM and Finance.</div>
+    </div>
   </div>
   <div class="foot">
     <span><b>AL-BERUNIY OPERATING SYSTEM</b> · Enterprise Architecture Blueprint</span>
-    <span>Blueprint 11 · Contractor Management · v1.0 · 2026-09-17</span>
+    <span>Blueprint 11 · Contractor Management · v1.2 · 2026-09-18 · Client Approval Candidate</span>
     <span>Certified progress → IPC → retention/advance → Contractor Payable</span>
   </div>
 </section>

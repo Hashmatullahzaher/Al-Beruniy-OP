@@ -27,10 +27,11 @@
       <div class="desc">Marketing lead through reservation, contract, installment plan, collection and handover.</div>
     </div>
     <div class="tb-meta">
-      <span class="k">Version</span><b>1.0</b>
-      <span class="k">Date</span><b>2026-09-17</b>
+      <span class="k">Version</span><b>1.2</b>
+      <span class="k">Date</span><b>2026-09-18</b>
       <span class="k">Connector</span><b>SALE-01</b>
       <span class="k">Sheet</span><b>05 / 26</b>
+      <span class="stat">CLIENT APPROVAL CANDIDATE</span>
     </div>
   </div>
 
@@ -42,6 +43,7 @@
     <span class="legend-item"><span class="cid out">OUT ▸ FIN-AR-01</span> to Finance</span>
     <span class="legend-item"><span class="cid out">OUT ▸ COLL-01</span> to Collections</span>
     <span class="legend-item"><b>1:N</b> · <b>N:N</b> cardinality</span>
+      <span class="legend-item"><span class="cid ai">AI-01</span> typed tools · knowledge · <span class="cid tg">TG-01</span> Telegram channel</span>
   </div>
 
   <div class="canvas">
@@ -137,10 +139,19 @@
       <div class="f"><span class="ft">Security</span>Agent sees own customers only</div>
     </div>
 
+  
+    <div class="aistrip">
+      <div class="ah">AI CORE &amp; TELEGRAM CONTRACT <span class="tag">AI-01</span><span class="tag" style="background:#2AABEE">TG-01</span><span style="font-weight:600;color:#3d444d;letter-spacing:0">— this module exposes typed tools, publishes events to the Knowledge Plane and is reachable from Telegram under the same permissions · <span class="cid">SALE-01</span> ↔ <span class="cid">BP-20</span></span></div>
+      <div class="ac"><span class="t">Typed read tools</span>get_available_units · get_customer_history · get_lead_pipeline · find_sales_contract · get_collection_risk · forecast_sales_absorption</div>
+      <div class="ac"><span class="t">Draft / action tools → workflow</span>draft_quotation · draft_reservation · draft_discount_request → Workflow (discount policy tiers unchanged)</div>
+      <div class="ac"><span class="t">Events → Knowledge Plane (KP-01)</span>LeadCreated · ReservationMade · ContractApproved · UnitStatusChanged → projection with customer party scope &amp; project tag</div>
+      <div class="ac tg"><span class="t">Telegram queries &amp; notifications</span>authorized sales / customer summaries · unit availability · pipeline for the agent's own customers only</div>
+      <div class="ac no"><span class="t">Hard guardrail</span>AI cannot reserve, price or approve a discount. It drafts; Sales Manager / Director approve through WF-01. Customer-private data never leaves own-party scope.</div>
+    </div>
   </div>
   <div class="foot">
     <span><b>AL-BERUNIY OPERATING SYSTEM</b> · Enterprise Architecture Blueprint</span>
-    <span>Blueprint 05 · Sales &amp; CRM · v1.0 · 2026-09-17</span>
+    <span>Blueprint 05 · Sales &amp; CRM · v1.2 · 2026-09-18 · Client Approval Candidate</span>
     <span>Sales Contract → FIN-AR-01 · Installment Plan → COLL-01</span>
   </div>
 </section>

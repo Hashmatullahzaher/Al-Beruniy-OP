@@ -13,6 +13,7 @@
   <a href="15-payroll.html">15 · Payroll</a>
   <a href="16-document-management.html">16 · Documents</a>
   <a href="17-workflow-approvals.html">17 · Workflow</a>
+  <a href="20-ai-architecture.html">20 · AI Core</a>
   <a href="23-security-architecture.html">23 · Security</a>
   <span class="screen-note">Print → A3 · Landscape · Margins None · Background graphics ON</span>
 </nav>
@@ -22,102 +23,115 @@
     <div class="tb-brand"><div class="os">AL-BERUNIY</div><div class="sub">OPERATING SYSTEM</div></div>
     <div class="tb-title">
       <div class="no">BLUEPRINT 16 · DOCUMENT MANAGEMENT</div>
-      <div class="name">One Controlled Repository — Versioned, Signed, Retained</div>
-      <div class="desc">Every module's documents are governed by type, owner, version, approval and access rights — and become security-tagged AI knowledge sources where permitted.</div>
+      <div class="name">One Controlled Repository — Versioned, Signed, Retained, and the Primary Source of AI Knowledge</div>
+      <div class="desc">Every module's documents governed by type, owner, version, approval and ACL — then classified and published to the Enterprise Knowledge Plane so AI answers always cite the original.</div>
     </div>
     <div class="tb-meta">
-      <span class="k">Version</span><b>1.0</b>
-      <span class="k">Date</span><b>2026-09-17</b>
+      <span class="k">Version</span><b>1.2</b>
+      <span class="k">Date</span><b>2026-09-18</b>
       <span class="k">Connector</span><b>DOC-01</b>
       <span class="k">Sheet</span><b>16 / 26</b>
+      <span class="stat">CLIENT APPROVAL CANDIDATE</span>
     </div>
   </div>
 
   <div class="legend">
     <span class="lg-title">LEGEND</span>
     <span class="legend-item"><span class="sw" style="background:var(--doc)"></span>Document</span>
-    <span class="legend-item"><span class="sw" style="background:var(--infra)"></span>Access/Security</span>
+    <span class="legend-item"><span class="sw" style="background:#0E8A8A"></span>Knowledge Plane</span>
+    <span class="legend-item"><span class="sw" style="background:#2AABEE"></span>Telegram intake</span>
+    <span class="legend-item"><span class="sw" style="background:var(--infra)"></span>Access / security</span>
     <span class="legend-item"><span class="arrow">→</span> lifecycle</span>
-    <span class="legend-item"><span class="cid in">◂ all modules</span> attach docs</span>
-    <span class="legend-item"><span class="cid">SEC-01</span> access enforced by BP-23</span>
+    <span class="legend-item"><span class="ln ai"></span>AI event</span>
+    <span class="legend-item"><span class="cid in">◂ all modules</span> attach · <span class="cid">KP-01</span> ingest · <span class="cid tg">TG-01</span> attachments · <span class="cid">SEC-01</span> ACL</span>
   </div>
 
   <div class="canvas">
 
     <div class="row" style="flex:0 0 auto">
-      <div class="card d-doc grow"><div class="hd">DOCUMENT LIFECYCLE</div>
+      <div class="card d-doc grow"><div class="hd">DOCUMENT LIFECYCLE — unchanged business flow, now ending in governed AI publication</div>
         <div class="bd"><div class="chain">
-          <div class="step"><span class="n">1</span><b>Create / Upload</b><span class="mini">from any module</span></div>
-          <div class="step"><span class="n">2</span><b>Classify</b><span class="mini">type · project · dept</span></div>
-          <div class="step"><span class="n">3</span><b>Version</b><span class="mini">v1, v2 … immutable history</span></div>
+          <div class="step"><span class="n">1</span><b>Create / Upload</b><span class="mini">any module · portal · Telegram (via Document Service)</span></div>
+          <div class="step"><span class="n">2</span><b>Classify</b><span class="mini">type · project · dept · party · <b>sensitivity</b></span></div>
+          <div class="step"><span class="n">3</span><b>Version</b><span class="mini">immutable history · source ID</span></div>
           <div class="step"><span class="n">4</span><b>Review + Comments</b><span class="mini">markups</span></div>
           <div class="step"><span class="n">5</span><b>Approval</b><span class="mini"><span class="cid">WF-01</span></span></div>
           <div class="step"><span class="n">6</span><b>Digital Signature</b><span class="mini">e-sign</span></div>
-          <div class="step"><span class="n">7</span><b>Publish / Status</b><span class="mini">draft→approved→superseded</span></div>
-          <div class="step"><span class="n">8</span><b>Archive + Retention</b><span class="mini">policy-based</span></div>
+          <div class="step"><span class="n">7</span><b>Publish</b><span class="mini">approved → Knowledge ingestion <span class="cid">KP-01</span></span></div>
+          <div class="step"><span class="n">8</span><b>Archive + Retention</b><span class="mini">policy · index retention follows</span></div>
         </div></div>
       </div>
     </div>
 
     <div class="row grow">
-      <div class="col" style="flex:1.2">
+      <div class="col" style="flex:1.05">
         <p class="band d-doc">Metadata &amp; Controls</p>
         <div class="card d-doc soft grow"><div class="bd"><div class="grid cols-2" style="gap:4px">
           <div class="blk d-doc"><span class="t">Folder Structure</span><br>Company → Project → Dept → Type</div>
           <div class="blk d-doc"><span class="t">Document Type</span><br>contract · drawing · invoice…</div>
           <div class="blk d-doc"><span class="t">Owner</span><br>responsible user</div>
-          <div class="blk d-doc"><span class="t">Version &amp; Revision</span><br>full history</div>
-          <div class="blk d-doc"><span class="t">Status</span><br>draft/approved/superseded</div>
-          <div class="blk d-doc"><span class="t">Approval</span><br>workflow-gated</div>
-          <div class="blk d-doc"><span class="t">Comments &amp; Markups</span><br>threaded review</div>
+          <div class="blk d-doc"><span class="t">Version &amp; Revision</span><br>full history · source version</div>
+          <div class="blk d-doc"><span class="t">Status</span><br>draft / approved / superseded</div>
           <div class="blk d-doc"><span class="t">Digital Signature</span><br>signer &amp; timestamp</div>
-          <div class="blk d-infra"><span class="t">Access Rights</span><br>role/project/field <span class="cid">SEC-01</span></div>
-          <div class="blk d-doc"><span class="t">Archive &amp; Retention</span><br>legal hold · disposal</div>
+          <div class="blk d-infra"><span class="t">ACL / Access Rights</span><br>role · project · party · field <span class="cid">SEC-01</span></div>
+          <div class="blk d-ai"><span class="t">Classification</span><br>Public · Internal · Confidential · Restricted → AI retrieval tag</div>
+          <div class="blk d-doc"><span class="t">Effective Dates</span><br>valid-from / to · supersession</div>
+          <div class="blk d-doc"><span class="t">Related Transaction</span><br>PO · GRN · IPC · JE · contract link</div>
         </div></div></div>
         <div class="facets d-doc">
-          <div class="f"><span class="ft">Actors</span>Doc Controller · Owner · Approver</div>
-          <div class="f"><span class="ft">Inputs</span>Files from modules</div>
-          <div class="f"><span class="ft">Master Data</span>Doc Type · Project · Dept</div>
-          <div class="f"><span class="ft">Process</span>Upload→Approve→Archive</div>
-          <div class="f"><span class="ft">Decisions</span>Approve · supersede · retain</div>
-          <div class="f"><span class="ft">Approvals</span>Per doc type</div>
-          <div class="f"><span class="ft">Transactions</span>Version · sign · publish</div>
-          <div class="f"><span class="ft">Documents</span>All controlled records</div>
-          <div class="f"><span class="ft">Outputs</span>Single source of docs</div>
-          <div class="f"><span class="ft">Accounting</span>Supports vouchers &amp; audit</div>
-          <div class="f"><span class="ft">Modules</span>All (attach &amp; retrieve)</div>
-          <div class="f"><span class="ft">Notifications</span>Review · expiry · signature</div>
-          <div class="f"><span class="ft">Reports/KPIs</span>Pending · expiring · compliance</div>
-          <div class="f"><span class="ft">Audit</span>Access &amp; version log</div>
-          <div class="f"><span class="ft">Exceptions</span>Expired · missing · unsigned</div>
-          <div class="f"><span class="ft">Security</span>Field/role/project rights</div>
+          <div class="f"><span class="ft">Actors</span>Doc Controller · Owner · Approver · Knowledge Steward · Machine Identity</div>
+          <div class="f"><span class="ft">Inputs</span>Files from modules · portals · Telegram</div>
+          <div class="f"><span class="ft">Process</span>Upload→Classify→Approve→Publish→Index</div>
+          <div class="f"><span class="ft">Approvals</span>Per doc type via WF-01</div>
+          <div class="f"><span class="ft">Outputs</span>Single source of docs · cited AI answers</div>
+          <div class="f"><span class="ft">Audit</span>Access · version · ingestion · AI citation log</div>
+          <div class="f"><span class="ft">Exceptions</span>Expired · unsigned · scan failed · reclassified</div>
+          <div class="f"><span class="ft">Security</span>ACL re-checked at every AI retrieval</div>
         </div>
       </div>
 
-      <div class="col" style="flex:1.4">
-        <p class="band d-doc">Document Domains — every module feeds the vault</p>
-        <div class="card d-doc grow"><div class="bd"><div class="grid cols-3" style="gap:4px">
-          <div class="blk d-sales"><span class="t">Sales</span><br>Quotes · Contracts · Receipts · Statements</div>
-          <div class="blk d-const"><span class="t">Engineering</span><br>Drawings · BOQ · RFI · Submittals · NCR</div>
-          <div class="blk d-proc"><span class="t">Procurement</span><br>RFQ · Quotes · POs · GRN</div>
-          <div class="blk d-fin"><span class="t">Finance</span><br>Invoices · Vouchers · Bank docs</div>
-          <div class="blk d-const"><span class="t">Contractor</span><br>Contracts · IPC · Measurement</div>
-          <div class="blk d-hr"><span class="t">HR</span><br>Employee files · Appraisals</div>
-          <div class="blk d-sales"><span class="t">Customer Files</span><br>KYC · ID · Correspondence</div>
-          <div class="blk d-proc"><span class="t">Supplier Files</span><br>KYC · Licenses · Certs</div>
-          <div class="blk d-legal"><span class="t">Legal</span><br>Titles · Permits · Cases <span class="cid">LEG-01</span></div>
-        </div>
-        <div class="mini" style="margin-top:5px"><b>Every operational record links to its document; AI Core references the same source/version</b>, so a transaction (BP-26) always resolves to its supporting evidence.</div>
+      <div class="col" style="flex:1.25">
+        <p class="band d-ai">Document Service → Enterprise Knowledge Plane → AI Retrieval</p>
+        <div class="card d-ai soft grow"><div class="bd">
+          <div class="chain">
+            <div class="step" style="--c:var(--doc);--ci:var(--doc-ink)"><b>Published document</b><span class="mini">approved version only</span></div>
+            <div class="step" style="--c:#0E8A8A;--ci:#0a6666"><b>Knowledge ingestion</b><span class="mini">Machine Identity <span class="cid">MID-01</span></span></div>
+            <div class="step" style="--c:var(--const);--ci:var(--const-ink)"><b>Security tagging</b><span class="mini">ACL · classification · party · project</span></div>
+            <div class="step" style="--c:#0E8A8A;--ci:#0a6666"><b>Knowledge Plane index</b><span class="mini">chunks + graph + doc reference <span class="cid">KP-01</span></span></div>
+            <div class="step" style="--c:var(--infra);--ci:var(--infra-ink)"><b>Query-time re-authorization</b><span class="mini">user ACL ∩ doc ACL</span></div>
+            <div class="step" style="--c:#0E8A8A;--ci:#0a6666"><b>AI answer with citation</b><span class="mini">doc ID · version · page / clause</span></div>
+          </div>
+          <hr class="dash">
+          <div class="grid cols-2" style="gap:5px">
+            <div class="blk d-ai"><span class="t">Every indexed chunk carries</span>document ID · version · classification · ACL tags · project · party · department · effective date · source page/section</div>
+            <div class="blk d-ai"><span class="t">Document AI capabilities</span>semantic search · invoice extraction · contract clause analysis · summarization — all outputs reference the source document and version</div>
+            <div class="blk d-ai"><span class="t">Freshness</span>DocumentPublished / Superseded / Archived events re-index immediately; scheduled reconciliation verifies index vs Document Service</div>
+            <div class="forbid"><b>Never:</b> a draft or unapproved version in the index · an answer without a citation · a Restricted document surfaced to a user without matching ACL · untrusted document text altering tool or permission policy (prompt-injection control)</div>
+          </div>
         </div></div>
       </div>
 
-      <div class="col" style="flex:.8">
-        <p class="band d-infra">Access Model</p>
-        <div class="card d-infra soft grow"><div class="bd mini">
-          <div class="blk d-infra"><span class="t">Project-scoped</span><br>see only assigned projects' docs</div>
-          <div class="blk d-infra"><span class="t">Role-scoped</span><br>e.g. payroll docs = HR/Finance only</div>
-          <div class="blk d-infra"><span class="t">Field/watermark</span><br>sensitive docs watermarked &amp; logged</div>
-          <div class="blk d-infra"><span class="t">External share</span><br>portal-limited to own party <span class="cid">BP-24</span></div>
+      <div class="col" style="flex:.9">
+        <p class="band d-tg">Telegram attachments — through Document Service only</p>
+        <div class="card d-tg soft"><div class="bd">
+          <div class="chain vert" style="--c:#2AABEE;--ci:#136a99">
+            <div class="step"><b>Telegram file / photo</b><span class="mini">from bound user · private chat</span></div>
+            <div class="step"><b>Size / type validation</b><span class="mini">policy limits</span></div>
+            <div class="step"><b>Malware / security scan</b><span class="mini">quarantine on fail</span></div>
+            <div class="step"><b>Permission check</b><span class="mini">may this user attach to this record?</span></div>
+            <div class="step" style="--c:var(--doc);--ci:var(--doc-ink)"><b>Object storage → Document record / version</b><span class="mini">linked to source transaction · audited</span></div>
+          </div>
+          <div class="forbid" style="margin-top:4px"><b>No file is written directly into domain storage.</b> Site photos, receipts and delivery notes all become governed documents.</div>
+        </div></div>
+        <p class="band d-doc">Document domains feeding the vault</p>
+        <div class="card d-doc grow"><div class="bd"><div class="pills">
+          <span class="pill">Sales: quotes · contracts · receipts</span><span class="pill">Engineering: drawings · BOQ · RFI · NCR</span>
+          <span class="pill">Procurement: RFQ · PO · GRN</span><span class="pill">Finance: invoices · vouchers</span>
+          <span class="pill">Contractor: IPC · measurement</span><span class="pill">HR: employee files (Restricted)</span>
+          <span class="pill">Customer / Supplier KYC</span><span class="pill">Legal: titles · permits</span>
+          <span class="pill">Policies &amp; system documentation → AI knowledge</span>
+        </div>
+        <div class="mini" style="margin-top:4px">Every operational record links to its document; every AI answer links back to the same record. <span class="cid">BP-26</span></div>
         </div></div>
       </div>
     </div>
@@ -125,8 +139,8 @@
   </div>
   <div class="foot">
     <span><b>AL-BERUNIY OPERATING SYSTEM</b> · Enterprise Architecture Blueprint</span>
-    <span>Blueprint 16 · Document Management · v1.1 · 2026-09-18</span>
-    <span>Every transaction resolves to its supporting document</span>
+    <span>Blueprint 16 · Document Management · v1.2 · 2026-09-18 · Client Approval Candidate</span>
+    <span>Publish → classify → index → re-authorize → cite</span>
   </div>
 </section>
 </body>

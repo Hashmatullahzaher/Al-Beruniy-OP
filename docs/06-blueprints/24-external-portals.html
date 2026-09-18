@@ -26,10 +26,11 @@
       <div class="desc">Self-service surfaces that see only their own party data — never internal operations.</div>
     </div>
     <div class="tb-meta">
-      <span class="k">Version</span><b>1.0</b>
-      <span class="k">Date</span><b>2026-09-17</b>
+      <span class="k">Version</span><b>1.2</b>
+      <span class="k">Date</span><b>2026-09-18</b>
       <span class="k">Connector</span><b>PORT-01</b>
       <span class="k">Sheet</span><b>24 / 26</b>
+      <span class="stat">CLIENT APPROVAL CANDIDATE</span>
     </div>
   </div>
 
@@ -40,6 +41,7 @@
     <span class="legend-item"><span class="sw" style="background:var(--const)"></span>Contractor portal</span>
     <span class="legend-item"><span class="arrow">→</span> maps to internal</span>
     <span class="legend-item"><span class="cid">SEC-01</span> own-party data only</span>
+      <span class="legend-item"><span class="cid ai">AI-01</span> typed tools · knowledge · <span class="cid tg">TG-01</span> Telegram channel</span>
   </div>
 
   <div class="canvas">
@@ -119,10 +121,19 @@
       <div class="f"><span class="ft">Security</span>Own-party row security · no internal view</div>
     </div>
 
+  
+    <div class="aistrip">
+      <div class="ah">AI CORE &amp; TELEGRAM CONTRACT <span class="tag">AI-01</span><span class="tag" style="background:#2AABEE">TG-01</span><span style="font-weight:600;color:#3d444d;letter-spacing:0">— this module exposes typed tools, publishes events to the Knowledge Plane and is reachable from Telegram under the same permissions · <span class="cid">PORT-01</span> ↔ <span class="cid">BP-20</span></span></div>
+      <div class="ac"><span class="t">Typed read tools</span>portal-scoped: get_my_contract · get_my_schedule · get_my_receipts · get_my_po · get_my_ipc — own-party only</div>
+      <div class="ac"><span class="t">Draft / action tools → workflow</span>draft_support_ticket · draft_quotation_submission · draft_progress_submission → internal Workflow</div>
+      <div class="ac"><span class="t">Events → Knowledge Plane (KP-01)</span>portal actions → domain events → projection tagged with the party's own scope only</div>
+      <div class="ac tg"><span class="t">Telegram queries &amp; notifications</span>optional external Telegram: Portal User (Type-A) → Type-B Party → Telegram binding → own-party security; installment / PO / IPC notices</div>
+      <div class="ac no"><span class="t">Hard guardrail</span>Portal and Telegram users can never escape their own-party boundary. Telegram is a channel, not a Business Party. AI answers to external users are party-scoped.</div>
+    </div>
   </div>
   <div class="foot">
     <span><b>AL-BERUNIY OPERATING SYSTEM</b> · Enterprise Architecture Blueprint</span>
-    <span>Blueprint 24 · External Portals · v1.1 · 2026-09-18</span>
+    <span>Blueprint 24 · External Portals · v1.2 · 2026-09-18 · Client Approval Candidate</span>
     <span>External users see only their own party data</span>
   </div>
 </section>

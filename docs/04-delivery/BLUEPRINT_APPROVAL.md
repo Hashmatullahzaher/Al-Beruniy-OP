@@ -37,3 +37,10 @@ Material business-architecture changes after this baseline must update documenta
 - Agent execution baseline SHA: `e733c1cb6d5cb575f77b34e884493147bb3e34e7`
 - Includes the zero-to-100 master build runbook, technology baseline, 205-package work-status ledger, release-readiness ledger, final completion report template, and one-time master prompts for Claude, Codex and Antigravity.
 - Status: **READY FOR CONNECTED AGENT EXECUTION**
+
+## v1.2 Client Approval Candidate — full AI Core / Telegram blueprint revision
+- Candidate repository SHA: `3fc229d8e4008ecffb715deaaa4c49f64334eb64`
+- Branch: `docs/blueprints-v1.2-ai-core-telegram`
+- Date: 2026-09-18
+- Scope: complete 28-sheet package (00 index, Master Network Workflow, BP-01..BP-26) at v1.2; BP-20 and BP-22 fully reworked; every domain sheet carries an AI Core & Telegram Contract strip; connector IDs AI-01 / MG-01 / KP-01 / TOOL-01 / MID-01 / TG-01.
+- Status: **READY FOR CLIENT REVIEW** — record approver, date and exceptions before treating this SHA as the authoritative baseline.
