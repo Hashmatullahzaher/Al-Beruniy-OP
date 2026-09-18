@@ -13,3 +13,9 @@ The blueprint review gate must explicitly include:
 - Telegram relationship to Notifications/Documents/AI/Domain Services
 
 Any approved blueprint baseline after this change must record the exact repository SHA containing the updated BP-20, BP-22 and Master Network Workflow.
+
+
+## Current AI Core / Telegram candidate baseline
+- Candidate repository SHA: `e280c73f8d3eb29fcdab3ae35e98090778e73cf8`
+- Includes revised BP-01, BP-16, BP-17, BP-18, BP-19, BP-20, BP-21, BP-22, BP-23, BP-24, BP-25, BP-26 and Master Network Workflow.
+- Status: documentation revision incorporated; record stakeholder approval/approver/date/exceptions before treating this SHA as the authoritative build baseline.
