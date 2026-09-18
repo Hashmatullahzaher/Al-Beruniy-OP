@@ -3,7 +3,7 @@
 Documentation-first source of truth for the AL-BERUNIY Operating System: a multi-project real-estate development, construction, finance, sales, procurement, warehouse, HR/payroll, document, analytics and AI platform.
 
 ## Current phase
-Documentation and blueprint definition. No production implementation should redefine the approved operating model.
+**Build-ready / multi-agent execution.** Documentation, blueprints, implementation sequencing, technology baseline, AI Core/Telegram architecture, work-package ledger and agent master prompts are present. Production implementation starts at WP-0001 and proceeds through WP-1220.
 
 ## Source-of-truth order
 1. `docs/04-delivery/ACCEPTANCE_CONTRACT.md`
@@ -12,6 +12,8 @@ Documentation and blueprint definition. No production implementation should rede
 4. `docs/06-blueprints/` visual blueprint package
 5. `docs/03-architecture/SYSTEM_ARCHITECTURE.md`
 6. `docs/04-delivery/IMPLEMENTATION_PLAN.md`
+7. `docs/03-architecture/TECHNOLOGY_BASELINE.md`
+8. `docs/04-delivery/AGENT_COORDINATION.md`
 
 Conflicts are recorded in `docs/00-governance/OPEN_ITEMS.md` and resolved explicitly before dependent build work.
 
@@ -43,3 +45,26 @@ Architecture:
 
 LLM providers may connect through approved API keys, service credentials, OAuth/provider sign-in, or private model endpoints. Provider credentials are managed secrets and never live in source code.
 
+
+
+## Zero-to-100 Agent Build
+
+The repository is prepared for one-time master prompting of three connected coding agents:
+
+- Claude: `prompts/CLAUDE_MASTER_PROMPT.md`
+- Codex: `prompts/CODEX_MASTER_PROMPT.md`
+- Antigravity: `prompts/ANTIGRAVITY_MASTER_PROMPT.md`
+
+Shared execution state:
+- `docs/04-delivery/WORK_STATUS.md`
+- `docs/04-delivery/AGENT_COORDINATION.md`
+- `docs/04-delivery/RELEASE_READINESS.md`
+- `docs/04-delivery/FINAL_COMPLETION_REPORT.md`
+
+### Initial boot sequence
+1. Claude reads the repository and acts as coordinator/reviewer; on a fresh repo it should not race Codex for WP-0001.
+2. Codex claims and implements WP-0001.
+3. Antigravity reads the status ledger and waits for/claims the first eligible UI/full-stack/integration package.
+4. All three continue from repository state without needing module-by-module human prompts.
+
+Release 1 is complete only at WP-1220 after F0–F12 and J1–J6 gates pass.
