@@ -43,7 +43,7 @@ Primavera / Unifier · Microsoft Dynamics 365 · Procore · Farvision · Strateg
 | 17 | Workflow & Approvals | WF-01 |
 | 18 | Executive Command Center | EXEC-01 |
 | 19 | Business Intelligence | BI-01 |
-| 20 | AI Architecture (Intelligence Layer) | AI-01 |
+| 20 | AI Core / Intelligence Control Plane | AI-01 |
 | 21 | Master Data | MDM-01 |
 | 22 | Data & Integration | INT-01 |
 | 23 | Security Architecture | SEC-01 |
@@ -70,3 +70,10 @@ integration · RBAC-bounded AI (AI never bypasses permissions) · cloud/HA/DR re
 
 ## Repository location
 This package lives under `docs/06-blueprints/`. Open `index.html`; shared stylesheet is `assets/blueprint.css`.
+
+
+## AI Core / Telegram blueprint update
+- Blueprint 20 is the **AI Core / Enterprise Intelligence Control Plane**, spanning every module.
+- Blueprint 22 includes the **LLM Model Gateway** and **Telegram Bot API** as first-class integrations.
+- The Master Network Workflow shows **Web / Telegram → Identity → AI Core → Knowledge / Typed Tools → Domain Services**.
+- AI Core is foundational and evolves with every domain, not a late-stage standalone feature.
