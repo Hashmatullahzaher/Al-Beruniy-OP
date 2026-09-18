@@ -2,7 +2,8 @@
 
 **Release:** R1  
 **Overall status:** AUTHORIZED / NOT YET IMPLEMENTED  
-**Authoritative build baseline SHA:** `0230aef1e10b5136ccaf28d2c89e9cade975885f`
+**Authoritative business/build baseline SHA:** `0230aef1e10b5136ccaf28d2c89e9cade975885f`
+**Agent execution baseline SHA:** `e733c1cb6d5cb575f77b34e884493147bb3e34e7`
 
 ## Phase Gates
 
