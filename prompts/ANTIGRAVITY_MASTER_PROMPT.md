@@ -27,6 +27,10 @@ Read:
 - `docs/03-architecture/TELEGRAM_INTEGRATION.md`
 - `docs/00-governance/OPEN_ITEMS.md`
 
+## Fresh-build rule
+
+Do not race Codex for WP-0001. On an empty implementation repository, read the ledger, prepare for review/UI integration, and claim the first eligible unclaimed package after dependencies are satisfied.
+
 ## Primary Focus
 
 Prefer eligible packages involving:
