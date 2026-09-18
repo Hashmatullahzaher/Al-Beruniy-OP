@@ -28,3 +28,18 @@ Conflicts are recorded in `docs/00-governance/OPEN_ITEMS.md` and resolved explic
 
 ## Governing workflow
 **Discover → Document → Blueprint → Review → Acceptance Contract → Build → Self-Audit → Independent Audit → Remediate → UAT → Release**
+
+## AI Core & Telegram
+
+The AI layer is a first-class **AI Core / Enterprise Intelligence Control Plane**, not a late chatbot feature. It spans every domain, maintains a governed enterprise knowledge plane, connects to one or more LLM providers through a provider-neutral Model Gateway, uses typed tools/domain services, and is permission-trimmed at retrieval and action time.
+
+Telegram is a first-class conversational channel into the same AI Core:
+
+**Telegram → Identity Binding → Permission Context → AI Core → Typed Tool → Domain Service → Workflow/Finance/Audit**
+
+Architecture:
+- `docs/03-architecture/AI_CORE.md`
+- `docs/03-architecture/TELEGRAM_INTEGRATION.md`
+
+LLM providers may connect through approved API keys, service credentials, OAuth/provider sign-in, or private model endpoints. Provider credentials are managed secrets and never live in source code.
+
