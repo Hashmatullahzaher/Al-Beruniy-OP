@@ -474,14 +474,14 @@ AI enablement is therefore built with each module, not postponed until the end.
 ## WP-1114 Barcode/QR Adapter
 ## WP-1115 Government/Tax Extension
 ## WP-1116 Legacy Import/Migration Interface
-## WP-1117 AI Permission Gateway
-## WP-1118 Typed AI Tools / Domain Services
-## WP-1119 Contextual Copilot
+## WP-1117 AI Permission Gateway Hardening / Domain Coverage
+## WP-1118 Cross-Domain Typed AI Tool Coverage
+## WP-1119 Contextual Copilot Domain Rollout
 ## WP-1120 Executive AI Briefing
 ## WP-1121 Document AI Hooks
 ## WP-1122 Prediction / Risk Interfaces
-## WP-1123 AI Audit / Explainability
-## WP-1124 AI Authorization Negative Tests
+## WP-1123 AI Audit / Explainability / Usage Operations
+## WP-1124 AI Authorization / Prompt-Injection Negative Tests
 ## WP-1125 Telegram Production Channel
 **Scope:** production webhook, private-chat policies, notifications, secure deep links, Document-Service attachment intake, operational monitoring, rate/retry/delivery controls.
 ## WP-1126 Telegram Domain Query / Draft Coverage
