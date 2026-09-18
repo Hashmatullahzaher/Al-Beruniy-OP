@@ -19,6 +19,19 @@ For every work package:
 
 Do not begin a downstream work package if its hard predecessor has not passed.
 
+## Cross-Cutting AI Exposure Rule
+Beginning with F1A, every domain work package must also preserve the AI contract:
+- publish/update typed read tools
+- publish draft/action tools where appropriate
+- emit domain events
+- maintain an AI-indexable read projection
+- include source IDs/deep links
+- carry permission/security metadata
+- link documents/evidence
+- write AI/tool audit hooks
+
+AI enablement is therefore built with each module, not postponed until the end.
+
 ---
 
 # PHASE F0 — Engineering Foundation
@@ -132,6 +145,42 @@ Do not begin a downstream work package if its hard predecessor has not passed.
 **Scope:** review/comments, approval, signature hook, publish/supersede/archive/retention fields.
 
 **F1 Gate:** real user authenticates, is scoped, submits approval with document evidence, and produces audit; unauthorized/SoD negative tests pass.
+
+---
+
+# PHASE F1A — AI Core Foundation / LLM / Telegram
+
+## WP-0111 AI Model Gateway / Provider Connections
+**Depends on:** WP-0101, WP-0103, WP-0106  
+**Blueprint:** BP-20, BP-22  
+**Scope:** provider/model registry, API-key/service-account/OAuth-provider-sign-in/private-endpoint abstraction, secret references, model health, routing/fallback, cost/rate policy hooks.
+
+## WP-0112 AI Orchestrator / Agent Runtime
+**Depends on:** WP-0111  
+**Scope:** conversation/run/task model, intent routing, task planning, human confirmation, response grounding.
+
+## WP-0113 Typed Tool Registry / Authorization Proxy
+**Depends on:** WP-0103..0106, WP-0112  
+**Scope:** typed schemas, tool allowlists, permission checks, domain-service invocation, source IDs, audit.
+
+## WP-0114 Enterprise Knowledge Plane
+**Depends on:** WP-0109, WP-0112  
+**Scope:** knowledge-source registry, document/system-metadata ingestion, vector/search index abstraction, security tags, source/version links, event-refresh interface, reconciliation/rebuild jobs.
+
+## WP-0115 AI Security / Audit / Observability
+**Depends on:** WP-0111..0114  
+**Scope:** model/provider/version audit, prompt/intent metadata, retrieved sources, tool calls, policy decisions, DLP/redaction hooks, prompt-injection controls, token/cost/latency telemetry.
+
+## WP-0116 In-App AI Copilot Shell
+**Depends on:** WP-0112..0115  
+**Scope:** persistent Copilot entry, current company/project/page context, source-grounded documentation/system-metadata Q&A, permission-aware response rendering.
+
+## WP-0117 Telegram Bot Gateway / Identity Binding
+**Depends on:** WP-0101, WP-0103, WP-0112..0115  
+**Blueprint:** BP-20, BP-22  
+**Scope:** bot config/managed-secret reference, HTTPS webhook adapter, webhook-secret verification, idempotency/replay protection, one-time ABOS↔Telegram identity linking/revocation, AI routing, notification routing, message/audit model, secure-deep-link/step-up pattern.
+
+**F1A Gate:** one approved LLM provider connects through the Model Gateway; source-grounded AI works over docs/system metadata; typed-tool authorization is proven; unauthorized AI retrieval is denied; a securely linked Telegram user reaches the same AI Core.
 
 ---
 
@@ -407,7 +456,7 @@ Do not begin a downstream work package if its hard predecessor has not passed.
 
 ---
 
-# PHASE F11 — Portals / Integrations / AI
+# PHASE F11 — Portals / Integrations / Advanced AI & Telegram
 
 ## WP-1101 Portal Identity Boundary
 ## WP-1102 Customer Portal
@@ -433,11 +482,19 @@ Do not begin a downstream work package if its hard predecessor has not passed.
 ## WP-1122 Prediction / Risk Interfaces
 ## WP-1123 AI Audit / Explainability
 ## WP-1124 AI Authorization Negative Tests
+## WP-1125 Telegram Production Channel
+**Scope:** production webhook, private-chat policies, notifications, secure deep links, Document-Service attachment intake, operational monitoring, rate/retry/delivery controls.
+## WP-1126 Telegram Domain Query / Draft Coverage
+**Scope:** authorized cross-module query, approvals/tasks summary, record lookup, low-risk draft tools; high-risk execution remains step-up/workflow governed.
+## WP-1127 Telegram Security / E2E Tests
+**Scope:** unlinked/disabled user denial, project/field denial, group restrictions, duplicate webhook idempotency, high-risk step-up, audit chain.
+## WP-1128 AI Knowledge Completeness / Domain Exposure Audit
+**Scope:** verify every major module has typed tools, events/read projection, source/deep links, permission metadata and knowledge freshness.
 
-**Dependencies:** relevant internal services  
+**Dependencies:** relevant internal services + F1A  
 **Blueprint:** BP-20, BP-22, BP-24
 
-**F11 Gate:** portals cannot cross party boundaries; AI cannot cross user authorization; integrations are idempotent/audited.
+**F11 Gate:** portals cannot cross party boundaries; AI cannot cross user authorization; Telegram identity/channel security passes; integrations are idempotent/audited; cross-module AI knowledge/tool coverage is complete.
 
 ---
 
@@ -458,7 +515,7 @@ Do not begin a downstream work package if its hard predecessor has not passed.
 ## WP-1213 UAT J3 IPC→Payment
 ## WP-1214 UAT J4 Payroll→Allocation
 ## WP-1215 UAT J5 Executive Reverse Drilldown
-## WP-1216 Unauthorized Access UAT
+## WP-1216 AI Core / Telegram / Unauthorized Access UAT
 ## WP-1217 Remediation
 ## WP-1218 Release Candidate / Exact SHA
 ## WP-1219 Rollback Verification
@@ -483,7 +540,9 @@ Unsafe examples:
 - Do not build material issue accounting before inventory valuation/cost-posting contracts.
 - Do not build IPC posting before contractor payable/retention/advance model.
 - Do not build portals before own-party authorization foundation.
-- Do not build AI tools before permission-trimmed service layer.
+- Do not build domain AI tools before permission-trimmed service layer.
+- Do not postpone the AI Core itself until F11; F1A is a hard platform foundation.
+- Do not connect Telegram directly to domain databases/services without ABOS identity, AI/tool authorization and audit.
 
 ---
 
@@ -515,4 +574,4 @@ Next package:
 **Start at:** WP-0001  
 **Do not skip directly into business modules.**
 
-**Release-1 end at:** WP-1220 after J1–J5, security/SoD, finance reconciliation, migration, restore and UAT gates pass.
+**Release-1 end at:** WP-1220 after J1–J6, AI Core/Telegram, security/SoD, finance reconciliation, migration, restore and UAT gates pass.
