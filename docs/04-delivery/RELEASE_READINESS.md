@@ -1,8 +1,8 @@
 # AL-BERUNIY Operating System — Release Readiness
 
 **Release:** R1  
-**Overall status:** NOT STARTED  
-**Authoritative build baseline SHA:** to be recorded when build execution begins.
+**Overall status:** AUTHORIZED / NOT YET IMPLEMENTED  
+**Authoritative build baseline SHA:** `0230aef1e10b5136ccaf28d2c89e9cade975885f`
 
 ## Phase Gates
 
