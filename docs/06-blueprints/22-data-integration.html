@@ -3,17 +3,19 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>22 · Data &amp; Integration — AL-BERUNIY OS</title>
+<title>22 · Data · AI Core · Integration Architecture — AL-BERUNIY OS</title>
 <link rel="stylesheet" href="assets/blueprint.css">
 </head>
 <body>
 <nav class="topnav">
   <b>AL-BERUNIY OS</b>
   <a href="index.html">00 · Index</a>
+  <a href="20-ai-architecture.html">20 · AI Core</a>
   <a href="21-master-data.html">21 · Master Data</a>
-  <a href="22-data-integration.html">22 · Integration</a>
+  <a href="22-data-integration.html">22 · Data · AI · Integration</a>
   <a href="23-security-architecture.html">23 · Security</a>
   <a href="24-external-portals.html">24 · Portals</a>
+  <a href="26-transaction-traceability.html">26 · Traceability</a>
   <span class="screen-note">Print → A3 · Landscape · Margins None · Background graphics ON</span>
 </nav>
 
@@ -21,117 +23,130 @@
   <div class="titleblock">
     <div class="tb-brand"><div class="os">AL-BERUNIY</div><div class="sub">OPERATING SYSTEM</div></div>
     <div class="tb-title">
-      <div class="no">BLUEPRINT 22 · DATA, AI CORE &amp; INTEGRATION ARCHITECTURE</div>
-      <div class="name">API-First Platform — Event-Driven · AI-Connected · Telegram-Connected</div>
-      <div class="desc">Frontend to data stores, through gateway, workflow, services, events and external connectors.</div>
+      <div class="no">BLUEPRINT 22 · DATA · AI CORE · INTEGRATION ARCHITECTURE</div>
+      <div class="name">One Platform, Five Traffic Classes — Business · Events · AI Model · Telegram · Analytics</div>
+      <div class="desc">API-first, event-driven, provider-neutral. Every external system enters through a governed gateway; no module talks to an LLM or to Telegram directly.</div>
     </div>
     <div class="tb-meta">
-      <span class="k">Version</span><b>1.0</b>
-      <span class="k">Date</span><b>2026-09-17</b>
+      <span class="k">Version</span><b>1.2</b>
+      <span class="k">Date</span><b>2026-09-18</b>
       <span class="k">Connector</span><b>INT-01</b>
       <span class="k">Sheet</span><b>22 / 26</b>
+      <span class="stat">CLIENT APPROVAL CANDIDATE</span>
     </div>
   </div>
 
   <div class="legend">
-    <span class="lg-title">LEGEND</span>
-    <span class="legend-item"><span class="sw" style="background:var(--infra)"></span>Platform layer</span>
-    <span class="legend-item"><span class="sw" style="background:var(--data)"></span>Data store</span>
-    <span class="legend-item"><span class="arrow">→</span> request / event</span>
-    <span class="legend-item"><span class="cid">SEC-01</span> secured by BP-23</span>
-    <span class="legend-item"><span class="cid">MDM-01</span> master data</span>
+    <span class="lg-title">TRAFFIC CLASSES</span>
+    <span class="legend-item"><span class="ln user"></span><b>Business API</b> — sync request/response</span>
+    <span class="legend-item"><span class="ln ai"></span><b>Domain events</b> — async, idempotent</span>
+    <span class="legend-item"><span class="ln" style="border-top:2px solid #5B3FA0"></span><b>AI model traffic</b> — via Model Gateway only</span>
+    <span class="legend-item"><span class="ln tg"></span><b>Telegram traffic</b> — via Telegram Gateway only</span>
+    <span class="legend-item"><span class="ln data"></span><b>Analytics</b> — CDC / ELT to DWH</span>
+    <span class="legend-item"><span class="ln md"></span>master-data sync</span>
+    <span class="legend-item"><span class="cid">INT-01</span> <span class="cid">MG-01</span> <span class="cid tg">TG-01</span> <span class="cid">KP-01</span></span>
   </div>
 
   <div class="canvas">
 
-    <!-- LAYERED STACK -->
+    <!-- CHANNELS -->
     <div class="row" style="flex:0 0 auto">
-      <div class="card d-infra grow"><div class="hd">CLIENT / EXPERIENCE</div><div class="bd"><div class="pills">
-        <span class="pill solid">Web App</span><span class="pill solid">Mobile App</span><span class="pill">Site/Warehouse App</span>
-        <span class="pill">Executive Cockpit</span><span class="pill">AI Copilot</span><span class="pill">Telegram Bot</span><span class="pill">Customer Portal</span><span class="pill">Supplier Portal</span><span class="pill">Contractor Portal</span>
+      <div class="card d-exec grow" style="flex:2.2"><div class="hd">CLIENT / EXPERIENCE CHANNELS</div><div class="bd"><div class="pills">
+        <span class="pill solid">Web app</span><span class="pill solid">Mobile app</span><span class="pill">Site / Warehouse app</span>
+        <span class="pill">Executive Command Center</span><span class="pill">Customer · Supplier · Contractor Portals</span>
       </div></div></div>
-    </div>
-    <div class="row" style="flex:0 0 auto">
-      <div class="card d-infra grow" style="flex:1"><div class="hd">API GATEWAY</div><div class="bd mini">Routing · rate-limit · versioning · <b>REST</b> + GraphQL · request validation <span class="cid">SEC-01</span></div></div>
-      <div class="card d-infra grow" style="flex:1"><div class="hd">AUTHENTICATION / IdP</div><div class="bd mini">OAuth2/OIDC · MFA · SSO · token issuance <span class="cid">BP-23</span></div></div>
-      <div class="card d-exec grow" style="flex:1"><div class="hd">WORKFLOW ENGINE</div><div class="bd mini">Shared approvals across services <span class="cid">WF-01</span></div></div>
+      <div class="card d-tg grow" style="flex:1"><div class="hd" style="background:#2AABEE">TELEGRAM BOT API <span class="tag">external</span></div>
+        <div class="bd mini">HTTPS webhook · secret verification · replay protection · idempotent updates · rate limit · outbound retry &amp; delivery log · env-separated bot config</div></div>
+      <div class="card d-mg grow" style="flex:1"><div class="hd" style="background:#5B3FA0">LLM PROVIDERS <span class="tag">external</span></div>
+        <div class="bd mini">External Provider A · External Provider B · Private / self-hosted model. API key · service account · OAuth · private endpoint. <b>Never called by a module directly.</b></div></div>
     </div>
 
+    <!-- GATEWAYS -->
     <div class="row" style="flex:0 0 auto">
-      <div class="card d-infra grow"><div class="hd">ERP DOMAIN SERVICES (modular / micro-services)</div><div class="bd"><div class="grid cols-7" style="gap:4px">
-        <div class="blk d-sales mini">Sales/CRM</div>
-        <div class="blk d-sales mini">Collections</div>
-        <div class="blk d-const mini">Construction</div>
-        <div class="blk d-const mini">Cost</div>
-        <div class="blk d-proc mini">Procurement</div>
-        <div class="blk d-wh mini">Inventory</div>
-        <div class="blk d-fin mini">Finance</div>
-        <div class="blk d-const mini">Contractor</div>
-        <div class="blk d-proc mini">Supplier</div>
-        <div class="blk d-hr mini">HR</div>
-        <div class="blk d-hr mini">Payroll</div>
-        <div class="blk d-fin mini">Expense/Assets</div>
-        <div class="blk d-doc mini">Documents</div>
-        <div class="blk d-data mini">AI Core / Tool Registry</div>
-      </div></div></div>
+      <div class="card d-infra grow" style="flex:1.2"><div class="hd">API GATEWAY + IDENTITY</div><div class="bd mini">Routing · versioning · rate limit · OAuth2/OIDC · MFA · SSO · token issuance · request validation <span class="cid">SEC-01</span></div></div>
+      <div class="card d-tg grow" style="flex:1"><div class="hd" style="background:#2AABEE">TELEGRAM GATEWAY <span class="tag">TG-01</span></div><div class="bd mini">Verify webhook → resolve <b>TelegramIdentityBinding</b> → Type-A user + permission context → route to AI Core / Notification / Document Service → correlation ID. <b>No business rules here.</b></div></div>
+      <div class="card d-ai grow" style="flex:1.3"><div class="hd" style="background:#0E8A8A">AI CORE <span class="tag">AI-01</span></div><div class="bd mini">Permission &amp; policy gate → Orchestrator → Knowledge Plane <span class="cid">KP-01</span> / Typed Tool Registry <span class="cid">TOOL-01</span> → Domain services. Machine Identity for indexing <span class="cid">MID-01</span></div></div>
+      <div class="card d-mg grow" style="flex:1"><div class="hd" style="background:#5B3FA0">MODEL GATEWAY <span class="tag">MG-01</span></div><div class="bd mini">Provider/model registry · routing · fallback · health · quotas · region/residency · classification allow-list · secret vault · audit. <b>The only path to any model.</b></div></div>
     </div>
 
+    <!-- DOMAIN SERVICES -->
     <div class="row" style="flex:0 0 auto">
-      <div class="card d-infra grow" style="flex:1"><div class="hd">MESSAGE QUEUE / EVENT BUS</div><div class="bd mini">Async events (GRN posted, receipt cleared, IPC certified) · webhooks · sagas · CDC to DWH</div></div>
-      <div class="card d-data grow" style="flex:1.4"><div class="hd">DATA STORES</div><div class="bd"><div class="grid cols-5" style="gap:4px">
-        <div class="blk d-data mini">OLTP DB</div>
-        <div class="blk d-data mini">Master Data <span class="cid">MDM-01</span></div>
-        <div class="blk d-data mini">Document / Object Store</div>
-        <div class="blk d-data mini">Analytics DB / DWH</div>
-        <div class="blk d-data mini">AI Knowledge / Vector Store</div>
-      </div></div></div>
-    </div>
-
-    <!-- EXTERNAL CONNECTORS -->
-    <div class="row grow">
-      <div class="col grow">
-        <p class="band d-infra">External Connectors &amp; Integrations</p>
-        <div class="card d-infra soft grow"><div class="bd"><div class="grid cols-4" style="gap:5px">
-          <div class="blk d-fin"><span class="t">Banks</span><br>statements · payment files · reconciliation</div>
-          <div class="blk d-fin"><span class="t">Payment Gateways</span><br>online installment collection</div>
-          <div class="blk d-sales"><span class="t">Email / SMS / WhatsApp / Telegram</span><br>alerts · OTP · AI conversations</div>
-          <div class="blk d-const"><span class="t">Primavera / MS Project</span><br>schedule sync (WBS · dates)</div>
-          <div class="blk d-const"><span class="t">BIM / Revit</span><br>models · quantities · design docs</div>
-          <div class="blk d-hr"><span class="t">Biometric Devices</span><br>attendance punches</div>
-          <div class="blk d-wh"><span class="t">Barcode / QR</span><br>stock scan in/out</div>
-          <div class="blk d-legal"><span class="t">Government / Tax</span><br>filings · title registry</div>
-          <div class="blk d-fin"><span class="t">External Accounting</span><br>legacy GL migration/bridge</div>
-          <div class="blk d-sales"><span class="t">Customer Portal (ext)</span><br>self-service surface <span class="cid">BP-24</span></div>
-          <div class="blk d-proc"><span class="t">Supplier/Contractor Portal</span><br>quotes · invoices · IPC</div>
-          <div class="blk d-data"><span class="t">Telegram Bot API</span><br>webhook · identity binding · delivery audit</div>
-          <div class="blk d-data"><span class="t">LLM Model Gateway</span><br>API key · OAuth/sign-in · private models</div>
-        </div></div></div>
-        <div class="facets d-infra">
-          <div class="f"><span class="ft">Actors</span>Integrators · Admins · Services</div>
-          <div class="f"><span class="ft">Inputs</span>API calls · events · files · Telegram · AI requests</div>
-          <div class="f"><span class="ft">Master Data</span>Shared via MDM</div>
-          <div class="f"><span class="ft">Process</span>Request/Telegram→Identity→AI/Service→Event</div>
-          <div class="f"><span class="ft">Decisions</span>Sync vs async · retries</div>
-          <div class="f"><span class="ft">Approvals</span>Connector onboarding</div>
-          <div class="f"><span class="ft">Transactions</span>Idempotent · sagas</div>
-          <div class="f"><span class="ft">Documents</span>Object store refs</div>
-          <div class="f"><span class="ft">Outputs</span>Integrated ecosystem</div>
-          <div class="f"><span class="ft">Accounting</span>Bank/payment postings</div>
-          <div class="f"><span class="ft">Modules</span>All (backbone)</div>
-          <div class="f"><span class="ft">Notifications</span>Webhooks · alerts</div>
-          <div class="f"><span class="ft">Reports/KPIs</span>Uptime · latency · error rate</div>
-          <div class="f"><span class="ft">Audit</span>API &amp; event logs</div>
-          <div class="f"><span class="ft">Exceptions</span>Retry · dead-letter · replay</div>
-          <div class="f"><span class="ft">Security</span>mTLS · scopes · signed webhooks · AI policy</div>
-        </div>
+      <div class="card d-infra grow"><div class="hd">DOMAIN SERVICES — each publishes an AI exposure contract (typed tools · events · read projection · source IDs · deep links · permission metadata · audit hooks)</div>
+        <div class="bd"><div class="grid cols-7" style="gap:4px">
+          <div class="blk d-sales mini">Sales / CRM</div><div class="blk d-sales mini">Collections</div><div class="blk d-const mini">Construction</div>
+          <div class="blk d-const mini">BOQ / Cost</div><div class="blk d-proc mini">Procurement</div><div class="blk d-proc mini">Supplier</div>
+          <div class="blk d-wh mini">Inventory</div><div class="blk d-const mini">Contractor</div><div class="blk d-hr mini">HR</div>
+          <div class="blk d-hr mini">Payroll</div><div class="blk d-fin mini">Finance (authoritative)</div><div class="blk d-fin mini">Expense / Assets</div>
+          <div class="blk d-doc mini">Document Service</div><div class="blk d-exec mini">Workflow engine <span class="cid">WF-01</span></div>
+        </div></div>
       </div>
+    </div>
+
+    <!-- MIDDLE: EVENT BUS + DATA STORES -->
+    <div class="row" style="flex:0 0 auto">
+      <div class="card d-infra grow" style="flex:1.1"><div class="hd">EVENT BUS · QUEUE · JOBS · WEBHOOKS</div>
+        <div class="bd mini">Domain events (ContractApproved · ReceiptPosted · GRNPosted · IPCApproved · PayrollPosted · DocumentPublished · ProgressUpdated) → consumers: Finance posting · Notification Service · <b>AI Knowledge ingestion</b> · CDC to DWH. Scheduled jobs reconcile index freshness. Signed webhooks out. Sagas · dead-letter · replay.</div></div>
+      <div class="card d-data grow" style="flex:1.6"><div class="hd">DATA STORES — one system of record, several read structures</div>
+        <div class="bd"><div class="grid cols-6" style="gap:4px">
+          <div class="blk d-fin mini"><b>OLTP DB</b><br>authoritative transactions</div>
+          <div class="blk d-infra mini"><b>Master Data</b> <span class="cid">MDM-01</span><br>golden records</div>
+          <div class="blk d-doc mini"><b>Object Store</b><br>documents · media · Telegram files via Document Service</div>
+          <div class="blk d-data mini"><b>DWH / Semantic</b><br>analytics · BI measures</div>
+          <div class="blk d-ai mini"><b>Knowledge / Vector / Search</b> <span class="cid">KP-01</span><br>security-tagged index — <b>secondary, never authoritative</b></div>
+          <div class="blk d-ai mini"><b>AI Audit Store</b><br>runs · scope · sources · tools · cost</div>
+        </div></div>
+      </div>
+    </div>
+
+    <!-- FLOWS + EXTERNALS -->
+    <div class="row grow">
+      <div class="col" style="flex:1.25">
+        <p class="band d-ai">The five governed flows</p>
+        <div class="card d-ai soft grow"><div class="bd mini">
+          <div class="blk" style="--c:var(--infra);--ci:var(--infra-ink)"><span class="t">Business API</span> Web/Mobile/Portal → API Gateway → Identity → Domain service → OLTP. Synchronous; authorization server-side.</div>
+          <div class="blk d-ai" style="margin-top:3px"><span class="t">Domain event</span> Domain service → Event bus → Finance / Notifications / <b>AI Knowledge Plane (tagged projection)</b> / DWH. Idempotent, replayable.</div>
+          <div class="blk d-mg" style="margin-top:3px"><span class="t">AI model traffic</span> AI Core → <b>Model Gateway</b> → selected provider. Minimum context · classification-checked · audited · cost-metered. Returns to Core, never to a module.</div>
+          <div class="blk d-tg" style="margin-top:3px"><span class="t">Telegram traffic</span> Inbound: Bot API → Telegram Gateway → binding → AI Core / Document Service. Outbound: Event / Workflow / AI alert → Notification Service → Telegram Gateway → authorized private chat / allow-listed channel.</div>
+          <div class="blk d-data" style="margin-top:3px"><span class="t">Analytics</span> OLTP → CDC/ELT → DWH → Semantic layer → BI &amp; Knowledge Plane features. Read-only; reconciles to GL.</div>
+        </div></div>
+      </div>
+      <div class="col" style="flex:1.35">
+        <p class="band d-infra">External connectors</p>
+        <div class="card d-infra soft grow"><div class="bd"><div class="grid cols-4" style="gap:4px">
+          <div class="blk d-fin"><span class="t">Banks</span>statements · payment files</div>
+          <div class="blk d-fin"><span class="t">Payment gateways</span>online installments <span class="cid">COLL-01</span></div>
+          <div class="blk d-sales"><span class="t">Email · SMS · WhatsApp</span>notifications · OTP</div>
+          <div class="blk d-tg"><span class="t">Telegram Bot API</span>governed channel <span class="cid tg">TG-01</span></div>
+          <div class="blk d-const"><span class="t">Primavera · MS Project</span>schedule sync</div>
+          <div class="blk d-const"><span class="t">BIM · Revit</span>models · quantities</div>
+          <div class="blk d-hr"><span class="t">Biometric</span>attendance <span class="cid">HR-01</span></div>
+          <div class="blk d-wh"><span class="t">Barcode / QR</span>stock scan <span class="cid">WH-01</span></div>
+          <div class="blk d-legal"><span class="t">Government / Tax</span>filings · titles</div>
+          <div class="blk d-fin"><span class="t">External accounting</span>legacy bridge</div>
+          <div class="blk d-mg"><span class="t">LLM providers</span>via Model Gateway only <span class="cid">MG-01</span></div>
+          <div class="blk d-infra"><span class="t">Integration Service Identity</span>scoped credentials · mTLS</div>
+        </div>
+        <div class="mini" style="margin-top:4px"><b>Rules:</b> scoped credentials · idempotency for financial writes · signed webhooks + replay protection · retry / backoff / dead-letter · external source IDs · audit &amp; reconciliation. Provider and bot secrets live in managed secret storage, never in code.</div>
+        </div></div>
+      </div>
+    </div>
+
+    <div class="facets d-infra">
+      <div class="f"><span class="ft">Actors</span>Integration Admin · AI Platform Admin · Telegram Bot Admin · Service identities</div>
+      <div class="f"><span class="ft">Inputs</span>API calls · events · webhooks · model responses · Telegram updates</div>
+      <div class="f"><span class="ft">Process</span>Gateway → authorize → service → event → stores</div>
+      <div class="f"><span class="ft">Decisions</span>Sync vs async · model routing · channel risk</div>
+      <div class="f"><span class="ft">Security</span>mTLS · scopes · signed webhooks · secret vault · SoD unchanged <span class="cid">SEC-01</span></div>
+      <div class="f"><span class="ft">Audit</span>API · event · model · Telegram logs with correlation IDs</div>
+      <div class="f"><span class="ft">Forbidden</span>Module → LLM direct · Telegram → DB direct · LLM → SQL · index as system of record</div>
+      <div class="f"><span class="ft">Reports/KPIs</span>Uptime · latency · error rate · model cost · delivery rate</div>
     </div>
 
   </div>
   <div class="foot">
     <span><b>AL-BERUNIY OPERATING SYSTEM</b> · Enterprise Architecture Blueprint</span>
-    <span>Blueprint 22 · Data, AI Core &amp; Integration · v1.1 · 2026-09-18</span>
-    <span>API-first · event-driven · AI Core · Telegram · cloud-ready</span>
+    <span>Blueprint 22 · Data · AI Core · Integration · v1.2 · 2026-09-18 · Client Approval Candidate</span>
+    <span>API-first · event-driven · provider-neutral · channel-governed</span>
   </div>
 </section>
 </body>

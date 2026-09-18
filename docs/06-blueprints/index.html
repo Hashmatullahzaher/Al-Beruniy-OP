@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>AL-BERUNIY Operating System — Enterprise Blueprint Package</title>
+<title>AL-BERUNIY Operating System — Enterprise Blueprint Package · v1.2 Client Approval Candidate</title>
 <link rel="stylesheet" href="assets/blueprint.css">
 </head>
 <body>
@@ -11,6 +11,7 @@
 <nav class="topnav">
   <b>AL-BERUNIY OS</b>
   <a href="index.html">00 · Index</a>
+  <a href="master-network-workflow.html">★ Master Network</a>
   <a href="01-enterprise-master-map.html">01 · Master Map</a>
   <a href="02-organization-access.html">02 · Org &amp; Access</a>
   <a href="03-multi-project.html">03 · Multi-Project</a>
@@ -32,7 +33,7 @@
   <a href="19-business-intelligence.html">19 · BI</a>
   <a href="20-ai-architecture.html">20 · AI Core</a>
   <a href="21-master-data.html">21 · Master Data</a>
-  <a href="22-data-integration.html">22 · Integration</a>
+  <a href="22-data-integration.html">22 · Data · AI · Integration</a>
   <a href="23-security-architecture.html">23 · Security</a>
   <a href="24-external-portals.html">24 · Portals</a>
   <a href="25-cross-system-relationships.html">25 · Relationships</a>
@@ -40,7 +41,7 @@
   <span class="screen-note">Print / Save as PDF → paper size <b>A3</b>, orientation <b>Landscape</b>, margins <b>None</b>, background graphics <b>ON</b></span>
 </nav>
 
-<!-- ============ 00 — COVER + INDEX ============ -->
+<!-- ============ 00 — CLIENT APPROVAL COVER + INDEX ============ -->
 <section class="page cover">
   <div class="titleblock">
     <div class="tb-brand">
@@ -48,96 +49,106 @@
       <div class="sub">OPERATING SYSTEM</div>
     </div>
     <div class="tb-title">
-      <div class="no">BLUEPRINT 00 · PACKAGE INDEX</div>
-      <div class="name">Enterprise Architecture Blueprint Package</div>
-      <div class="desc">Real-Estate Development &amp; Construction · The Digital Operating System of the Entire Company</div>
+      <div class="no">BLUEPRINT 00 · CLIENT APPROVAL COVER &amp; PACKAGE INDEX</div>
+      <div class="name">Enterprise Architecture Blueprint Package — Revision 1.2</div>
+      <div class="desc">Real-Estate Development &amp; Construction · The Digital Operating System of the Entire Company · now with a system-wide AI Core, a provider-neutral Model Gateway and Telegram as a governed operating channel.</div>
     </div>
     <div class="tb-meta">
-      <span class="k">Version</span><b>1.0</b>
-      <span class="k">Date</span><b>2026-09-17</b>
+      <span class="k">Version</span><b>1.2</b>
+      <span class="k">Date</span><b>2026-09-18</b>
       <span class="k">Format</span><b>A3 Landscape</b>
-      <span class="k">Sheets</span><b>27 (00–26)</b>
-      <span class="k">Status</span><b>For Review</b>
+      <span class="k">Sheets</span><b>28 (00 · MNW · 01–26)</b>
+      <span class="stat">CLIENT APPROVAL CANDIDATE</span>
     </div>
   </div>
 
   <div class="canvas">
-    <div class="hero">
-      <h1>AL-BERUNIY OPERATING SYSTEM</h1>
-      <p>One controlled source of truth for Projects · Finance · Sales · Customers · Installments · Construction · Procurement ·
-         Suppliers · Contractors · Warehouses · Materials · Employees · Payroll · Expenses · Documents · Assets · Approvals ·
-         Budgets · Reports · Analytics · AI. Two simultaneous perspectives — <b>Project-Level Management</b> and
-         <b>Corporate Consolidated Management</b> — governed by one workflow engine, one financial engine and one permission model.</p>
+    <div class="hero" style="padding:14px 22px;margin-bottom:5mm">
+      <h1 style="font-size:24px">WHAT CHANGED IN THIS REVISION — what you are being asked to approve</h1>
+      <p style="font-size:11.5px;margin-top:6px">All previously approved business modules — Sales, Collections, Finance, Construction, BOQ, Procurement, Suppliers, Contractors, Warehouse, Expense, HR, Payroll, Documents, Workflow — remain intact. This revision adds, across and around them:</p>
     </div>
 
-    <div class="row grow" style="gap:6mm">
+    <div class="row" style="flex:0 0 auto;gap:5mm">
+      <div class="card d-ai grow"><div class="hd" style="background:#0E8A8A">AI CORE — the nine changes in plain language</div>
+        <div class="bd" style="padding:6px 10px"><div class="grid cols-3" style="gap:5px">
+          <div class="blk d-ai"><span class="t">1 · AI is a system-wide Enterprise Intelligence Core</span>Not a chatbot bolted on at the end — a control plane that spans every module and grows with each one. <span class="cid">BP-20</span></div>
+          <div class="blk d-ai"><span class="t">2 · Every module connects to the AI Core</span>Each domain publishes events and exposes typed tools; the AI contract strip on every module sheet shows exactly what. <span class="cid">BP-03…24</span></div>
+          <div class="blk d-ai"><span class="t">3 · AI knowledge is security-tagged and permission-controlled</span>The Core may know the enterprise; each person sees only what they are authorized to see. <span class="cid">BP-16 · BP-20</span></div>
+          <div class="blk d-mg"><span class="t">4 · LLM providers connect through one Model Gateway</span>API key, service account, OAuth or private model — never a direct call from a module. <span class="cid">BP-20 · BP-22</span></div>
+          <div class="blk d-tg"><span class="t">5 · Telegram is a governed operating / AI channel</span>Queries, alerts, approval notices, low-risk drafts, secure deep links. No separate business logic, no direct database. <span class="cid">BP-22 · MNW</span></div>
+          <div class="blk d-tg"><span class="t">6 · Telegram users are bound to ABOS identities</span>One-time link from a signed-in session; username is never trusted; binding is revocable. <span class="cid">BP-02 · BP-23</span></div>
+          <div class="blk d-ai"><span class="t">7 · AI and Telegram cannot bypass Finance, workflow, SoD, permissions or audit</span>AI proposes; humans approve; Finance posts. High-risk actions need step-up or an ABOS deep link. <span class="cid">BP-04 · BP-17 · BP-23</span></div>
+          <div class="blk d-ai"><span class="t">8 · Every AI / Telegram action is traceable</span>Back to user, model, sources, tool and resulting transaction — forward and reverse. <span class="cid">BP-26</span></div>
+          <div class="blk d-exec"><span class="t">9 · All previous business modules remain intact</span>No actor, transaction, approval, document, posting, report or audit path was removed. Finance remains the only accounting engine.</div>
+        </div></div>
+      </div>
+    </div>
+
+    <div class="row grow" style="gap:5mm">
       <div class="col" style="flex:3">
-        <p class="band d-exec">Blueprint Package — Table of Contents</p>
+        <p class="band d-exec">Blueprint Package — Table of Contents (v1.2 · 2026-09-18)</p>
         <div class="toc">
-          <a href="01-enterprise-master-map.html"><span class="no">01</span><span class="nm">Enterprise Master Map</span><span class="c" style="background:var(--exec)"></span></a>
-          <a href="02-organization-access.html"><span class="no">02</span><span class="nm">Organization &amp; Access</span><span class="c" style="background:var(--exec)"></span></a>
-          <a href="03-multi-project.html"><span class="no">03</span><span class="nm">Multi-Project Architecture</span><span class="c" style="background:var(--exec)"></span></a>
-          <a href="04-financial-architecture.html"><span class="no">04</span><span class="nm">Financial Architecture</span><span class="c" style="background:var(--fin)"></span></a>
+          <a href="master-network-workflow.html"><span class="no">MNW</span><span class="nm">Master Network Workflow — AI Core plane · Telegram channel · Path E</span><span class="c" style="background:#0E8A8A"></span></a>
+          <a href="01-enterprise-master-map.html"><span class="no">01</span><span class="nm">Enterprise Master Map — AI control plane across all domains</span><span class="c" style="background:var(--exec)"></span></a>
+          <a href="02-organization-access.html"><span class="no">02</span><span class="nm">Organization &amp; Access — AI roles · Machine Identity · Telegram binding</span><span class="c" style="background:var(--exec)"></span></a>
+          <a href="03-multi-project.html"><span class="no">03</span><span class="nm">Multi-Project Architecture — project-scoped AI</span><span class="c" style="background:var(--exec)"></span></a>
+          <a href="04-financial-architecture.html"><span class="no">04</span><span class="nm">Financial Architecture — AI reads, never posts</span><span class="c" style="background:var(--fin)"></span></a>
           <a href="05-sales-crm.html"><span class="no">05</span><span class="nm">Sales &amp; CRM</span><span class="c" style="background:var(--sales)"></span></a>
-          <a href="06-installments-collections.html"><span class="no">06</span><span class="nm">Installments &amp; Collections</span><span class="c" style="background:var(--sales)"></span></a>
+          <a href="06-installments-collections.html"><span class="no">06</span><span class="nm">Installments &amp; Collections — AI risk · Telegram reminders</span><span class="c" style="background:var(--sales)"></span></a>
           <a href="07-construction.html"><span class="no">07</span><span class="nm">Construction &amp; Project Control</span><span class="c" style="background:var(--const)"></span></a>
           <a href="08-boq-cost-control.html"><span class="no">08</span><span class="nm">BOQ &amp; Cost Control</span><span class="c" style="background:var(--const)"></span></a>
-          <a href="09-procurement.html"><span class="no">09</span><span class="nm">Procurement</span><span class="c" style="background:var(--proc)"></span></a>
+          <a href="09-procurement.html"><span class="no">09</span><span class="nm">Procurement — AI bid comparison</span><span class="c" style="background:var(--proc)"></span></a>
           <a href="10-supplier-management.html"><span class="no">10</span><span class="nm">Supplier Management</span><span class="c" style="background:var(--proc)"></span></a>
           <a href="11-contractor-management.html"><span class="no">11</span><span class="nm">Contractor Management</span><span class="c" style="background:var(--const)"></span></a>
           <a href="12-inventory-warehouse.html"><span class="no">12</span><span class="nm">Inventory &amp; Warehouse</span><span class="c" style="background:var(--wh)"></span></a>
           <a href="13-expense-management.html"><span class="no">13</span><span class="nm">Expense Management</span><span class="c" style="background:var(--fin)"></span></a>
-          <a href="14-human-resources.html"><span class="no">14</span><span class="nm">Human Resources</span><span class="c" style="background:var(--hr)"></span></a>
-          <a href="15-payroll.html"><span class="no">15</span><span class="nm">Payroll &amp; Finance</span><span class="c" style="background:var(--hr)"></span></a>
-          <a href="16-document-management.html"><span class="no">16</span><span class="nm">Document Management</span><span class="c" style="background:var(--doc)"></span></a>
-          <a href="17-workflow-approvals.html"><span class="no">17</span><span class="nm">Workflow &amp; Approvals</span><span class="c" style="background:var(--exec)"></span></a>
-          <a href="18-executive-command-center.html"><span class="no">18</span><span class="nm">Executive Command Center</span><span class="c" style="background:var(--exec)"></span></a>
-          <a href="19-business-intelligence.html"><span class="no">19</span><span class="nm">Business Intelligence</span><span class="c" style="background:var(--data)"></span></a>
-          <a href="20-ai-architecture.html"><span class="no">20</span><span class="nm">AI Core / Intelligence Control Plane</span><span class="c" style="background:var(--data)"></span></a>
-          <a href="21-master-data.html"><span class="no">21</span><span class="nm">Master Data</span><span class="c" style="background:var(--infra)"></span></a>
-          <a href="22-data-integration.html"><span class="no">22</span><span class="nm">Data &amp; Integration</span><span class="c" style="background:var(--infra)"></span></a>
-          <a href="23-security-architecture.html"><span class="no">23</span><span class="nm">Security Architecture</span><span class="c" style="background:var(--infra)"></span></a>
-          <a href="24-external-portals.html"><span class="no">24</span><span class="nm">External Portals</span><span class="c" style="background:var(--legal)"></span></a>
-          <a href="25-cross-system-relationships.html"><span class="no">25</span><span class="nm">Cross-System Relationship Map</span><span class="c" style="background:var(--fin)"></span></a>
-          <a href="26-transaction-traceability.html"><span class="no">26</span><span class="nm">Transaction Traceability Map</span><span class="c" style="background:var(--fin)"></span></a>
+          <a href="14-human-resources.html"><span class="no">14</span><span class="nm">Human Resources — protected HR data</span><span class="c" style="background:var(--hr)"></span></a>
+          <a href="15-payroll.html"><span class="no">15</span><span class="nm">Payroll — no AI modification or payment</span><span class="c" style="background:var(--hr)"></span></a>
+          <a href="16-document-management.html"><span class="no">16</span><span class="nm">Document Management — Knowledge Plane ingestion</span><span class="c" style="background:var(--doc)"></span></a>
+          <a href="17-workflow-approvals.html"><span class="no">17</span><span class="nm">Workflow &amp; Approvals — AI proposals · Telegram approvals</span><span class="c" style="background:var(--exec)"></span></a>
+          <a href="18-executive-command-center.html"><span class="no">18</span><span class="nm">Executive Command Center — Executive AI Copilot</span><span class="c" style="background:var(--exec)"></span></a>
+          <a href="19-business-intelligence.html"><span class="no">19</span><span class="nm">Business Intelligence — semantics as AI inputs</span><span class="c" style="background:var(--data)"></span></a>
+          <a href="20-ai-architecture.html"><span class="no">20</span><span class="nm">AI Core / Enterprise Intelligence Control Plane</span><span class="c" style="background:#0E8A8A"></span></a>
+          <a href="21-master-data.html"><span class="no">21</span><span class="nm">Master Data — feeds Knowledge Plane</span><span class="c" style="background:var(--infra)"></span></a>
+          <a href="22-data-integration.html"><span class="no">22</span><span class="nm">Data · AI Core · Integration Architecture</span><span class="c" style="background:var(--infra)"></span></a>
+          <a href="23-security-architecture.html"><span class="no">23</span><span class="nm">Security Architecture — AI &amp; Telegram controls</span><span class="c" style="background:var(--infra)"></span></a>
+          <a href="24-external-portals.html"><span class="no">24</span><span class="nm">External Portals — own-party Telegram</span><span class="c" style="background:var(--legal)"></span></a>
+          <a href="25-cross-system-relationships.html"><span class="no">25</span><span class="nm">Cross-System Relationship Map — sixth AI/channel flow</span><span class="c" style="background:var(--fin)"></span></a>
+          <a href="26-transaction-traceability.html"><span class="no">26</span><span class="nm">Transaction Traceability — Scenario 5 Telegram/AI</span><span class="c" style="background:var(--fin)"></span></a>
         </div>
       </div>
 
-      <div class="col" style="flex:1.35">
+      <div class="col" style="flex:1.3">
         <p class="band d-data">How to Read This Package</p>
         <div class="card d-data soft"><div class="bd mini">
-          <b>Connector IDs</b> link processes across sheets. When a flow leaves a sheet it shows an
-          <span class="cid out">OUT ▸ FIN-AR-01</span> badge; the destination sheet receives it with an
-          <span class="cid in">IN ◂ FIN-AR-01</span> badge.
+          <b>Connector IDs</b> link processes across sheets (<span class="cid out">OUT ▸</span> / <span class="cid in">IN ◂</span>). New in v1.2:
+          <span class="cid ai">AI-01</span> AI Core · <span class="cid">MG-01</span> Model Gateway · <span class="cid">KP-01</span> Knowledge Plane · <span class="cid">TOOL-01</span> Typed Tools · <span class="cid">MID-01</span> Machine Identity · <span class="cid tg">TG-01</span> Telegram Gateway.
           <hr class="dash">
-          <b>Three account types</b> are never mixed:<br>
-          <span class="pill">TYPE A · User Account</span>
-          <span class="pill">TYPE B · Business Party</span>
-          <span class="pill">TYPE C · Ledger Account</span>
+          <b>Three account types</b> are never mixed: <span class="pill">A · User</span> <span class="pill">B · Business Party</span> <span class="pill">C · Ledger</span>. Telegram binds to Type A; it is not a party. AI provider accounts are not ABOS users; Machine Identity is its own concept.
           <hr class="dash">
-          <b>Every module sheet</b> carries the same 16-facet strip: Actors · Inputs · Master Data · Process ·
-          Decisions · Approvals · Transactions · Documents · Outputs · Accounting Impact · Modules Affected ·
-          Notifications · Reports/KPIs · Audit · Exceptions · Security.
+          <b>Arrow semantics</b> (never colour alone): solid = process · thick = financial posting · double = master-data sync · dashed = reference · dotted = notification / audit / AI event · dash-dot = Telegram channel.
+          <hr class="dash">
+          <b>Every module sheet</b> carries the 16-facet strip and, new in v1.2, the <b>AI Core &amp; Telegram Contract</b> strip: typed read tools · draft/action tools → workflow · events → Knowledge Plane · Telegram queries &amp; notifications · hard guardrail.
         </div></div>
 
-        <p class="band d-fin">Design Lineage</p>
+        <p class="band d-fin">Approval record</p>
         <div class="card d-fin soft"><div class="bd mini">
-          Best-practice concepts synthesised from <b>Oracle Fusion Cloud ERP</b>, <b>SAP S/4HANA</b>,
-          <b>Primavera / Unifier</b>, <b>Microsoft Dynamics 365</b>, <b>Procore</b>, <b>Farvision</b>,
-          <b>StrategicERP</b> and <b>ePROMIS</b> — combined, not copied. IFRS-ready, multi-company, multi-currency,
-          multi-project, API-first, AI-ready.
+          Approval of this package records the exact repository SHA, reviewers, date and exceptions per <code>docs/04-delivery/BLUEPRINT_APPROVAL.md</code>. The gate explicitly covers: AI Core as control plane · Model Gateway &amp; auth method · Knowledge Plane sources &amp; tags · per-domain AI contract · AI audit · Telegram binding &amp; channel security · Telegram step-up / workflow boundary.
+          Open policy/provider/credential items remain governed by <code>OPEN_ITEMS.md</code> and are configurable, not invented.
         </div></div>
 
         <p class="band d-exec">Color Language</p>
         <div class="legend" style="margin:0">
-          <span class="legend-item"><span class="sw" style="background:var(--exec)"></span>Executive / Governance</span>
-          <span class="legend-item"><span class="sw" style="background:var(--sales)"></span>Sales / CRM</span>
+          <span class="legend-item"><span class="sw" style="background:var(--exec)"></span>Governance</span>
+          <span class="legend-item"><span class="sw" style="background:var(--sales)"></span>Sales</span>
           <span class="legend-item"><span class="sw" style="background:var(--fin)"></span>Finance</span>
           <span class="legend-item"><span class="sw" style="background:var(--const)"></span>Construction</span>
           <span class="legend-item"><span class="sw" style="background:var(--proc)"></span>Procurement</span>
           <span class="legend-item"><span class="sw" style="background:var(--wh)"></span>Warehouse</span>
           <span class="legend-item"><span class="sw" style="background:var(--hr)"></span>HR</span>
-          <span class="legend-item"><span class="sw" style="background:var(--data)"></span>Data / AI</span>
+          <span class="legend-item"><span class="sw" style="background:#0E8A8A"></span>AI Core / Data</span>
+          <span class="legend-item"><span class="sw" style="background:#2AABEE"></span>Telegram</span>
+          <span class="legend-item"><span class="sw" style="background:#5B3FA0"></span>Model Gateway</span>
           <span class="legend-item"><span class="sw" style="background:var(--infra)"></span>Infrastructure</span>
         </div>
       </div>
@@ -146,8 +157,8 @@
 
   <div class="foot">
     <span><b>AL-BERUNIY OPERATING SYSTEM</b> · Enterprise Architecture Blueprint</span>
-    <span>Blueprint 00 · Package Index · v1.0 · 2026-09-17</span>
-    <span>Confidential — For Internal Architecture Review</span>
+    <span>Blueprint 00 · Client Approval Cover &amp; Index · v1.2 · 2026-09-18 · Client Approval Candidate</span>
+    <span>Confidential — For Client Review &amp; Approval</span>
   </div>
 </section>
 

@@ -12,8 +12,8 @@
   <a href="index.html">00 · Index</a>
   <a href="18-executive-command-center.html">18 · Exec Center</a>
   <a href="19-business-intelligence.html">19 · BI</a>
-  <a href="20-ai-architecture.html">20 · AI</a>
-  <a href="22-data-integration.html">22 · Integration</a>
+  <a href="20-ai-architecture.html">20 · AI Core</a>
+  <a href="22-data-integration.html">22 · Data · AI · Integration</a>
   <span class="screen-note">Print → A3 · Landscape · Margins None · Background graphics ON</span>
 </nav>
 
@@ -22,43 +22,46 @@
     <div class="tb-brand"><div class="os">AL-BERUNIY</div><div class="sub">OPERATING SYSTEM</div></div>
     <div class="tb-title">
       <div class="no">BLUEPRINT 19 · BUSINESS INTELLIGENCE</div>
-      <div class="name">From Operational Data to Executive Insight</div>
-      <div class="desc">OLTP → Data Warehouse → BI Layer → Dashboards, with real-time KPIs, drill-down and scheduling.</div>
+      <div class="name">From Operational Data to Executive Insight — and Governed Semantics for the AI Core</div>
+      <div class="desc">OLTP → Data Warehouse → Semantic layer → Dashboards. The same governed measures feed the Enterprise Knowledge Plane, so AI reasons on the numbers Finance reconciles.</div>
     </div>
     <div class="tb-meta">
-      <span class="k">Version</span><b>1.0</b>
-      <span class="k">Date</span><b>2026-09-17</b>
+      <span class="k">Version</span><b>1.2</b>
+      <span class="k">Date</span><b>2026-09-18</b>
       <span class="k">Connector</span><b>BI-01</b>
       <span class="k">Sheet</span><b>19 / 26</b>
+      <span class="stat">CLIENT APPROVAL CANDIDATE</span>
     </div>
   </div>
 
   <div class="legend">
     <span class="lg-title">LEGEND</span>
-    <span class="legend-item"><span class="sw" style="background:var(--data)"></span>Data/BI</span>
+    <span class="legend-item"><span class="sw" style="background:var(--data)"></span>Data / BI</span>
+    <span class="legend-item"><span class="sw" style="background:#0E8A8A"></span>Knowledge Plane / AI</span>
     <span class="legend-item"><span class="sw" style="background:var(--exec)"></span>Consumer</span>
     <span class="legend-item"><span class="arrow">→</span> pipeline</span>
-    <span class="legend-item"><span class="cid in">◂ all modules</span> source</span>
-    <span class="legend-item"><span class="cid">SEC-01</span> row/field security applied</span>
+    <span class="legend-item"><span class="ln ai"></span>AI feature feed</span>
+    <span class="legend-item"><span class="cid in">◂ all modules</span> source · <span class="cid out">KP-01</span> semantics to AI · <span class="cid">SEC-01</span> row/field security</span>
   </div>
 
   <div class="canvas">
 
     <div class="row" style="flex:0 0 auto">
-      <div class="card d-data grow"><div class="hd">BI PIPELINE</div>
+      <div class="card d-data grow"><div class="hd">BI PIPELINE — one governed path from transaction to dashboard to AI</div>
         <div class="bd"><div class="chain">
           <div class="step"><span class="n">1</span><b>Operational Database (OLTP)</b><span class="mini">live transactions <span class="cid in">◂ all</span></span></div>
           <div class="step"><span class="n">2</span><b>ETL / ELT + CDC</b><span class="mini">extract · clean · conform</span></div>
           <div class="step"><span class="n">3</span><b>Data Warehouse</b><span class="mini">star schema · conformed dims</span></div>
-          <div class="step"><span class="n">4</span><b>Semantic / BI Layer</b><span class="mini">measures · KPIs · security</span></div>
-          <div class="step"><span class="n">5</span><b>Dashboards &amp; Reports</b><span class="mini">role-based</span></div>
-          <div class="step"><span class="n">6</span><b>Executive Reports</b><span class="mini">scheduled · exported</span></div>
+          <div class="step"><span class="n">4</span><b>Semantic Layer</b><span class="mini">measures · KPIs · security rules</span></div>
+          <div class="step"><span class="n">5</span><b>Dashboards &amp; Reports</b><span class="mini">role-based · scheduled</span></div>
+          <div class="step" style="--c:#0E8A8A;--ci:#0a6666"><span class="n">6</span><b>Enterprise Knowledge Plane</b><span class="mini">semantic measures + AI features <span class="cid out">KP-01</span></span></div>
+          <div class="step" style="--c:#0E8A8A;--ci:#0a6666"><span class="n">7</span><b>AI Core</b><span class="mini">executive summaries · analysis · forecasting <span class="cid ai">AI-01</span></span></div>
         </div></div>
       </div>
     </div>
 
     <div class="row grow">
-      <div class="col" style="flex:1.4">
+      <div class="col" style="flex:1.3">
         <p class="band d-data">Dashboard Suite (per domain, role-secured)</p>
         <div class="card d-data soft grow"><div class="bd"><div class="grid cols-3" style="gap:4px">
           <div class="blk d-exec"><span class="t">Executive</span><br>portfolio · P&amp;L · cash</div>
@@ -69,61 +72,62 @@
           <div class="blk d-const"><span class="t">Cost</span><br>budget vs actual · EAC</div>
           <div class="blk d-proc"><span class="t">Procurement</span><br>spend · cycle time</div>
           <div class="blk d-wh"><span class="t">Warehouse</span><br>value · turns · variance</div>
-          <div class="blk d-hr"><span class="t">HR</span><br>headcount · turnover</div>
-          <div class="blk d-hr"><span class="t">Payroll</span><br>cost by project</div>
+          <div class="blk d-hr"><span class="t">HR · Payroll</span><br>headcount · cost by project</div>
           <div class="blk d-sales"><span class="t">Customer</span><br>lifetime · satisfaction</div>
           <div class="blk d-proc"><span class="t">Supplier / Contractor</span><br>performance · risk</div>
-        </div></div></div>
-        <div class="facets d-data">
-          <div class="f"><span class="ft">Actors</span>Executives · Analysts · Mgrs · Auditor</div>
-          <div class="f"><span class="ft">Inputs</span>All module data</div>
-          <div class="f"><span class="ft">Master Data</span>Conformed dimensions</div>
-          <div class="f"><span class="ft">Process</span>Ingest→Model→Serve</div>
-          <div class="f"><span class="ft">Decisions</span>Thresholds · targets</div>
-          <div class="f"><span class="ft">Approvals</span>Report publishing</div>
-          <div class="f"><span class="ft">Transactions</span>Read-only aggregates</div>
-          <div class="f"><span class="ft">Documents</span>Exports (PDF/XLS)</div>
-          <div class="f"><span class="ft">Outputs</span>Dashboards · reports</div>
-          <div class="f"><span class="ft">Accounting</span>Reconciles to GL</div>
-          <div class="f"><span class="ft">Modules</span>All (consumer)</div>
-          <div class="f"><span class="ft">Notifications</span>Scheduled &amp; alerting</div>
-          <div class="f"><span class="ft">Reports/KPIs</span>The output itself</div>
-          <div class="f"><span class="ft">Audit</span>Access &amp; export log</div>
-          <div class="f"><span class="ft">Exceptions</span>Data-quality flags</div>
-          <div class="f"><span class="ft">Security</span>Row/field by role &amp; project</div>
+          <div class="blk d-ai"><span class="t">AI Operations</span><br>model cost · adoption · answer accuracy</div>
         </div>
-      </div>
-
-      <div class="col" style="flex:1">
-        <p class="band d-data">Analytical Capabilities</p>
-        <div class="card d-data grow"><div class="bd"><div class="grid cols-2" style="gap:4px">
-          <div class="blk d-data"><span class="t">Real-time KPI</span><br>near-live tiles</div>
-          <div class="blk d-data"><span class="t">Trend Analysis</span><br>time series</div>
-          <div class="blk d-data"><span class="t">Project Comparison</span><br>side-by-side</div>
-          <div class="blk d-data"><span class="t">Period Comparison</span><br>MoM · YoY</div>
-          <div class="blk d-data"><span class="t">Drill-down</span><br>to transaction <span class="cid">BP-26</span></div>
-          <div class="blk d-data"><span class="t">Filters &amp; Slicers</span><br>project · dept · date</div>
-          <div class="blk d-data"><span class="t">Export</span><br>PDF · Excel · CSV</div>
-          <div class="blk d-data"><span class="t">Scheduled Reports</span><br>email / portal</div>
-        </div></div></div>
-      </div>
-
-      <div class="col" style="flex:.9">
-        <p class="band d-data">Governance &amp; Feed to AI Core Knowledge Plane</p>
-        <div class="card d-data soft grow"><div class="bd mini">
-          <div class="blk d-data"><span class="t">Single version of truth</span><br>DWH reconciles to GL; no rogue spreadsheets.</div>
-          <div class="blk d-data"><span class="t">Security-trimmed</span><br>same report shows less to a lower-privileged user <span class="cid">SEC-01</span>.</div>
-          <div class="blk d-data"><span class="t">Feeds AI Layer</span><br>curated features → predictions &amp; anomaly <span class="cid out">BP-20</span>.</div>
-          <div class="blk d-data"><span class="t">Data quality</span><br>freshness · completeness monitors.</div>
+        <hr class="dash">
+        <div class="mini"><b>Capabilities:</b> real-time KPI · trend · project &amp; period comparison · drill-down to transaction <span class="cid">BP-26</span> · filters · export · scheduled distribution (email · portal · <b>Telegram briefing</b> <span class="cid tg">TG-01</span>).</div>
         </div></div>
       </div>
+
+      <div class="col" style="flex:1.15">
+        <p class="band d-ai">Three kinds of number — never mixed</p>
+        <div class="card d-ai soft"><div class="bd"><div class="grid cols-3" style="gap:5px">
+          <div class="blk" style="--c:var(--fin);--ci:var(--fin-ink)"><span class="t">ACTUAL</span>posted by Finance / domain services · reconciles to GL · authoritative</div>
+          <div class="blk" style="--c:var(--const);--ci:var(--const-ink)"><span class="t">FORECAST</span>deterministic rules (EAC · cash-flow schedule) · versioned · explainable</div>
+          <div class="blk d-ai"><span class="t">AI RECOMMENDATION</span>model inference with confidence · labelled · never totalled with actuals · never posted</div>
+        </div>
+        <div class="mini" style="margin-top:4px">Dashboards, exports and AI answers carry the label. An executive can always tell what the books say from what a model thinks.</div>
+        </div></div>
+        <p class="band d-ai">Semantic layer → Knowledge Plane → AI Core</p>
+        <div class="card d-ai grow"><div class="bd mini">
+          <div class="blk d-ai"><span class="t">Governed measures as AI inputs</span>Revenue · collected · overdue · EAC · SPI/CPI · payables — each with definition, owner, grain and security rule. AI uses the <b>same definition</b> a dashboard uses; no private recomputation.</div>
+          <div class="blk d-ai" style="margin-top:3px"><span class="t">AI feature store</span>derived features for collection risk, delay and overrun models — built from DWH, versioned, security-tagged by project and party.</div>
+          <div class="blk d-ai" style="margin-top:3px"><span class="t">AI executive summaries</span>“What changed?” narratives generated from measure deltas with links back to reports and transactions.</div>
+          <div class="forbid" style="margin-top:3px"><b>Never:</b> AI querying the warehouse with free SQL · unlabelled forecasts · a measure the semantic layer does not define.</div>
+        </div></div>
+      </div>
+
+      <div class="col" style="flex:.85">
+        <p class="band d-data">Governance</p>
+        <div class="card d-data soft grow"><div class="bd mini">
+          <div class="blk d-data"><span class="t">Single version of truth</span>DWH reconciles to GL; Knowledge Plane reads the semantic layer, never a rogue spreadsheet.</div>
+          <div class="blk d-data"><span class="t">Security-trimmed</span>row / field rules apply in dashboards <b>and</b> in AI retrieval; same user, same slice <span class="cid">SEC-01</span>.</div>
+          <div class="blk d-data"><span class="t">Freshness</span>CDC + scheduled reconciliation; AI shows data-as-of timestamp.</div>
+          <div class="blk d-data"><span class="t">Data quality</span>completeness &amp; freshness monitors gate AI features.</div>
+          <div class="blk d-data"><span class="t">Audit</span>report access, exports and AI summary runs logged.</div>
+        </div></div>
+      </div>
+    </div>
+
+    <div class="facets d-data">
+      <div class="f"><span class="ft">Actors</span>Executives · Analysts · Managers · Auditor · Knowledge Steward</div>
+      <div class="f"><span class="ft">Inputs</span>All module data · events · master data</div>
+      <div class="f"><span class="ft">Process</span>Ingest→Model→Serve→Feed AI</div>
+      <div class="f"><span class="ft">Decisions</span>Thresholds · targets · measure definitions</div>
+      <div class="f"><span class="ft">Outputs</span>Dashboards · reports · AI features · summaries</div>
+      <div class="f"><span class="ft">Notifications</span>Scheduled · alerts · Telegram briefing</div>
+      <div class="f"><span class="ft">Audit</span>Access · export · AI run log</div>
+      <div class="f"><span class="ft">Security</span>Row/field by role &amp; project — dashboards and AI alike</div>
     </div>
 
   </div>
   <div class="foot">
     <span><b>AL-BERUNIY OPERATING SYSTEM</b> · Enterprise Architecture Blueprint</span>
-    <span>Blueprint 19 · Business Intelligence · v1.1 · 2026-09-18</span>
-    <span>Every dashboard drills back to the source transaction</span>
+    <span>Blueprint 19 · Business Intelligence · v1.2 · 2026-09-18 · Client Approval Candidate</span>
+    <span>Semantic measures are governed AI inputs · Actual / Forecast / AI recommendation always labelled</span>
   </div>
 </section>
 </body>

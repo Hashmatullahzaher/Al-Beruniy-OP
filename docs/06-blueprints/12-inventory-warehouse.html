@@ -26,10 +26,11 @@
       <div class="desc">Procurement → Warehouse → Construction → Cost Accounting, with valuation &amp; traceability.</div>
     </div>
     <div class="tb-meta">
-      <span class="k">Version</span><b>1.0</b>
-      <span class="k">Date</span><b>2026-09-17</b>
+      <span class="k">Version</span><b>1.2</b>
+      <span class="k">Date</span><b>2026-09-18</b>
       <span class="k">Connector</span><b>WH-01</b>
       <span class="k">Sheet</span><b>12 / 26</b>
+      <span class="stat">CLIENT APPROVAL CANDIDATE</span>
     </div>
   </div>
 
@@ -40,6 +41,7 @@
     <span class="legend-item"><span class="arrow">→</span> movement</span>
     <span class="legend-item"><span class="cid in">◂ PROC-01</span> receipt</span>
     <span class="legend-item"><span class="cid out">COST-01</span> project cost</span>
+      <span class="legend-item"><span class="cid ai">AI-01</span> typed tools · knowledge · <span class="cid tg">TG-01</span> Telegram channel</span>
   </div>
 
   <div class="canvas">
@@ -123,10 +125,19 @@
       </div>
     </div>
 
+  
+    <div class="aistrip">
+      <div class="ah">AI CORE &amp; TELEGRAM CONTRACT <span class="tag">AI-01</span><span class="tag" style="background:#2AABEE">TG-01</span><span style="font-weight:600;color:#3d444d;letter-spacing:0">— this module exposes typed tools, publishes events to the Knowledge Plane and is reachable from Telegram under the same permissions · <span class="cid">WH-01</span> ↔ <span class="cid">BP-20</span></span></div>
+      <div class="ac"><span class="t">Typed read tools</span>get_stock_on_hand · get_low_stock · get_material_movement · get_project_consumption · detect_consumption_anomaly</div>
+      <div class="ac"><span class="t">Draft / action tools → workflow</span>draft_material_request · suggest_reorder_requisition → Workflow / Procurement (Storekeeper cannot approve payments)</div>
+      <div class="ac"><span class="t">Events → Knowledge Plane (KP-01)</span>GRNPosted · MaterialIssued · StockAdjusted · CountVariance → projection (project · warehouse)</div>
+      <div class="ac tg"><span class="t">Telegram queries &amp; notifications</span>low-stock alerts · site material alerts · receipt / issue confirmations to Storekeepers and Site Engineers</div>
+      <div class="ac no"><span class="t">Hard guardrail</span>AI suggests reorders and flags anomalies; every issue, transfer and adjustment is still posted by the Warehouse service and costed by Finance.</div>
+    </div>
   </div>
   <div class="foot">
     <span><b>AL-BERUNIY OPERATING SYSTEM</b> · Enterprise Architecture Blueprint</span>
-    <span>Blueprint 12 · Inventory &amp; Warehouse · v1.0 · 2026-09-17</span>
+    <span>Blueprint 12 · Inventory &amp; Warehouse · v1.2 · 2026-09-18 · Client Approval Candidate</span>
     <span>Issue belongs to Project · creates Project Cost</span>
   </div>
 </section>

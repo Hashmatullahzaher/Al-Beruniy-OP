@@ -13,9 +13,10 @@
   <a href="01-enterprise-master-map.html">01 · Master Map</a>
   <a href="02-organization-access.html">02 · Org &amp; Access</a>
   <a href="03-multi-project.html">03 · Multi-Project</a>
-  <a href="04-financial-architecture.html">04 · Finance</a>
   <a href="17-workflow-approvals.html">17 · Workflow</a>
+  <a href="20-ai-architecture.html">20 · AI Core</a>
   <a href="23-security-architecture.html">23 · Security</a>
+  <a href="24-external-portals.html">24 · Portals</a>
   <span class="screen-note">Print → A3 · Landscape · Margins None · Background graphics ON</span>
 </nav>
 
@@ -24,105 +25,137 @@
     <div class="tb-brand"><div class="os">AL-BERUNIY</div><div class="sub">OPERATING SYSTEM</div></div>
     <div class="tb-title">
       <div class="no">BLUEPRINT 02 · ORGANIZATION &amp; ACCESS ARCHITECTURE</div>
-      <div class="name">Who Uses the System &amp; What They Can Access</div>
-      <div class="desc">User Account ≠ Role ≠ Department ≠ Project Assignment ≠ Permission ≠ Approval Authority ≠ Data Access.</div>
+      <div class="name">Who Uses the System &amp; What They Can Access — Humans, Machines and Telegram</div>
+      <div class="desc">User Account ≠ Role ≠ Department ≠ Project Assignment ≠ Permission ≠ Approval Authority ≠ Data Access. The same model governs AI retrieval, AI tools and Telegram.</div>
     </div>
     <div class="tb-meta">
-      <span class="k">Version</span><b>1.0</b>
-      <span class="k">Date</span><b>2026-09-17</b>
+      <span class="k">Version</span><b>1.2</b>
+      <span class="k">Date</span><b>2026-09-18</b>
       <span class="k">Layer</span><b>Access L1</b>
       <span class="k">Sheet</span><b>02 / 26</b>
+      <span class="stat">CLIENT APPROVAL CANDIDATE</span>
     </div>
   </div>
 
   <div class="legend">
     <span class="lg-title">LEGEND</span>
     <span class="legend-item"><span class="sw" style="background:var(--exec)"></span>Governance</span>
-    <span class="legend-item"><span class="sw" style="background:var(--infra)"></span>Access Objects</span>
+    <span class="legend-item"><span class="sw" style="background:var(--infra)"></span>Access objects</span>
+    <span class="legend-item"><span class="sw" style="background:#0E8A8A"></span>AI identity / roles</span>
+    <span class="legend-item"><span class="sw" style="background:#2AABEE"></span>Telegram binding</span>
     <span class="legend-item"><span class="arrow">→</span> assignment / grant</span>
-    <span class="legend-item"><b>1:N</b> one-to-many</span>
-    <span class="legend-item"><b>N:N</b> many-to-many</span>
-    <span class="legend-item"><span class="cid">WF-01</span> connects to Workflow Engine (BP-17)</span>
-    <span class="legend-item"><span class="cid">SEC-01</span> enforced by Security (BP-23)</span>
+    <span class="legend-item"><b>1:N</b> · <b>N:N</b> cardinality</span>
+    <span class="legend-item"><span class="cid">WF-01</span> Workflow · <span class="cid">SEC-01</span> Security · <span class="cid ai">AI-01</span> AI Core · <span class="cid tg">TG-01</span> Telegram</span>
   </div>
 
   <div class="canvas">
 
-    <!-- SIX ACCESS OBJECTS -->
+    <!-- SEVEN ACCESS OBJECTS -->
     <div class="row" style="flex:0 0 auto">
-      <div class="card d-exec grow"><div class="hd">THE ACCESS MODEL — six distinct objects, never merged</div>
+      <div class="card d-exec grow"><div class="hd">THE ACCESS MODEL — seven distinct objects, never merged</div>
         <div class="bd"><div class="chain">
-          <div class="step" style="--c:var(--infra);--ci:var(--infra-ink)"><span class="n">1</span><b>USER ACCOUNT</b><span class="mini">Identity for authN. MFA. One person = one login. Employee / portal user.</span></div>
-          <div class="step" style="--c:var(--infra);--ci:var(--infra-ink)"><span class="n">2</span><b>ROLE</b><span class="mini">Job function bundle of permissions. A user may hold several.</span></div>
-          <div class="step" style="--c:var(--infra);--ci:var(--infra-ink)"><span class="n">3</span><b>DEPARTMENT</b><span class="mini">Home org unit. A user belongs to exactly one department.</span></div>
-          <div class="step" style="--c:var(--infra);--ci:var(--infra-ink)"><span class="n">4</span><b>PROJECT ASSIGNMENT</b><span class="mini">Scopes which projects' data a user may touch. Many per user.</span></div>
-          <div class="step" style="--c:var(--infra);--ci:var(--infra-ink)"><span class="n">5</span><b>PERMISSION</b><span class="mini">Atomic can-do (create/read/update/approve on an object).</span></div>
-          <div class="step" style="--c:var(--infra);--ci:var(--infra-ink)"><span class="n">6</span><b>APPROVAL AUTHORITY</b><span class="mini">Amount/scope limits per user per project. Feeds Workflow. <span class="cid">WF-01</span></span></div>
+          <div class="step" style="--c:var(--infra);--ci:var(--infra-ink)"><span class="n">1</span><b>USER ACCOUNT (Type A)</b><span class="mini">Identity for authN · MFA · one person = one login</span></div>
+          <div class="step" style="--c:var(--infra);--ci:var(--infra-ink)"><span class="n">2</span><b>ROLE</b><span class="mini">Permission bundle; a user may hold several</span></div>
+          <div class="step" style="--c:var(--infra);--ci:var(--infra-ink)"><span class="n">3</span><b>DEPARTMENT</b><span class="mini">Home org unit — exactly one</span></div>
+          <div class="step" style="--c:var(--infra);--ci:var(--infra-ink)"><span class="n">4</span><b>PROJECT ASSIGNMENT</b><span class="mini">Scopes project data · N:N</span></div>
+          <div class="step" style="--c:var(--infra);--ci:var(--infra-ink)"><span class="n">5</span><b>PERMISSION</b><span class="mini">Atomic can-do · module · action · field · data scope</span></div>
+          <div class="step" style="--c:var(--infra);--ci:var(--infra-ink)"><span class="n">6</span><b>APPROVAL AUTHORITY</b><span class="mini">Amount / scope limits per project <span class="cid">WF-01</span></span></div>
+          <div class="step" style="--c:#2AABEE;--ci:#136a99"><span class="n">7</span><b>CHANNEL BINDING</b><span class="mini">Telegram Identity Binding → Type-A account · revocable <span class="cid tg">TG-01</span></span></div>
         </div>
-        <div class="mini" style="margin-top:6px"><b>Effective Data Access = Role Permissions ∩ Project Assignments ∩ Department scope ∩ Field-level rules.</b> Computed at every request by the Permission Engine. <span class="cid">SEC-01</span></div>
+        <div class="mini" style="margin-top:6px"><b>Effective Data Access = Role ∩ Project Assignment ∩ Department ∩ Field rules — computed at every request, and re-computed for every AI retrieval, AI tool call and Telegram message.</b> <span class="cid">SEC-01</span></div>
         </div>
       </div>
     </div>
 
     <div class="row grow">
       <!-- ORG HIERARCHY -->
-      <div class="col" style="flex:1.15">
+      <div class="col" style="flex:1">
         <p class="band d-exec">Organization Hierarchy</p>
         <div class="card d-exec soft grow"><div class="bd">
           <div class="chain vert">
             <div class="step"><b>COMPANY — AL-BERUNIY Group</b><span class="mini">Consolidation entity</span></div>
-            <div class="step"><b>LEGAL ENTITY / BUSINESS UNIT</b><span class="mini">1:N · own books, tax id, currency base</span></div>
-            <div class="step"><b>DEPARTMENT</b><span class="mini">1:N · Finance, Sales, Construction, Procurement, HR, Warehouse, Legal, IT…</span></div>
+            <div class="step"><b>LEGAL ENTITY / BUSINESS UNIT</b><span class="mini">1:N · own books, tax id, currency</span></div>
+            <div class="step"><b>DEPARTMENT</b><span class="mini">1:N · Finance, Sales, Construction, Procurement, HR, WH, Legal, IT, AI/Integration</span></div>
             <div class="step"><b>PROJECT ASSIGNMENT ↔ PROJECTS</b><span class="mini">N:N · a user works across many projects <span class="cid">PROJ-01</span></span></div>
           </div>
         </div></div>
         <div class="card d-infra soft"><div class="hd">Cardinalities</div><div class="bd mini">
-          User <b>1:1</b> primary Department · User <b>N:N</b> Roles · User <b>N:N</b> Projects ·
-          Role <b>N:N</b> Permissions · User+Project <b>1:1</b> Approval-limit record.
+          User <b>1:1</b> Department · User <b>N:N</b> Roles · User <b>N:N</b> Projects · Role <b>N:N</b> Permissions ·
+          User+Project <b>1:1</b> authority record · User <b>1:1</b> Telegram binding (per chat, revocable).
         </div></div>
       </div>
 
       <!-- ROLE CATALOG -->
-      <div class="col" style="flex:1.6">
-        <p class="band d-infra">Role Catalog (by domain)</p>
+      <div class="col" style="flex:1.7">
+        <p class="band d-infra">Role Catalog (by domain) — including AI, integration and machine roles</p>
         <div class="card d-infra grow"><div class="bd">
           <div class="grid cols-4" style="gap:5px">
             <div class="blk d-exec"><span class="t">Governance</span><div class="pills" style="margin-top:2px">
-              <span class="pill">Chairman</span><span class="pill">Board Member</span><span class="pill">CEO</span><span class="pill">COO</span><span class="pill">Auditor</span></div></div>
+              <span class="pill">Chairman</span><span class="pill">Board</span><span class="pill">CEO</span><span class="pill">COO</span><span class="pill">CFO</span><span class="pill">Auditor</span></div></div>
             <div class="blk d-fin"><span class="t">Finance</span><div class="pills" style="margin-top:2px">
-              <span class="pill">CFO</span><span class="pill">Finance Director</span><span class="pill">Finance Manager</span><span class="pill">Accountant</span><span class="pill">Collection Officer</span></div></div>
+              <span class="pill">Finance Director / Manager</span><span class="pill">Accountant</span><span class="pill">AP / AR</span><span class="pill">Treasury</span><span class="pill">Collection Officer</span></div></div>
             <div class="blk d-const"><span class="t">Projects / Construction</span><div class="pills" style="margin-top:2px">
-              <span class="pill">Project Director</span><span class="pill">Project Manager</span><span class="pill">Construction Mgr</span><span class="pill">Site Engineer</span><span class="pill">Quantity Surveyor</span><span class="pill">Architect</span></div></div>
-            <div class="blk d-proc"><span class="t">Procurement / Store</span><div class="pills" style="margin-top:2px">
-              <span class="pill">Procurement Mgr</span><span class="pill">Procurement Officer</span><span class="pill">Warehouse Mgr</span><span class="pill">Storekeeper</span></div></div>
-            <div class="blk d-sales"><span class="t">Sales &amp; CRM</span><div class="pills" style="margin-top:2px">
-              <span class="pill">Sales Director</span><span class="pill">Sales Manager</span><span class="pill">Sales Agent</span><span class="pill">Customer Service</span></div></div>
+              <span class="pill">Project Director / Manager</span><span class="pill">Construction Mgr</span><span class="pill">Site Engineer</span><span class="pill">QS</span><span class="pill">Architect</span><span class="pill">QA/QC · HSE</span></div></div>
+            <div class="blk d-proc"><span class="t">Procurement / Warehouse</span><div class="pills" style="margin-top:2px">
+              <span class="pill">Procurement Mgr / Officer</span><span class="pill">Warehouse Mgr</span><span class="pill">Storekeeper</span></div></div>
+            <div class="blk d-sales"><span class="t">Sales</span><div class="pills" style="margin-top:2px">
+              <span class="pill">Sales Director / Manager / Agent</span><span class="pill">Customer Service</span></div></div>
             <div class="blk d-hr"><span class="t">HR</span><div class="pills" style="margin-top:2px">
-              <span class="pill">HR Manager</span><span class="pill">HR Officer</span></div></div>
-            <div class="blk d-legal"><span class="t">Legal / Docs</span><div class="pills" style="margin-top:2px">
-              <span class="pill">Legal Officer</span><span class="pill">Document Controller</span></div></div>
+              <span class="pill">HR Manager / Officer</span><span class="pill">Employee / ESS</span></div></div>
+            <div class="blk d-legal"><span class="t">Legal / Docs / Admin</span><div class="pills" style="margin-top:2px">
+              <span class="pill">Legal Officer</span><span class="pill">Document Controller</span><span class="pill">System / Company / Project / Dept Admin</span></div></div>
             <div class="blk d-doc"><span class="t">External (portal only)</span><div class="pills" style="margin-top:2px">
-              <span class="pill">Contractor</span><span class="pill">Supplier</span><span class="pill">Customer</span></div></div>
+              <span class="pill">Customer</span><span class="pill">Supplier</span><span class="pill">Contractor</span></div></div>
+            <div class="blk d-ai" style="grid-column:span 2"><span class="t">AI / Integration administration <span class="cid ai">AI-01</span></span><div class="pills" style="margin-top:2px">
+              <span class="pill">AI Platform Admin — providers · routing · usage policy · AI health</span>
+              <span class="pill">AI Knowledge Steward — sources · index freshness · classification</span>
+              <span class="pill">Integration Admin — connectors · webhooks · events</span>
+              <span class="pill">Telegram Bot Admin — bot · webhook · channels · delivery</span></div>
+              <div class="forbid" style="margin-top:3px"><b>Administering AI or Telegram infrastructure grants NO access to Finance, HR, project or party business data.</b> Business permissions are always separate grants.</div></div>
+            <div class="blk d-ai" style="grid-column:span 2"><span class="t">Machine identities (non-human) <span class="cid">MID-01</span></span><div class="pills" style="margin-top:2px">
+              <span class="pill">AI Indexer / Knowledge Sync — scoped service identity for ingestion &amp; indexing</span>
+              <span class="pill">Integration Service Identity — scoped connector credentials</span></div>
+              <div class="mini" style="margin-top:3px">Explicit service permissions · never anonymous superuser · never a login · cannot approve or post. AI provider accounts are <b>not</b> ABOS user accounts.</div></div>
           </div>
-          <div class="mini" style="margin-top:5px"><b>Segregation of Duties:</b> creator ≠ approver ≠ payer. External roles are portal-scoped (Type A user) and only ever see their own party data <span class="cid">BP-24</span>.</div>
+          <div class="mini" style="margin-top:5px"><b>Segregation of Duties:</b> creator ≠ approver ≠ payer — enforced identically for web, AI-proposed and Telegram-initiated actions. External roles are portal-scoped and see only their own party <span class="cid">BP-24</span>.</div>
+        </div></div>
+      </div>
+
+      <!-- AI USER CONTEXT + TELEGRAM BINDING -->
+      <div class="col" style="flex:1.05">
+        <p class="band d-ai">AI User Context — what the Core receives per request</p>
+        <div class="card d-ai soft"><div class="bd mini">
+          <div class="pills"><span class="pill">Type-A user or Machine Identity</span><span class="pill">Roles</span><span class="pill">Company / legal entity</span><span class="pill">Project assignments</span><span class="pill">Department scope</span><span class="pill">Field permissions</span><span class="pill">Party scope</span><span class="pill">Approval authority</span><span class="pill">Channel risk (web / Telegram)</span></div>
+          <div style="margin-top:4px"><b>The Core knows the enterprise; the user receives only their slice.</b> Same user, same answer, whether asked in the web app or Telegram. <span class="cid">BP-20</span></div>
+        </div></div>
+        <p class="band d-tg">Telegram Identity Binding</p>
+        <div class="card d-tg soft grow"><div class="bd">
+          <div class="chain vert" style="--c:#2AABEE;--ci:#136a99">
+            <div class="step"><b>1 · User signs in to ABOS</b><span class="mini">web / mobile, MFA as policy requires</span></div>
+            <div class="step"><b>2 · Requests Telegram link</b><span class="mini">one-time code · QR · deep link</span></div>
+            <div class="step"><b>3 · Opens official bot · token validated</b><span class="mini">expiring, single-use</span></div>
+            <div class="step"><b>4 · TelegramIdentityBinding created</b><span class="mini">Telegram user ID + chat → Type-A User Account</span></div>
+            <div class="step" style="--c:var(--infra);--ci:var(--infra-ink)"><b>5 · Existing permissions apply</b><span class="mini">Role · Project · Department · Field · Authority</span></div>
+          </div>
+          <div class="mini" style="margin-top:4px"><b>Telegram username ≠ trusted identity.</b> Binding is revocable from ABOS. Group membership is never authorization. Telegram is a channel — not a Business Party, not a role. <span class="cid">BP-23</span></div>
         </div></div>
       </div>
     </div>
 
     <!-- AUTHORITY MATRIX -->
     <div class="row" style="flex:0 0 auto">
-      <div class="card d-fin grow"><div class="hd">AUTHORITY &amp; DATA-ACCESS EXAMPLES — same object, different power by role &amp; project</div>
+      <div class="card d-fin grow"><div class="hd">AUTHORITY &amp; DATA-ACCESS EXAMPLES — identical for web, AI Copilot and Telegram</div>
         <div class="bd"><div class="grid cols-5" style="gap:5px">
-          <div class="blk d-fin"><span class="t">Finance Manager</span><br>Approves expenses/payments ≤ threshold T1; posts JEs; sees all-project finance in own entity.</div>
-          <div class="blk d-fin"><span class="t">CFO</span><br>Approves &gt; T1 up to T2; above T2 escalates to CEO/Chairman. Company-wide finance view.</div>
-          <div class="blk d-const"><span class="t">Project Manager</span><br>Full ops on <b>assigned projects only</b>; cannot see other projects or payroll.</div>
-          <div class="blk d-exec"><span class="t">Chairman</span><br>Read-all every project + consolidation; approves top-tier limits; no data entry.</div>
-          <div class="blk d-sales"><span class="t">Sales Agent</span><br>Sees <b>own customers</b> &amp; assigned unit inventory; <b>no payroll, no company finance</b>.</div>
-          <div class="blk d-wh"><span class="t">Warehouse Officer</span><br>Creates stock in/out/transfer; <b>cannot approve payments</b> or view AP ledger.</div>
-          <div class="blk d-fin"><span class="t">Collection Officer</span><br>Views assigned overdue customers; records receipts; cannot waive penalty (needs FM).</div>
-          <div class="blk d-proc"><span class="t">Procurement Officer</span><br>Raises RFQ/PO drafts; <b>cannot self-approve</b>; PO approval by Proc Mgr / Finance.</div>
-          <div class="blk d-hr"><span class="t">HR Officer</span><br>Employee records &amp; attendance; payroll <b>run</b> requires HR Mgr + Finance approval.</div>
-          <div class="blk d-legal"><span class="t">Auditor</span><br><b>Read-only everything</b> incl. audit trail; no create/update/approve.</div>
+          <div class="blk d-fin"><span class="t">Finance Manager</span><br>Approves ≤ T1; posts JEs; AI can explain any variance in own entity; Telegram payment approval → deep link + step-up.</div>
+          <div class="blk d-exec"><span class="t">Chairman</span><br>Read-all + consolidated AI briefing; approves top tier; no data entry — via web or Telegram.</div>
+          <div class="blk d-const"><span class="t">Project Manager</span><br>Assigned projects only; AI answers &amp; Telegram alerts limited to those projects.</div>
+          <div class="blk d-sales"><span class="t">Sales Agent</span><br>Own customers only; asking the AI “who is at risk?” returns only own accounts; no payroll, no GL.</div>
+          <div class="blk d-wh"><span class="t">Storekeeper</span><br>Creates stock transactions; AI may draft a reorder; cannot approve payments anywhere.</div>
+          <div class="blk d-hr"><span class="t">HR Officer</span><br>Employee records; AI masks salary/ID fields; payroll run needs HR Mgr + Finance.</div>
+          <div class="blk d-ai"><span class="t">AI Platform Admin</span><br>Providers, models, quotas, health — <b>no</b> business data unless separately granted.</div>
+          <div class="blk d-ai"><span class="t">AI Knowledge Steward</span><br>Approves knowledge sources &amp; classification; cannot read Restricted content it classifies.</div>
+          <div class="blk d-tg"><span class="t">Telegram Bot Admin</span><br>Bot, webhook, channels, delivery ops — cannot impersonate or read as business users.</div>
+          <div class="blk d-legal"><span class="t">Auditor</span><br>Read-only everything incl. AI run audit &amp; Telegram correlation logs; zero write.</div>
         </div></div>
       </div>
     </div>
@@ -130,8 +163,8 @@
   </div>
   <div class="foot">
     <span><b>AL-BERUNIY OPERATING SYSTEM</b> · Enterprise Architecture Blueprint</span>
-    <span>Blueprint 02 · Organization &amp; Access · v1.0 · 2026-09-17</span>
-    <span>Enforced by RBAC + Project + Field security · BP-23</span>
+    <span>Blueprint 02 · Organization &amp; Access · v1.2 · 2026-09-18 · Client Approval Candidate</span>
+    <span>One permission model for web, AI and Telegram · enforced by BP-23</span>
   </div>
 </section>
 </body>

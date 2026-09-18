@@ -27,10 +27,11 @@
       <div class="desc">WBS, schedule, progress, quality, safety, variations and earned-value — wired to cost &amp; finance.</div>
     </div>
     <div class="tb-meta">
-      <span class="k">Version</span><b>1.0</b>
-      <span class="k">Date</span><b>2026-09-17</b>
+      <span class="k">Version</span><b>1.2</b>
+      <span class="k">Date</span><b>2026-09-18</b>
       <span class="k">Connector</span><b>CONST-01</b>
       <span class="k">Sheet</span><b>07 / 26</b>
+      <span class="stat">CLIENT APPROVAL CANDIDATE</span>
     </div>
   </div>
 
@@ -42,6 +43,7 @@
     <span class="legend-item"><span class="cid out">COST-01</span> BOQ &amp; Cost</span>
     <span class="legend-item"><span class="cid out">PROC-01</span> Procurement</span>
     <span class="legend-item"><span class="cid out">CON-01</span> Contractors</span>
+      <span class="legend-item"><span class="cid ai">AI-01</span> typed tools · knowledge · <span class="cid tg">TG-01</span> Telegram channel</span>
   </div>
 
   <div class="canvas">
@@ -129,10 +131,19 @@
       </div>
     </div>
 
+  
+    <div class="aistrip">
+      <div class="ah">AI CORE &amp; TELEGRAM CONTRACT <span class="tag">AI-01</span><span class="tag" style="background:#2AABEE">TG-01</span><span style="font-weight:600;color:#3d444d;letter-spacing:0">— this module exposes typed tools, publishes events to the Knowledge Plane and is reachable from Telegram under the same permissions · <span class="cid">CONST-01</span> ↔ <span class="cid">BP-20</span></span></div>
+      <div class="ac"><span class="t">Typed read tools</span>get_schedule_status · get_progress · summarize_delays · get_rfi_status · get_submittal_status · get_project_risk</div>
+      <div class="ac"><span class="t">Draft / action tools → workflow</span>draft_daily_report · draft_rfi · draft_variation_request → Workflow (PM / Project Director approve)</div>
+      <div class="ac"><span class="t">Events → Knowledge Plane (KP-01)</span>ProgressUpdated · RFIRaised · InspectionResult · DelayLogged → projection (project · WBS · block)</div>
+      <div class="ac tg"><span class="t">Telegram queries &amp; notifications</span>site / project delay alerts · inspection results · RFI responses to Site Engineers and PMs · photo intake via Document Service</div>
+      <div class="ac no"><span class="t">Hard guardrail</span>AI summarizes and flags; it cannot certify progress or close an RFI. Quality gates and measurements remain human decisions.</div>
+    </div>
   </div>
   <div class="foot">
     <span><b>AL-BERUNIY OPERATING SYSTEM</b> · Enterprise Architecture Blueprint</span>
-    <span>Blueprint 07 · Construction &amp; Project Control · v1.0 · 2026-09-17</span>
+    <span>Blueprint 07 · Construction &amp; Project Control · v1.2 · 2026-09-18 · Client Approval Candidate</span>
     <span>Physical progress → measured quantity → certified cost → finance</span>
   </div>
 </section>

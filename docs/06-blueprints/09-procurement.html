@@ -27,10 +27,11 @@
       <div class="desc">PR → RFQ → Bid → PO → GRN → 3-way Match → Payment. Who creates, reviews, approves and pays.</div>
     </div>
     <div class="tb-meta">
-      <span class="k">Version</span><b>1.0</b>
-      <span class="k">Date</span><b>2026-09-17</b>
+      <span class="k">Version</span><b>1.2</b>
+      <span class="k">Date</span><b>2026-09-18</b>
       <span class="k">Connector</span><b>PROC-01</b>
       <span class="k">Sheet</span><b>09 / 26</b>
+      <span class="stat">CLIENT APPROVAL CANDIDATE</span>
     </div>
   </div>
 
@@ -42,6 +43,7 @@
     <span class="legend-item"><span class="arrow">→</span> flow</span>
     <span class="legend-item"><span class="cid out">WH-01</span> goods receipt</span>
     <span class="legend-item"><span class="cid out">FIN-AP-01</span> payables</span>
+      <span class="legend-item"><span class="cid ai">AI-01</span> typed tools · knowledge · <span class="cid tg">TG-01</span> Telegram channel</span>
   </div>
 
   <div class="canvas">
@@ -125,10 +127,19 @@
       <div class="f"><span class="ft">Security</span>SoD enforced · portal-scoped supplier</div>
     </div>
 
+  
+    <div class="aistrip">
+      <div class="ah">AI CORE &amp; TELEGRAM CONTRACT <span class="tag">AI-01</span><span class="tag" style="background:#2AABEE">TG-01</span><span style="font-weight:600;color:#3d444d;letter-spacing:0">— this module exposes typed tools, publishes events to the Knowledge Plane and is reachable from Telegram under the same permissions · <span class="cid">PROC-01</span> ↔ <span class="cid">BP-20</span></span></div>
+      <div class="ac"><span class="t">Typed read tools</span>get_pr_status · get_po_status · compare_quotations(rfq) · get_delivery_status · evaluate_supplier</div>
+      <div class="ac"><span class="t">Draft / action tools → workflow</span>draft_purchase_requisition · draft_rfq · propose_award_recommendation → Workflow (Proc Mgr / Finance approve)</div>
+      <div class="ac"><span class="t">Events → Knowledge Plane (KP-01)</span>PRApproved · RFQIssued · QuotationReceived · POIssued · GRNPosted → projection (project · supplier party)</div>
+      <div class="ac tg"><span class="t">Telegram queries &amp; notifications</span>procurement delay alerts · PR/PO approval notices · quotation-received notices to Procurement Officers</div>
+      <div class="ac no"><span class="t">Hard guardrail</span>Supplier selection and award remain governed workflow with SoD. AI compares and recommends; it never issues a PO or releases a payment.</div>
+    </div>
   </div>
   <div class="foot">
     <span><b>AL-BERUNIY OPERATING SYSTEM</b> · Enterprise Architecture Blueprint</span>
-    <span>Blueprint 09 · Procurement · v1.0 · 2026-09-17</span>
+    <span>Blueprint 09 · Procurement · v1.2 · 2026-09-18 · Client Approval Candidate</span>
     <span>PO→Commitment · GRN→Inventory · Invoice→AP · Payment→Bank</span>
   </div>
 </section>

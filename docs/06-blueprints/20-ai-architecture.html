@@ -3,17 +3,22 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>20 · AI Architecture — AL-BERUNIY OS</title>
+<title>20 · AI Core / Enterprise Intelligence Control Plane — AL-BERUNIY OS</title>
 <link rel="stylesheet" href="assets/blueprint.css">
 </head>
 <body>
 <nav class="topnav">
   <b>AL-BERUNIY OS</b>
   <a href="index.html">00 · Index</a>
+  <a href="01-enterprise-master-map.html">01 · Master Map</a>
+  <a href="02-organization-access.html">02 · Org &amp; Access</a>
+  <a href="16-document-management.html">16 · Documents</a>
+  <a href="17-workflow-approvals.html">17 · Workflow</a>
   <a href="19-business-intelligence.html">19 · BI</a>
-  <a href="20-ai-architecture.html">20 · AI</a>
+  <a href="20-ai-architecture.html">20 · AI Core</a>
+  <a href="22-data-integration.html">22 · Data · AI · Integration</a>
   <a href="23-security-architecture.html">23 · Security</a>
-  <a href="22-data-integration.html">22 · Integration</a>
+  <a href="26-transaction-traceability.html">26 · Traceability</a>
   <span class="screen-note">Print → A3 · Landscape · Margins None · Background graphics ON</span>
 </nav>
 
@@ -21,115 +26,139 @@
   <div class="titleblock">
     <div class="tb-brand"><div class="os">AL-BERUNIY</div><div class="sub">OPERATING SYSTEM</div></div>
     <div class="tb-title">
-      <div class="no">BLUEPRINT 20 · AL-BERUNIY AI CORE &amp; INTELLIGENCE CONTROL PLANE</div>
-      <div class="name">System-Wide AI Core — Knowledge · LLM Gateway · Tools · Telegram</div>
-      <div class="desc">One governed intelligence plane spans every module; provider-neutral models reason over security-tagged knowledge and act only through typed tools.</div>
+      <div class="no">BLUEPRINT 20 · AI CORE / ENTERPRISE INTELLIGENCE CONTROL PLANE</div>
+      <div class="name">System-Wide Intelligence — Governed, Provider-Neutral, Never Above the Rules</div>
+      <div class="desc">ABOS is not an ERP with a chatbot. One AI control plane spans every domain, reasons over security-tagged knowledge, and acts only through typed tools, workflow and Finance.</div>
     </div>
     <div class="tb-meta">
-      <span class="k">Version</span><b>1.1</b>
+      <span class="k">Version</span><b>1.2</b>
       <span class="k">Date</span><b>2026-09-18</b>
       <span class="k">Connector</span><b>AI-01</b>
       <span class="k">Sheet</span><b>20 / 26</b>
+      <span class="stat">CLIENT APPROVAL CANDIDATE</span>
     </div>
   </div>
 
   <div class="legend">
     <span class="lg-title">LEGEND</span>
-    <span class="legend-item"><span class="sw" style="background:var(--data)"></span>AI Core service</span>
-    <span class="legend-item"><span class="sw" style="background:var(--infra)"></span>Permission gate</span>
-    <span class="legend-item"><span class="arrow">→</span> data flow</span>
-    <span class="legend-item"><span class="cid">SEC-01</span> RBAC enforced</span>
-    <span class="legend-item"><span class="cid in">◂ BP-19</span> governed knowledge</span>
+    <span class="legend-item"><span class="sw" style="background:#0E8A8A"></span>AI Core service</span>
+    <span class="legend-item"><span class="sw" style="background:#5B3FA0"></span>Model Gateway / providers</span>
+    <span class="legend-item"><span class="sw" style="background:#2AABEE"></span>Telegram channel</span>
+    <span class="legend-item"><span class="sw" style="background:var(--infra)"></span>Identity / policy gate</span>
+    <span class="legend-item"><span class="sw" style="background:var(--fin)"></span>Authoritative systems</span>
+    <span class="legend-item"><span class="ln user"></span>process</span>
+    <span class="legend-item"><span class="ln ai"></span>AI / audit event</span>
+    <span class="legend-item"><span class="ln tg"></span>channel</span>
+    <span class="legend-item"><span class="cid ai">AI-01</span> <span class="cid">MG-01</span> <span class="cid">KP-01</span> <span class="cid">TOOL-01</span> <span class="cid">MID-01</span> <span class="cid tg">TG-01</span> defined here</span>
   </div>
 
   <div class="canvas">
 
-    <!-- GOLDEN RULE -->
+    <!-- LAYER STACK -->
     <div class="row" style="flex:0 0 auto">
-      <div class="card d-infra grow"><div class="hd" style="background:var(--const)">AI CORE SITS ACROSS EVERY MODULE — NEVER BYPASSES RBAC</div>
-        <div class="bd"><div class="row" style="align-items:center;gap:12px">
-          <div class="grow"><div class="chain">
-            <div class="step" style="--c:var(--infra);--ci:var(--infra-ink)"><b>User / Telegram</b><span class="mini">authenticated channel</span></div>
-            <div class="step" style="--c:var(--const);--ci:var(--const-ink)"><b>Permission Engine</b><span class="mini">identity · role · project · field <span class="cid">SEC-01</span></span></div>
-            <div class="step" style="--c:var(--data);--ci:var(--data-ink)"><b>AI Core</b><span class="mini">LLM gateway · orchestrator</span></div>
-            <div class="step" style="--c:var(--wh);--ci:var(--wh-ink)"><b>Knowledge + Typed Tools</b><span class="mini">authorized sources &amp; services</span></div>
-          </div></div>
-          <div style="flex:0 0 40%"><div class="blk" style="--c:var(--const);--ci:var(--const-ink)"><span class="t">✗ Forbidden pattern:</span> LLM → arbitrary SQL → Entire Database. The AI Core may index enterprise-wide knowledge under a governed machine identity, but every user retrieval/tool call is <b>re-authorized</b> and security-trimmed. <span class="cid">BP-23</span>.</div></div>
+      <div class="card d-ai grow"><div class="hd" style="background:#0E8A8A">THE CONTROL-PLANE STACK — every AI interaction, from any channel, follows this exact order</div>
+        <div class="bd" style="padding:5px 9px"><div class="chain">
+          <div class="step" style="--c:#2AABEE;--ci:#136a99"><span class="n">1</span><b>CHANNELS</b><span class="mini">Web · Mobile · Portals · Exec Center · <b>Telegram</b> <span class="cid tg">TG-01</span></span></div>
+          <div class="step" style="--c:var(--infra);--ci:var(--infra-ink)"><span class="n">2</span><b>IDENTITY + USER CONTEXT</b><span class="mini">Type-A user or Machine Identity · company · project · role</span></div>
+          <div class="step" style="--c:var(--const);--ci:var(--const-ink)"><span class="n">3</span><b>PERMISSION &amp; POLICY GATEWAY</b><span class="mini">RBAC · project · dept · field · party · SoD · classification · channel risk</span></div>
+          <div class="step" style="--c:#0E8A8A;--ci:#0a6666"><span class="n">4</span><b>AI CORE</b><span class="mini">Orchestrator · Knowledge Plane · Tool Registry · Model Gateway <span class="cid ai">AI-01</span></span></div>
+          <div class="step" style="--c:var(--exec);--ci:var(--exec-ink)"><span class="n">5</span><b>DOMAIN SERVICES</b><span class="mini">Sales · Finance · Construction · Procurement · WH · HR … (typed tools only)</span></div>
+          <div class="step" style="--c:var(--fin);--ci:var(--fin-ink)"><span class="n">6</span><b>WORKFLOW · FINANCE · DOCUMENTS · AUDIT</b><span class="mini">authoritative — AI never bypasses <span class="cid">WF-01</span> <span class="cid">FIN-01</span></span></div>
         </div></div>
       </div>
     </div>
 
     <div class="row grow">
-      <div class="col" style="flex:1.1">
-        <p class="band d-data">AI Core Components &amp; Experiences</p>
-        <div class="card d-data soft grow"><div class="bd"><div class="grid cols-2" style="gap:4px">
-          <div class="blk d-data"><span class="t">Model Gateway</span><br>API key · OAuth/sign-in · private endpoint</div>
-          <div class="blk d-data"><span class="t">Enterprise Knowledge Plane</span><br>docs · data · events · BI semantics</div>
-          <div class="blk d-data"><span class="t">Typed Tool Registry</span><br>authorized domain services</div>
-          <div class="blk d-data"><span class="t">AI Copilot</span><br>persistent · contextual · every module</div>
-          <div class="blk d-data"><span class="t">AI Search / NLQ</span><br>cross-module · source-grounded</div>
-          <div class="blk d-data"><span class="t">Telegram AI Channel</span><br>bound user · alerts · query · draft</div>
-        </div></div></div>
-        <p class="band d-data">Document AI</p>
-        <div class="card d-data soft"><div class="bd"><div class="grid cols-2" style="gap:4px">
-          <div class="blk d-data"><span class="t">Invoice Extraction</span><br>OCR → structured</div>
-          <div class="blk d-data"><span class="t">Contract Analysis</span><br>clauses · obligations</div>
-        </div></div></div>
-      </div>
+      <!-- AI CORE INTERNALS -->
+      <div class="col" style="flex:1.55">
+        <p class="band d-ai">Inside the AI Core</p>
+        <div class="card d-ai soft grow"><div class="bd"><div class="grid cols-4" style="gap:5px">
+          <div class="blk d-mg"><span class="t">Model Gateway <span class="cid">MG-01</span></span><br>provider &amp; model registry · routing by task · fallback · health · token/cost quotas · region &amp; data residency · classification allow-list · credential vault &amp; rotation · request/response audit</div>
+          <div class="blk d-ai"><span class="t">AI Orchestrator / Agent Runtime</span><br>intent classification · planning · retrieval orchestration · tool selection · multi-step execution · grounding &amp; source linking · action proposal · human confirmation · workflow hand-off</div>
+          <div class="blk d-ai"><span class="t">Enterprise Knowledge Plane <span class="cid">KP-01</span></span><br>docs · policies · master data · read projections · workflow state · domain events · audit metadata · BI semantics · entity graph. <b>Secondary read structure — never a system of record.</b></div>
+          <div class="blk d-ai"><span class="t">Typed Tool Registry <span class="cid">TOOL-01</span></span><br>schema-defined operations only: <span class="mono">get_project_financial_summary</span> · <span class="mono">get_overdue_installments</span> · <span class="mono">get_stock_on_hand</span> · <span class="mono">draft_purchase_requisition</span> · <span class="mono">get_pending_approvals</span></div>
+          <div class="blk d-ai"><span class="t">Memory (segregated)</span><br>Enterprise knowledge · Entity context · <b>Conversation</b> (per user/channel — never shared) · Task (temporary)</div>
+          <div class="blk d-ai"><span class="t">Guardrails</span><br>prompt-injection defence · tool allow-lists · output redaction/DLP · sensitive-field controls · high-risk confirmation · low-confidence → human</div>
+          <div class="blk d-ai"><span class="t">AI Audit &amp; Observability</span><br>run ID · identity · channel · model/provider/version · sources &amp; versions · scope · tools + args · approvals · latency · cost · policy decisions</div>
+          <div class="blk d-ai"><span class="t">Prediction &amp; Document AI</span><br>cash-flow · collection risk · late-pay · overrun/EAC · delay · supplier risk · anomaly/duplicate · invoice extraction · contract analysis</div>
+        </div>
+        <hr class="dash">
+        <div class="mini"><b>Access modes:</b> <span class="pill">Read / Explain</span> <span class="pill">Analyze / Recommend</span> <span class="pill">Draft</span> <span class="pill">Act — via typed tool + workflow</span> <span class="pill">Autonomous monitoring — Machine Identity, alerts only</span>. Actuals, rules and forecasts are always labelled distinctly.</div>
+        </div></div>
 
-      <div class="col" style="flex:1.3">
-        <p class="band d-data">Predictive &amp; Risk Models</p>
-        <div class="card d-data grow"><div class="bd"><div class="grid cols-2" style="gap:4px">
-          <div class="blk d-data"><span class="t">Predictive Cash Flow</span><br>collections vs outflows</div>
-          <div class="blk d-data"><span class="t">Sales Prediction</span><br>absorption · pricing</div>
-          <div class="blk d-data"><span class="t">Collection Risk</span><br>customer-level score</div>
-          <div class="blk d-data"><span class="t">Late-Payment Prediction</span><br>installment default</div>
-          <div class="blk d-data"><span class="t">Cost-Overrun Prediction</span><br>EAC breach early warning</div>
-          <div class="blk d-data"><span class="t">Project-Delay Prediction</span><br>schedule slippage</div>
-          <div class="blk d-data"><span class="t">Supplier Risk</span><br>delivery/quality/finance</div>
-          <div class="blk d-data"><span class="t">Fraud / Anomaly</span><br>unusual approvals · outliers</div>
-          <div class="blk d-data"><span class="t">Duplicate-Invoice Detection</span><br>near-match blocking</div>
-          <div class="blk d-data"><span class="t">Procurement Recommendations</span><br>vendor &amp; timing</div>
-          <div class="blk d-data"><span class="t">Smart Alerts</span><br>pushed to cockpit <span class="cid">BP-18</span></div>
-          <div class="blk d-data"><span class="t">Management Recommendations</span><br>prioritised actions</div>
-        </div></div></div>
-        <div class="facets d-data">
-          <div class="f"><span class="ft">Actors</span>All users (scoped) · Data team</div>
-          <div class="f"><span class="ft">Inputs</span>Docs · events · read models · BI <span class="cid in">◂ BP-19</span></div>
-          <div class="f"><span class="ft">Master Data</span>Same governed masters</div>
-          <div class="f"><span class="ft">Process</span>Ingest→Tag→Retrieve→Tool→Answer/Act</div>
-          <div class="f"><span class="ft">Decisions</span>Advisory only</div>
-          <div class="f"><span class="ft">Approvals</span>Actions still go via WF-01</div>
-          <div class="f"><span class="ft">Transactions</span>Typed tools; workflow governs writes</div>
-          <div class="f"><span class="ft">Documents</span>Reads permitted docs</div>
-          <div class="f"><span class="ft">Outputs</span>Predictions · alerts · answers</div>
-          <div class="f"><span class="ft">Accounting</span>No direct posting</div>
-          <div class="f"><span class="ft">Modules</span>All modules publish AI contracts</div>
-          <div class="f"><span class="ft">Notifications</span>Smart alerts</div>
-          <div class="f"><span class="ft">Reports/KPIs</span>Model accuracy · adoption</div>
-          <div class="f"><span class="ft">Audit</span>Model · sources · tools · outputs logged</div>
-          <div class="f"><span class="ft">Exceptions</span>Low-confidence → human</div>
-          <div class="f"><span class="ft">Security</span>RBAC-trimmed context</div>
+        <!-- KNOWLEDGE SECURITY + EXECUTION PATH -->
+        <div class="row" style="flex:0 0 auto">
+          <div class="card d-ai grow"><div class="hd">KNOWLEDGE OBJECT — mandatory security metadata <span class="tag">KP-01</span></div>
+            <div class="bd"><div class="pills">
+              <span class="pill">Company</span><span class="pill">Legal entity</span><span class="pill">Project</span><span class="pill">Department</span>
+              <span class="pill">Business party</span><span class="pill">Sensitivity</span><span class="pill">Classification</span><span class="pill">Source record ID</span>
+              <span class="pill">Source version</span><span class="pill">ACL / permission tags</span><span class="pill">Effective date</span>
+            </div>
+            <div class="mini" style="margin-top:4px"><b>Ingestion:</b> Source → classify → permission-tag → normalize → chunk/project → index → refresh (event-driven + scheduled reconciliation) → retention. <b>Retrieval is re-authorized at query time; index presence never grants access.</b></div>
+            </div>
+          </div>
+          <div class="card d-wh grow"><div class="hd" style="background:var(--wh)">APPROVED EXECUTION PATH</div>
+            <div class="bd mini">
+              <div class="allow"><b>✓</b> User → AI intent → Permission engine → Orchestrator → <b>Typed tool</b> → Domain service → Authorization → Validation → Workflow (if required) → Transaction → Audit → Grounded response</div>
+              <hr class="dash">
+              <div class="forbid"><b>✗</b> LLM → arbitrary SQL → database</div>
+              <div class="forbid" style="margin-top:3px"><b>✗</b> AI → direct journal / accounting posting</div>
+              <div class="forbid" style="margin-top:3px"><b>✗</b> AI → bypass workflow · project security · SoD · field rules</div>
+              <div class="forbid" style="margin-top:3px"><b>✗</b> Module → random direct LLM API (must use MG-01)</div>
+            </div>
+          </div>
         </div>
       </div>
 
-      <div class="col" style="flex:.95">
-        <p class="band d-infra">Responsible-AI Controls</p>
-        <div class="card d-infra soft grow"><div class="bd mini">
-          <div class="blk d-infra"><span class="t">Human-in-the-loop</span><br>AI advises; approvals &amp; postings remain human via Workflow <span class="cid">WF-01</span>.</div>
-          <div class="blk d-infra"><span class="t">Explainability</span><br>each prediction shows drivers &amp; source records.</div>
-          <div class="blk d-infra"><span class="t">Full audit</span><br>prompts, context scope &amp; outputs retained.</div>
-          <div class="blk d-infra"><span class="t">Data residency</span><br>respects tenant &amp; project boundaries.</div>
-          <div class="blk d-infra"><span class="t">No training leakage</span><br>tenant data isolated from base models.</div>
+      <!-- RIGHT COLUMN: PROVIDERS, IDENTITY, TELEGRAM -->
+      <div class="col" style="flex:1">
+        <p class="band d-mg">Model Providers — outside ABOS, behind the Gateway</p>
+        <div class="card d-mg soft"><div class="bd"><div class="grid cols-3" style="gap:4px">
+          <div class="blk d-mg"><span class="t">External LLM Provider A</span>API key · OAuth</div>
+          <div class="blk d-mg"><span class="t">External LLM Provider B</span>service account</div>
+          <div class="blk d-mg"><span class="t">Private / Self-hosted Model</span>enterprise endpoint</div>
+        </div>
+        <div class="mini" style="margin-top:4px"><b>Connection:</b> API key · service account / enterprise credential · OAuth / provider sign-in · private endpoint. Config entity <span class="mono">AIProviderConnection</span>. <b>No provider secret in code.</b> Providers receive minimum context; no training on enterprise data unless explicitly approved. Provider accounts are <b>not</b> ABOS user accounts.</div>
+        </div></div>
+
+        <p class="band d-infra">Two identities, one rule</p>
+        <div class="card d-infra soft"><div class="bd"><div class="grid cols-2" style="gap:5px">
+          <div class="blk d-infra"><span class="t">Machine Identity <span class="cid">MID-01</span></span><br>scoped service identity for indexing &amp; background monitoring. <b>Enterprise-wide awareness</b>; never anonymous superuser; can raise alerts/tasks, cannot decide.</div>
+          <div class="blk d-infra"><span class="t">Human user (Type A)</span><br>receives <b>only what that user is authorized to see</b> — project, department, field, party — regardless of what the Core knows.</div>
+        </div>
+        <div class="mini" style="margin-top:4px">“Knows everything” = the Core indexes permitted enterprise knowledge. It does <b>not</b> mean any user gets the whole database. <span class="cid">BP-02</span> <span class="cid">BP-23</span></div>
+        </div></div>
+
+        <p class="band d-tg">Telegram — first-class governed channel</p>
+        <div class="card d-tg soft grow"><div class="bd">
+          <div class="chain vert" style="--c:#2AABEE;--ci:#136a99">
+            <div class="step"><b>Telegram user → Bot API → Telegram Gateway</b><span class="mini">webhook secret · replay protection · rate limit <span class="cid tg">TG-01</span></span></div>
+            <div class="step"><b>ABOS Identity Binding → permission context</b><span class="mini">one-time link · bound to Type-A account · revocable</span></div>
+            <div class="step" style="--c:#0E8A8A;--ci:#0a6666"><b>AI Core → knowledge / typed tool → domain</b><span class="mini">same runtime, same rules as web</span></div>
+            <div class="step" style="--c:var(--fin);--ci:var(--fin-ink)"><b>Audit → response / secure deep link</b><span class="mini">high-risk → step-up or ABOS deep link</span></div>
+          </div>
+          <div class="mini" style="margin-top:4px"><b>No independent business logic. No direct DB. Group chats are never authorization contexts.</b> Detail: <span class="cid">BP-22</span> <span class="cid">BP-23</span> <span class="cid">BP-26</span></div>
         </div></div>
       </div>
+    </div>
+
+    <!-- CROSS-MODULE CONTRACT -->
+    <div class="facets d-ai" style="margin-top:2px">
+      <div class="f"><span class="ft">Module AI contract</span>Every domain: typed read tools · draft/action tools · domain events · read projection · source IDs &amp; deep links · permission metadata · document links · audit hooks</div>
+      <div class="f"><span class="ft">Actors</span>All users (scoped) · AI Platform Admin · Knowledge Steward · Telegram Bot Admin · Machine Identity</div>
+      <div class="f"><span class="ft">Inputs</span>Docs · events · read models · BI semantics <span class="cid in">◂ BP-16/19/21</span></div>
+      <div class="f"><span class="ft">Decisions</span>Advisory; low-confidence / high-risk → human</div>
+      <div class="f"><span class="ft">Approvals</span>Always via WF-01; AI never approves</div>
+      <div class="f"><span class="ft">Accounting</span>No direct posting — Finance authoritative</div>
+      <div class="f"><span class="ft">Audit</span>Prompt · scope · model · sources · tools · outputs · cost</div>
+      <div class="f"><span class="ft">Release-1 proof</span>Provider via gateway · indexed docs · cross-module Q · source-grounded · project/field enforced · typed read + draft tool · Telegram bind/query/deny</div>
     </div>
 
   </div>
   <div class="foot">
     <span><b>AL-BERUNIY OPERATING SYSTEM</b> · Enterprise Architecture Blueprint</span>
-    <span>Blueprint 20 · AL-BERUNIY AI Core · v1.1 · 2026-09-18</span>
-    <span>Web / Telegram → Identity → AI Core → Permission → Knowledge / Typed Tools → Domain Services</span>
+    <span>Blueprint 20 · AI Core / Enterprise Intelligence Control Plane · v1.2 · 2026-09-18 · Client Approval Candidate</span>
+    <span>Channels → Identity → Policy → AI Core → Typed Tools → Domains → Workflow / Finance / Audit</span>
   </div>
 </section>
 </body>

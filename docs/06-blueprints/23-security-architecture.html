@@ -10,10 +10,12 @@
 <nav class="topnav">
   <b>AL-BERUNIY OS</b>
   <a href="index.html">00 · Index</a>
-  <a href="22-data-integration.html">22 · Integration</a>
+  <a href="02-organization-access.html">02 · Org &amp; Access</a>
+  <a href="20-ai-architecture.html">20 · AI Core</a>
+  <a href="22-data-integration.html">22 · Data · AI · Integration</a>
   <a href="23-security-architecture.html">23 · Security</a>
   <a href="24-external-portals.html">24 · Portals</a>
-  <a href="02-organization-access.html">02 · Org &amp; Access</a>
+  <a href="26-transaction-traceability.html">26 · Traceability</a>
   <span class="screen-note">Print → A3 · Landscape · Margins None · Background graphics ON</span>
 </nav>
 
@@ -22,14 +24,15 @@
     <div class="tb-brand"><div class="os">AL-BERUNIY</div><div class="sub">OPERATING SYSTEM</div></div>
     <div class="tb-title">
       <div class="no">BLUEPRINT 23 · SECURITY ARCHITECTURE</div>
-      <div class="name">Defense in Depth — Identity, Access, Audit, Resilience</div>
-      <div class="desc">From authentication and RBAC to AI/Telegram channel security, field-level controls, audit, encryption and disaster recovery.</div>
+      <div class="name">Defense in Depth — Identity, Access, Audit, Resilience, AI Core and Telegram Boundaries</div>
+      <div class="desc">One enforcement path for humans, machines, AI and Telegram: authenticate → authorize → scope → audit. AI and Telegram add controls; they never remove any.</div>
     </div>
     <div class="tb-meta">
-      <span class="k">Version</span><b>1.0</b>
-      <span class="k">Date</span><b>2026-09-17</b>
+      <span class="k">Version</span><b>1.2</b>
+      <span class="k">Date</span><b>2026-09-18</b>
       <span class="k">Connector</span><b>SEC-01</b>
       <span class="k">Sheet</span><b>23 / 26</b>
+      <span class="stat">CLIENT APPROVAL CANDIDATE</span>
     </div>
   </div>
 
@@ -37,89 +40,96 @@
     <span class="lg-title">LEGEND</span>
     <span class="legend-item"><span class="sw" style="background:var(--infra)"></span>Security control</span>
     <span class="legend-item"><span class="sw" style="background:var(--const)"></span>Audit / monitoring</span>
+    <span class="legend-item"><span class="sw" style="background:#0E8A8A"></span>AI Core control</span>
+    <span class="legend-item"><span class="sw" style="background:#2AABEE"></span>Telegram control</span>
     <span class="legend-item"><span class="arrow">→</span> enforcement path</span>
-    <span class="legend-item"><span class="cid in">◂ all requests</span> pass through</span>
+    <span class="legend-item"><span class="cid in">◂ all requests · AI runs · Telegram updates</span> pass through</span>
   </div>
 
   <div class="canvas">
 
     <div class="row" style="flex:0 0 auto">
-      <div class="card d-infra grow"><div class="hd">REQUEST ENFORCEMENT PATH — every action is checked</div>
+      <div class="card d-infra grow"><div class="hd">REQUEST ENFORCEMENT PATH — identical for web, mobile, portal, AI retrieval / tool call and Telegram message</div>
         <div class="bd"><div class="chain">
-          <div class="step"><span class="n">1</span><b>Authentication</b><span class="mini">password policy + MFA</span></div>
-          <div class="step"><span class="n">2</span><b>Session / Token</b><span class="mini">expiry · refresh · device</span></div>
+          <div class="step"><span class="n">1</span><b>Authentication</b><span class="mini">password policy · MFA · SSO · <b>Telegram binding token</b></span></div>
+          <div class="step"><span class="n">2</span><b>Session / Token</b><span class="mini">expiry · refresh · device · revoke</span></div>
           <div class="step"><span class="n">3</span><b>Authorization (RBAC)</b><span class="mini">role → permission</span></div>
-          <div class="step"><span class="n">4</span><b>Project-Level Security</b><span class="mini">assigned projects only</span></div>
-          <div class="step"><span class="n">5</span><b>Department Security</b><span class="mini">org scope</span></div>
-          <div class="step"><span class="n">6</span><b>Field-Level Security</b><span class="mini">e.g. salary hidden</span></div>
-          <div class="step"><span class="n">7</span><b>Approval Authority</b><span class="mini">amount limits <span class="cid">WF-01</span></span></div>
-          <div class="step"><span class="n">8</span><b>Audit Log</b><span class="mini">record who/what/when</span></div>
+          <div class="step"><span class="n">4</span><b>Project / Department</b><span class="mini">row-level scope</span></div>
+          <div class="step"><span class="n">5</span><b>Field-level</b><span class="mini">salary · bank · ID masked</span></div>
+          <div class="step"><span class="n">6</span><b>Approval Authority · SoD</b><span class="mini"><span class="cid">WF-01</span></span></div>
+          <div class="step" style="--c:#0E8A8A;--ci:#0a6666"><span class="n">7</span><b>AI query-time re-authorization</b><span class="mini">knowledge ACL ∩ user scope · tool allow-list</span></div>
+          <div class="step" style="--c:var(--const);--ci:var(--const-ink)"><span class="n">8</span><b>Audit Log</b><span class="mini">who · what · when · channel · AI run</span></div>
         </div></div>
       </div>
     </div>
 
     <div class="row grow">
-      <div class="col" style="flex:1.1">
+      <div class="col" style="flex:1">
         <p class="band d-infra">Identity &amp; Access</p>
         <div class="card d-infra soft grow"><div class="bd"><div class="grid cols-2" style="gap:4px">
-          <div class="blk d-infra"><span class="t">Authentication</span><br>password + SSO/OIDC</div>
-          <div class="blk d-infra"><span class="t">MFA</span><br>OTP · authenticator</div>
+          <div class="blk d-infra"><span class="t">Authentication</span><br>password · SSO/OIDC · MFA</div>
           <div class="blk d-infra"><span class="t">Authorization / RBAC</span><br>role → permission sets</div>
-          <div class="blk d-infra"><span class="t">Project Security</span><br>row-level by project</div>
-          <div class="blk d-infra"><span class="t">Department Security</span><br>org-scoped views</div>
-          <div class="blk d-infra"><span class="t">Field-Level Security</span><br>mask sensitive fields</div>
-          <div class="blk d-infra"><span class="t">Approval Authority</span><br>value &amp; scope limits</div>
-          <div class="blk d-infra"><span class="t">Session Management</span><br>timeout · concurrent · revoke</div>
-          <div class="blk d-infra"><span class="t">Password Policies</span><br>complexity · rotation · lockout</div>
-          <div class="blk d-infra"><span class="t">SoD Enforcement</span><br>conflicting duties blocked</div>
+          <div class="blk d-infra"><span class="t">Project · Dept security</span><br>row-level scope</div>
+          <div class="blk d-infra"><span class="t">Field-level security</span><br>mask sensitive fields</div>
+          <div class="blk d-infra"><span class="t">Approval authority · SoD</span><br>value &amp; scope limits</div>
+          <div class="blk d-infra"><span class="t">Session · password policy</span><br>timeout · rotation · lockout</div>
+          <div class="blk d-infra"><span class="t">Machine Identity</span><br>scoped service identity for AI indexing · connectors <span class="cid">MID-01</span></div>
+          <div class="blk d-infra"><span class="t">Access recertification</span><br>periodic review incl. Telegram bindings</div>
+        </div></div></div>
+        <p class="band d-infra">Data protection &amp; resilience</p>
+        <div class="card d-infra"><div class="bd"><div class="pills">
+          <span class="pill">Encryption at rest</span><span class="pill">TLS / mTLS in transit</span><span class="pill">KMS · key rotation</span>
+          <span class="pill">Managed secrets — provider keys · bot tokens · webhook secrets</span><span class="pill">Backup · tested restore</span>
+          <span class="pill">DR (RPO/RTO)</span><span class="pill">HA</span><span class="pill">Data residency incl. model provider region</span>
         </div></div></div>
       </div>
 
-      <div class="col" style="flex:1.1">
-        <p class="band d-const">Audit &amp; Monitoring</p>
-        <div class="card d-const soft grow"><div class="bd"><div class="grid cols-2" style="gap:4px">
-          <div class="blk d-const"><span class="t">Audit Logs</span><br>every create/update/delete</div>
-          <div class="blk d-const"><span class="t">Login Logs</span><br>success/fail · device · IP</div>
-          <div class="blk d-const"><span class="t">Activity Logs</span><br>user actions timeline</div>
-          <div class="blk d-const"><span class="t">Financial Audit Trail</span><br>immutable JE lineage</div>
-          <div class="blk d-const"><span class="t">Change Approvals</span><br>who approved what</div>
-          <div class="blk d-const"><span class="t">Security Monitoring / SIEM</span><br>anomaly &amp; alerting</div>
-          <div class="blk d-const"><span class="t">Access Reviews</span><br>periodic recertification</div>
-          <div class="blk d-const"><span class="t">Tamper-evidence</span><br>append-only ledgers</div>
+      <div class="col" style="flex:1.15">
+        <p class="band d-ai">AI Core controls <span class="cid ai">AI-01</span></p>
+        <div class="card d-ai soft grow"><div class="bd"><div class="grid cols-2" style="gap:4px">
+          <div class="blk d-ai"><span class="t">Query-time authorization</span>index presence never grants access; every retrieval re-checks user ACL</div>
+          <div class="blk d-ai"><span class="t">Knowledge ACL tags</span>company · project · dept · party · classification · source version on every object</div>
+          <div class="blk d-ai"><span class="t">Tool allow-list &amp; typed schemas</span>no free-form actions; tool re-checks RBAC · project · field · party · authority · SoD</div>
+          <div class="blk d-ai"><span class="t">Prompt-injection controls</span>untrusted document / message text cannot alter policy or tool selection</div>
+          <div class="blk d-ai"><span class="t">DLP / redaction</span>PII · salary · bank · finance-sensitive fields filtered from context and output</div>
+          <div class="blk d-ai"><span class="t">Provider policy</span>allow/deny providers · data-classification limits · minimum context · no training on enterprise data</div>
+          <div class="blk d-ai"><span class="t">Machine Identity scope</span>indexing / monitoring identity is explicit, least-privilege, never superuser</div>
+          <div class="blk d-ai"><span class="t">Model / provider audit</span>model · version · tokens · cost · policy decisions per run</div>
+          <div class="blk d-ai"><span class="t">High-risk confirmation</span>Act mode requires human confirmation + workflow</div>
+          <div class="blk d-ai"><span class="t">Retention</span>sensitive prompts / outputs redacted or retention-limited by policy</div>
         </div>
-        <div class="mini" style="margin-top:5px"><b>Auditor role</b> = read-all including trails, zero write — supports internal &amp; external audit and IFRS controls.</div>
+        <div class="forbid" style="margin-top:4px"><b>Never:</b> LLM → SQL · AI → posting · AI → approval · AI expanding a user's permissions · secrets in code</div>
         </div></div>
       </div>
 
-      <div class="col" style="flex:1">
-        <p class="band d-infra">Data Protection &amp; Resilience</p>
-        <div class="card d-infra grow"><div class="bd"><div class="grid cols-2" style="gap:4px">
-          <div class="blk d-infra"><span class="t">Encryption at Rest</span><br>DB · files · backups</div>
-          <div class="blk d-infra"><span class="t">Encryption in Transit</span><br>TLS/mTLS everywhere</div>
-          <div class="blk d-infra"><span class="t">Key Management</span><br>KMS · rotation</div>
-          <div class="blk d-infra"><span class="t">Backup</span><br>automated · tested restore</div>
-          <div class="blk d-infra"><span class="t">Disaster Recovery</span><br>RPO/RTO targets</div>
-          <div class="blk d-infra"><span class="t">High Availability</span><br>redundancy · failover</div>
-          <div class="blk d-infra"><span class="t">Secrets Management</span><br>vault · no hard-coding</div>
-          <div class="blk d-infra"><span class="t">Data Residency</span><br>tenant/project isolation</div>
-        </div></div></div>
-        <div class="facets d-infra">
-          <div class="f"><span class="ft">Actors</span>Security Admin · Auditor · All users</div>
-          <div class="f"><span class="ft">Inputs</span>Every request</div>
-          <div class="f"><span class="ft">Master Data</span>Roles · policies</div>
-          <div class="f"><span class="ft">Process</span>AuthN→AuthZ→Audit</div>
-          <div class="f"><span class="ft">Decisions</span>Allow / deny / step-up</div>
-          <div class="f"><span class="ft">Approvals</span>Access grants · reviews</div>
-          <div class="f"><span class="ft">Transactions</span>Log records</div>
-          <div class="f"><span class="ft">Documents</span>Policies · certs</div>
-          <div class="f"><span class="ft">Outputs</span>Enforced access · trails</div>
-          <div class="f"><span class="ft">Accounting</span>Protects financial integrity</div>
-          <div class="f"><span class="ft">Modules</span>All (cross-cutting)</div>
-          <div class="f"><span class="ft">Notifications</span>Security alerts</div>
-          <div class="f"><span class="ft">Reports/KPIs</span>Incidents · failed logins</div>
-          <div class="f"><span class="ft">Audit</span>The audit system itself</div>
-          <div class="f"><span class="ft">Exceptions</span>Breach · lockout · anomaly</div>
-          <div class="f"><span class="ft">Security</span>Least privilege · zero trust</div>
+      <div class="col" style="flex:1.1">
+        <p class="band d-tg">Telegram controls <span class="cid tg">TG-01</span></p>
+        <div class="card d-tg soft grow"><div class="bd"><div class="grid cols-2" style="gap:4px">
+          <div class="blk d-tg"><span class="t">Identity binding</span>one-time link / QR → Telegram user ID bound to Type-A account · revocable · username never trusted</div>
+          <div class="blk d-tg"><span class="t">Webhook verification</span>HTTPS · secret header · allow-listed endpoint · TLS</div>
+          <div class="blk d-tg"><span class="t">Replay protection · idempotency</span>duplicate updates ignored / reused</div>
+          <div class="blk d-tg"><span class="t">Rate limiting</span>per user · per chat · per bot</div>
+          <div class="blk d-tg"><span class="t">Step-up authentication</span>payment · journal · payroll · bank · high-value · master data → ABOS deep link + MFA</div>
+          <div class="blk d-tg"><span class="t">Group-chat restriction</span>groups are never authorization contexts; sensitive data private-chat only; read-only alerts only if allow-listed</div>
+          <div class="blk d-tg"><span class="t">Token security</span>bot token &amp; webhook secret in managed secrets · rotation · per-environment bots</div>
+          <div class="blk d-tg"><span class="t">Attachment path</span>files only via Document Service: validate · scan · permission · store · audit</div>
+          <div class="blk d-tg"><span class="t">Failure behaviour</span>unlinked → link · disabled → deny · no permission → deny · provider down → controlled error, never fabricated success</div>
+          <div class="blk d-tg"><span class="t">Correlation</span>every message ↔ AI run ↔ tool ↔ transaction ↔ audit ID</div>
+        </div>
+        <div class="forbid" style="margin-top:4px"><b>Never:</b> Telegram → database · Telegram own business rules · approval from a group · bypass of workflow / SoD</div>
+        </div></div>
+      </div>
+    </div>
+
+    <div class="row" style="flex:0 0 auto">
+      <div class="card d-const grow"><div class="hd">AUDIT &amp; MONITORING — one trail across humans, AI and channels</div>
+        <div class="bd"><div class="pills">
+          <span class="pill">Audit logs (create / update / delete)</span><span class="pill">Login &amp; session logs</span><span class="pill">Financial audit trail (immutable JE lineage)</span>
+          <span class="pill">Change approvals</span><span class="pill" style="border-color:#0E8A8A;color:#0a6666">AI run audit: identity · channel · model · sources · scope · tools · outputs · cost</span>
+          <span class="pill" style="border-color:#2AABEE;color:#136a99">Telegram audit: user/chat · binding · intent · action · delivery · correlation ID</span>
+          <span class="pill">SIEM / anomaly monitoring</span><span class="pill">Access &amp; binding recertification</span><span class="pill">Tamper-evident append-only stores</span>
+        </div>
+        <div class="mini" style="margin-top:4px"><b>Auditor</b> = read-all including AI and Telegram trails, zero write. Forward and reverse traceability defined in <span class="cid">BP-26</span>.</div>
         </div>
       </div>
     </div>
@@ -127,8 +137,8 @@
   </div>
   <div class="foot">
     <span><b>AL-BERUNIY OPERATING SYSTEM</b> · Enterprise Architecture Blueprint</span>
-    <span>Blueprint 23 · Security Architecture · v1.1 · 2026-09-18</span>
-    <span>Least privilege · full auditability · IFRS &amp; SoD controls</span>
+    <span>Blueprint 23 · Security Architecture · v1.2 · 2026-09-18 · Client Approval Candidate</span>
+    <span>Least privilege · zero trust · AI and Telegram inside the boundary, never around it</span>
   </div>
 </section>
 </body>

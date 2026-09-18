@@ -26,10 +26,11 @@
       <div class="desc">Payroll calculation, approval, payslip, accounting entry and allocation by Project / Department / Cost Center.</div>
     </div>
     <div class="tb-meta">
-      <span class="k">Version</span><b>1.0</b>
-      <span class="k">Date</span><b>2026-09-17</b>
+      <span class="k">Version</span><b>1.2</b>
+      <span class="k">Date</span><b>2026-09-18</b>
       <span class="k">Connector</span><b>PAY-01</b>
       <span class="k">Sheet</span><b>15 / 26</b>
+      <span class="stat">CLIENT APPROVAL CANDIDATE</span>
     </div>
   </div>
 
@@ -40,6 +41,7 @@
     <span class="legend-item"><span class="arrow">→</span> flow</span>
     <span class="legend-item"><span class="cid in">◂ HR-01</span> inputs</span>
     <span class="legend-item"><span class="cid out">FIN-GL-01</span> posting</span>
+      <span class="legend-item"><span class="cid ai">AI-01</span> typed tools · knowledge · <span class="cid tg">TG-01</span> Telegram channel</span>
   </div>
 
   <div class="canvas">
@@ -122,10 +124,19 @@
       </div>
     </div>
 
+  
+    <div class="aistrip">
+      <div class="ah">AI CORE &amp; TELEGRAM CONTRACT <span class="tag">AI-01</span><span class="tag" style="background:#2AABEE">TG-01</span><span style="font-weight:600;color:#3d444d;letter-spacing:0">— this module exposes typed tools, publishes events to the Knowledge Plane and is reachable from Telegram under the same permissions · <span class="cid">PAY-01</span> ↔ <span class="cid">BP-20</span></span></div>
+      <div class="ac"><span class="t">Typed read tools</span>get_payroll_summary (HR Mgr / Finance only) · detect_payroll_anomaly · explain_payroll_allocation(project)</div>
+      <div class="ac"><span class="t">Draft / action tools → workflow</span>none — payroll has no AI action tools; corrections go through the normal off-cycle workflow</div>
+      <div class="ac"><span class="t">Events → Knowledge Plane (KP-01)</span>PayrollPosted · PayslipIssued → aggregate projection only (no individual salary in the index unless authorized)</div>
+      <div class="ac tg"><span class="t">Telegram queries &amp; notifications</span>payroll status notices only as security policy allows · never payslip amounts or bank details in Telegram · step-up for any payroll access</div>
+      <div class="ac no"><span class="t">Hard guardrail</span>AI can never modify a payroll run or trigger a payment. It may analyse and flag anomalies for HR and Finance; dual approval and bank-file generation stay human.</div>
+    </div>
   </div>
   <div class="foot">
     <span><b>AL-BERUNIY OPERATING SYSTEM</b> · Enterprise Architecture Blueprint</span>
-    <span>Blueprint 15 · Payroll &amp; Finance · v1.0 · 2026-09-17</span>
+    <span>Blueprint 15 · Payroll &amp; Finance · v1.2 · 2026-09-18 · Client Approval Candidate</span>
     <span>Payroll allocated to Project / Department / Cost Center</span>
   </div>
 </section>
