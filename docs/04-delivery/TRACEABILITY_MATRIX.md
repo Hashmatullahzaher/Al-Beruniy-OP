@@ -39,7 +39,7 @@
 | Telegram AI Channel | BP-20, BP-22 | A9 | F1A + F11 | identity binding, webhook security, permission-trimmed AI, step-up/workflow, message audit |
 | External Portals | BP-24 | A9 | F11 | own-party security |
 | Cross-System Relationships | BP-25 | A0-A9 | all | no orphan module; finance/workflow/docs/audit links |
-| Transaction Traceability | BP-26 | A3-A9 | all, especially F10 | forward + reverse trace J1–J5 |
+| Transaction Traceability | BP-26 | A3-A9 | all, especially F10 | forward + reverse trace J1–J6 |
 | Security Hardening / DR / UAT | BP-23 | A10 | F12 | scans, restore, UAT, release SHA |
 
 ---
