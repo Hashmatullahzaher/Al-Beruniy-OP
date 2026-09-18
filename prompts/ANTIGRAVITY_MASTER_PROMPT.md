@@ -18,6 +18,7 @@ Read:
 - `docs/04-delivery/FUNCTIONAL_SCOPE.md`
 - `docs/04-delivery/BUILD_WORK_PACKAGES.md`
 - `docs/04-delivery/WORK_STATUS.md`
+- `docs/04-delivery/MASTER_BUILD_RUNBOOK.md`
 - `docs/04-delivery/AGENT_COORDINATION.md`
 - `docs/04-delivery/TRACEABILITY_MATRIX.md`
 - `docs/03-architecture/TECHNOLOGY_BASELINE.md`
