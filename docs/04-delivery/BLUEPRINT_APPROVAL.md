@@ -19,3 +19,15 @@ Any approved blueprint baseline after this change must record the exact reposito
 - Candidate repository SHA: `e280c73f8d3eb29fcdab3ae35e98090778e73cf8`
 - Includes revised BP-01, BP-16, BP-17, BP-18, BP-19, BP-20, BP-21, BP-22, BP-23, BP-24, BP-25, BP-26 and Master Network Workflow.
 - Status: documentation revision incorporated; record stakeholder approval/approver/date/exceptions before treating this SHA as the authoritative build baseline.
+
+
+## Release-1 Build Authorization
+- Build contract repository SHA: `0230aef1e10b5136ccaf28d2c89e9cade975885f`
+- Approval date: 2026-09-18
+- Approver: Project owner / stakeholder approval given in the project conversation
+- Scope: Release 1 from WP-0001 through WP-1220
+- Includes: blueprints, implementation plan, functional scope, AI Core/Telegram architecture, technology baseline, multi-agent coordination protocol, work-status ledger, readiness gates and master prompts for Claude/Codex/Antigravity
+- Open items: policy/provider/credential items remain governed by `OPEN_ITEMS.md`; they must be configurable and must not be invented
+- Status: **AUTHORIZED FOR IMPLEMENTATION**
+
+Material business-architecture changes after this baseline must update documentation/blueprints and record a new approved SHA before dependent implementation.
