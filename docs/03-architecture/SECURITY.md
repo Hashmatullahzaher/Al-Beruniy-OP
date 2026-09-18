@@ -1,0 +1,2 @@
+# Security Architecture
+Authentication → session/token → RBAC → project scope → department scope → field-level rules → approval authority → audit. Controls: MFA/SSO-ready identity, least privilege, server-side authorization, SoD, row/project and field security, session revoke/expiry, login/activity logs, immutable financial lineage, encryption at rest/in transit, managed secrets, backup/DR/HA, security monitoring and access recertification. Portal identities cannot access internal modules; AI receives security-trimmed context only.

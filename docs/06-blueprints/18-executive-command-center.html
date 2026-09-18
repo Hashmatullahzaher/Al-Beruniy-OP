@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>18 · Executive Command Center — AL-BERUNIY OS</title>
+<link rel="stylesheet" href="assets/blueprint.css">
+</head>
+<body>
+<nav class="topnav">
+  <b>AL-BERUNIY OS</b>
+  <a href="index.html">00 · Index</a>
+  <a href="17-workflow-approvals.html">17 · Workflow</a>
+  <a href="18-executive-command-center.html">18 · Exec Center</a>
+  <a href="19-business-intelligence.html">19 · BI</a>
+  <a href="26-transaction-traceability.html">26 · Traceability</a>
+  <span class="screen-note">Print → A3 · Landscape · Margins None · Background graphics ON</span>
+</nav>
+
+<section class="page">
+  <div class="titleblock">
+    <div class="tb-brand"><div class="os">AL-BERUNIY</div><div class="sub">OPERATING SYSTEM</div></div>
+    <div class="tb-title">
+      <div class="no">BLUEPRINT 18 · EXECUTIVE COMMAND CENTER</div>
+      <div class="name">The Chairman &amp; CEO Cockpit — One Screen, Whole Company</div>
+      <div class="desc">Live company &amp; portfolio KPIs with drill-down: Company → Project → Department → Transaction.</div>
+    </div>
+    <div class="tb-meta">
+      <span class="k">Version</span><b>1.0</b>
+      <span class="k">Date</span><b>2026-09-17</b>
+      <span class="k">Connector</span><b>EXEC-01</b>
+      <span class="k">Sheet</span><b>18 / 26</b>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span class="lg-title">LEGEND</span>
+    <span class="legend-item"><span class="sw" style="background:var(--exec)"></span>Executive KPI</span>
+    <span class="legend-item"><span class="sw" style="background:var(--data)"></span>AI signal</span>
+    <span class="legend-item"><span class="arrow">→</span> drill down</span>
+    <span class="legend-item"><span class="cid in">◂ all modules</span> live feeds</span>
+    <span class="legend-item"><span class="cid out">BP-26</span> to source transaction</span>
+  </div>
+
+  <div class="canvas">
+
+    <div class="row" style="flex:0 0 auto">
+      <div class="card d-exec grow"><div class="hd">COMPANY / PORTFOLIO — headline KPIs</div>
+        <div class="bd"><div class="grid cols-6" style="gap:5px">
+          <div class="kpi d-const"><div class="v">▦</div><div class="k">Total Projects</div></div>
+          <div class="kpi d-exec"><div class="v">◱</div><div class="k">Project Health</div></div>
+          <div class="kpi d-fin"><div class="v">Σ</div><div class="k">Development Value</div></div>
+          <div class="kpi d-const"><div class="v">%</div><div class="k">Construction Progress</div></div>
+          <div class="kpi d-sales"><div class="v">#</div><div class="k">Total Units</div></div>
+          <div class="kpi d-sales"><div class="v">#</div><div class="k">Available Units</div></div>
+          <div class="kpi d-sales"><div class="v">#</div><div class="k">Reserved Units</div></div>
+          <div class="kpi d-sales"><div class="v">#</div><div class="k">Sold Units</div></div>
+          <div class="kpi d-sales"><div class="v">Σ</div><div class="k">Sales Value</div></div>
+          <div class="kpi d-fin"><div class="v">Σ</div><div class="k">Cash Collected</div></div>
+          <div class="kpi d-fin"><div class="v">▲</div><div class="k">Outstanding Receivables</div></div>
+          <div class="kpi d-fin"><div class="v">◷</div><div class="k">Upcoming Installments</div></div>
+        </div></div>
+      </div>
+    </div>
+
+    <div class="row" style="flex:0 0 auto">
+      <div class="card d-fin grow"><div class="hd">FINANCIAL &amp; COST</div>
+        <div class="bd"><div class="grid cols-6" style="gap:5px">
+          <div class="kpi d-const"><div class="v">▲</div><div class="k">Overdue Installments</div></div>
+          <div class="kpi d-fin"><div class="v">Σ</div><div class="k">Revenue</div></div>
+          <div class="kpi d-fin"><div class="v">Σ</div><div class="k">Expenses</div></div>
+          <div class="kpi d-fin"><div class="v">±</div><div class="k">Profit / Loss</div></div>
+          <div class="kpi d-fin"><div class="v">≈</div><div class="k">Cash Flow</div></div>
+          <div class="kpi d-const"><div class="v">Σ</div><div class="k">Project Cost</div></div>
+          <div class="kpi d-fin"><div class="v">Δ</div><div class="k">Budget Variance</div></div>
+          <div class="kpi d-proc"><div class="v">▲</div><div class="k">Supplier Payables</div></div>
+          <div class="kpi d-const"><div class="v">▲</div><div class="k">Contractor Payables</div></div>
+          <div class="kpi d-hr"><div class="v">Σ</div><div class="k">Payroll</div></div>
+          <div class="kpi d-proc"><div class="v">Σ</div><div class="k">Procurement Commitments</div></div>
+          <div class="kpi d-wh"><div class="v">Σ</div><div class="k">Warehouse Value</div></div>
+        </div></div>
+      </div>
+    </div>
+
+    <div class="row grow">
+      <div class="col" style="flex:1.4">
+        <p class="band d-exec">Drill-Down Path (traceability spine)</p>
+        <div class="card d-exec soft grow"><div class="bd">
+          <div class="chain">
+            <div class="step"><span class="n">1</span><b>Company</b><span class="mini">consolidated</span></div>
+            <div class="step"><span class="n">2</span><b>Project</b><span class="mini">portfolio → one</span></div>
+            <div class="step"><span class="n">3</span><b>Department / Cost Center</b><span class="mini">responsibility</span></div>
+            <div class="step"><span class="n">4</span><b>Transaction</b><span class="mini">source record <span class="cid out">BP-26</span></span></div>
+          </div>
+          <hr class="dash">
+          <div class="mini"><b>Example:</b> CEO sees a $250k project expense → clicks → Project → Cost Center → Expense → PO → Supplier → Invoice → GRN → Original Request → Requester → Approver → Payment → Bank Txn → Journal Entry → Ledger Account. <b>Every hop is one click.</b></div>
+          <hr class="dash">
+          <div class="mini"><b>Two views, one button:</b> toggle <b>Project-Level</b> ↔ <b>Corporate Consolidated</b> <span class="cid">BP-03</span>. Data access still bounded by role — a Project Director's cockpit shows only their projects.</div>
+        </div></div>
+      </div>
+
+      <div class="col" style="flex:1">
+        <p class="band d-data">Top Risks &amp; AI Alerts</p>
+        <div class="card d-data grow"><div class="bd mini">
+          <div class="blk d-data"><span class="t">⚠ Collection Risk</span><br>projects with rising overdue &amp; late-payment probability</div>
+          <div class="blk d-data"><span class="t">⚠ Cost Overrun</span><br>EAC &gt; BAC flagged before completion</div>
+          <div class="blk d-data"><span class="t">⚠ Project Delay</span><br>SPI &lt; 1 &amp; predicted slippage</div>
+          <div class="blk d-data"><span class="t">⚠ Liquidity</span><br>predicted cash shortfall next N weeks</div>
+          <div class="blk d-data"><span class="t">⚠ Supplier / Contractor Risk</span><br>performance &amp; concentration</div>
+          <div class="blk d-data"><span class="t">⚠ Anomaly / Fraud</span><br>duplicate invoice · unusual approval <span class="cid">BP-20</span></div>
+        </div></div>
+      </div>
+
+      <div class="col" style="flex:.9">
+        <p class="band d-exec">Cockpit Users</p>
+        <div class="card d-exec soft"><div class="bd"><div class="pills">
+          <span class="pill solid">Chairman</span><span class="pill solid">CEO</span><span class="pill solid">COO</span><span class="pill solid">CFO</span>
+          <span class="pill">Project Director (own)</span><span class="pill">Board (read)</span>
+        </div></div></div>
+        <p class="band d-exec">Feeds From</p>
+        <div class="card d-exec soft grow"><div class="bd"><div class="pills">
+          <span class="pill">Sales</span><span class="pill">Collections</span><span class="pill">Finance</span><span class="pill">Cost</span>
+          <span class="pill">Construction</span><span class="pill">Procurement</span><span class="pill">Warehouse</span><span class="pill">HR/Payroll</span>
+          <span class="pill">BI / DWH</span><span class="pill">AI</span>
+        </div>
+        <div class="mini" style="margin-top:5px">Real-time KPIs from the operational DB + curated DWH; heavy analytics served from BI layer <span class="cid">BP-19</span>.</div>
+        </div></div>
+      </div>
+    </div>
+
+  </div>
+  <div class="foot">
+    <span><b>AL-BERUNIY OPERATING SYSTEM</b> · Enterprise Architecture Blueprint</span>
+    <span>Blueprint 18 · Executive Command Center · v1.0 · 2026-09-17</span>
+    <span>Every KPI drills to its source transaction (BP-26)</span>
+  </div>
+</section>
+</body>
+</html>

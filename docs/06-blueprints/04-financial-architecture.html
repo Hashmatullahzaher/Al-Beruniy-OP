@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>04 · Financial Architecture — AL-BERUNIY OS</title>
+<link rel="stylesheet" href="assets/blueprint.css">
+</head>
+<body>
+<nav class="topnav">
+  <b>AL-BERUNIY OS</b>
+  <a href="index.html">00 · Index</a>
+  <a href="03-multi-project.html">03 · Multi-Project</a>
+  <a href="04-financial-architecture.html">04 · Finance</a>
+  <a href="05-sales-crm.html">05 · Sales/CRM</a>
+  <a href="06-installments-collections.html">06 · Installments</a>
+  <a href="09-procurement.html">09 · Procurement</a>
+  <a href="26-transaction-traceability.html">26 · Traceability</a>
+  <span class="screen-note">Print → A3 · Landscape · Margins None · Background graphics ON</span>
+</nav>
+
+<section class="page">
+  <div class="titleblock">
+    <div class="tb-brand"><div class="os">AL-BERUNIY</div><div class="sub">OPERATING SYSTEM</div></div>
+    <div class="tb-title">
+      <div class="no">BLUEPRINT 04 · FINANCIAL ARCHITECTURE</div>
+      <div class="name">The Central Accounting Engine — One Source of Financial Truth</div>
+      <div class="desc">CoA → Project → Cost Center → Department → Transaction. Three account types, never mixed. IFRS-ready.</div>
+    </div>
+    <div class="tb-meta">
+      <span class="k">Version</span><b>1.0</b>
+      <span class="k">Date</span><b>2026-09-17</b>
+      <span class="k">Connector</span><b>FIN-GL-01</b>
+      <span class="k">Sheet</span><b>04 / 26</b>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span class="lg-title">LEGEND</span>
+    <span class="legend-item"><span class="sw" style="background:var(--infra)"></span>Type A · User Acct</span>
+    <span class="legend-item"><span class="sw" style="background:var(--sales)"></span>Type B · Business Party</span>
+    <span class="legend-item"><span class="sw" style="background:var(--fin)"></span>Type C · Ledger Acct</span>
+    <span class="legend-item"><span class="arrow">→</span> posts to</span>
+    <span class="legend-item"><b>Dr</b> Debit</span>
+    <span class="legend-item"><b>Cr</b> Credit</span>
+    <span class="legend-item"><span class="cid in">◂ MODULE-XX</span> operational feed</span>
+  </div>
+
+  <div class="canvas">
+
+    <!-- LEDGER HIERARCHY + THREE ACCOUNT TYPES -->
+    <div class="row" style="flex:0 0 auto">
+      <div class="card d-fin grow" style="flex:1.5"><div class="hd">LEDGER DIMENSION HIERARCHY</div>
+        <div class="bd"><div class="chain">
+          <div class="step"><b>CORPORATE CHART OF ACCOUNTS</b><span class="mini">group-wide, IFRS-mapped</span></div>
+          <div class="step"><b>LEGAL ENTITY</b><span class="mini">statutory books</span></div>
+          <div class="step"><b>PROJECT</b><span class="mini">mandatory dimension</span></div>
+          <div class="step"><b>COST CENTER</b><span class="mini">responsibility</span></div>
+          <div class="step"><b>DEPARTMENT</b><span class="mini">org unit</span></div>
+          <div class="step"><b>TRANSACTION</b><span class="mini">JE line</span></div>
+        </div></div>
+      </div>
+      <div class="card d-exec grow"><div class="hd">THREE ACCOUNT TYPES — NEVER CONFUSED</div>
+        <div class="bd"><div class="grid cols-3" style="gap:5px">
+          <div class="acct d-infra"><span class="t">A · USER ACCOUNT</span><div class="mini">Login/authN only. Employee, portal supplier, portal customer. <b>No money.</b></div></div>
+          <div class="acct d-sales"><span class="t">B · BUSINESS PARTY</span><div class="mini">Customer / Supplier / Contractor / Employee master. Holds relationship &amp; balances-by-party.</div></div>
+          <div class="acct d-fin"><span class="t">C · LEDGER ACCOUNT</span><div class="mini">Cash·Bank·AR·AP·Revenue·Expense·Asset·Liability. The GL.</div></div>
+        </div>
+        <div class="mini" style="margin-top:4px"><b>Link:</b> one <b>Party (B)</b> may have one <b>User (A)</b> for portal access and maps to a <b>control Ledger account (C)</b> (e.g. Customer → AR control). Sub-ledger keeps per-party detail; GL keeps the control total.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row grow">
+      <!-- GL CORE -->
+      <div class="col" style="flex:1.15">
+        <p class="band d-fin">General Ledger Core</p>
+        <div class="card d-fin soft grow"><div class="bd"><div class="grid cols-2" style="gap:4px">
+          <div class="blk d-fin"><span class="t">Chart of Accounts</span><br>Asset·Liability·Equity·Revenue·Expense</div>
+          <div class="blk d-fin"><span class="t">General Ledger</span><br>all balanced JEs</div>
+          <div class="blk d-fin"><span class="t">Journal Entries</span><br>manual + auto from modules</div>
+          <div class="blk d-fin"><span class="t">Cost Centers</span><br>responsibility accounting</div>
+          <div class="blk d-fin"><span class="t">Project Accounting</span><br>P&amp;L per project</div>
+          <div class="blk d-fin"><span class="t">Budgeting</span><br>vs actual &amp; commitments</div>
+          <div class="blk d-fin"><span class="t">Multi-currency + FX</span><br>reval &amp; gain/loss</div>
+          <div class="blk d-fin"><span class="t">Tax</span><br>configurable codes</div>
+          <div class="blk d-fin"><span class="t">Financial Periods</span><br>open/close control</div>
+          <div class="blk d-fin"><span class="t">Year Closing</span><br>retained earnings</div>
+          <div class="blk d-fin"><span class="t">Reconciliation</span><br>bank &amp; sub-ledger</div>
+          <div class="blk d-fin"><span class="t">Audit Trail</span><br>immutable, who/when/what</div>
+        </div></div></div>
+      </div>
+
+      <!-- SUB-LEDGERS -->
+      <div class="col" style="flex:1.15">
+        <p class="band d-fin">Sub-Ledgers &amp; Controls</p>
+        <div class="card d-fin grow"><div class="bd"><div class="grid cols-2" style="gap:4px">
+          <div class="blk d-sales"><span class="t">Accounts Receivable</span><br>Customer receivables <span class="cid in">◂ SALE/COLL</span></div>
+          <div class="blk d-proc"><span class="t">Accounts Payable</span><br>Supplier payables <span class="cid in">◂ PROC</span></div>
+          <div class="blk d-const"><span class="t">Contractor Payables</span><br>IPC · Retention · Advance <span class="cid in">◂ CON</span></div>
+          <div class="blk d-hr"><span class="t">Employee Payable</span><br>Net salary <span class="cid in">◂ PAY</span></div>
+          <div class="blk d-fin"><span class="t">Cash / Petty Cash</span><br>site &amp; HO tills</div>
+          <div class="blk d-fin"><span class="t">Banks</span><br>per-project accounts</div>
+          <div class="blk d-fin"><span class="t">Fixed Assets</span><br>register &amp; depreciation <span class="cid in">◂ FA</span></div>
+          <div class="blk d-fin"><span class="t">Advances &amp; Prepayments</span><br>supplier/contractor/staff</div>
+          <div class="blk d-fin"><span class="t">Retentions</span><br>held &amp; released</div>
+          <div class="blk d-fin"><span class="t">Accruals</span><br>period-end</div>
+          <div class="blk d-fin"><span class="t">Revenue</span><br>unit sales · recognition policy</div>
+          <div class="blk d-fin"><span class="t">Expenses</span><br>by cost center/project</div>
+        </div></div></div>
+      </div>
+
+      <!-- POSTING MATRIX -->
+      <div class="col" style="flex:1.5">
+        <p class="band d-fin">Accounting Posting Relationships (Dr / Cr)</p>
+        <div class="card d-fin grow"><div class="bd mini">
+          <div class="blk d-sales"><span class="t">Unit Sale → Sales Contract</span><br><b>Dr</b> Customer Receivable (AR) &nbsp; <b>Cr</b> Revenue / Deferred Revenue <i>(Configurable Accounting Policy — IFRS 15 point-in-time vs over-time)</i></div>
+          <hr class="dash">
+          <div class="blk d-sales"><span class="t">Installment Receipt</span><br><b>Dr</b> Bank/Cash &nbsp; <b>Cr</b> Customer Receivable (settles AR) <span class="cid in">◂ COLL-01</span></div>
+          <hr class="dash">
+          <div class="blk d-proc"><span class="t">Purchase → GRN → Supplier Invoice</span><br>GRN: <b>Dr</b> Inventory/WIP &nbsp; <b>Cr</b> GRNI &nbsp;|&nbsp; Invoice: <b>Dr</b> GRNI &nbsp; <b>Cr</b> Accounts Payable</div>
+          <hr class="dash">
+          <div class="blk d-proc"><span class="t">Supplier Payment</span><br><b>Dr</b> Accounts Payable &nbsp; <b>Cr</b> Bank</div>
+          <hr class="dash">
+          <div class="blk d-wh"><span class="t">Material Issue to Site</span><br><b>Dr</b> Project Cost (WIP) &nbsp; <b>Cr</b> Inventory <span class="cid in">◂ WH-01</span></div>
+          <hr class="dash">
+          <div class="blk d-hr"><span class="t">Payroll</span><br><b>Dr</b> Payroll Expense (by project/CC) &nbsp; <b>Cr</b> Employee Payable / Statutory; Pay: <b>Dr</b> Employee Payable <b>Cr</b> Bank</div>
+          <hr class="dash">
+          <div class="blk d-const"><span class="t">Contractor Certificate (IPC)</span><br><b>Dr</b> Project Cost &nbsp; <b>Cr</b> Contractor Payable; hold <b>Cr</b> Retention; recover <b>Cr</b> Advance</div>
+          <hr class="dash">
+          <div class="blk d-fin"><span class="t">Asset Purchase</span><br><b>Dr</b> Fixed Asset &nbsp; <b>Cr</b> Accounts Payable; Depreciation: <b>Dr</b> Dep. Expense <b>Cr</b> Accum. Dep.</div>
+        </div></div>
+      </div>
+    </div>
+
+    <div class="row" style="flex:0 0 auto">
+      <div class="card d-data grow"><div class="hd">EVERY OPERATIONAL EVENT REACHES FINANCE THE SAME WAY</div>
+        <div class="bd"><div class="chain">
+          <div class="step" style="--c:var(--data);--ci:var(--data-ink)"><b>Operational Transaction</b><span class="mini">sale · GRN · issue · IPC · payroll · expense</span></div>
+          <div class="step" style="--c:var(--exec);--ci:var(--exec-ink)"><b>Workflow Approval</b><span class="mini">SoD &amp; limits <span class="cid">WF-01</span></span></div>
+          <div class="step" style="--c:var(--fin);--ci:var(--fin-ink)"><b>Auto Journal Entry</b><span class="mini">rules engine, dimensioned</span></div>
+          <div class="step" style="--c:var(--fin);--ci:var(--fin-ink)"><b>Sub-Ledger + General Ledger</b><span class="mini">control reconciled</span></div>
+          <div class="step" style="--c:var(--exec);--ci:var(--exec-ink)"><b>Reports &amp; Executive Dashboard</b><span class="mini">drill-back to source <span class="cid">BP-26</span></span></div>
+        </div></div>
+      </div>
+    </div>
+
+  </div>
+  <div class="foot">
+    <span><b>AL-BERUNIY OPERATING SYSTEM</b> · Enterprise Architecture Blueprint</span>
+    <span>Blueprint 04 · Financial Architecture · v1.0 · 2026-09-17</span>
+    <span>IFRS-ready · policy-configurable · fully auditable</span>
+  </div>
+</section>
+</body>
+</html>

@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>09 · Procurement — AL-BERUNIY OS</title>
+<link rel="stylesheet" href="assets/blueprint.css">
+</head>
+<body>
+<nav class="topnav">
+  <b>AL-BERUNIY OS</b>
+  <a href="index.html">00 · Index</a>
+  <a href="08-boq-cost-control.html">08 · BOQ/Cost</a>
+  <a href="09-procurement.html">09 · Procurement</a>
+  <a href="10-supplier-management.html">10 · Suppliers</a>
+  <a href="12-inventory-warehouse.html">12 · Inventory</a>
+  <a href="04-financial-architecture.html">04 · Finance</a>
+  <span class="screen-note">Print → A3 · Landscape · Margins None · Background graphics ON</span>
+</nav>
+
+<section class="page">
+  <div class="titleblock">
+    <div class="tb-brand"><div class="os">AL-BERUNIY</div><div class="sub">OPERATING SYSTEM</div></div>
+    <div class="tb-title">
+      <div class="no">BLUEPRINT 09 · PROCUREMENT</div>
+      <div class="name">Requisition to Pay — with Segregation of Duties</div>
+      <div class="desc">PR → RFQ → Bid → PO → GRN → 3-way Match → Payment. Who creates, reviews, approves and pays.</div>
+    </div>
+    <div class="tb-meta">
+      <span class="k">Version</span><b>1.0</b>
+      <span class="k">Date</span><b>2026-09-17</b>
+      <span class="k">Connector</span><b>PROC-01</b>
+      <span class="k">Sheet</span><b>09 / 26</b>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span class="lg-title">LEGEND</span>
+    <span class="legend-item"><span class="sw" style="background:var(--proc)"></span>Procurement</span>
+    <span class="legend-item"><span class="sw" style="background:var(--wh)"></span>Warehouse</span>
+    <span class="legend-item"><span class="sw" style="background:var(--fin)"></span>Finance</span>
+    <span class="legend-item"><span class="arrow">→</span> flow</span>
+    <span class="legend-item"><span class="cid out">WH-01</span> goods receipt</span>
+    <span class="legend-item"><span class="cid out">FIN-AP-01</span> payables</span>
+  </div>
+
+  <div class="canvas">
+
+    <div class="row" style="flex:0 0 auto">
+      <div class="card d-proc grow"><div class="hd">PROCURE-TO-PAY — with RACI on each step</div>
+        <div class="bd"><div class="chain">
+          <div class="step"><span class="n">1</span><b>Requirement / PR</b><span class="mini"><i>Site Eng / Storekeeper creates</i></span></div>
+          <div class="step"><span class="n">2</span><b>PR Approval</b><span class="mini"><i>PM / Dept Mgr <span class="cid">WF-01</span></i></span></div>
+          <div class="step"><span class="n">3</span><b>RFQ</b><span class="mini"><i>Proc Officer invites suppliers</i></span></div>
+          <div class="step"><span class="n">4</span><b>Quotations</b><span class="mini"><i>Suppliers via portal <span class="cid">BP-24</span></i></span></div>
+          <div class="step"><span class="n">5</span><b>Tech + Comm Evaluation</b><span class="mini"><i>Eng + Proc — bid comparison</i></span></div>
+          <div class="step"><span class="n">6</span><b>Supplier Selection</b><span class="mini"><i>Proc Mgr recommends</i></span></div>
+          <div class="step"><span class="n">7</span><b>PO / Contract</b><span class="mini"><i>approve → Commitment <span class="cid out">COST-01</span></i></span></div>
+          <div class="step"><span class="n">8</span><b>Delivery + GRN</b><span class="mini"><i>Storekeeper receives <span class="cid out">WH-01</span></i></span></div>
+          <div class="step"><span class="n">9</span><b>Quality Inspection</b><span class="mini"><i>QC accept/reject</i></span></div>
+          <div class="step"><span class="n">10</span><b>Supplier Invoice</b><span class="mini"><i>AP registers</i></span></div>
+          <div class="step"><span class="n">11</span><b>3-Way Match</b><span class="mini"><i>PO=GRN=Invoice</i></span></div>
+          <div class="step"><span class="n">12</span><b>Payment</b><span class="mini"><i>FM/CFO approve → Bank <span class="cid out">FIN-AP-01</span></i></span></div>
+        </div></div>
+      </div>
+    </div>
+
+    <div class="row grow">
+      <div class="col" style="flex:1.1">
+        <p class="band d-hr">Three-Way Match Decision</p>
+        <div class="card d-hr soft grow"><div class="bd center mini">
+          <div class="diamond"><span>PO = GRN = Invoice within tolerance?</span></div>
+          <div style="margin-top:8px"><b>Match</b> → approve for payment.<br><b>Mismatch</b> → hold → query supplier / re-inspect → resolve or reject. Duplicate-invoice check by AI <span class="cid">BP-20</span>.</div>
+        </div></div>
+      </div>
+
+      <div class="col" style="flex:1.4">
+        <p class="band d-proc">Segregation of Duties (SoD)</p>
+        <div class="card d-proc grow"><div class="bd"><div class="grid cols-2" style="gap:4px">
+          <div class="blk d-proc"><span class="t">Creates</span><br>Requester (Site Eng / Storekeeper) → PR</div>
+          <div class="blk d-proc"><span class="t">Sources</span><br>Procurement Officer → RFQ, quotes, comparison</div>
+          <div class="blk d-proc"><span class="t">Reviews</span><br>Engineer (technical) + Procurement (commercial)</div>
+          <div class="blk d-proc"><span class="t">Approves</span><br>Proc Mgr / Finance / CFO by amount tier</div>
+          <div class="blk d-wh"><span class="t">Receives</span><br>Storekeeper → GRN + QC inspection</div>
+          <div class="blk d-fin"><span class="t">Registers Invoice</span><br>AP Accountant</div>
+          <div class="blk d-fin"><span class="t">Approves Payment</span><br>FM ≤ T1 · CFO ≤ T2 · CEO &gt; T2</div>
+          <div class="blk d-fin"><span class="t">Pays</span><br>Treasury / Bank — never the creator</div>
+        </div>
+        <div class="mini" style="margin-top:5px"><b>Rule:</b> requester ≠ approver ≠ receiver ≠ payer. System blocks same-user across conflicting steps.</div>
+        </div></div>
+      </div>
+
+      <div class="col" style="flex:1">
+        <p class="band d-fin">Accounting &amp; Connects</p>
+        <div class="card d-fin soft"><div class="bd mini">
+          <div class="blk d-fin"><span class="t">PO approved</span><br>Commitment (no GL) → budget check</div>
+          <div class="blk d-fin"><span class="t">GRN</span><br><b>Dr</b> Inventory/WIP · <b>Cr</b> GRNI</div>
+          <div class="blk d-fin"><span class="t">Invoice</span><br><b>Dr</b> GRNI · <b>Cr</b> AP</div>
+          <div class="blk d-fin"><span class="t">Payment</span><br><b>Dr</b> AP · <b>Cr</b> Bank</div>
+        </div></div>
+        <div class="card d-proc soft grow"><div class="bd"><div class="pills">
+          <span class="pill solid">Project</span><span class="pill solid">Warehouse</span><span class="pill solid">Supplier</span>
+          <span class="pill solid">Finance</span><span class="pill">Documents</span><span class="pill">Approvals</span>
+          <span class="pill">Cost Control</span><span class="pill">BI</span>
+        </div></div></div>
+      </div>
+    </div>
+
+    <div class="facets d-proc">
+      <div class="f"><span class="ft">Actors</span>Requester · Proc Officer/Mgr · QC · AP · CFO</div>
+      <div class="f"><span class="ft">Inputs</span>Requirement · quotes · invoice</div>
+      <div class="f"><span class="ft">Master Data</span>Materials · Suppliers · Project</div>
+      <div class="f"><span class="ft">Process</span>PR→RFQ→PO→GRN→Match→Pay</div>
+      <div class="f"><span class="ft">Decisions</span>Award · match · payment</div>
+      <div class="f"><span class="ft">Approvals</span>PR · PO · payment (tiered)</div>
+      <div class="f"><span class="ft">Transactions</span>PO · GRN · invoice · payment</div>
+      <div class="f"><span class="ft">Documents</span>RFQ · quote · PO · GRN · invoice</div>
+      <div class="f"><span class="ft">Outputs</span>Received goods · paid supplier</div>
+      <div class="f"><span class="ft">Accounting</span>Commitment · GRNI · AP · Bank</div>
+      <div class="f"><span class="ft">Modules</span>WH · Cost · Supplier · Finance</div>
+      <div class="f"><span class="ft">Notifications</span>Approval · delivery · payment due</div>
+      <div class="f"><span class="ft">Reports/KPIs</span>Cycle time · savings · on-time</div>
+      <div class="f"><span class="ft">Audit</span>Bid &amp; award trail</div>
+      <div class="f"><span class="ft">Exceptions</span>Mismatch · short delivery · reject</div>
+      <div class="f"><span class="ft">Security</span>SoD enforced · portal-scoped supplier</div>
+    </div>
+
+  </div>
+  <div class="foot">
+    <span><b>AL-BERUNIY OPERATING SYSTEM</b> · Enterprise Architecture Blueprint</span>
+    <span>Blueprint 09 · Procurement · v1.0 · 2026-09-17</span>
+    <span>PO→Commitment · GRN→Inventory · Invoice→AP · Payment→Bank</span>
+  </div>
+</section>
+</body>
+</html>

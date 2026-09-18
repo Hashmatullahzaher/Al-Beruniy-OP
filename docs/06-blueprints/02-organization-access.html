@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>02 · Organization &amp; Access — AL-BERUNIY OS</title>
+<link rel="stylesheet" href="assets/blueprint.css">
+</head>
+<body>
+<nav class="topnav">
+  <b>AL-BERUNIY OS</b>
+  <a href="index.html">00 · Index</a>
+  <a href="01-enterprise-master-map.html">01 · Master Map</a>
+  <a href="02-organization-access.html">02 · Org &amp; Access</a>
+  <a href="03-multi-project.html">03 · Multi-Project</a>
+  <a href="04-financial-architecture.html">04 · Finance</a>
+  <a href="17-workflow-approvals.html">17 · Workflow</a>
+  <a href="23-security-architecture.html">23 · Security</a>
+  <span class="screen-note">Print → A3 · Landscape · Margins None · Background graphics ON</span>
+</nav>
+
+<section class="page">
+  <div class="titleblock">
+    <div class="tb-brand"><div class="os">AL-BERUNIY</div><div class="sub">OPERATING SYSTEM</div></div>
+    <div class="tb-title">
+      <div class="no">BLUEPRINT 02 · ORGANIZATION &amp; ACCESS ARCHITECTURE</div>
+      <div class="name">Who Uses the System &amp; What They Can Access</div>
+      <div class="desc">User Account ≠ Role ≠ Department ≠ Project Assignment ≠ Permission ≠ Approval Authority ≠ Data Access.</div>
+    </div>
+    <div class="tb-meta">
+      <span class="k">Version</span><b>1.0</b>
+      <span class="k">Date</span><b>2026-09-17</b>
+      <span class="k">Layer</span><b>Access L1</b>
+      <span class="k">Sheet</span><b>02 / 26</b>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span class="lg-title">LEGEND</span>
+    <span class="legend-item"><span class="sw" style="background:var(--exec)"></span>Governance</span>
+    <span class="legend-item"><span class="sw" style="background:var(--infra)"></span>Access Objects</span>
+    <span class="legend-item"><span class="arrow">→</span> assignment / grant</span>
+    <span class="legend-item"><b>1:N</b> one-to-many</span>
+    <span class="legend-item"><b>N:N</b> many-to-many</span>
+    <span class="legend-item"><span class="cid">WF-01</span> connects to Workflow Engine (BP-17)</span>
+    <span class="legend-item"><span class="cid">SEC-01</span> enforced by Security (BP-23)</span>
+  </div>
+
+  <div class="canvas">
+
+    <!-- SIX ACCESS OBJECTS -->
+    <div class="row" style="flex:0 0 auto">
+      <div class="card d-exec grow"><div class="hd">THE ACCESS MODEL — six distinct objects, never merged</div>
+        <div class="bd"><div class="chain">
+          <div class="step" style="--c:var(--infra);--ci:var(--infra-ink)"><span class="n">1</span><b>USER ACCOUNT</b><span class="mini">Identity for authN. MFA. One person = one login. Employee / portal user.</span></div>
+          <div class="step" style="--c:var(--infra);--ci:var(--infra-ink)"><span class="n">2</span><b>ROLE</b><span class="mini">Job function bundle of permissions. A user may hold several.</span></div>
+          <div class="step" style="--c:var(--infra);--ci:var(--infra-ink)"><span class="n">3</span><b>DEPARTMENT</b><span class="mini">Home org unit. A user belongs to exactly one department.</span></div>
+          <div class="step" style="--c:var(--infra);--ci:var(--infra-ink)"><span class="n">4</span><b>PROJECT ASSIGNMENT</b><span class="mini">Scopes which projects' data a user may touch. Many per user.</span></div>
+          <div class="step" style="--c:var(--infra);--ci:var(--infra-ink)"><span class="n">5</span><b>PERMISSION</b><span class="mini">Atomic can-do (create/read/update/approve on an object).</span></div>
+          <div class="step" style="--c:var(--infra);--ci:var(--infra-ink)"><span class="n">6</span><b>APPROVAL AUTHORITY</b><span class="mini">Amount/scope limits per user per project. Feeds Workflow. <span class="cid">WF-01</span></span></div>
+        </div>
+        <div class="mini" style="margin-top:6px"><b>Effective Data Access = Role Permissions ∩ Project Assignments ∩ Department scope ∩ Field-level rules.</b> Computed at every request by the Permission Engine. <span class="cid">SEC-01</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row grow">
+      <!-- ORG HIERARCHY -->
+      <div class="col" style="flex:1.15">
+        <p class="band d-exec">Organization Hierarchy</p>
+        <div class="card d-exec soft grow"><div class="bd">
+          <div class="chain vert">
+            <div class="step"><b>COMPANY — AL-BERUNIY Group</b><span class="mini">Consolidation entity</span></div>
+            <div class="step"><b>LEGAL ENTITY / BUSINESS UNIT</b><span class="mini">1:N · own books, tax id, currency base</span></div>
+            <div class="step"><b>DEPARTMENT</b><span class="mini">1:N · Finance, Sales, Construction, Procurement, HR, Warehouse, Legal, IT…</span></div>
+            <div class="step"><b>PROJECT ASSIGNMENT ↔ PROJECTS</b><span class="mini">N:N · a user works across many projects <span class="cid">PROJ-01</span></span></div>
+          </div>
+        </div></div>
+        <div class="card d-infra soft"><div class="hd">Cardinalities</div><div class="bd mini">
+          User <b>1:1</b> primary Department · User <b>N:N</b> Roles · User <b>N:N</b> Projects ·
+          Role <b>N:N</b> Permissions · User+Project <b>1:1</b> Approval-limit record.
+        </div></div>
+      </div>
+
+      <!-- ROLE CATALOG -->
+      <div class="col" style="flex:1.6">
+        <p class="band d-infra">Role Catalog (by domain)</p>
+        <div class="card d-infra grow"><div class="bd">
+          <div class="grid cols-4" style="gap:5px">
+            <div class="blk d-exec"><span class="t">Governance</span><div class="pills" style="margin-top:2px">
+              <span class="pill">Chairman</span><span class="pill">Board Member</span><span class="pill">CEO</span><span class="pill">COO</span><span class="pill">Auditor</span></div></div>
+            <div class="blk d-fin"><span class="t">Finance</span><div class="pills" style="margin-top:2px">
+              <span class="pill">CFO</span><span class="pill">Finance Director</span><span class="pill">Finance Manager</span><span class="pill">Accountant</span><span class="pill">Collection Officer</span></div></div>
+            <div class="blk d-const"><span class="t">Projects / Construction</span><div class="pills" style="margin-top:2px">
+              <span class="pill">Project Director</span><span class="pill">Project Manager</span><span class="pill">Construction Mgr</span><span class="pill">Site Engineer</span><span class="pill">Quantity Surveyor</span><span class="pill">Architect</span></div></div>
+            <div class="blk d-proc"><span class="t">Procurement / Store</span><div class="pills" style="margin-top:2px">
+              <span class="pill">Procurement Mgr</span><span class="pill">Procurement Officer</span><span class="pill">Warehouse Mgr</span><span class="pill">Storekeeper</span></div></div>
+            <div class="blk d-sales"><span class="t">Sales &amp; CRM</span><div class="pills" style="margin-top:2px">
+              <span class="pill">Sales Director</span><span class="pill">Sales Manager</span><span class="pill">Sales Agent</span><span class="pill">Customer Service</span></div></div>
+            <div class="blk d-hr"><span class="t">HR</span><div class="pills" style="margin-top:2px">
+              <span class="pill">HR Manager</span><span class="pill">HR Officer</span></div></div>
+            <div class="blk d-legal"><span class="t">Legal / Docs</span><div class="pills" style="margin-top:2px">
+              <span class="pill">Legal Officer</span><span class="pill">Document Controller</span></div></div>
+            <div class="blk d-doc"><span class="t">External (portal only)</span><div class="pills" style="margin-top:2px">
+              <span class="pill">Contractor</span><span class="pill">Supplier</span><span class="pill">Customer</span></div></div>
+          </div>
+          <div class="mini" style="margin-top:5px"><b>Segregation of Duties:</b> creator ≠ approver ≠ payer. External roles are portal-scoped (Type A user) and only ever see their own party data <span class="cid">BP-24</span>.</div>
+        </div></div>
+      </div>
+    </div>
+
+    <!-- AUTHORITY MATRIX -->
+    <div class="row" style="flex:0 0 auto">
+      <div class="card d-fin grow"><div class="hd">AUTHORITY &amp; DATA-ACCESS EXAMPLES — same object, different power by role &amp; project</div>
+        <div class="bd"><div class="grid cols-5" style="gap:5px">
+          <div class="blk d-fin"><span class="t">Finance Manager</span><br>Approves expenses/payments ≤ threshold T1; posts JEs; sees all-project finance in own entity.</div>
+          <div class="blk d-fin"><span class="t">CFO</span><br>Approves &gt; T1 up to T2; above T2 escalates to CEO/Chairman. Company-wide finance view.</div>
+          <div class="blk d-const"><span class="t">Project Manager</span><br>Full ops on <b>assigned projects only</b>; cannot see other projects or payroll.</div>
+          <div class="blk d-exec"><span class="t">Chairman</span><br>Read-all every project + consolidation; approves top-tier limits; no data entry.</div>
+          <div class="blk d-sales"><span class="t">Sales Agent</span><br>Sees <b>own customers</b> &amp; assigned unit inventory; <b>no payroll, no company finance</b>.</div>
+          <div class="blk d-wh"><span class="t">Warehouse Officer</span><br>Creates stock in/out/transfer; <b>cannot approve payments</b> or view AP ledger.</div>
+          <div class="blk d-fin"><span class="t">Collection Officer</span><br>Views assigned overdue customers; records receipts; cannot waive penalty (needs FM).</div>
+          <div class="blk d-proc"><span class="t">Procurement Officer</span><br>Raises RFQ/PO drafts; <b>cannot self-approve</b>; PO approval by Proc Mgr / Finance.</div>
+          <div class="blk d-hr"><span class="t">HR Officer</span><br>Employee records &amp; attendance; payroll <b>run</b> requires HR Mgr + Finance approval.</div>
+          <div class="blk d-legal"><span class="t">Auditor</span><br><b>Read-only everything</b> incl. audit trail; no create/update/approve.</div>
+        </div></div>
+      </div>
+    </div>
+
+  </div>
+  <div class="foot">
+    <span><b>AL-BERUNIY OPERATING SYSTEM</b> · Enterprise Architecture Blueprint</span>
+    <span>Blueprint 02 · Organization &amp; Access · v1.0 · 2026-09-17</span>
+    <span>Enforced by RBAC + Project + Field security · BP-23</span>
+  </div>
+</section>
+</body>
+</html>

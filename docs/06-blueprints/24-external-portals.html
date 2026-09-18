@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>24 · External Portals — AL-BERUNIY OS</title>
+<link rel="stylesheet" href="assets/blueprint.css">
+</head>
+<body>
+<nav class="topnav">
+  <b>AL-BERUNIY OS</b>
+  <a href="index.html">00 · Index</a>
+  <a href="23-security-architecture.html">23 · Security</a>
+  <a href="24-external-portals.html">24 · Portals</a>
+  <a href="25-cross-system-relationships.html">25 · Relationships</a>
+  <a href="04-financial-architecture.html">04 · Finance</a>
+  <span class="screen-note">Print → A3 · Landscape · Margins None · Background graphics ON</span>
+</nav>
+
+<section class="page">
+  <div class="titleblock">
+    <div class="tb-brand"><div class="os">AL-BERUNIY</div><div class="sub">OPERATING SYSTEM</div></div>
+    <div class="tb-title">
+      <div class="no">BLUEPRINT 24 · CUSTOMER / SUPPLIER / CONTRACTOR PORTALS</div>
+      <div class="name">External Users, Cleanly Separated from Employees</div>
+      <div class="desc">Self-service surfaces that see only their own party data — never internal operations.</div>
+    </div>
+    <div class="tb-meta">
+      <span class="k">Version</span><b>1.0</b>
+      <span class="k">Date</span><b>2026-09-17</b>
+      <span class="k">Connector</span><b>PORT-01</b>
+      <span class="k">Sheet</span><b>24 / 26</b>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span class="lg-title">LEGEND</span>
+    <span class="legend-item"><span class="sw" style="background:var(--sales)"></span>Customer portal</span>
+    <span class="legend-item"><span class="sw" style="background:var(--proc)"></span>Supplier portal</span>
+    <span class="legend-item"><span class="sw" style="background:var(--const)"></span>Contractor portal</span>
+    <span class="legend-item"><span class="arrow">→</span> maps to internal</span>
+    <span class="legend-item"><span class="cid">SEC-01</span> own-party data only</span>
+  </div>
+
+  <div class="canvas">
+
+    <div class="row" style="flex:0 0 auto">
+      <div class="card d-infra grow"><div class="hd">SEPARATION PRINCIPLE — external identity ≠ employee identity</div>
+        <div class="bd mini">External users are <b>Type A logins</b> bound to <b>one Type B party</b> (their own customer/supplier/contractor record). Row-level security guarantees a portal user sees <b>only their own contracts, invoices and documents</b> — never other parties, never internal finance, HR or other projects. All portal submissions enter the same <b>Workflow Engine</b> <span class="cid">WF-01</span> and post through the same <b>Finance</b> engine <span class="cid">FIN-GL-01</span> as internal actions.</div>
+      </div>
+    </div>
+
+    <div class="row grow">
+      <div class="col grow">
+        <p class="band d-sales">Customer Portal</p>
+        <div class="card d-sales soft grow"><div class="bd"><div class="grid cols-2" style="gap:4px">
+          <div class="blk d-sales"><span class="t">Contracts</span><br>view signed agreements</div>
+          <div class="blk d-sales"><span class="t">Installments</span><br>schedule &amp; balance <span class="cid">COLL-01</span></div>
+          <div class="blk d-sales"><span class="t">Payments</span><br>online pay via gateway <span class="cid">BP-22</span></div>
+          <div class="blk d-sales"><span class="t">Statements</span><br>account ledger</div>
+          <div class="blk d-sales"><span class="t">Receipts</span><br>download e-receipts</div>
+          <div class="blk d-sales"><span class="t">Documents</span><br>own KYC &amp; contract docs</div>
+          <div class="blk d-sales"><span class="t">Support</span><br>tickets &amp; requests</div>
+          <div class="blk d-sales"><span class="t">Notifications</span><br>dues · reminders · handover</div>
+        </div>
+        <div class="mini" style="margin-top:5px"><b>Maps to:</b> CRM · Collections · Finance (AR) · Documents. Payment → Receipt → settles Receivable <span class="cid out">FIN-AR-01</span>.</div>
+        </div></div>
+      </div>
+
+      <div class="col grow">
+        <p class="band d-proc">Supplier Portal</p>
+        <div class="card d-proc soft grow"><div class="bd"><div class="grid cols-2" style="gap:4px">
+          <div class="blk d-proc"><span class="t">RFQs</span><br>received invitations <span class="cid">PROC-01</span></div>
+          <div class="blk d-proc"><span class="t">Quotations</span><br>submit &amp; revise</div>
+          <div class="blk d-proc"><span class="t">Purchase Orders</span><br>view &amp; acknowledge</div>
+          <div class="blk d-proc"><span class="t">Deliveries</span><br>advance ship notice</div>
+          <div class="blk d-proc"><span class="t">Invoices</span><br>submit for 3-way match</div>
+          <div class="blk d-proc"><span class="t">Payments</span><br>status &amp; remittance</div>
+          <div class="blk d-proc"><span class="t">Documents</span><br>licenses · certs · KYC</div>
+          <div class="blk d-proc"><span class="t">Performance</span><br>own scorecard</div>
+        </div>
+        <div class="mini" style="margin-top:5px"><b>Maps to:</b> Procurement · Finance (AP) · Documents. Invoice → 3-way match → Payable <span class="cid out">FIN-AP-01</span>.</div>
+        </div></div>
+      </div>
+
+      <div class="col grow">
+        <p class="band d-const">Contractor Portal</p>
+        <div class="card d-const soft grow"><div class="bd"><div class="grid cols-2" style="gap:4px">
+          <div class="blk d-const"><span class="t">Contracts</span><br>scope &amp; terms <span class="cid">CON-01</span></div>
+          <div class="blk d-const"><span class="t">BOQ</span><br>items &amp; rates</div>
+          <div class="blk d-const"><span class="t">Progress</span><br>submit measurement</div>
+          <div class="blk d-const"><span class="t">Certificates (IPC)</span><br>view certified value</div>
+          <div class="blk d-const"><span class="t">Variations</span><br>submit &amp; track</div>
+          <div class="blk d-const"><span class="t">Claims</span><br>lodge &amp; status</div>
+          <div class="blk d-const"><span class="t">Payments</span><br>net of retention/advance</div>
+          <div class="blk d-const"><span class="t">Documents</span><br>contract &amp; site docs</div>
+        </div>
+        <div class="mini" style="margin-top:5px"><b>Maps to:</b> Construction · Cost · Finance. Certified IPC → Contractor Payable <span class="cid out">FIN-AP-01</span>.</div>
+        </div></div>
+      </div>
+    </div>
+
+    <div class="facets d-infra">
+      <div class="f"><span class="ft">Actors</span>Customer · Supplier · Contractor (external)</div>
+      <div class="f"><span class="ft">Inputs</span>Payments · quotes · invoices · progress</div>
+      <div class="f"><span class="ft">Master Data</span>Own party record only</div>
+      <div class="f"><span class="ft">Process</span>Self-service → internal workflow</div>
+      <div class="f"><span class="ft">Decisions</span>Accept PO · submit claim</div>
+      <div class="f"><span class="ft">Approvals</span>Internal via WF-01</div>
+      <div class="f"><span class="ft">Transactions</span>Payment · quote · invoice · IPC</div>
+      <div class="f"><span class="ft">Documents</span>Own docs upload/download</div>
+      <div class="f"><span class="ft">Outputs</span>Faster cycles · transparency</div>
+      <div class="f"><span class="ft">Accounting</span>AR / AP postings</div>
+      <div class="f"><span class="ft">Modules</span>Sales · Procure · Contractor · Finance</div>
+      <div class="f"><span class="ft">Notifications</span>Dues · RFQ · payment · IPC</div>
+      <div class="f"><span class="ft">Reports/KPIs</span>Portal adoption · self-service %</div>
+      <div class="f"><span class="ft">Audit</span>External action log</div>
+      <div class="f"><span class="ft">Exceptions</span>Disputes · rejections</div>
+      <div class="f"><span class="ft">Security</span>Own-party row security · no internal view</div>
+    </div>
+
+  </div>
+  <div class="foot">
+    <span><b>AL-BERUNIY OPERATING SYSTEM</b> · Enterprise Architecture Blueprint</span>
+    <span>Blueprint 24 · External Portals · v1.0 · 2026-09-17</span>
+    <span>External users see only their own party data</span>
+  </div>
+</section>
+</body>
+</html>

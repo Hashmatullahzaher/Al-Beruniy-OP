@@ -1,3 +1,30 @@
 # AL-BERUNIY Operating System
 
-Documentation-first repository bootstrap. The full documentation and blueprint package is being imported into this repository.
+Documentation-first source of truth for the AL-BERUNIY Operating System: a multi-project real-estate development, construction, finance, sales, procurement, warehouse, HR/payroll, document, analytics and AI platform.
+
+## Current phase
+Documentation and blueprint definition. No production implementation should redefine the approved operating model.
+
+## Source-of-truth order
+1. `docs/04-delivery/ACCEPTANCE_CONTRACT.md`
+2. `docs/02-domain/BUSINESS_RULES.md`
+3. `docs/01-product/PRODUCT_REQUIREMENTS.md`
+4. `docs/06-blueprints/` visual blueprint package
+5. `docs/03-architecture/SYSTEM_ARCHITECTURE.md`
+6. `docs/04-delivery/IMPLEMENTATION_PLAN.md`
+
+Conflicts are recorded in `docs/00-governance/OPEN_ITEMS.md` and resolved explicitly before dependent build work.
+
+## Repository map
+- `docs/00-governance/` charter, decisions, glossary, open items
+- `docs/01-product/` requirements, roles, journeys, screen inventory
+- `docs/02-domain/` business rules and module contracts
+- `docs/03-architecture/` architecture, security, data, AI, integration, traceability
+- `docs/04-delivery/` acceptance, blueprint gate, roadmap, tests
+- `docs/05-operations/` deployment/UAT/security readiness
+- `docs/06-blueprints/` A3 visual blueprints 00–26 plus Master Network Workflow
+- `prompts/` builder/auditor prompts
+- `skills/` documentation-first build method
+
+## Governing workflow
+**Discover → Document → Blueprint → Review → Acceptance Contract → Build → Self-Audit → Independent Audit → Remediate → UAT → Release**

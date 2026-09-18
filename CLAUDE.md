@@ -1,0 +1,2 @@
+# Claude Instructions — AL-BERUNIY OS
+This repository is documentation-first. Read the repository contract before proposing UI or code. Preserve multi-project isolation + corporate consolidation, role/project/department permissions, approval authority, end-to-end traceability, finance as the posting engine, segregation of duties, immutable audit trails and AI permission boundaries. Unknown requirements go to `docs/00-governance/OPEN_ITEMS.md` instead of being invented.

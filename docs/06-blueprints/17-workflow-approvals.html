@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>17 · Workflow &amp; Approvals — AL-BERUNIY OS</title>
+<link rel="stylesheet" href="assets/blueprint.css">
+</head>
+<body>
+<nav class="topnav">
+  <b>AL-BERUNIY OS</b>
+  <a href="index.html">00 · Index</a>
+  <a href="16-document-management.html">16 · Documents</a>
+  <a href="17-workflow-approvals.html">17 · Workflow</a>
+  <a href="18-executive-command-center.html">18 · Exec Center</a>
+  <a href="02-organization-access.html">02 · Org &amp; Access</a>
+  <span class="screen-note">Print → A3 · Landscape · Margins None · Background graphics ON</span>
+</nav>
+
+<section class="page">
+  <div class="titleblock">
+    <div class="tb-brand"><div class="os">AL-BERUNIY</div><div class="sub">OPERATING SYSTEM</div></div>
+    <div class="tb-title">
+      <div class="no">BLUEPRINT 17 · WORKFLOW &amp; APPROVAL ENGINE</div>
+      <div class="name">One Shared Engine for Every Approval in the Company</div>
+      <div class="desc">Sequential, parallel, conditional and amount/project/role-based routing with delegation &amp; escalation.</div>
+    </div>
+    <div class="tb-meta">
+      <span class="k">Version</span><b>1.0</b>
+      <span class="k">Date</span><b>2026-09-17</b>
+      <span class="k">Connector</span><b>WF-01</b>
+      <span class="k">Sheet</span><b>17 / 26</b>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span class="lg-title">LEGEND</span>
+    <span class="legend-item"><span class="sw" style="background:var(--exec)"></span>Workflow</span>
+    <span class="legend-item"><span class="sw" style="background:var(--hr)"></span>Decision</span>
+    <span class="legend-item"><span class="arrow">→</span> route</span>
+    <span class="legend-item"><span class="cid in">◂ any module</span> submits request</span>
+    <span class="legend-item"><span class="cid out">execution</span> returns to module</span>
+  </div>
+
+  <div class="canvas">
+
+    <div class="row" style="flex:0 0 auto">
+      <div class="card d-exec grow"><div class="hd">GENERIC APPROVAL PIPELINE</div>
+        <div class="bd"><div class="chain">
+          <div class="step"><span class="n">1</span><b>Requester</b><span class="mini">submits from module <span class="cid in">◂ any</span></span></div>
+          <div class="step"><span class="n">2</span><b>Validation</b><span class="mini">budget · SoD · policy</span></div>
+          <div class="step"><span class="n">3</span><b>Reviewer(s)</b><span class="mini">technical/commercial</span></div>
+          <div class="step"><span class="n">4</span><b>Approver(s)</b><span class="mini">by tier &amp; scope</span></div>
+          <div class="step"><span class="n">5</span><b>Final Approver</b><span class="mini">threshold cap</span></div>
+          <div class="step"><span class="n">6</span><b>Finance / Execution</b><span class="mini">post · pay · commit</span></div>
+        </div>
+        <div class="mini" style="margin-top:5px">At every node: <b>Approve</b> · <b>Reject</b> · <b>Return for correction</b> · <b>Delegate</b> · <b>Escalate on timeout</b> · <b>Cancel</b>. All actions timestamped &amp; audited <span class="cid">BP-23</span>.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row grow">
+      <div class="col" style="flex:1.2">
+        <p class="band d-exec">Routing Patterns</p>
+        <div class="card d-exec soft grow"><div class="bd"><div class="grid cols-2" style="gap:4px">
+          <div class="blk d-exec"><span class="t">Sequential</span><br>A → B → C in order</div>
+          <div class="blk d-exec"><span class="t">Parallel</span><br>B &amp; C simultaneously, join</div>
+          <div class="blk d-exec"><span class="t">Conditional</span><br>route depends on data</div>
+          <div class="blk d-exec"><span class="t">Amount-based</span><br>tier by value</div>
+          <div class="blk d-exec"><span class="t">Project-based</span><br>project's approvers</div>
+          <div class="blk d-exec"><span class="t">Department-based</span><br>dept hierarchy</div>
+          <div class="blk d-exec"><span class="t">Role-based</span><br>by role not person</div>
+          <div class="blk d-exec"><span class="t">Escalation</span><br>timeout → next level</div>
+          <div class="blk d-exec"><span class="t">Delegation</span><br>out-of-office proxy</div>
+          <div class="blk d-exec"><span class="t">Rejection / Return</span><br>back to requester</div>
+        </div></div></div>
+        <div class="facets d-exec">
+          <div class="f"><span class="ft">Actors</span>Requester · Reviewer · Approver</div>
+          <div class="f"><span class="ft">Inputs</span>Request + context data</div>
+          <div class="f"><span class="ft">Master Data</span>Policies · limits · roles</div>
+          <div class="f"><span class="ft">Process</span>Submit→Route→Decide→Execute</div>
+          <div class="f"><span class="ft">Decisions</span>Approve/Reject/Return</div>
+          <div class="f"><span class="ft">Approvals</span>The engine itself</div>
+          <div class="f"><span class="ft">Transactions</span>Approval records</div>
+          <div class="f"><span class="ft">Documents</span>Attached evidence</div>
+          <div class="f"><span class="ft">Outputs</span>Approved action</div>
+          <div class="f"><span class="ft">Accounting</span>Gates every posting</div>
+          <div class="f"><span class="ft">Modules</span>All</div>
+          <div class="f"><span class="ft">Notifications</span>Assignment · reminder · SLA</div>
+          <div class="f"><span class="ft">Reports/KPIs</span>Cycle time · pending · SLA breach</div>
+          <div class="f"><span class="ft">Audit</span>Full immutable trail</div>
+          <div class="f"><span class="ft">Exceptions</span>Timeout · reject · recall</div>
+          <div class="f"><span class="ft">Security</span>Authority from BP-02</div>
+        </div>
+      </div>
+
+      <div class="col" style="flex:1.6">
+        <p class="band d-exec">Worked Examples — same engine, different policies</p>
+        <div class="card d-exec grow"><div class="bd mini"><div class="grid cols-2" style="gap:5px">
+          <div class="blk d-proc"><span class="t">Purchase Request</span><br>Requester → PM → Proc Mgr (budget check)</div>
+          <div class="blk d-proc"><span class="t">Purchase Order</span><br>Proc Mgr → FM ≤T1 → CFO ≤T2 → CEO &gt;T2</div>
+          <div class="blk d-fin"><span class="t">Expense</span><br>Employee → Dept Mgr → Finance → CFO (by amount)</div>
+          <div class="blk d-sales"><span class="t">Customer Discount</span><br>Agent → Sales Mgr → Sales Dir → CFO (by %)</div>
+          <div class="blk d-sales"><span class="t">Sales Contract</span><br>Sales Mgr → Legal → Finance → Sales Director</div>
+          <div class="blk d-const"><span class="t">Contractor Payment (IPC)</span><br>QS → Site Eng → PM → Finance → CFO</div>
+          <div class="blk d-proc"><span class="t">Supplier Payment</span><br>AP → FM ≤T1 → CFO ≤T2 → CEO &gt;T2</div>
+          <div class="blk d-hr"><span class="t">Payroll</span><br>HR Officer → HR Mgr → Finance → CFO</div>
+          <div class="blk d-fin"><span class="t">Budget / Revision</span><br>PM → Project Dir → CFO → CEO</div>
+          <div class="blk d-const"><span class="t">Change / Variation Order</span><br>Site Eng → PM → Project Dir → CFO (cost impact)</div>
+        </div>
+        <div class="mini" style="margin-top:5px"><b>Segregation of Duties</b> is enforced across all: the person who creates cannot be the person who approves or pays.</div>
+        </div></div>
+      </div>
+
+      <div class="col" style="flex:.9">
+        <p class="band d-hr">Decision Node Logic</p>
+        <div class="card d-hr soft grow"><div class="bd center mini">
+          <div class="diamond"><span>Amount ≤ approver limit?</span></div>
+          <div style="margin-top:8px"><b>Yes</b> → approve &amp; execute.<br><b>No</b> → escalate to next tier.<br><b>Missing info</b> → return to requester.<br><b>Timeout</b> → auto-escalate + notify.</div>
+        </div></div>
+      </div>
+    </div>
+
+  </div>
+  <div class="foot">
+    <span><b>AL-BERUNIY OPERATING SYSTEM</b> · Enterprise Architecture Blueprint</span>
+    <span>Blueprint 17 · Workflow &amp; Approvals · v1.0 · 2026-09-17</span>
+    <span>One engine · every module · full audit &amp; SoD</span>
+  </div>
+</section>
+</body>
+</html>

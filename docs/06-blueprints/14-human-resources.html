@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>14 · Human Resources — AL-BERUNIY OS</title>
+<link rel="stylesheet" href="assets/blueprint.css">
+</head>
+<body>
+<nav class="topnav">
+  <b>AL-BERUNIY OS</b>
+  <a href="index.html">00 · Index</a>
+  <a href="13-expense-management.html">13 · Expense</a>
+  <a href="14-human-resources.html">14 · HR</a>
+  <a href="15-payroll.html">15 · Payroll</a>
+  <a href="04-financial-architecture.html">04 · Finance</a>
+  <span class="screen-note">Print → A3 · Landscape · Margins None · Background graphics ON</span>
+</nav>
+
+<section class="page">
+  <div class="titleblock">
+    <div class="tb-brand"><div class="os">AL-BERUNIY</div><div class="sub">OPERATING SYSTEM</div></div>
+    <div class="tb-title">
+      <div class="no">BLUEPRINT 14 · HUMAN RESOURCES</div>
+      <div class="name">Employee Lifecycle — Recruit to Exit</div>
+      <div class="desc">People, positions, attendance, leave, performance and self-service, feeding Payroll &amp; Projects.</div>
+    </div>
+    <div class="tb-meta">
+      <span class="k">Version</span><b>1.0</b>
+      <span class="k">Date</span><b>2026-09-17</b>
+      <span class="k">Connector</span><b>HR-01</b>
+      <span class="k">Sheet</span><b>14 / 26</b>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span class="lg-title">LEGEND</span>
+    <span class="legend-item"><span class="sw" style="background:var(--hr)"></span>HR</span>
+    <span class="legend-item"><span class="sw" style="background:var(--infra)"></span>Integration</span>
+    <span class="legend-item"><span class="arrow">→</span> flow</span>
+    <span class="legend-item"><span class="cid out">PAY-01</span> to Payroll</span>
+    <span class="legend-item"><span class="cid out">PROJ-01</span> project assignment</span>
+  </div>
+
+  <div class="canvas">
+
+    <div class="row" style="flex:0 0 auto">
+      <div class="card d-hr grow"><div class="hd">EMPLOYEE LIFECYCLE</div>
+        <div class="bd"><div class="chain">
+          <div class="step"><span class="n">1</span><b>Recruitment</b><span class="mini">requisition · vacancy</span></div>
+          <div class="step"><span class="n">2</span><b>Candidate</b><span class="mini">apply · screen · interview</span></div>
+          <div class="step"><span class="n">3</span><b>Hiring</b><span class="mini">offer · onboarding</span></div>
+          <div class="step"><span class="n">4</span><b>Employee + Contract</b><span class="mini">Type B + Type A login</span></div>
+          <div class="step"><span class="n">5</span><b>Dept · Position · Project</b><span class="mini">assignment <span class="cid out">PROJ-01</span></span></div>
+          <div class="step"><span class="n">6</span><b>Attendance · Leave</b><span class="mini">biometric <span class="cid">BP-22</span></span></div>
+          <div class="step"><span class="n">7</span><b>Performance · Training</b><span class="mini">appraisal cycle</span></div>
+          <div class="step"><span class="n">8</span><b>Payroll</b><span class="mini"><span class="cid out">PAY-01</span></span></div>
+          <div class="step"><span class="n">9</span><b>Exit</b><span class="mini">clearance · settlement</span></div>
+        </div></div>
+      </div>
+    </div>
+
+    <div class="row grow">
+      <div class="col" style="flex:1.5">
+        <p class="band d-hr">HR Capabilities</p>
+        <div class="card d-hr soft grow"><div class="bd"><div class="grid cols-3" style="gap:4px">
+          <div class="blk d-hr"><span class="t">Employee File</span><br>personal · job · pay</div>
+          <div class="blk d-hr"><span class="t">Employee Documents</span><br>ID · contract · certs <span class="cid">DOC-01</span></div>
+          <div class="blk d-hr"><span class="t">Attendance</span><br>daily in/out</div>
+          <div class="blk d-hr"><span class="t">Biometric Integration</span><br>device sync <span class="cid">BP-22</span></div>
+          <div class="blk d-hr"><span class="t">Shifts &amp; Rosters</span><br>site schedules</div>
+          <div class="blk d-hr"><span class="t">Leave</span><br>annual · sick · unpaid</div>
+          <div class="blk d-hr"><span class="t">Overtime</span><br>approved hours</div>
+          <div class="blk d-hr"><span class="t">Salary Structure</span><br>base + allowances</div>
+          <div class="blk d-hr"><span class="t">Allowance / Deduction</span><br>recurring &amp; one-off</div>
+          <div class="blk d-hr"><span class="t">Bonus</span><br>performance/festival</div>
+          <div class="blk d-hr"><span class="t">Advance / Loan</span><br>recovery schedule</div>
+          <div class="blk d-hr"><span class="t">Performance</span><br>KPI · appraisal</div>
+          <div class="blk d-hr"><span class="t">Training</span><br>plan · records</div>
+          <div class="blk d-hr"><span class="t">Disciplinary</span><br>warnings · cases</div>
+          <div class="blk d-hr"><span class="t">Employee Self-Service</span><br>payslip · leave · claims</div>
+        </div></div></div>
+        <div class="facets d-hr">
+          <div class="f"><span class="ft">Actors</span>HR Mgr · HR Officer · Manager · Employee</div>
+          <div class="f"><span class="ft">Inputs</span>Application · attendance · leave</div>
+          <div class="f"><span class="ft">Master Data</span>Employee · Position · Dept · Project</div>
+          <div class="f"><span class="ft">Process</span>Recruit→Manage→Exit</div>
+          <div class="f"><span class="ft">Decisions</span>Hire · promote · discipline</div>
+          <div class="f"><span class="ft">Approvals</span>Offer · leave · OT · exit</div>
+          <div class="f"><span class="ft">Transactions</span>Attendance · leave · loan</div>
+          <div class="f"><span class="ft">Documents</span>Contract · ID · appraisal</div>
+          <div class="f"><span class="ft">Outputs</span>Payroll inputs · org chart</div>
+          <div class="f"><span class="ft">Accounting</span>via Payroll <span class="cid">PAY-01</span></div>
+          <div class="f"><span class="ft">Modules</span>Payroll · Projects · Finance</div>
+          <div class="f"><span class="ft">Notifications</span>Leave · appraisal · doc expiry</div>
+          <div class="f"><span class="ft">Reports/KPIs</span>Headcount · turnover · attendance</div>
+          <div class="f"><span class="ft">Audit</span>Employee change history</div>
+          <div class="f"><span class="ft">Exceptions</span>Absence · discipline · dispute</div>
+          <div class="f"><span class="ft">Security</span>Self sees own; payroll restricted</div>
+        </div>
+      </div>
+
+      <div class="col" style="flex:1">
+        <p class="band d-hr">Key Relationships</p>
+        <div class="card d-hr grow"><div class="bd mini">
+          <div class="rel"><span>Employee</span><span class="arrow">→</span><span class="lbl">has 1:1</span><span>Employee Account (Type B)</span></div><hr class="dash">
+          <div class="rel"><span>Employee</span><span class="arrow">→</span><span class="lbl">has 1:1</span><span>User Login (Type A · ESS)</span></div><hr class="dash">
+          <div class="rel"><span>Employee</span><span class="arrow">→</span><span class="lbl">belongs to 1</span><span>Department</span></div><hr class="dash">
+          <div class="rel"><span>Employee</span><span class="arrow">→</span><span class="lbl">assigned N:N</span><span>Projects</span></div><hr class="dash">
+          <div class="rel"><span>Attendance + OT + Leave</span><span class="arrow">→</span><span class="lbl">feed</span><span>Payroll</span></div><hr class="dash">
+          <div class="rel"><span>Loan / Advance</span><span class="arrow">→</span><span class="lbl">recovered in</span><span>Payroll</span></div>
+        </div></div>
+      </div>
+
+      <div class="col" style="flex:.9">
+        <p class="band d-hr">Connects To</p>
+        <div class="card d-hr soft grow"><div class="bd"><div class="pills">
+          <span class="pill solid">Payroll</span><span class="pill solid">Projects</span><span class="pill">Finance</span>
+          <span class="pill">Documents</span><span class="pill">Approvals</span><span class="pill">Biometric</span>
+          <span class="pill">ESS Portal</span><span class="pill">BI (HR)</span>
+        </div>
+        <div class="mini" style="margin-top:5px"><b>Project labor allocation</b> captured here drives cost distribution in Payroll &amp; Cost Control.</div>
+        </div></div>
+      </div>
+    </div>
+
+  </div>
+  <div class="foot">
+    <span><b>AL-BERUNIY OPERATING SYSTEM</b> · Enterprise Architecture Blueprint</span>
+    <span>Blueprint 14 · Human Resources · v1.0 · 2026-09-17</span>
+    <span>Employee assigned to Project · time feeds Payroll allocation</span>
+  </div>
+</section>
+</body>
+</html>

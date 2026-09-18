@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>23 · Security Architecture — AL-BERUNIY OS</title>
+<link rel="stylesheet" href="assets/blueprint.css">
+</head>
+<body>
+<nav class="topnav">
+  <b>AL-BERUNIY OS</b>
+  <a href="index.html">00 · Index</a>
+  <a href="22-data-integration.html">22 · Integration</a>
+  <a href="23-security-architecture.html">23 · Security</a>
+  <a href="24-external-portals.html">24 · Portals</a>
+  <a href="02-organization-access.html">02 · Org &amp; Access</a>
+  <span class="screen-note">Print → A3 · Landscape · Margins None · Background graphics ON</span>
+</nav>
+
+<section class="page">
+  <div class="titleblock">
+    <div class="tb-brand"><div class="os">AL-BERUNIY</div><div class="sub">OPERATING SYSTEM</div></div>
+    <div class="tb-title">
+      <div class="no">BLUEPRINT 23 · SECURITY ARCHITECTURE</div>
+      <div class="name">Defense in Depth — Identity, Access, Audit, Resilience</div>
+      <div class="desc">From authentication and RBAC to field-level security, audit trails, encryption and disaster recovery.</div>
+    </div>
+    <div class="tb-meta">
+      <span class="k">Version</span><b>1.0</b>
+      <span class="k">Date</span><b>2026-09-17</b>
+      <span class="k">Connector</span><b>SEC-01</b>
+      <span class="k">Sheet</span><b>23 / 26</b>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span class="lg-title">LEGEND</span>
+    <span class="legend-item"><span class="sw" style="background:var(--infra)"></span>Security control</span>
+    <span class="legend-item"><span class="sw" style="background:var(--const)"></span>Audit / monitoring</span>
+    <span class="legend-item"><span class="arrow">→</span> enforcement path</span>
+    <span class="legend-item"><span class="cid in">◂ all requests</span> pass through</span>
+  </div>
+
+  <div class="canvas">
+
+    <div class="row" style="flex:0 0 auto">
+      <div class="card d-infra grow"><div class="hd">REQUEST ENFORCEMENT PATH — every action is checked</div>
+        <div class="bd"><div class="chain">
+          <div class="step"><span class="n">1</span><b>Authentication</b><span class="mini">password policy + MFA</span></div>
+          <div class="step"><span class="n">2</span><b>Session / Token</b><span class="mini">expiry · refresh · device</span></div>
+          <div class="step"><span class="n">3</span><b>Authorization (RBAC)</b><span class="mini">role → permission</span></div>
+          <div class="step"><span class="n">4</span><b>Project-Level Security</b><span class="mini">assigned projects only</span></div>
+          <div class="step"><span class="n">5</span><b>Department Security</b><span class="mini">org scope</span></div>
+          <div class="step"><span class="n">6</span><b>Field-Level Security</b><span class="mini">e.g. salary hidden</span></div>
+          <div class="step"><span class="n">7</span><b>Approval Authority</b><span class="mini">amount limits <span class="cid">WF-01</span></span></div>
+          <div class="step"><span class="n">8</span><b>Audit Log</b><span class="mini">record who/what/when</span></div>
+        </div></div>
+      </div>
+    </div>
+
+    <div class="row grow">
+      <div class="col" style="flex:1.1">
+        <p class="band d-infra">Identity &amp; Access</p>
+        <div class="card d-infra soft grow"><div class="bd"><div class="grid cols-2" style="gap:4px">
+          <div class="blk d-infra"><span class="t">Authentication</span><br>password + SSO/OIDC</div>
+          <div class="blk d-infra"><span class="t">MFA</span><br>OTP · authenticator</div>
+          <div class="blk d-infra"><span class="t">Authorization / RBAC</span><br>role → permission sets</div>
+          <div class="blk d-infra"><span class="t">Project Security</span><br>row-level by project</div>
+          <div class="blk d-infra"><span class="t">Department Security</span><br>org-scoped views</div>
+          <div class="blk d-infra"><span class="t">Field-Level Security</span><br>mask sensitive fields</div>
+          <div class="blk d-infra"><span class="t">Approval Authority</span><br>value &amp; scope limits</div>
+          <div class="blk d-infra"><span class="t">Session Management</span><br>timeout · concurrent · revoke</div>
+          <div class="blk d-infra"><span class="t">Password Policies</span><br>complexity · rotation · lockout</div>
+          <div class="blk d-infra"><span class="t">SoD Enforcement</span><br>conflicting duties blocked</div>
+        </div></div></div>
+      </div>
+
+      <div class="col" style="flex:1.1">
+        <p class="band d-const">Audit &amp; Monitoring</p>
+        <div class="card d-const soft grow"><div class="bd"><div class="grid cols-2" style="gap:4px">
+          <div class="blk d-const"><span class="t">Audit Logs</span><br>every create/update/delete</div>
+          <div class="blk d-const"><span class="t">Login Logs</span><br>success/fail · device · IP</div>
+          <div class="blk d-const"><span class="t">Activity Logs</span><br>user actions timeline</div>
+          <div class="blk d-const"><span class="t">Financial Audit Trail</span><br>immutable JE lineage</div>
+          <div class="blk d-const"><span class="t">Change Approvals</span><br>who approved what</div>
+          <div class="blk d-const"><span class="t">Security Monitoring / SIEM</span><br>anomaly &amp; alerting</div>
+          <div class="blk d-const"><span class="t">Access Reviews</span><br>periodic recertification</div>
+          <div class="blk d-const"><span class="t">Tamper-evidence</span><br>append-only ledgers</div>
+        </div>
+        <div class="mini" style="margin-top:5px"><b>Auditor role</b> = read-all including trails, zero write — supports internal &amp; external audit and IFRS controls.</div>
+        </div></div>
+      </div>
+
+      <div class="col" style="flex:1">
+        <p class="band d-infra">Data Protection &amp; Resilience</p>
+        <div class="card d-infra grow"><div class="bd"><div class="grid cols-2" style="gap:4px">
+          <div class="blk d-infra"><span class="t">Encryption at Rest</span><br>DB · files · backups</div>
+          <div class="blk d-infra"><span class="t">Encryption in Transit</span><br>TLS/mTLS everywhere</div>
+          <div class="blk d-infra"><span class="t">Key Management</span><br>KMS · rotation</div>
+          <div class="blk d-infra"><span class="t">Backup</span><br>automated · tested restore</div>
+          <div class="blk d-infra"><span class="t">Disaster Recovery</span><br>RPO/RTO targets</div>
+          <div class="blk d-infra"><span class="t">High Availability</span><br>redundancy · failover</div>
+          <div class="blk d-infra"><span class="t">Secrets Management</span><br>vault · no hard-coding</div>
+          <div class="blk d-infra"><span class="t">Data Residency</span><br>tenant/project isolation</div>
+        </div></div></div>
+        <div class="facets d-infra">
+          <div class="f"><span class="ft">Actors</span>Security Admin · Auditor · All users</div>
+          <div class="f"><span class="ft">Inputs</span>Every request</div>
+          <div class="f"><span class="ft">Master Data</span>Roles · policies</div>
+          <div class="f"><span class="ft">Process</span>AuthN→AuthZ→Audit</div>
+          <div class="f"><span class="ft">Decisions</span>Allow / deny / step-up</div>
+          <div class="f"><span class="ft">Approvals</span>Access grants · reviews</div>
+          <div class="f"><span class="ft">Transactions</span>Log records</div>
+          <div class="f"><span class="ft">Documents</span>Policies · certs</div>
+          <div class="f"><span class="ft">Outputs</span>Enforced access · trails</div>
+          <div class="f"><span class="ft">Accounting</span>Protects financial integrity</div>
+          <div class="f"><span class="ft">Modules</span>All (cross-cutting)</div>
+          <div class="f"><span class="ft">Notifications</span>Security alerts</div>
+          <div class="f"><span class="ft">Reports/KPIs</span>Incidents · failed logins</div>
+          <div class="f"><span class="ft">Audit</span>The audit system itself</div>
+          <div class="f"><span class="ft">Exceptions</span>Breach · lockout · anomaly</div>
+          <div class="f"><span class="ft">Security</span>Least privilege · zero trust</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+  <div class="foot">
+    <span><b>AL-BERUNIY OPERATING SYSTEM</b> · Enterprise Architecture Blueprint</span>
+    <span>Blueprint 23 · Security Architecture · v1.0 · 2026-09-17</span>
+    <span>Least privilege · full auditability · IFRS &amp; SoD controls</span>
+  </div>
+</section>
+</body>
+</html>

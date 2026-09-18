@@ -1,0 +1,2 @@
+# Implementation Plan
+F0 engineering foundation; F1 identity/org/RBAC/audit/workflow; F2 master data/company/project hierarchy; F3 Sales/CRM/unit/contracts; F4 installments/collections/AR; F5 Finance/GL/AP/cash/budget/project accounting; F6 construction/WBS/BOQ/cost; F7 procurement/supplier/warehouse; F8 contractor/IPC; F9 HR/payroll/expense/assets/documents; F10 BI/executive command center; F11 AI/portals/integrations; F12 security hardening/migration/UAT/production readiness. Each milestone maps acceptance → implement → test → self-audit → fix → commit.

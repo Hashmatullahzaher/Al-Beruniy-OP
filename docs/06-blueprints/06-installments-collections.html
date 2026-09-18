@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>06 · Installments &amp; Collections — AL-BERUNIY OS</title>
+<link rel="stylesheet" href="assets/blueprint.css">
+</head>
+<body>
+<nav class="topnav">
+  <b>AL-BERUNIY OS</b>
+  <a href="index.html">00 · Index</a>
+  <a href="05-sales-crm.html">05 · Sales/CRM</a>
+  <a href="06-installments-collections.html">06 · Installments</a>
+  <a href="04-financial-architecture.html">04 · Finance</a>
+  <a href="24-external-portals.html">24 · Portals</a>
+  <span class="screen-note">Print → A3 · Landscape · Margins None · Background graphics ON</span>
+</nav>
+
+<section class="page">
+  <div class="titleblock">
+    <div class="tb-brand"><div class="os">AL-BERUNIY</div><div class="sub">OPERATING SYSTEM</div></div>
+    <div class="tb-title">
+      <div class="no">BLUEPRINT 06 · INSTALLMENT &amp; COLLECTION ENGINE</div>
+      <div class="name">From Contract Value to Cleared Receivable</div>
+      <div class="desc">Schedules, receipts, overdue, penalties, rescheduling, escalation and handover eligibility.</div>
+    </div>
+    <div class="tb-meta">
+      <span class="k">Version</span><b>1.0</b>
+      <span class="k">Date</span><b>2026-09-17</b>
+      <span class="k">Connector</span><b>COLL-01</b>
+      <span class="k">Sheet</span><b>06 / 26</b>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span class="lg-title">LEGEND</span>
+    <span class="legend-item"><span class="sw" style="background:var(--sales)"></span>Collection</span>
+    <span class="legend-item"><span class="sw" style="background:var(--fin)"></span>Financial impact</span>
+    <span class="legend-item"><span class="sw" style="background:var(--hr)"></span>Decision</span>
+    <span class="legend-item"><span class="arrow">→</span> generates / settles</span>
+    <span class="legend-item"><span class="cid in">◂ SALE-01</span> from Sales</span>
+    <span class="legend-item"><span class="cid out">FIN-AR-01</span> Receivable ledger</span>
+  </div>
+
+  <div class="canvas">
+
+    <div class="row" style="flex:0 0 auto">
+      <div class="card d-sales grow"><div class="hd">INSTALLMENT PLAN CONSTRUCTION <span class="tag">from Sales Contract <span class="cid in">◂ SALE-01</span></span></div>
+        <div class="bd"><div class="chain">
+          <div class="step"><span class="n">1</span><b>Contract Value</b><span class="mini">unit price + charges</span></div>
+          <div class="step"><span class="n">2</span><b>Down Payment</b><span class="mini">% at booking</span></div>
+          <div class="step"><span class="n">3</span><b>Frequency</b><span class="mini">Monthly·Quarterly·Custom</span></div>
+          <div class="step"><span class="n">4</span><b>Installment Schedule</b><span class="mini">N dated rows</span></div>
+          <div class="step"><span class="n">5</span><b>Due Date + Grace</b><span class="mini">per row</span></div>
+          <div class="step"><span class="n">6</span><b>Receivable Generated</b><span class="mini"><b>Dr</b> AR <b>Cr</b> Rev/Deferred <span class="cid out">FIN-AR-01</span></span></div>
+        </div></div>
+      </div>
+    </div>
+
+    <div class="row grow">
+      <div class="col" style="flex:1.4">
+        <p class="band d-sales">Collection Operations</p>
+        <div class="card d-sales soft grow"><div class="bd"><div class="grid cols-3" style="gap:4px">
+          <div class="blk d-fin"><span class="t">Collected Amount</span><br>receipt posts to Bank/Cash</div>
+          <div class="blk d-fin"><span class="t">Outstanding Amount</span><br>schedule − collected</div>
+          <div class="blk d-fin"><span class="t">Partial Payment</span><br>allocation rules</div>
+          <div class="blk d-fin"><span class="t">Advance Payment</span><br>applied to future rows</div>
+          <div class="blk d-const"><span class="t">Overdue Amount</span><br>aging buckets</div>
+          <div class="blk d-const"><span class="t">Penalty</span><br>Configurable Policy</div>
+          <div class="blk d-hr"><span class="t">Waiver</span><br>approval required <span class="cid">WF-01</span></div>
+          <div class="blk d-sales"><span class="t">Rescheduling</span><br>re-amortize · re-approve</div>
+          <div class="blk d-sales"><span class="t">Payment Promise</span><br>promise-to-pay tracking</div>
+          <div class="blk d-sales"><span class="t">Collection Officer</span><br>assignment &amp; queue</div>
+          <div class="blk d-sales"><span class="t">Receipt</span><br>numbered · e-receipt</div>
+          <div class="blk d-sales"><span class="t">Customer Statement</span><br>ledger &amp; schedule</div>
+          <div class="blk d-sales"><span class="t">Collection History</span><br>full timeline</div>
+          <div class="blk d-const"><span class="t">Escalation</span><br>officer→mgr→legal</div>
+          <div class="blk d-legal"><span class="t">Legal Follow-up</span><br>notice · case <span class="cid">LEG-01</span></div>
+        </div></div></div>
+        <!-- 16 facet strip compact -->
+        <div class="facets d-sales">
+          <div class="f"><span class="ft">Actors</span>Collection Officer · FM · Customer</div>
+          <div class="f"><span class="ft">Inputs</span>Schedule · payment</div>
+          <div class="f"><span class="ft">Master Data</span>Customer · Contract · Bank</div>
+          <div class="f"><span class="ft">Process</span>Due→Receipt→Settle</div>
+          <div class="f"><span class="ft">Decisions</span>Waiver · reschedule · escalate</div>
+          <div class="f"><span class="ft">Approvals</span>Waiver · reschedule</div>
+          <div class="f"><span class="ft">Transactions</span>Receipt · penalty · waiver</div>
+          <div class="f"><span class="ft">Documents</span>Receipt · statement</div>
+          <div class="f"><span class="ft">Outputs</span>Cleared AR · eligibility</div>
+          <div class="f"><span class="ft">Accounting</span>Bank Dr · AR Cr · penalty income</div>
+          <div class="f"><span class="ft">Modules</span>Finance · Sales · Legal · Handover</div>
+          <div class="f"><span class="ft">Notifications</span>Reminder · overdue · promise</div>
+          <div class="f"><span class="ft">Reports/KPIs</span>DSO · aging · collection %</div>
+          <div class="f"><span class="ft">Audit</span>Waiver &amp; reschedule log</div>
+          <div class="f"><span class="ft">Exceptions</span>Overdue · dispute · bounce</div>
+          <div class="f"><span class="ft">Security</span>Officer sees assigned only</div>
+        </div>
+      </div>
+
+      <div class="col" style="flex:1">
+        <p class="band d-fin">Financial Connections (Dr/Cr)</p>
+        <div class="card d-fin grow"><div class="bd mini">
+          <div class="blk d-fin"><span class="t">Receipt (on-time)</span><br><b>Dr</b> Bank/Cash · <b>Cr</b> Customer Receivable</div><hr class="dash">
+          <div class="blk d-fin"><span class="t">Penalty charged</span><br><b>Dr</b> Customer Receivable · <b>Cr</b> Penalty Income <i>(Configurable)</i></div><hr class="dash">
+          <div class="blk d-fin"><span class="t">Waiver granted</span><br><b>Dr</b> Penalty Income/Expense · <b>Cr</b> Customer Receivable</div><hr class="dash">
+          <div class="blk d-fin"><span class="t">Advance received</span><br><b>Dr</b> Bank · <b>Cr</b> Customer Advances (liability)</div><hr class="dash">
+          <div class="blk d-fin"><span class="t">Cancellation/refund</span><br><b>Dr</b> Customer Advances/Rev · <b>Cr</b> Bank (net penalty)</div>
+        </div></div>
+      </div>
+
+      <div class="col" style="flex:1">
+        <p class="band d-hr">Handover Eligibility Gate</p>
+        <div class="card d-hr soft"><div class="bd center mini">
+          <div class="diamond"><span>Outstanding = 0 <br>&amp; docs OK?</span></div>
+          <div style="margin-top:6px"><b>Yes</b> → Unit Handover eligible → title/ownership.<br><b>No</b> → blocked; show balance &amp; overdue.</div>
+        </div></div>
+        <p class="band d-sales">KPIs</p>
+        <div class="card d-sales soft grow"><div class="bd"><div class="grid cols-2" style="gap:4px">
+          <div class="kpi d-fin"><div class="v">DSO</div><div class="k">Days Sales O/S</div></div>
+          <div class="kpi d-const"><div class="v">▲</div><div class="k">Overdue Value</div></div>
+          <div class="kpi d-sales"><div class="v">%</div><div class="k">Collection Rate</div></div>
+          <div class="kpi d-exec"><div class="v">▦</div><div class="k">Upcoming Dues</div></div>
+        </div>
+        <div class="mini" style="margin-top:5px"><b>Escalation ladder:</b> Reminder (auto) → Officer call → Manager → Legal notice → Legal case. Every step timestamped &amp; audited.</div>
+        </div></div>
+      </div>
+    </div>
+
+  </div>
+  <div class="foot">
+    <span><b>AL-BERUNIY OPERATING SYSTEM</b> · Enterprise Architecture Blueprint</span>
+    <span>Blueprint 06 · Installments &amp; Collections · v1.0 · 2026-09-17</span>
+    <span>Receipt settles Receivable · posts Bank/Cash · frees Handover</span>
+  </div>
+</section>
+</body>
+</html>

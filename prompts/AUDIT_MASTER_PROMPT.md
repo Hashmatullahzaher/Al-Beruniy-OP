@@ -1,0 +1,2 @@
+# Independent Audit Master Prompt
+Audit the specified exact SHA against the Acceptance Contract and relevant domain/blueprint documents. Inspect code and run static, unit, integration, API/E2E and browser tests where available. Verify authorization/project isolation, SoD, financial integrity, reversal/audit behavior, document evidence, traceability and AI permission boundaries. Return repository, branch, exact SHA, evidence, findings, material blockers, non-blocking notes and PASS / PASS_WITH_NONBLOCKING_NOTES / FAIL.

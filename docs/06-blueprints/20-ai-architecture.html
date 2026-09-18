@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>20 · AI Architecture — AL-BERUNIY OS</title>
+<link rel="stylesheet" href="assets/blueprint.css">
+</head>
+<body>
+<nav class="topnav">
+  <b>AL-BERUNIY OS</b>
+  <a href="index.html">00 · Index</a>
+  <a href="19-business-intelligence.html">19 · BI</a>
+  <a href="20-ai-architecture.html">20 · AI</a>
+  <a href="23-security-architecture.html">23 · Security</a>
+  <a href="22-data-integration.html">22 · Integration</a>
+  <span class="screen-note">Print → A3 · Landscape · Margins None · Background graphics ON</span>
+</nav>
+
+<section class="page">
+  <div class="titleblock">
+    <div class="tb-brand"><div class="os">AL-BERUNIY</div><div class="sub">OPERATING SYSTEM</div></div>
+    <div class="tb-title">
+      <div class="no">BLUEPRINT 20 · AL-BERUNIY INTELLIGENCE LAYER</div>
+      <div class="name">AI That Advises — Inside the Permission Boundary</div>
+      <div class="desc">Copilot, prediction and document AI, always routed through the permission engine — never around it.</div>
+    </div>
+    <div class="tb-meta">
+      <span class="k">Version</span><b>1.0</b>
+      <span class="k">Date</span><b>2026-09-17</b>
+      <span class="k">Connector</span><b>AI-01</b>
+      <span class="k">Sheet</span><b>20 / 26</b>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span class="lg-title">LEGEND</span>
+    <span class="legend-item"><span class="sw" style="background:var(--data)"></span>AI service</span>
+    <span class="legend-item"><span class="sw" style="background:var(--infra)"></span>Permission gate</span>
+    <span class="legend-item"><span class="arrow">→</span> data flow</span>
+    <span class="legend-item"><span class="cid">SEC-01</span> RBAC enforced</span>
+    <span class="legend-item"><span class="cid in">◂ BP-19</span> curated features</span>
+  </div>
+
+  <div class="canvas">
+
+    <!-- GOLDEN RULE -->
+    <div class="row" style="flex:0 0 auto">
+      <div class="card d-infra grow"><div class="hd" style="background:var(--const)">GOLDEN RULE — AI NEVER BYPASSES RBAC</div>
+        <div class="bd"><div class="row" style="align-items:center;gap:12px">
+          <div class="grow"><div class="chain">
+            <div class="step" style="--c:var(--infra);--ci:var(--infra-ink)"><b>User</b><span class="mini">asks / is served</span></div>
+            <div class="step" style="--c:var(--const);--ci:var(--const-ink)"><b>Permission Engine</b><span class="mini">identity · role · project · field <span class="cid">SEC-01</span></span></div>
+            <div class="step" style="--c:var(--data);--ci:var(--data-ink)"><b>AI Services</b><span class="mini">reason over allowed scope</span></div>
+            <div class="step" style="--c:var(--wh);--ci:var(--wh-ink)"><b>Authorized Data Only</b><span class="mini">nothing beyond user's grant</span></div>
+          </div></div>
+          <div style="flex:0 0 40%"><div class="blk" style="--c:var(--const);--ci:var(--const-ink)"><span class="t">✗ Forbidden pattern:</span> User → AI → Entire Database. The AI receives a <b>security-trimmed</b> context; a Sales Agent's copilot cannot surface payroll or another agent's customers. Every AI answer is logged &amp; attributable <span class="cid">BP-23</span>.</div></div>
+        </div></div>
+      </div>
+    </div>
+
+    <div class="row grow">
+      <div class="col" style="flex:1.1">
+        <p class="band d-data">Assistants &amp; Copilots</p>
+        <div class="card d-data soft grow"><div class="bd"><div class="grid cols-2" style="gap:4px">
+          <div class="blk d-data"><span class="t">AI Copilot</span><br>in every module</div>
+          <div class="blk d-data"><span class="t">Natural-Language Query</span><br>"show overdue in Project A"</div>
+          <div class="blk d-data"><span class="t">Executive AI Assistant</span><br>board Q&amp;A · briefings</div>
+          <div class="blk d-data"><span class="t">Automatic Reports</span><br>narrative summaries</div>
+          <div class="blk d-data"><span class="t">AI Search</span><br>semantic across data+docs</div>
+          <div class="blk d-data"><span class="t">Management Recommendations</span><br>next-best-action</div>
+        </div></div></div>
+        <p class="band d-data">Document AI</p>
+        <div class="card d-data soft"><div class="bd"><div class="grid cols-2" style="gap:4px">
+          <div class="blk d-data"><span class="t">Invoice Extraction</span><br>OCR → structured</div>
+          <div class="blk d-data"><span class="t">Contract Analysis</span><br>clauses · obligations</div>
+        </div></div></div>
+      </div>
+
+      <div class="col" style="flex:1.3">
+        <p class="band d-data">Predictive &amp; Risk Models</p>
+        <div class="card d-data grow"><div class="bd"><div class="grid cols-2" style="gap:4px">
+          <div class="blk d-data"><span class="t">Predictive Cash Flow</span><br>collections vs outflows</div>
+          <div class="blk d-data"><span class="t">Sales Prediction</span><br>absorption · pricing</div>
+          <div class="blk d-data"><span class="t">Collection Risk</span><br>customer-level score</div>
+          <div class="blk d-data"><span class="t">Late-Payment Prediction</span><br>installment default</div>
+          <div class="blk d-data"><span class="t">Cost-Overrun Prediction</span><br>EAC breach early warning</div>
+          <div class="blk d-data"><span class="t">Project-Delay Prediction</span><br>schedule slippage</div>
+          <div class="blk d-data"><span class="t">Supplier Risk</span><br>delivery/quality/finance</div>
+          <div class="blk d-data"><span class="t">Fraud / Anomaly</span><br>unusual approvals · outliers</div>
+          <div class="blk d-data"><span class="t">Duplicate-Invoice Detection</span><br>near-match blocking</div>
+          <div class="blk d-data"><span class="t">Procurement Recommendations</span><br>vendor &amp; timing</div>
+          <div class="blk d-data"><span class="t">Smart Alerts</span><br>pushed to cockpit <span class="cid">BP-18</span></div>
+          <div class="blk d-data"><span class="t">Management Recommendations</span><br>prioritised actions</div>
+        </div></div></div>
+        <div class="facets d-data">
+          <div class="f"><span class="ft">Actors</span>All users (scoped) · Data team</div>
+          <div class="f"><span class="ft">Inputs</span>Curated features <span class="cid in">◂ BP-19</span></div>
+          <div class="f"><span class="ft">Master Data</span>Same governed masters</div>
+          <div class="f"><span class="ft">Process</span>Query→Trim→Reason→Answer</div>
+          <div class="f"><span class="ft">Decisions</span>Advisory only</div>
+          <div class="f"><span class="ft">Approvals</span>Actions still go via WF-01</div>
+          <div class="f"><span class="ft">Transactions</span>Suggests, human commits</div>
+          <div class="f"><span class="ft">Documents</span>Reads permitted docs</div>
+          <div class="f"><span class="ft">Outputs</span>Predictions · alerts · answers</div>
+          <div class="f"><span class="ft">Accounting</span>No direct posting</div>
+          <div class="f"><span class="ft">Modules</span>All (advisor)</div>
+          <div class="f"><span class="ft">Notifications</span>Smart alerts</div>
+          <div class="f"><span class="ft">Reports/KPIs</span>Model accuracy · adoption</div>
+          <div class="f"><span class="ft">Audit</span>Every prompt/answer logged</div>
+          <div class="f"><span class="ft">Exceptions</span>Low-confidence → human</div>
+          <div class="f"><span class="ft">Security</span>RBAC-trimmed context</div>
+        </div>
+      </div>
+
+      <div class="col" style="flex:.95">
+        <p class="band d-infra">Responsible-AI Controls</p>
+        <div class="card d-infra soft grow"><div class="bd mini">
+          <div class="blk d-infra"><span class="t">Human-in-the-loop</span><br>AI advises; approvals &amp; postings remain human via Workflow <span class="cid">WF-01</span>.</div>
+          <div class="blk d-infra"><span class="t">Explainability</span><br>each prediction shows drivers &amp; source records.</div>
+          <div class="blk d-infra"><span class="t">Full audit</span><br>prompts, context scope &amp; outputs retained.</div>
+          <div class="blk d-infra"><span class="t">Data residency</span><br>respects tenant &amp; project boundaries.</div>
+          <div class="blk d-infra"><span class="t">No training leakage</span><br>tenant data isolated from base models.</div>
+        </div></div>
+      </div>
+    </div>
+
+  </div>
+  <div class="foot">
+    <span><b>AL-BERUNIY OPERATING SYSTEM</b> · Enterprise Architecture Blueprint</span>
+    <span>Blueprint 20 · AL-BERUNIY Intelligence Layer · v1.0 · 2026-09-17</span>
+    <span>User → Permission Engine → AI → Authorized Data (never the whole DB)</span>
+  </div>
+</section>
+</body>
+</html>

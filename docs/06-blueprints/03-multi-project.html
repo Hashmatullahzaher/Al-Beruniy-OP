@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>03 · Multi-Project Architecture — AL-BERUNIY OS</title>
+<link rel="stylesheet" href="assets/blueprint.css">
+</head>
+<body>
+<nav class="topnav">
+  <b>AL-BERUNIY OS</b>
+  <a href="index.html">00 · Index</a>
+  <a href="01-enterprise-master-map.html">01 · Master Map</a>
+  <a href="02-organization-access.html">02 · Org &amp; Access</a>
+  <a href="03-multi-project.html">03 · Multi-Project</a>
+  <a href="04-financial-architecture.html">04 · Finance</a>
+  <a href="18-executive-command-center.html">18 · Exec Center</a>
+  <span class="screen-note">Print → A3 · Landscape · Margins None · Background graphics ON</span>
+</nav>
+
+<section class="page">
+  <div class="titleblock">
+    <div class="tb-brand"><div class="os">AL-BERUNIY</div><div class="sub">OPERATING SYSTEM</div></div>
+    <div class="tb-title">
+      <div class="no">BLUEPRINT 03 · MULTI-PROJECT ARCHITECTURE</div>
+      <div class="name">Project Independence + Corporate Consolidation</div>
+      <div class="desc">Every project is operationally &amp; financially self-contained, yet rolls up into one company view.</div>
+    </div>
+    <div class="tb-meta">
+      <span class="k">Version</span><b>1.0</b>
+      <span class="k">Date</span><b>2026-09-17</b>
+      <span class="k">Connector</span><b>PROJ-01</b>
+      <span class="k">Sheet</span><b>03 / 26</b>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span class="lg-title">LEGEND</span>
+    <span class="legend-item"><span class="sw" style="background:var(--exec)"></span>Structure</span>
+    <span class="legend-item"><span class="sw" style="background:var(--fin)"></span>Financial dimension</span>
+    <span class="legend-item"><span class="arrow">→</span> contains / relates</span>
+    <span class="legend-item"><b>1:N</b> one-to-many</span>
+    <span class="legend-item"><span class="cid">PROJ-01</span> project connector to every module</span>
+    <span class="legend-item"><span class="cid in">◂ consolidation</span> rolls up to BP-18</span>
+  </div>
+
+  <div class="canvas">
+
+    <!-- STRUCTURE CHAIN -->
+    <div class="row" style="flex:0 0 auto">
+      <div class="card d-exec grow"><div class="hd">STRUCTURAL HIERARCHY — the spatial breakdown every transaction can reference</div>
+        <div class="bd"><div class="chain">
+          <div class="step"><span class="n">1</span><b>COMPANY</b><span class="mini">AL-BERUNIY Group</span></div>
+          <div class="step"><span class="n">2</span><b>LEGAL ENTITY / BU</b><span class="mini">own books &amp; tax id</span></div>
+          <div class="step"><span class="n">3</span><b>PROJECT</b><span class="mini">Residential / Commercial / Mixed-use</span></div>
+          <div class="step"><span class="n">4</span><b>PHASE</b><span class="mini">1:N per project</span></div>
+          <div class="step"><span class="n">5</span><b>ZONE</b><span class="mini">1:N per phase</span></div>
+          <div class="step"><span class="n">6</span><b>BLOCK / TOWER / BUILDING</b><span class="mini">1:N per zone</span></div>
+          <div class="step"><span class="n">7</span><b>FLOOR</b><span class="mini">1:N per block</span></div>
+          <div class="step"><span class="n">8</span><b>UNIT</b><span class="mini">Apartment · Villa · Shop · Office</span></div>
+        </div></div>
+      </div>
+    </div>
+
+    <div class="row grow">
+      <!-- PROJECT AS CONTAINER -->
+      <div class="col" style="flex:2.2">
+        <p class="band d-fin">One Project = One Self-Contained Operating &amp; Financial Unit</p>
+        <div class="card d-fin grow" style="border-color:var(--fin)"><div class="bd" style="background:#fff">
+          <div class="grid cols-5" style="gap:5px">
+            <div class="blk d-fin"><span class="t">Project Budget</span><br>baseline &amp; revisions <span class="cid">COST-01</span></div>
+            <div class="blk d-fin"><span class="t">Project Bank Accounts</span><br>dedicated escrow/oper.</div>
+            <div class="blk d-fin"><span class="t">Project Cash Accounts</span><br>petty cash / site</div>
+            <div class="blk d-sales"><span class="t">Project Customers</span><br>buyers of its units <span class="cid">SALE-01</span></div>
+            <div class="blk d-sales"><span class="t">Project Contracts</span><br>sales agreements</div>
+            <div class="blk d-sales"><span class="t">Project Sales</span><br>reservations→sold</div>
+            <div class="blk d-sales"><span class="t">Project Installments</span><br>schedules &amp; receipts <span class="cid">COLL-01</span></div>
+            <div class="blk d-proc"><span class="t">Project Suppliers</span><br>POs for this project <span class="cid">PROC-01</span></div>
+            <div class="blk d-const"><span class="t">Project Contractors</span><br>subcontracts/IPC <span class="cid">CON-01</span></div>
+            <div class="blk d-proc"><span class="t">Project Procurement</span><br>PR→PO commitments</div>
+            <div class="blk d-wh"><span class="t">Project Warehouse(s)</span><br>site stores <span class="cid">WH-01</span></div>
+            <div class="blk d-hr"><span class="t">Project Employees</span><br>assignments &amp; time <span class="cid">HR-01</span></div>
+            <div class="blk d-fin"><span class="t">Project Expenses</span><br>site overheads <span class="cid">EXP-01</span></div>
+            <div class="blk d-const"><span class="t">Project Construction</span><br>WBS · progress <span class="cid">CONST-01</span></div>
+            <div class="blk d-doc"><span class="t">Project Documents</span><br>drawings·permits <span class="cid">DOC-01</span></div>
+            <div class="blk d-fin"><span class="t">Project Revenue</span><br>recognised sales</div>
+            <div class="blk d-fin"><span class="t">Project Cost</span><br>material·labor·subcon</div>
+            <div class="blk d-fin"><span class="t">Project P&amp;L</span><br>revenue − cost</div>
+            <div class="blk d-fin"><span class="t">Project Cash Flow</span><br>collections − outflows</div>
+            <div class="blk d-fin"><span class="t">Project Assets</span><br>equipment register <span class="cid">FA-01</span></div>
+          </div>
+          <div class="mini" style="margin-top:5px"><b>Data isolation:</b> every record carries a mandatory <b>Project ID</b>; RBAC project-assignment (BP-02) prevents cross-project visibility. Ledgers are dimensioned by Project so a full <b>Project Trial Balance &amp; P&amp;L</b> exists independently.</div>
+        </div></div>
+      </div>
+
+      <!-- CONSOLIDATION -->
+      <div class="col" style="flex:1">
+        <p class="band d-exec">Corporate Consolidation</p>
+        <div class="card d-exec soft grow"><div class="bd">
+          <div class="chain vert">
+            <div class="step"><b>Project A · TB / P&amp;L / Cash</b><span class="mini">isolated ledger dimension</span></div>
+            <div class="step"><b>Project B … Project N</b><span class="mini">tens–hundreds concurrent</span></div>
+            <div class="step" style="--c:var(--fin);--ci:var(--fin-ink)"><b>ELIMINATIONS &amp; INTERCOMPANY</b><span class="mini">Configurable Accounting Policy</span></div>
+            <div class="step" style="--c:var(--exec);--ci:var(--exec-ink)"><b>CORPORATE CONSOLIDATED VIEW</b><span class="mini">Group P&amp;L · Balance Sheet · Cash Flow <span class="cid in">◂ BP-18</span></span></div>
+          </div>
+          <hr class="dash">
+          <div class="mini"><b>Two perspectives, one data set:</b> switch any dashboard between <b>Project-Level</b> and <b>Corporate</b> without moving data. Drill-down: Company → Project → Department → Cost Center → Transaction <span class="cid">BP-26</span>.</div>
+        </div></div>
+        <div class="card d-data soft"><div class="hd">Portfolio KPIs</div><div class="bd"><div class="grid cols-2" style="gap:4px">
+          <div class="kpi d-const"><div class="v">N</div><div class="k">Active Projects</div></div>
+          <div class="kpi d-fin"><div class="v">Σ</div><div class="k">Development Value</div></div>
+          <div class="kpi d-sales"><div class="v">%</div><div class="k">Units Sold</div></div>
+          <div class="kpi d-exec"><div class="v">◱</div><div class="k">Portfolio Health</div></div>
+        </div></div></div>
+      </div>
+    </div>
+
+  </div>
+  <div class="foot">
+    <span><b>AL-BERUNIY OPERATING SYSTEM</b> · Enterprise Architecture Blueprint</span>
+    <span>Blueprint 03 · Multi-Project Architecture · v1.0 · 2026-09-17</span>
+    <span>Project ID is a mandatory dimension on every transaction</span>
+  </div>
+</section>
+</body>
+</html>

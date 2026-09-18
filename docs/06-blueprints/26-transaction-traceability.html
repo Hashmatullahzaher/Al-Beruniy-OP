@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>26 · Transaction Traceability — AL-BERUNIY OS</title>
+<link rel="stylesheet" href="assets/blueprint.css">
+</head>
+<body>
+<nav class="topnav">
+  <b>AL-BERUNIY OS</b>
+  <a href="index.html">00 · Index</a>
+  <a href="25-cross-system-relationships.html">25 · Relationships</a>
+  <a href="26-transaction-traceability.html">26 · Traceability</a>
+  <a href="18-executive-command-center.html">18 · Exec Center</a>
+  <a href="04-financial-architecture.html">04 · Finance</a>
+  <span class="screen-note">Print → A3 · Landscape · Margins None · Background graphics ON</span>
+</nav>
+
+<section class="page">
+  <div class="titleblock">
+    <div class="tb-brand"><div class="os">AL-BERUNIY</div><div class="sub">OPERATING SYSTEM</div></div>
+    <div class="tb-title">
+      <div class="no">BLUEPRINT 26 · END-TO-END TRANSACTION TRACEABILITY</div>
+      <div class="name">Four Real Journeys — Proof of One Integrated Platform</div>
+      <div class="desc">Each scenario runs source → approval → posting → ledger → executive view, fully traceable both ways.</div>
+    </div>
+    <div class="tb-meta">
+      <span class="k">Version</span><b>1.0</b>
+      <span class="k">Date</span><b>2026-09-17</b>
+      <span class="k">Connector</span><b>TRACE-01</b>
+      <span class="k">Sheet</span><b>26 / 26</b>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span class="lg-title">LEGEND</span>
+    <span class="legend-item"><span class="sw" style="background:var(--sales)"></span>Sales/Collect</span>
+    <span class="legend-item"><span class="sw" style="background:var(--proc)"></span>Procure</span>
+    <span class="legend-item"><span class="sw" style="background:var(--wh)"></span>Warehouse</span>
+    <span class="legend-item"><span class="sw" style="background:var(--const)"></span>Construction/Contractor</span>
+    <span class="legend-item"><span class="sw" style="background:var(--hr)"></span>HR/Payroll</span>
+    <span class="legend-item"><span class="sw" style="background:var(--fin)"></span>Finance/GL</span>
+    <span class="legend-item"><span class="sw" style="background:var(--exec)"></span>Executive</span>
+  </div>
+
+  <div class="canvas">
+
+    <!-- SCENARIO 1 -->
+    <div class="card d-sales" style="flex:0 0 auto"><div class="hd">SCENARIO 1 · UNIT SALE → CASH → LEDGER → DASHBOARD</div>
+      <div class="bd"><div class="chain">
+        <div class="step"><b>Lead</b><span class="mini">Agent · SALE-01</span></div>
+        <div class="step"><b>Customer</b><span class="mini">KYC · Type B</span></div>
+        <div class="step"><b>Unit</b><span class="mini">availability</span></div>
+        <div class="step"><b>Contract</b><span class="mini">e-sign · DOC-01</span></div>
+        <div class="step"><b>Installment</b><span class="mini">schedule · COLL-01</span></div>
+        <div class="step" style="--c:var(--fin);--ci:var(--fin-ink)"><b>Receipt</b><span class="mini">Dr Bank</span></div>
+        <div class="step" style="--c:var(--fin);--ci:var(--fin-ink)"><b>Bank</b><span class="mini">Cr AR</span></div>
+        <div class="step" style="--c:var(--fin);--ci:var(--fin-ink)"><b>Journal Entry</b><span class="mini">auto</span></div>
+        <div class="step" style="--c:var(--fin);--ci:var(--fin-ink)"><b>General Ledger</b><span class="mini">posted</span></div>
+        <div class="step" style="--c:var(--exec);--ci:var(--exec-ink)"><b>Exec Dashboard</b><span class="mini">BP-18</span></div>
+      </div></div>
+    </div>
+
+    <!-- SCENARIO 2 -->
+    <div class="card d-proc" style="flex:0 0 auto"><div class="hd">SCENARIO 2 · SITE MATERIAL → PROCURE → RECEIVE → CONSUME → PAY → LEDGER</div>
+      <div class="bd"><div class="chain">
+        <div class="step" style="--c:var(--const);--ci:var(--const-ink)"><b>Material Request</b><span class="mini">Site · CONST-01</span></div>
+        <div class="step"><b>Purchase Req</b><span class="mini">approval · WF-01</span></div>
+        <div class="step"><b>RFQ</b><span class="mini">suppliers</span></div>
+        <div class="step"><b>PO</b><span class="mini">Commitment · COST-01</span></div>
+        <div class="step" style="--c:var(--wh);--ci:var(--wh-ink)"><b>Delivery + GRN</b><span class="mini">Dr Inv · Cr GRNI</span></div>
+        <div class="step" style="--c:var(--wh);--ci:var(--wh-ink)"><b>Material Issue</b><span class="mini">Dr Project Cost</span></div>
+        <div class="step" style="--c:var(--fin);--ci:var(--fin-ink)"><b>Supplier Invoice</b><span class="mini">3-way · Cr AP</span></div>
+        <div class="step" style="--c:var(--fin);--ci:var(--fin-ink)"><b>Payment</b><span class="mini">Dr AP · Cr Bank</span></div>
+        <div class="step" style="--c:var(--fin);--ci:var(--fin-ink)"><b>General Ledger</b><span class="mini">posted</span></div>
+        <div class="step" style="--c:var(--exec);--ci:var(--exec-ink)"><b>Exec Dashboard</b><span class="mini">cost + payable</span></div>
+      </div></div>
+    </div>
+
+    <!-- SCENARIO 3 -->
+    <div class="card d-const" style="flex:0 0 auto"><div class="hd">SCENARIO 3 · CONTRACTOR WORK → CERTIFY → PAYABLE → PAY → PROJECT COST → LEDGER</div>
+      <div class="bd"><div class="chain">
+        <div class="step"><b>Contractor Work</b><span class="mini">on site · CON-01</span></div>
+        <div class="step"><b>Progress Measurement</b><span class="mini">QS</span></div>
+        <div class="step"><b>Engineer Approval</b><span class="mini">verify · WF-01</span></div>
+        <div class="step"><b>Payment Certificate (IPC)</b><span class="mini">certified value</span></div>
+        <div class="step" style="--c:var(--fin);--ci:var(--fin-ink)"><b>Retention + Advance</b><span class="mini">deductions</span></div>
+        <div class="step" style="--c:var(--fin);--ci:var(--fin-ink)"><b>Contractor Payable</b><span class="mini">Cr Payable</span></div>
+        <div class="step" style="--c:var(--fin);--ci:var(--fin-ink)"><b>Payment</b><span class="mini">Dr Payable · Cr Bank</span></div>
+        <div class="step" style="--c:var(--const);--ci:var(--const-ink)"><b>Project Cost</b><span class="mini">Dr WIP · COST-01</span></div>
+        <div class="step" style="--c:var(--fin);--ci:var(--fin-ink)"><b>General Ledger</b><span class="mini">posted</span></div>
+        <div class="step" style="--c:var(--exec);--ci:var(--exec-ink)"><b>Exec Dashboard</b><span class="mini">EAC · payable</span></div>
+      </div></div>
+    </div>
+
+    <!-- SCENARIO 4 -->
+    <div class="card d-hr" style="flex:0 0 auto"><div class="hd">SCENARIO 4 · EMPLOYEE → ATTENDANCE → PAYROLL → PAY → PROJECT ALLOCATION → LEDGER</div>
+      <div class="bd"><div class="chain">
+        <div class="step"><b>Employee</b><span class="mini">HR-01 · Type B</span></div>
+        <div class="step"><b>Attendance</b><span class="mini">biometric · BP-22</span></div>
+        <div class="step"><b>Payroll Calculation</b><span class="mini">gross→net</span></div>
+        <div class="step"><b>Approval</b><span class="mini">HR + Finance · WF-01</span></div>
+        <div class="step" style="--c:var(--fin);--ci:var(--fin-ink)"><b>Payment</b><span class="mini">Dr Payable · Cr Bank</span></div>
+        <div class="step" style="--c:var(--const);--ci:var(--const-ink)"><b>Project Allocation</b><span class="mini">60/40 split</span></div>
+        <div class="step" style="--c:var(--fin);--ci:var(--fin-ink)"><b>Payroll Expense</b><span class="mini">by Project/CC</span></div>
+        <div class="step" style="--c:var(--fin);--ci:var(--fin-ink)"><b>General Ledger</b><span class="mini">posted</span></div>
+        <div class="step" style="--c:var(--exec);--ci:var(--exec-ink)"><b>Exec Dashboard</b><span class="mini">labor cost</span></div>
+      </div></div>
+    </div>
+
+    <!-- REVERSE DRILL -->
+    <div class="row grow">
+      <div class="card d-exec grow" style="flex:1.7"><div class="hd">REVERSE TRACE — one click from a number to its origin (Executive drill-down)</div>
+        <div class="bd"><div class="chain">
+          <div class="step" style="--c:var(--exec);--ci:var(--exec-ink)"><b>CEO sees $250,000 Project Expense</b></div>
+          <div class="step" style="--c:var(--exec);--ci:var(--exec-ink)"><b>Project</b></div>
+          <div class="step" style="--c:var(--fin);--ci:var(--fin-ink)"><b>Cost Center</b></div>
+          <div class="step" style="--c:var(--fin);--ci:var(--fin-ink)"><b>Expense</b></div>
+          <div class="step" style="--c:var(--proc);--ci:var(--proc-ink)"><b>Purchase Order</b></div>
+          <div class="step" style="--c:var(--proc);--ci:var(--proc-ink)"><b>Supplier</b></div>
+          <div class="step" style="--c:var(--fin);--ci:var(--fin-ink)"><b>Invoice</b></div>
+          <div class="step" style="--c:var(--wh);--ci:var(--wh-ink)"><b>Goods Receipt</b></div>
+          <div class="step" style="--c:var(--const);--ci:var(--const-ink)"><b>Original Request + Requester</b></div>
+          <div class="step" style="--c:var(--exec);--ci:var(--exec-ink)"><b>Approver</b></div>
+          <div class="step" style="--c:var(--fin);--ci:var(--fin-ink)"><b>Payment + Bank Txn</b></div>
+          <div class="step" style="--c:var(--fin);--ci:var(--fin-ink)"><b>Journal Entry → Ledger Account</b></div>
+        </div></div>
+      </div>
+      <div class="col" style="flex:1">
+        <p class="band d-exec">What Every Trace Answers</p>
+        <div class="card d-exec soft grow"><div class="bd mini">
+          ✔ Which <b>project</b> · ✔ Which <b>cost center</b> · ✔ <b>Who created</b> · ✔ <b>Who approved</b> ·
+          ✔ Which <b>document</b> supports it · ✔ Which <b>party</b> (customer/supplier/contractor/employee) ·
+          ✔ Which <b>ledger account</b> &amp; <b>Dr/Cr</b> impact · ✔ Which <b>budget</b> affected ·
+          ✔ How it <b>reached Finance</b> · ✔ How it <b>reached management</b> · ✔ How it is <b>audited</b>.
+          <hr class="dash">
+          <b>One data set, two directions:</b> forward (operation → ledger) and reverse (dashboard → origin). This is the definition of one integrated operating platform.
+        </div></div>
+      </div>
+    </div>
+
+  </div>
+  <div class="foot">
+    <span><b>AL-BERUNIY OPERATING SYSTEM</b> · Enterprise Architecture Blueprint</span>
+    <span>Blueprint 26 · End-to-End Transaction Traceability · v1.0 · 2026-09-17</span>
+    <span>Forward &amp; reverse traceable · every hop one click</span>
+  </div>
+</section>
+</body>
+</html>

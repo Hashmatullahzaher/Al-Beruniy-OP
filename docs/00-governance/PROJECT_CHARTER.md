@@ -1,0 +1,2 @@
+# Project Charter
+Build the digital operating system for AL-BERUNIY, a real-estate development and construction company that acquires land, builds projects and sells units including installments. The platform must unify project operations, finance, sales/collections, construction, BOQ/cost, procurement, suppliers, contractors, inventory, expenses, HR/payroll, documents, approvals, BI, AI and executive management. Projects remain operationally/financially separable while consolidating to corporate level.

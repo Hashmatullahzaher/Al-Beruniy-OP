@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>10 · Supplier Management — AL-BERUNIY OS</title>
+<link rel="stylesheet" href="assets/blueprint.css">
+</head>
+<body>
+<nav class="topnav">
+  <b>AL-BERUNIY OS</b>
+  <a href="index.html">00 · Index</a>
+  <a href="09-procurement.html">09 · Procurement</a>
+  <a href="10-supplier-management.html">10 · Suppliers</a>
+  <a href="11-contractor-management.html">11 · Contractors</a>
+  <a href="24-external-portals.html">24 · Portals</a>
+  <a href="04-financial-architecture.html">04 · Finance</a>
+  <span class="screen-note">Print → A3 · Landscape · Margins None · Background graphics ON</span>
+</nav>
+
+<section class="page">
+  <div class="titleblock">
+    <div class="tb-brand"><div class="os">AL-BERUNIY</div><div class="sub">OPERATING SYSTEM</div></div>
+    <div class="tb-title">
+      <div class="no">BLUEPRINT 10 · SUPPLIER MANAGEMENT</div>
+      <div class="name">Vendor Lifecycle &amp; Payables Relationship</div>
+      <div class="desc">Registration and KYC through performance, payables and portal — mapped to Finance.</div>
+    </div>
+    <div class="tb-meta">
+      <span class="k">Version</span><b>1.0</b>
+      <span class="k">Date</span><b>2026-09-17</b>
+      <span class="k">Connector</span><b>SUP-01</b>
+      <span class="k">Sheet</span><b>10 / 26</b>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span class="lg-title">LEGEND</span>
+    <span class="legend-item"><span class="sw" style="background:var(--proc)"></span>Supplier (Type B party)</span>
+    <span class="legend-item"><span class="sw" style="background:var(--fin)"></span>Payables (Type C ledger)</span>
+    <span class="legend-item"><span class="sw" style="background:var(--infra)"></span>Portal login (Type A)</span>
+    <span class="legend-item"><span class="arrow">→</span> relationship</span>
+    <span class="legend-item"><span class="cid in">◂ PROC-01</span> transactions</span>
+  </div>
+
+  <div class="canvas">
+
+    <div class="row" style="flex:0 0 auto">
+      <div class="card d-proc grow"><div class="hd">SUPPLIER LIFECYCLE</div>
+        <div class="bd"><div class="chain">
+          <div class="step"><span class="n">1</span><b>Registration</b><span class="mini">self or invited</span></div>
+          <div class="step"><span class="n">2</span><b>KYC + Documents</b><span class="mini">license·tax·bank</span></div>
+          <div class="step"><span class="n">3</span><b>Categorisation</b><span class="mini">material/service class</span></div>
+          <div class="step"><span class="n">4</span><b>Prequalification</b><span class="mini">approve to bid</span></div>
+          <div class="step"><span class="n">5</span><b>Transacting</b><span class="mini">RFQ·PO·delivery <span class="cid in">◂ PROC-01</span></span></div>
+          <div class="step"><span class="n">6</span><b>Performance Review</b><span class="mini">score</span></div>
+          <div class="step"><span class="n">7</span><b>Renew / Suspend / Blacklist</b><span class="mini">governance</span></div>
+        </div></div>
+      </div>
+    </div>
+
+    <div class="row grow">
+      <div class="col" style="flex:1.4">
+        <p class="band d-proc">Supplier 360°</p>
+        <div class="card d-proc soft grow"><div class="bd"><div class="grid cols-3" style="gap:4px">
+          <div class="blk d-proc"><span class="t">Profile &amp; KYC</span><br>legal · contacts · bank</div>
+          <div class="blk d-proc"><span class="t">Categories</span><br>cement · steel · MEP · services</div>
+          <div class="blk d-proc"><span class="t">Prequalification</span><br>capacity · financials</div>
+          <div class="blk d-proc"><span class="t">Documents</span><br>licenses · certs <span class="cid">DOC-01</span></div>
+          <div class="blk d-proc"><span class="t">Quotation History</span><br>win/loss</div>
+          <div class="blk d-proc"><span class="t">Purchase Orders</span><br>1 supplier : N POs</div>
+          <div class="blk d-proc"><span class="t">Contracts</span><br>rate agreements</div>
+          <div class="blk d-proc"><span class="t">Deliveries</span><br>1 PO : N deliveries</div>
+          <div class="blk d-fin"><span class="t">Invoices</span><br>→ AP <span class="cid">FIN-AP-01</span></div>
+          <div class="blk d-fin"><span class="t">Payments</span><br>settlements</div>
+          <div class="blk d-fin"><span class="t">Outstanding Payables</span><br>aging</div>
+          <div class="blk d-fin"><span class="t">Advances</span><br>recoverable</div>
+          <div class="blk d-proc"><span class="t">Quality Performance</span><br>reject rate</div>
+          <div class="blk d-proc"><span class="t">Delivery Performance</span><br>on-time %</div>
+          <div class="blk d-const"><span class="t">Blacklist / Suspension</span><br>with reason &amp; approval</div>
+        </div></div></div>
+        <div class="facets d-proc">
+          <div class="f"><span class="ft">Actors</span>Proc Mgr · Officer · Supplier · Fin</div>
+          <div class="f"><span class="ft">Inputs</span>Registration · docs · invoices</div>
+          <div class="f"><span class="ft">Master Data</span>Supplier · Category · Bank</div>
+          <div class="f"><span class="ft">Process</span>Register→Qualify→Transact→Review</div>
+          <div class="f"><span class="ft">Decisions</span>Prequalify · suspend · blacklist</div>
+          <div class="f"><span class="ft">Approvals</span>Onboarding · blacklist</div>
+          <div class="f"><span class="ft">Transactions</span>PO · invoice · payment</div>
+          <div class="f"><span class="ft">Documents</span>KYC · contract · invoice</div>
+          <div class="f"><span class="ft">Outputs</span>Approved vendor list</div>
+          <div class="f"><span class="ft">Accounting</span>AP · advances</div>
+          <div class="f"><span class="ft">Modules</span>Procurement · Finance · Portal</div>
+          <div class="f"><span class="ft">Notifications</span>Doc expiry · payment · RFQ</div>
+          <div class="f"><span class="ft">Reports/KPIs</span>Spend · on-time · quality</div>
+          <div class="f"><span class="ft">Audit</span>Onboarding &amp; status log</div>
+          <div class="f"><span class="ft">Exceptions</span>Expired docs · disputes</div>
+          <div class="f"><span class="ft">Security</span>Supplier sees own data only</div>
+        </div>
+      </div>
+
+      <div class="col" style="flex:1">
+        <p class="band d-fin">Three-Account Mapping</p>
+        <div class="card d-fin grow"><div class="bd mini">
+          <div class="acct d-infra"><span class="t">A · Supplier Portal Login</span><div class="mini">authN to portal; upload quotes/invoices <span class="cid">BP-24</span></div></div>
+          <hr class="dash">
+          <div class="acct d-proc"><span class="t">B · Supplier Party Account</span><div class="mini">master record · history · performance · balances-by-party</div></div>
+          <hr class="dash">
+          <div class="acct d-fin"><span class="t">C · Accounts Payable Control</span><div class="mini">GL control; supplier sub-ledger reconciles to it</div></div>
+          <hr class="dash">
+          <div class="rel"><span>Supplier</span><span class="arrow">→</span><span class="lbl">receives</span><span>Purchase Order</span></div>
+          <div class="rel"><span>PO</span><span class="arrow">→</span><span class="lbl">creates</span><span>Commitment</span></div>
+          <div class="rel"><span>Invoice</span><span class="arrow">→</span><span class="lbl">creates</span><span>Payable</span></div>
+          <div class="rel"><span>Payment</span><span class="arrow">→</span><span class="lbl">settles</span><span>Payable</span></div>
+        </div></div>
+      </div>
+
+      <div class="col" style="flex:.9">
+        <p class="band d-proc">Performance KPIs</p>
+        <div class="card d-proc soft grow"><div class="bd"><div class="grid cols-2" style="gap:4px">
+          <div class="kpi d-proc"><div class="v">%</div><div class="k">On-time Delivery</div></div>
+          <div class="kpi d-proc"><div class="v">%</div><div class="k">Quality Accept</div></div>
+          <div class="kpi d-fin"><div class="v">Σ</div><div class="k">Total Spend</div></div>
+          <div class="kpi d-fin"><div class="v">▲</div><div class="k">O/S Payables</div></div>
+        </div>
+        <div class="mini" style="margin-top:5px">Supplier scorecard feeds prequalification &amp; award weighting; AI flags supplier risk <span class="cid">BP-20</span>.</div>
+        </div></div>
+      </div>
+    </div>
+
+  </div>
+  <div class="foot">
+    <span><b>AL-BERUNIY OPERATING SYSTEM</b> · Enterprise Architecture Blueprint</span>
+    <span>Blueprint 10 · Supplier Management · v1.0 · 2026-09-17</span>
+    <span>Supplier party ↔ AP control ↔ portal login, kept distinct</span>
+  </div>
+</section>
+</body>
+</html>

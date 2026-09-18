@@ -1,0 +1,2 @@
+# Agent Operating Contract
+Before code: read README, acceptance contract, relevant domain docs, relevant blueprint(s), and open items. Do not invent official rates, taxes, penalties, thresholds, legal wording or accounting policies. Keep Type A User, Type B Party, and Type C Ledger accounts distinct. Authorization is server-side and project-scoped. Posted financial data is immutable; corrections use reversals/adjustments. AI never bypasses RBAC or posts arbitrary SQL. Handoffs identify exact Git SHA.

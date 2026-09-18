@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>15 · Payroll &amp; Finance — AL-BERUNIY OS</title>
+<link rel="stylesheet" href="assets/blueprint.css">
+</head>
+<body>
+<nav class="topnav">
+  <b>AL-BERUNIY OS</b>
+  <a href="index.html">00 · Index</a>
+  <a href="14-human-resources.html">14 · HR</a>
+  <a href="15-payroll.html">15 · Payroll</a>
+  <a href="04-financial-architecture.html">04 · Finance</a>
+  <a href="17-workflow-approvals.html">17 · Workflow</a>
+  <span class="screen-note">Print → A3 · Landscape · Margins None · Background graphics ON</span>
+</nav>
+
+<section class="page">
+  <div class="titleblock">
+    <div class="tb-brand"><div class="os">AL-BERUNIY</div><div class="sub">OPERATING SYSTEM</div></div>
+    <div class="tb-title">
+      <div class="no">BLUEPRINT 15 · PAYROLL &amp; FINANCE</div>
+      <div class="name">From Attendance to Bank Payment &amp; Cost Allocation</div>
+      <div class="desc">Payroll calculation, approval, payslip, accounting entry and allocation by Project / Department / Cost Center.</div>
+    </div>
+    <div class="tb-meta">
+      <span class="k">Version</span><b>1.0</b>
+      <span class="k">Date</span><b>2026-09-17</b>
+      <span class="k">Connector</span><b>PAY-01</b>
+      <span class="k">Sheet</span><b>15 / 26</b>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span class="lg-title">LEGEND</span>
+    <span class="legend-item"><span class="sw" style="background:var(--hr)"></span>Payroll</span>
+    <span class="legend-item"><span class="sw" style="background:var(--fin)"></span>Accounting</span>
+    <span class="legend-item"><span class="arrow">→</span> flow</span>
+    <span class="legend-item"><span class="cid in">◂ HR-01</span> inputs</span>
+    <span class="legend-item"><span class="cid out">FIN-GL-01</span> posting</span>
+  </div>
+
+  <div class="canvas">
+
+    <div class="row" style="flex:0 0 auto">
+      <div class="card d-hr grow"><div class="hd">PAYROLL RUN</div>
+        <div class="bd"><div class="chain">
+          <div class="step"><span class="n">1</span><b>Employee + Salary Structure</b><span class="mini">base + components <span class="cid in">◂ HR-01</span></span></div>
+          <div class="step"><span class="n">2</span><b>Attendance · OT · Leave</b><span class="mini">period inputs</span></div>
+          <div class="step"><span class="n">3</span><b>Allowance · Deduction</b><span class="mini">loans · advances</span></div>
+          <div class="step"><span class="n">4</span><b>Payroll Calculation</b><span class="mini">gross → net · tax</span></div>
+          <div class="step"><span class="n">5</span><b>Payroll Approval</b><span class="mini">HR Mgr + Finance <span class="cid">WF-01</span></span></div>
+          <div class="step"><span class="n">6</span><b>Payslip</b><span class="mini">ESS distribution</span></div>
+          <div class="step"><span class="n">7</span><b>Accounting Entry</b><span class="mini">by allocation</span></div>
+          <div class="step"><span class="n">8</span><b>Bank Payment</b><span class="mini">bank file <span class="cid out">FIN-GL-01</span></span></div>
+        </div></div>
+      </div>
+    </div>
+
+    <div class="row grow">
+      <div class="col" style="flex:1.2">
+        <p class="band d-fin">Payroll Accounting (Dr / Cr)</p>
+        <div class="card d-fin grow"><div class="bd mini">
+          <div class="blk d-fin"><span class="t">Payroll expense recognised</span><br><b>Dr</b> Salary Expense (split by Project/Dept/CC)<br><b>Cr</b> Employee Payable (net)<br><b>Cr</b> Tax / Statutory Payable<br><b>Cr</b> Loan Recovery (contra advance)</div>
+          <hr class="dash">
+          <div class="blk d-fin"><span class="t">Payment</span><br><b>Dr</b> Employee Payable · <b>Cr</b> Bank</div>
+          <hr class="dash">
+          <div class="blk d-fin"><span class="t">Statutory remittance</span><br><b>Dr</b> Tax/Statutory Payable · <b>Cr</b> Bank</div>
+          <hr class="dash">
+          <div class="mini"><b>Overtime, bonus &amp; end-of-service</b> accruals follow Configurable Accounting Policy and post to the same project/cost-center dimensions.</div>
+        </div></div>
+      </div>
+
+      <div class="col" style="flex:1.3">
+        <p class="band d-fin">Cost Allocation Model</p>
+        <div class="card d-fin soft grow"><div class="bd">
+          <div class="mini b" style="margin-bottom:4px">One employee's cost is split across the dimensions where they worked:</div>
+          <div class="grid cols-2" style="gap:4px">
+            <div class="blk d-exec"><span class="t">Company</span><br>legal entity total</div>
+            <div class="blk d-const"><span class="t">Project</span><br>by timesheet / assignment %</div>
+            <div class="blk d-hr"><span class="t">Department</span><br>home org unit</div>
+            <div class="blk d-fin"><span class="t">Cost Center</span><br>responsibility bucket</div>
+          </div>
+          <hr class="dash">
+          <div class="mini"><b>Example:</b> Site Engineer 60% Project A, 40% Project B → salary expense posts 60/40 to each project's cost, enabling accurate Project P&amp;L <span class="cid">BP-03</span> and Cost Control <span class="cid">COST-01</span>.</div>
+        </div></div>
+        <div class="facets d-hr">
+          <div class="f"><span class="ft">Actors</span>HR Officer · HR Mgr · FM · CFO</div>
+          <div class="f"><span class="ft">Inputs</span>Structure · attendance · deductions</div>
+          <div class="f"><span class="ft">Master Data</span>Employee · Pay components · CC</div>
+          <div class="f"><span class="ft">Process</span>Calc→Approve→Pay→Post</div>
+          <div class="f"><span class="ft">Decisions</span>Approve run · corrections</div>
+          <div class="f"><span class="ft">Approvals</span>HR + Finance dual approval</div>
+          <div class="f"><span class="ft">Transactions</span>Payroll JE · bank payment</div>
+          <div class="f"><span class="ft">Documents</span>Payslip · bank file · register</div>
+          <div class="f"><span class="ft">Outputs</span>Paid staff · statutory files</div>
+          <div class="f"><span class="ft">Accounting</span>Expense · payable · bank</div>
+          <div class="f"><span class="ft">Modules</span>HR · Finance · Projects · Cost</div>
+          <div class="f"><span class="ft">Notifications</span>Payslip · payment · statutory due</div>
+          <div class="f"><span class="ft">Reports/KPIs</span>Cost by project · headcount cost</div>
+          <div class="f"><span class="ft">Audit</span>Run &amp; approval trail (immutable)</div>
+          <div class="f"><span class="ft">Exceptions</span>Correction · off-cycle · clawback</div>
+          <div class="f"><span class="ft">Security</span>Payroll = highly restricted role</div>
+        </div>
+      </div>
+
+      <div class="col" style="flex:.9">
+        <p class="band d-hr">Controls</p>
+        <div class="card d-hr soft grow"><div class="bd mini">
+          <div class="blk d-hr"><span class="t">Dual approval</span><br>HR prepares, Finance approves — SoD.</div>
+          <div class="blk d-hr"><span class="t">Locked periods</span><br>closed payroll cannot be edited; corrections via off-cycle.</div>
+          <div class="blk d-hr"><span class="t">Confidentiality</span><br>salary data field-level secured <span class="cid">BP-23</span>.</div>
+          <div class="blk d-hr"><span class="t">Bank file</span><br>generated post-approval only.</div>
+        </div></div>
+        <p class="band d-fin">KPIs</p>
+        <div class="card d-fin soft"><div class="bd"><div class="grid cols-2" style="gap:4px">
+          <div class="kpi d-fin"><div class="v">Σ</div><div class="k">Payroll Cost</div></div>
+          <div class="kpi d-const"><div class="v">%</div><div class="k">Cost to Project</div></div>
+        </div></div></div>
+      </div>
+    </div>
+
+  </div>
+  <div class="foot">
+    <span><b>AL-BERUNIY OPERATING SYSTEM</b> · Enterprise Architecture Blueprint</span>
+    <span>Blueprint 15 · Payroll &amp; Finance · v1.0 · 2026-09-17</span>
+    <span>Payroll allocated to Project / Department / Cost Center</span>
+  </div>
+</section>
+</body>
+</html>

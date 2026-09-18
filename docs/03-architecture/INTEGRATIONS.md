@@ -1,0 +1,2 @@
+# Integrations
+Use synchronous APIs where appropriate and events/webhooks/message queues for async work. Categories: banks/payment gateways, Email/SMS/WhatsApp, Primavera/MS Project, BIM/Revit, biometric attendance, barcode/QR, government/tax/title systems, external accounting/legacy systems, analytics/AI. Requirements: scoped credentials/mTLS as appropriate, idempotency for financial writes, signed webhooks/replay protection, retry/backoff/dead-letter, audit/reconciliation and external source IDs.

@@ -1,0 +1,2 @@
+# AI Agent Architecture
+Required pattern: `User → AI intent → typed tool → domain service → authorization → validation → transaction/audit → response`. Never `LLM → arbitrary SQL → database`. AI cannot expand permissions, authoritative financial calculations come from deterministic services, proposed actions pass normal workflow, prompts/tool calls/data scope/material outputs are audited, low-confidence/high-risk cases route to humans.

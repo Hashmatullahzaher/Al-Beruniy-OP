@@ -1,0 +1,2 @@
+# Test Plan
+Static: formatting/lint/type/schema/secret scan. Unit: calculations/state/permissions/approval/posting/payroll/cost. Integration: database/subledger-GL/document/workflow/events/adapters. API/E2E: sales, collection, procurement, inventory, contractor IPC, expense, payroll. Browser UAT: login→create→attach→submit→approve→post/pay→reopen→drilldown/audit. Security: negative authorization, project isolation, field masking, SoD, portal own-party, AI trimming. Finance: balanced journals, idempotency, reversal, period locks, reconciliation and decimal precision.

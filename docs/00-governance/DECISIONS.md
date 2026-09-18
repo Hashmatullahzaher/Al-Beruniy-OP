@@ -1,0 +1,11 @@
+# Decisions
+- Repository documentation is the durable source of truth; chat is not.
+- Blueprint review precedes authoritative demo/build.
+- Project independence and corporate consolidation coexist in one data model.
+- Finance is the central posting engine.
+- Type A user, Type B party and Type C ledger accounts are distinct.
+- One shared workflow engine governs approvals.
+- Posted finance is immutable; corrections use reversal/adjustment.
+- AI is permission-bounded and tool/domain-service mediated.
+- Material transactions support forward and reverse traceability.
+- Exact-SHA discipline is required for build/audit handoffs.

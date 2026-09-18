@@ -1,0 +1,2 @@
+# Traceability
+Every material transaction must answer: company/legal entity/project; department/cost center; creator; approver(s); related party; source request/contract/PO/GRN/invoice/IPC/receipt/document; payment/bank transaction; journal and ledger accounts; budget/commitment/cost impact; audit history and workflow/accounting status. Traceability works forward (operation→ledger/report) and reverse (dashboard→origin).

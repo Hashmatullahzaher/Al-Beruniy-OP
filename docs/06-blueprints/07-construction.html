@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>07 · Construction &amp; Project Control — AL-BERUNIY OS</title>
+<link rel="stylesheet" href="assets/blueprint.css">
+</head>
+<body>
+<nav class="topnav">
+  <b>AL-BERUNIY OS</b>
+  <a href="index.html">00 · Index</a>
+  <a href="07-construction.html">07 · Construction</a>
+  <a href="08-boq-cost-control.html">08 · BOQ/Cost</a>
+  <a href="09-procurement.html">09 · Procurement</a>
+  <a href="11-contractor-management.html">11 · Contractors</a>
+  <a href="12-inventory-warehouse.html">12 · Inventory</a>
+  <span class="screen-note">Print → A3 · Landscape · Margins None · Background graphics ON</span>
+</nav>
+
+<section class="page">
+  <div class="titleblock">
+    <div class="tb-brand"><div class="os">AL-BERUNIY</div><div class="sub">OPERATING SYSTEM</div></div>
+    <div class="tb-title">
+      <div class="no">BLUEPRINT 07 · CONSTRUCTION &amp; PROJECT CONTROL</div>
+      <div class="name">Initiation to Closure — Plan, Build, Measure, Control</div>
+      <div class="desc">WBS, schedule, progress, quality, safety, variations and earned-value — wired to cost &amp; finance.</div>
+    </div>
+    <div class="tb-meta">
+      <span class="k">Version</span><b>1.0</b>
+      <span class="k">Date</span><b>2026-09-17</b>
+      <span class="k">Connector</span><b>CONST-01</b>
+      <span class="k">Sheet</span><b>07 / 26</b>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span class="lg-title">LEGEND</span>
+    <span class="legend-item"><span class="sw" style="background:var(--const)"></span>Construction</span>
+    <span class="legend-item"><span class="sw" style="background:var(--fin)"></span>Cost impact</span>
+    <span class="legend-item"><span class="arrow">→</span> flow</span>
+    <span class="legend-item"><span class="cid out">COST-01</span> BOQ &amp; Cost</span>
+    <span class="legend-item"><span class="cid out">PROC-01</span> Procurement</span>
+    <span class="legend-item"><span class="cid out">CON-01</span> Contractors</span>
+  </div>
+
+  <div class="canvas">
+
+    <div class="row" style="flex:0 0 auto">
+      <div class="card d-const grow"><div class="hd">PROJECT DELIVERY LIFECYCLE</div>
+        <div class="bd"><div class="chain">
+          <div class="step"><span class="n">1</span><b>Initiation</b><span class="mini">charter · feasibility</span></div>
+          <div class="step"><span class="n">2</span><b>Design</b><span class="mini">arch/eng · BIM <span class="cid">DOC-01</span></span></div>
+          <div class="step"><span class="n">3</span><b>Planning + WBS</b><span class="mini">scope breakdown</span></div>
+          <div class="step"><span class="n">4</span><b>BOQ + Budget + Baseline</b><span class="mini"><span class="cid out">COST-01</span></span></div>
+          <div class="step"><span class="n">5</span><b>Schedule + Milestones</b><span class="mini">Primavera/MSP <span class="cid">BP-22</span></span></div>
+          <div class="step"><span class="n">6</span><b>Execution</b><span class="mini">activities · resources</span></div>
+          <div class="step"><span class="n">7</span><b>Measure + Progress</b><span class="mini">quantities · %</span></div>
+          <div class="step"><span class="n">8</span><b>Control (EVM)</b><span class="mini">CPI/SPI · forecast</span></div>
+          <div class="step"><span class="n">9</span><b>Closure</b><span class="mini">handover · DLP</span></div>
+        </div></div>
+      </div>
+    </div>
+
+    <div class="row grow">
+      <div class="col" style="flex:1.5">
+        <p class="band d-const">Site &amp; Project Control</p>
+        <div class="card d-const soft grow"><div class="bd"><div class="grid cols-3" style="gap:4px">
+          <div class="blk d-const"><span class="t">WBS &amp; Activities</span><br>hierarchical scope</div>
+          <div class="blk d-const"><span class="t">Baseline &amp; Schedule</span><br>plan vs actual</div>
+          <div class="blk d-const"><span class="t">Resources</span><br>labor·equipment·material</div>
+          <div class="blk d-const"><span class="t">Daily Reports</span><br>manpower·weather·work</div>
+          <div class="blk d-const"><span class="t">Progress Measurement</span><br>qty tracking → % complete</div>
+          <div class="blk d-const"><span class="t">Site Instructions</span><br>to contractor</div>
+          <div class="blk d-const"><span class="t">RFI</span><br>request for information</div>
+          <div class="blk d-const"><span class="t">Submittals</span><br>material/shop drawing approval</div>
+          <div class="blk d-const"><span class="t">Inspection &amp; Quality (QA/QC)</span><br>checklists · NCR</div>
+          <div class="blk d-const"><span class="t">Safety (HSE)</span><br>permits·incidents</div>
+          <div class="blk d-const"><span class="t">Material Requests</span><br>to store/procure <span class="cid out">WH-01</span></div>
+          <div class="blk d-const"><span class="t">Variation / Change Orders</span><br>scope+cost+time <span class="cid">WF-01</span></div>
+          <div class="blk d-const"><span class="t">Claims &amp; Delays</span><br>EOT · disruption</div>
+          <div class="blk d-const"><span class="t">Forecasting / CTC</span><br>cost to complete</div>
+          <div class="blk d-const"><span class="t">Earned Value</span><br>PV·EV·AC·EAC</div>
+        </div></div></div>
+        <div class="facets d-const">
+          <div class="f"><span class="ft">Actors</span>PM · Const Mgr · Site Eng · QS</div>
+          <div class="f"><span class="ft">Inputs</span>Drawings · BOQ · schedule</div>
+          <div class="f"><span class="ft">Master Data</span>WBS · Project · Resources</div>
+          <div class="f"><span class="ft">Process</span>Plan→Build→Measure→Close</div>
+          <div class="f"><span class="ft">Decisions</span>Variation · claim · quality gate</div>
+          <div class="f"><span class="ft">Approvals</span>VO · progress · submittal</div>
+          <div class="f"><span class="ft">Transactions</span>Progress · VO · material issue</div>
+          <div class="f"><span class="ft">Documents</span>Drawings · RFI · NCR · DPR</div>
+          <div class="f"><span class="ft">Outputs</span>% complete · built units</div>
+          <div class="f"><span class="ft">Accounting</span>WIP · project cost</div>
+          <div class="f"><span class="ft">Modules</span>Cost · Procure · WH · Contractor · Fin</div>
+          <div class="f"><span class="ft">Notifications</span>RFI · inspection · delay</div>
+          <div class="f"><span class="ft">Reports/KPIs</span>SPI/CPI · progress · safety</div>
+          <div class="f"><span class="ft">Audit</span>Baseline &amp; VO change log</div>
+          <div class="f"><span class="ft">Exceptions</span>Delay · NCR · claim · overrun</div>
+          <div class="f"><span class="ft">Security</span>PM sees assigned project only</div>
+        </div>
+      </div>
+
+      <div class="col" style="flex:1">
+        <p class="band d-fin">How Construction Becomes Cost</p>
+        <div class="card d-fin grow"><div class="bd mini">
+          <div class="rel"><span>Material Issue</span><span class="arrow">→</span><span class="lbl">creates</span><span>Project Cost (WIP)</span></div><hr class="dash">
+          <div class="rel"><span>Contractor Progress</span><span class="arrow">→</span><span class="lbl">certifies</span><span>IPC → Payable <span class="cid out">CON-01</span></span></div><hr class="dash">
+          <div class="rel"><span>Labor Timesheet</span><span class="arrow">→</span><span class="lbl">allocates</span><span>Payroll → Project <span class="cid out">PAY-01</span></span></div><hr class="dash">
+          <div class="rel"><span>Equipment Usage</span><span class="arrow">→</span><span class="lbl">charges</span><span>Project Cost</span></div><hr class="dash">
+          <div class="rel"><span>Variation Order</span><span class="arrow">→</span><span class="lbl">revises</span><span>Budget &amp; Contract <span class="cid out">COST-01</span></span></div><hr class="dash">
+          <div class="rel"><span>Actual vs Baseline</span><span class="arrow">→</span><span class="lbl">feeds</span><span>EVM &amp; Forecast</span></div>
+        </div></div>
+      </div>
+
+      <div class="col" style="flex:1">
+        <p class="band d-const">Integrations &amp; Connects To</p>
+        <div class="card d-const soft"><div class="bd"><div class="pills">
+          <span class="pill solid">Procurement</span><span class="pill solid">Warehouse</span><span class="pill solid">Contractors</span>
+          <span class="pill solid">Finance</span><span class="pill">Documents</span><span class="pill">BIM / Revit</span>
+          <span class="pill">Primavera</span><span class="pill">BI</span><span class="pill">AI (delay/overrun predict)</span>
+        </div></div></div>
+        <p class="band d-hr">Quality Gate</p>
+        <div class="card d-hr soft grow"><div class="bd center mini">
+          <div class="diamond"><span>Inspection passed?</span></div>
+          <div style="margin-top:6px"><b>Yes</b> → progress certified → payable.<br><b>No</b> → NCR raised → rework → re-inspect.</div>
+        </div></div>
+      </div>
+    </div>
+
+  </div>
+  <div class="foot">
+    <span><b>AL-BERUNIY OPERATING SYSTEM</b> · Enterprise Architecture Blueprint</span>
+    <span>Blueprint 07 · Construction &amp; Project Control · v1.0 · 2026-09-17</span>
+    <span>Physical progress → measured quantity → certified cost → finance</span>
+  </div>
+</section>
+</body>
+</html>

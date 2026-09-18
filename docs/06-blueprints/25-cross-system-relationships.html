@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>25 · Cross-System Relationship Map — AL-BERUNIY OS</title>
+<link rel="stylesheet" href="assets/blueprint.css">
+</head>
+<body>
+<nav class="topnav">
+  <b>AL-BERUNIY OS</b>
+  <a href="index.html">00 · Index</a>
+  <a href="24-external-portals.html">24 · Portals</a>
+  <a href="25-cross-system-relationships.html">25 · Relationships</a>
+  <a href="26-transaction-traceability.html">26 · Traceability</a>
+  <a href="04-financial-architecture.html">04 · Finance</a>
+  <span class="screen-note">Print → A3 · Landscape · Margins None · Background graphics ON</span>
+</nav>
+
+<section class="page">
+  <div class="titleblock">
+    <div class="tb-brand"><div class="os">AL-BERUNIY</div><div class="sub">OPERATING SYSTEM</div></div>
+    <div class="tb-title">
+      <div class="no">BLUEPRINT 25 · CROSS-SYSTEM RELATIONSHIP MAP</div>
+      <div class="name">One Integrated Platform — Finance at the Core</div>
+      <div class="desc">How every module connects: data flow, financial flow, document flow, approval flow and user flow.</div>
+    </div>
+    <div class="tb-meta">
+      <span class="k">Version</span><b>1.0</b>
+      <span class="k">Date</span><b>2026-09-17</b>
+      <span class="k">Connector</span><b>REL-01</b>
+      <span class="k">Sheet</span><b>25 / 26</b>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span class="lg-title">FLOW LEGEND</span>
+    <span class="legend-item"><span class="ln fin"></span>Financial Flow (Dr/Cr postings)</span>
+    <span class="legend-item"><span class="ln data"></span>Data Flow (records &amp; events)</span>
+    <span class="legend-item"><span class="ln doc"></span>Document Flow (evidence)</span>
+    <span class="legend-item"><span class="ln appr"></span>Approval Flow (workflow gates)</span>
+    <span class="legend-item"><span class="ln user"></span>User Flow (actors / portals)</span>
+  </div>
+
+  <div class="canvas">
+
+    <div class="row grow">
+      <div class="col" style="flex:1.55">
+        <div class="card d-fin grow" style="border-color:var(--fin)"><div class="hd">HUB &amp; SPOKE — Financial Engine at center, every module a spoke</div>
+          <div class="bd" style="padding:2px">
+            <svg viewBox="0 0 1000 560" width="100%" height="100%" preserveAspectRatio="xMidYMid meet" font-family="Segoe UI, Arial, sans-serif">
+              <defs>
+                <marker id="ah" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#888"/></marker>
+              </defs>
+              <!-- spokes: financial (orange), data (teal), doc (brown dash), approval (red dot) -->
+              <g stroke-width="2.4" fill="none">
+                <!-- Sales -->
+                <line x1="500" y1="280" x2="210" y2="90" stroke="#E8730C" marker-end="url(#ah)"/>
+                <line x1="500" y1="280" x2="210" y2="90" stroke="#0E8A8A" stroke-width="1.2" stroke-dasharray="1 6"/>
+                <!-- Collections -->
+                <line x1="500" y1="280" x2="500" y2="70" stroke="#E8730C" marker-end="url(#ah)"/>
+                <!-- Construction -->
+                <line x1="500" y1="280" x2="790" y2="90" stroke="#E8730C" marker-end="url(#ah)"/>
+                <line x1="500" y1="280" x2="790" y2="90" stroke="#7A5230" stroke-width="1.4" stroke-dasharray="5 4"/>
+                <!-- Procurement -->
+                <line x1="500" y1="280" x2="905" y2="215" stroke="#E8730C" marker-end="url(#ah)"/>
+                <line x1="500" y1="280" x2="905" y2="215" stroke="#C6362F" stroke-width="1.2" stroke-dasharray="1 5"/>
+                <!-- Warehouse -->
+                <line x1="500" y1="280" x2="905" y2="360" stroke="#E8730C" marker-end="url(#ah)"/>
+                <!-- Contractors -->
+                <line x1="500" y1="280" x2="790" y2="480" stroke="#E8730C" marker-end="url(#ah)"/>
+                <line x1="500" y1="280" x2="790" y2="480" stroke="#7A5230" stroke-width="1.4" stroke-dasharray="5 4"/>
+                <!-- HR/Payroll -->
+                <line x1="500" y1="280" x2="500" y2="500" stroke="#E8730C" marker-end="url(#ah)"/>
+                <!-- Expense/Assets -->
+                <line x1="500" y1="280" x2="210" y2="480" stroke="#E8730C" marker-end="url(#ah)"/>
+                <!-- Projects -->
+                <line x1="500" y1="280" x2="95" y2="360" stroke="#0E8A8A" stroke-dasharray="1 6"/>
+                <!-- Documents -->
+                <line x1="500" y1="280" x2="95" y2="215" stroke="#7A5230" stroke-dasharray="5 4"/>
+              </g>
+              <!-- Workflow ring (approval) around hub -->
+              <circle cx="500" cy="280" r="150" fill="none" stroke="#C6362F" stroke-width="1.4" stroke-dasharray="2 6"/>
+              <text x="500" y="145" text-anchor="middle" font-size="12" fill="#C6362F" font-weight="700">Workflow &amp; Approval ring (WF-01) gates every posting</text>
+
+              <!-- CENTER: Finance -->
+              <g>
+                <circle cx="500" cy="280" r="74" fill="#E8730C"/>
+                <text x="500" y="270" text-anchor="middle" font-size="16" fill="#fff" font-weight="800">FINANCIAL</text>
+                <text x="500" y="290" text-anchor="middle" font-size="16" fill="#fff" font-weight="800">ENGINE</text>
+                <text x="500" y="308" text-anchor="middle" font-size="10" fill="#ffe3c9">GL · AR · AP · Cost</text>
+              </g>
+
+              <!-- Nodes -->
+              <g font-size="11" font-weight="700" text-anchor="middle">
+                <g><rect x="120" y="58" width="150" height="46" rx="9" fill="#1560BD"/><text x="195" y="80" fill="#fff">Sales &amp; CRM</text><text x="195" y="95" fill="#dbe8fb" font-size="9">SALE-01</text></g>
+                <g><rect x="425" y="40" width="150" height="46" rx="9" fill="#1560BD"/><text x="500" y="62" fill="#fff">Collections</text><text x="500" y="77" fill="#dbe8fb" font-size="9">COLL-01</text></g>
+                <g><rect x="715" y="58" width="150" height="46" rx="9" fill="#C6362F"/><text x="790" y="80" fill="#fff">Construction</text><text x="790" y="95" fill="#f6d6d4" font-size="9">CONST-01 · COST-01</text></g>
+                <g><rect x="835" y="192" width="150" height="46" rx="9" fill="#6B3FA0"/><text x="910" y="214" fill="#fff">Procurement</text><text x="910" y="229" fill="#e6dbf5" font-size="9">PROC-01</text></g>
+                <g><rect x="835" y="337" width="150" height="46" rx="9" fill="#1E8E5A"/><text x="910" y="359" fill="#fff">Warehouse</text><text x="910" y="374" fill="#d6efe2" font-size="9">WH-01</text></g>
+                <g><rect x="715" y="470" width="150" height="46" rx="9" fill="#C6362F"/><text x="790" y="492" fill="#fff">Contractors</text><text x="790" y="507" fill="#f6d6d4" font-size="9">CON-01</text></g>
+                <g><rect x="425" y="492" width="150" height="46" rx="9" fill="#C79A1E"/><text x="500" y="514" fill="#fff">HR &amp; Payroll</text><text x="500" y="529" fill="#f7ecc9" font-size="9">HR-01 · PAY-01</text></g>
+                <g><rect x="120" y="470" width="150" height="46" rx="9" fill="#E8730C"/><text x="195" y="492" fill="#fff">Expense &amp; Assets</text><text x="195" y="507" fill="#ffe3c9" font-size="9">EXP-01 · FA-01</text></g>
+                <g><rect x="20" y="337" width="150" height="46" rx="9" fill="#0B1F3A"/><text x="95" y="359" fill="#fff">Projects</text><text x="95" y="374" fill="#c7d6ea" font-size="9">PROJ-01</text></g>
+                <g><rect x="20" y="192" width="150" height="46" rx="9" fill="#7A5230"/><text x="95" y="214" fill="#fff">Documents</text><text x="95" y="229" fill="#efe0d3" font-size="9">DOC-01</text></g>
+              </g>
+              <!-- outer BI/AI + Users -->
+              <g font-size="10" text-anchor="middle">
+                <rect x="410" y="0" width="180" height="0" />
+              </g>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <div class="col" style="flex:1">
+        <p class="band d-fin">Relationships by Flow Type</p>
+        <div class="card d-fin grow"><div class="bd mini" style="overflow:hidden">
+          <div class="blk" style="--c:var(--fin);--ci:var(--fin-ink)"><span class="t">Financial Flow →</span> Sales→AR · Procurement→AP · Contractor→Payable · Payroll→Employee Payable · WH Issue→Project Cost · Expense→GL. Every module posts Dr/Cr to the Financial Engine.</div>
+          <hr class="dash">
+          <div class="blk" style="--c:var(--data);--ci:var(--data-ink)"><span class="t">Data Flow →</span> All modules stamp <b>Project · Cost Center</b>; events (GRN, receipt, IPC) stream to DWH/BI &amp; AI. Projects &amp; Master Data feed every module.</div>
+          <hr class="dash">
+          <div class="blk" style="--c:var(--doc);--ci:var(--doc-ink)"><span class="t">Document Flow →</span> Contracts, drawings, POs, IPCs, invoices &amp; receipts all resolve to Document Mgmt; each transaction links to its evidence.</div>
+          <hr class="dash">
+          <div class="blk" style="--c:var(--const);--ci:var(--const-ink)"><span class="t">Approval Flow →</span> Every side-effect (PO, payment, discount, IPC, payroll, budget) passes the Workflow ring (WF-01) before it posts.</div>
+          <hr class="dash">
+          <div class="blk" style="--c:var(--infra);--ci:var(--infra-ink)"><span class="t">User Flow →</span> Employees act inside RBAC; Customers/Suppliers/Contractors act via portals, scoped to their own party (BP-24).</div>
+        </div></div>
+      </div>
+    </div>
+
+    <div class="row" style="flex:0 0 auto">
+      <div class="card d-exec grow"><div class="hd">QUALITY-CONTROL CHECK — no orphan modules</div>
+        <div class="bd mini">✔ Every module connects to Finance · ✔ Every financial transaction is traceable to source (BP-26) · ✔ Project identifiable on every transaction · ✔ Creator &amp; approver captured · ✔ Supporting document linked · ✔ Related party (customer/supplier/contractor/employee) identified · ✔ Permissions &amp; approval boundaries enforced (BP-02/17/23) · ✔ Management can drill Company → Project → Department → Transaction.</div>
+      </div>
+    </div>
+
+  </div>
+  <div class="foot">
+    <span><b>AL-BERUNIY OPERATING SYSTEM</b> · Enterprise Architecture Blueprint</span>
+    <span>Blueprint 25 · Cross-System Relationship Map · v1.0 · 2026-09-17</span>
+    <span>Finance-centric · five flow types · zero orphans</span>
+  </div>
+</section>
+</body>
+</html>

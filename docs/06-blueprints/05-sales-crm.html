@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>05 · Sales &amp; CRM — AL-BERUNIY OS</title>
+<link rel="stylesheet" href="assets/blueprint.css">
+</head>
+<body>
+<nav class="topnav">
+  <b>AL-BERUNIY OS</b>
+  <a href="index.html">00 · Index</a>
+  <a href="04-financial-architecture.html">04 · Finance</a>
+  <a href="05-sales-crm.html">05 · Sales/CRM</a>
+  <a href="06-installments-collections.html">06 · Installments</a>
+  <a href="16-document-management.html">16 · Documents</a>
+  <a href="24-external-portals.html">24 · Portals</a>
+  <span class="screen-note">Print → A3 · Landscape · Margins None · Background graphics ON</span>
+</nav>
+
+<section class="page">
+  <div class="titleblock">
+    <div class="tb-brand"><div class="os">AL-BERUNIY</div><div class="sub">OPERATING SYSTEM</div></div>
+    <div class="tb-title">
+      <div class="no">BLUEPRINT 05 · SALES &amp; CRM</div>
+      <div class="name">The Complete Customer Lifecycle — Lead to Ownership</div>
+      <div class="desc">Marketing lead through reservation, contract, installment plan, collection and handover.</div>
+    </div>
+    <div class="tb-meta">
+      <span class="k">Version</span><b>1.0</b>
+      <span class="k">Date</span><b>2026-09-17</b>
+      <span class="k">Connector</span><b>SALE-01</b>
+      <span class="k">Sheet</span><b>05 / 26</b>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span class="lg-title">LEGEND</span>
+    <span class="legend-item"><span class="sw" style="background:var(--sales)"></span>Sales/CRM</span>
+    <span class="legend-item"><span class="sw" style="background:var(--hr)"></span>Decision</span>
+    <span class="legend-item"><span class="arrow">→</span> process flow</span>
+    <span class="legend-item"><span class="cid out">OUT ▸ FIN-AR-01</span> to Finance</span>
+    <span class="legend-item"><span class="cid out">OUT ▸ COLL-01</span> to Collections</span>
+    <span class="legend-item"><b>1:N</b> · <b>N:N</b> cardinality</span>
+  </div>
+
+  <div class="canvas">
+
+    <!-- LIFECYCLE -->
+    <div class="row" style="flex:0 0 auto">
+      <div class="card d-sales grow"><div class="hd">CUSTOMER LIFECYCLE — end to end</div>
+        <div class="bd"><div class="chain">
+          <div class="step"><span class="n">1</span><b>Marketing Lead</b><span class="mini">campaign·web·walk-in</span></div>
+          <div class="step"><span class="n">2</span><b>Qualification</b><span class="mini">KYC · budget · intent</span></div>
+          <div class="step"><span class="n">3</span><b>Opportunity</b><span class="mini">project + unit interest</span></div>
+          <div class="step"><span class="n">4</span><b>Availability Check</b><span class="mini">live unit inventory</span></div>
+          <div class="step"><span class="n">5</span><b>Quotation + Discount</b><span class="mini">price list · approval</span></div>
+          <div class="step"><span class="n">6</span><b>Reservation</b><span class="mini">unit held · booking fee</span></div>
+          <div class="step"><span class="n">7</span><b>Sales Contract</b><span class="mini">legal · e-sign <span class="cid">DOC-01</span></span></div>
+          <div class="step"><span class="n">8</span><b>Installment Plan</b><span class="mini">schedule <span class="cid out">COLL-01</span></span></div>
+          <div class="step"><span class="n">9</span><b>Collection</b><span class="mini">receipts·statement</span></div>
+          <div class="step"><span class="n">10</span><b>Handover / Ownership</b><span class="mini">eligibility → title</span></div>
+        </div></div>
+      </div>
+    </div>
+
+    <div class="row grow">
+      <div class="col" style="flex:1.5">
+        <p class="band d-sales">CRM &amp; Sales Capabilities</p>
+        <div class="card d-sales soft grow"><div class="bd"><div class="grid cols-3" style="gap:4px">
+          <div class="blk d-sales"><span class="t">Lead Management</span><br>source·score·assign</div>
+          <div class="blk d-sales"><span class="t">Customer Profile + KYC</span><br>Type B party <span class="cid">BP-04</span></div>
+          <div class="blk d-sales"><span class="t">Unit Inventory</span><br>available/reserved/sold</div>
+          <div class="blk d-sales"><span class="t">Pricing &amp; Price Lists</span><br>by project/phase/unit</div>
+          <div class="blk d-sales"><span class="t">Discounts</span><br>approval by threshold <span class="cid">WF-01</span></div>
+          <div class="blk d-sales"><span class="t">Reservations</span><br>hold · expiry</div>
+          <div class="blk d-sales"><span class="t">Sales Contracts</span><br>1 contract : 1..N units</div>
+          <div class="blk d-sales"><span class="t">Installment Plans</span><br>1 contract : N installments</div>
+          <div class="blk d-sales"><span class="t">Receipts</span><br>settle receivable</div>
+          <div class="blk d-sales"><span class="t">Sales Commission</span><br>agent accrual → payroll/AP</div>
+          <div class="blk d-sales"><span class="t">Agent Management</span><br>targets·pipeline</div>
+          <div class="blk d-sales"><span class="t">Cancellation / Refund</span><br>policy · penalty</div>
+          <div class="blk d-sales"><span class="t">Contract Amendment</span><br>versioned · re-approve</div>
+          <div class="blk d-sales"><span class="t">Unit Transfer</span><br>customer↔customer</div>
+          <div class="blk d-sales"><span class="t">Customer Portal</span><br>self-service <span class="cid">BP-24</span></div>
+          <div class="blk d-sales"><span class="t">Customer Service</span><br>tickets·SLA</div>
+        </div></div></div>
+      </div>
+
+      <div class="col" style="flex:1">
+        <p class="band d-sales">Key Relationships &amp; Cardinality</p>
+        <div class="card d-sales grow"><div class="bd mini">
+          <div class="rel"><span>Customer</span><span class="arrow">→</span><span class="lbl">owns 1:1</span><span>Customer Account (Type B)</span></div><hr class="dash">
+          <div class="rel"><span>Customer Account</span><span class="arrow">→</span><span class="lbl">has 1:N</span><span>Contracts</span></div><hr class="dash">
+          <div class="rel"><span>Contract</span><span class="arrow">→</span><span class="lbl">belongs to</span><span>Project</span></div><hr class="dash">
+          <div class="rel"><span>Contract</span><span class="arrow">→</span><span class="lbl">contains 1:N</span><span>Units</span></div><hr class="dash">
+          <div class="rel"><span>Contract</span><span class="arrow">→</span><span class="lbl">generates</span><span>Installment Schedule</span></div><hr class="dash">
+          <div class="rel"><span>Installment</span><span class="arrow">→</span><span class="lbl">generates</span><span>Receivable <span class="cid out">FIN-AR-01</span></span></div><hr class="dash">
+          <div class="rel"><span>Receipt</span><span class="arrow">→</span><span class="lbl">settles</span><span>Receivable</span></div><hr class="dash">
+          <div class="rel"><span>Receipt</span><span class="arrow">→</span><span class="lbl">posts to</span><span>Bank / Cash</span></div><hr class="dash">
+          <div class="rel"><span>Unit</span><span class="arrow">→</span><span class="lbl">status</span><span>Available→Reserved→Sold→Handed-over</span></div>
+        </div></div>
+      </div>
+
+      <div class="col" style="flex:1">
+        <p class="band d-sales">Connects To</p>
+        <div class="card d-sales soft"><div class="bd"><div class="pills">
+          <span class="pill solid">Finance / AR</span><span class="pill solid">Installments</span><span class="pill">Unit Inventory</span>
+          <span class="pill">Document Mgmt</span><span class="pill">Approvals</span><span class="pill">Legal</span>
+          <span class="pill">BI</span><span class="pill">AI (lead score / churn)</span><span class="pill">Customer Portal</span>
+        </div></div></div>
+        <p class="band d-hr">Discount Decision</p>
+        <div class="card d-hr soft grow"><div class="bd mini center">
+          <div class="diamond"><span>Discount ≤ limit?</span></div>
+          <div style="margin-top:6px">Yes → Sales Mgr auto-approve · No → Sales Director → CFO (policy tiers) <span class="cid">WF-01</span></div>
+        </div></div>
+      </div>
+    </div>
+
+    <!-- 16-FACET STRIP -->
+    <div class="facets d-sales" style="margin-top:2px">
+      <div class="f"><span class="ft">Actors</span>Agent · Sales Mgr · Director · Customer</div>
+      <div class="f"><span class="ft">Inputs</span>Lead · KYC · unit choice</div>
+      <div class="f"><span class="ft">Master Data</span>Units · Price lists · Customer</div>
+      <div class="f"><span class="ft">Process</span>Lead→Contract→Handover</div>
+      <div class="f"><span class="ft">Decisions</span>Discount · availability · eligibility</div>
+      <div class="f"><span class="ft">Approvals</span>Discount · contract · cancellation</div>
+      <div class="f"><span class="ft">Transactions</span>Reservation · Contract · Receipt</div>
+      <div class="f"><span class="ft">Documents</span>Quote · Contract · Receipt <span class="cid">DOC-01</span></div>
+      <div class="f"><span class="ft">Outputs</span>Sold units · schedules</div>
+      <div class="f"><span class="ft">Accounting</span>AR · Revenue · Commission</div>
+      <div class="f"><span class="ft">Modules Affected</span>Finance · Collections · Inventory</div>
+      <div class="f"><span class="ft">Notifications</span>Reminders · approvals · portal</div>
+      <div class="f"><span class="ft">Reports/KPIs</span>Pipeline · conversion · sales value</div>
+      <div class="f"><span class="ft">Audit</span>Price/discount change log</div>
+      <div class="f"><span class="ft">Exceptions</span>Cancellation · overdue · transfer</div>
+      <div class="f"><span class="ft">Security</span>Agent sees own customers only</div>
+    </div>
+
+  </div>
+  <div class="foot">
+    <span><b>AL-BERUNIY OPERATING SYSTEM</b> · Enterprise Architecture Blueprint</span>
+    <span>Blueprint 05 · Sales &amp; CRM · v1.0 · 2026-09-17</span>
+    <span>Sales Contract → FIN-AR-01 · Installment Plan → COLL-01</span>
+  </div>
+</section>
+</body>
+</html>

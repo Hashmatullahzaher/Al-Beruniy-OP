@@ -1,0 +1,13 @@
+# Cross-Domain Business Rules
+- Every applicable transaction carries Company/Legal Entity, Project, Department and Cost Center.
+- Type A User, Type B Party and Type C Ledger accounts are never conflated.
+- Every posted financial event is balanced double-entry.
+- Posted records are immutable; corrections use linked reversals/adjustments.
+- KPI/report ↔ transaction ↔ document ↔ actor/approval ↔ journal/ledger traceability is mandatory.
+- SoD blocks conflicting duties such as creator/approver/payer.
+- Material side effects execute only after required workflow approvals.
+- Project isolation is enforced; authorized corporate roles may consolidate.
+- Controlled transactions require supporting evidence where configured.
+- External/batch financial writes are idempotent.
+- Monetary/quantity calculations use deterministic decimal arithmetic.
+- Unknown official policies remain explicit configuration/open items.

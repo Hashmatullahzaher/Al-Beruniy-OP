@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>11 · Contractor Management — AL-BERUNIY OS</title>
+<link rel="stylesheet" href="assets/blueprint.css">
+</head>
+<body>
+<nav class="topnav">
+  <b>AL-BERUNIY OS</b>
+  <a href="index.html">00 · Index</a>
+  <a href="07-construction.html">07 · Construction</a>
+  <a href="10-supplier-management.html">10 · Suppliers</a>
+  <a href="11-contractor-management.html">11 · Contractors</a>
+  <a href="04-financial-architecture.html">04 · Finance</a>
+  <a href="24-external-portals.html">24 · Portals</a>
+  <span class="screen-note">Print → A3 · Landscape · Margins None · Background graphics ON</span>
+</nav>
+
+<section class="page">
+  <div class="titleblock">
+    <div class="tb-brand"><div class="os">AL-BERUNIY</div><div class="sub">OPERATING SYSTEM</div></div>
+    <div class="tb-title">
+      <div class="no">BLUEPRINT 11 · CONTRACTOR MANAGEMENT</div>
+      <div class="name">Tender to Final Payment — IPC, Retention &amp; Advance Recovery</div>
+      <div class="desc">Subcontract lifecycle with certified progress mapped precisely to Contractor Payable.</div>
+    </div>
+    <div class="tb-meta">
+      <span class="k">Version</span><b>1.0</b>
+      <span class="k">Date</span><b>2026-09-17</b>
+      <span class="k">Connector</span><b>CON-01</b>
+      <span class="k">Sheet</span><b>11 / 26</b>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span class="lg-title">LEGEND</span>
+    <span class="legend-item"><span class="sw" style="background:var(--const)"></span>Contractor (Type B)</span>
+    <span class="legend-item"><span class="sw" style="background:var(--fin)"></span>Payable (Type C)</span>
+    <span class="legend-item"><span class="arrow">→</span> flow</span>
+    <span class="legend-item"><span class="cid in">◂ CONST-01</span> progress</span>
+    <span class="legend-item"><span class="cid out">COST-01</span> subcontract cost</span>
+    <span class="legend-item"><span class="cid out">FIN-AP-01</span> payable</span>
+  </div>
+
+  <div class="canvas">
+
+    <div class="row" style="flex:0 0 auto">
+      <div class="card d-const grow"><div class="hd">CONTRACTOR LIFECYCLE</div>
+        <div class="bd"><div class="chain">
+          <div class="step"><span class="n">1</span><b>Registration + Prequalify</b><span class="mini">capability · docs</span></div>
+          <div class="step"><span class="n">2</span><b>Tender</b><span class="mini">invite · bid · award</span></div>
+          <div class="step"><span class="n">3</span><b>Contract + Scope + BOQ</b><span class="mini">signed <span class="cid">DOC-01</span></span></div>
+          <div class="step"><span class="n">4</span><b>Mobilization Advance</b><span class="mini">paid · recoverable</span></div>
+          <div class="step"><span class="n">5</span><b>Work Execution</b><span class="mini">on site</span></div>
+          <div class="step"><span class="n">6</span><b>Progress Measurement</b><span class="mini">QS + Engineer <span class="cid in">◂ CONST-01</span></span></div>
+          <div class="step"><span class="n">7</span><b>IPC / Payment Certificate</b><span class="mini">certified value</span></div>
+          <div class="step"><span class="n">8</span><b>Retention + Advance Recovery</b><span class="mini">deductions</span></div>
+          <div class="step"><span class="n">9</span><b>Completion + DLP</b><span class="mini">defects liability</span></div>
+          <div class="step"><span class="n">10</span><b>Final Payment + Evaluation</b><span class="mini">release retention</span></div>
+        </div></div>
+      </div>
+    </div>
+
+    <div class="row grow">
+      <div class="col" style="flex:1.3">
+        <p class="band d-const">Interim Payment Certificate (IPC) Build-up</p>
+        <div class="card d-const soft grow"><div class="bd">
+          <div class="grid cols-2" style="gap:4px">
+            <div class="blk d-const"><span class="t">Work Done This Period</span><br>measured quantity × rate</div>
+            <div class="blk d-const"><span class="t">Cumulative Certified</span><br>to-date value</div>
+            <div class="blk d-const"><span class="t">(−) Retention</span><br>% held (Configurable)</div>
+            <div class="blk d-const"><span class="t">(−) Advance Recovery</span><br>% of mobilization</div>
+            <div class="blk d-const"><span class="t">(+) Variation</span><br>approved VO</div>
+            <div class="blk d-const"><span class="t">(−) Penalty / LD</span><br>delay damages</div>
+            <div class="blk d-const"><span class="t">(−) Previous Payments</span><br>net this IPC</div>
+            <div class="blk d-fin"><span class="t">= Net Payable</span><br>→ Contractor Payable <span class="cid out">FIN-AP-01</span></div>
+          </div>
+          <div class="mini" style="margin-top:5px"><b>Approval chain:</b> QS measures → Site Engineer verifies → PM certifies → Finance reviews → CFO approves payment <span class="cid">WF-01</span>.</div>
+        </div></div>
+        <div class="facets d-const">
+          <div class="f"><span class="ft">Actors</span>QS · Site Eng · PM · Contractor · Fin</div>
+          <div class="f"><span class="ft">Inputs</span>Measurement · VO · claims</div>
+          <div class="f"><span class="ft">Master Data</span>Contractor · Contract · BOQ</div>
+          <div class="f"><span class="ft">Process</span>Tender→Execute→Certify→Pay</div>
+          <div class="f"><span class="ft">Decisions</span>Award · certify · penalty</div>
+          <div class="f"><span class="ft">Approvals</span>Contract · IPC · variation · final</div>
+          <div class="f"><span class="ft">Transactions</span>Advance · IPC · retention · payment</div>
+          <div class="f"><span class="ft">Documents</span>Contract · IPC · measurement sheet</div>
+          <div class="f"><span class="ft">Outputs</span>Certified work · paid contractor</div>
+          <div class="f"><span class="ft">Accounting</span>Project cost · payable · retention</div>
+          <div class="f"><span class="ft">Modules</span>Construction · Cost · Finance · Portal</div>
+          <div class="f"><span class="ft">Notifications</span>IPC due · retention release</div>
+          <div class="f"><span class="ft">Reports/KPIs</span>Certified vs paid · retention held</div>
+          <div class="f"><span class="ft">Audit</span>Measurement &amp; certification trail</div>
+          <div class="f"><span class="ft">Exceptions</span>Claims · delay · defects</div>
+          <div class="f"><span class="ft">Security</span>Contractor sees own contract only</div>
+        </div>
+      </div>
+
+      <div class="col" style="flex:1">
+        <p class="band d-fin">Contractor → Finance Mapping (Dr/Cr)</p>
+        <div class="card d-fin grow"><div class="bd mini">
+          <div class="blk d-fin"><span class="t">Mobilization Advance paid</span><br><b>Dr</b> Contractor Advance (asset) · <b>Cr</b> Bank</div><hr class="dash">
+          <div class="blk d-fin"><span class="t">IPC certified</span><br><b>Dr</b> Project Cost/WIP · <b>Cr</b> Contractor Payable</div><hr class="dash">
+          <div class="blk d-fin"><span class="t">Retention held</span><br><b>Dr</b> Contractor Payable · <b>Cr</b> Retention Payable</div><hr class="dash">
+          <div class="blk d-fin"><span class="t">Advance recovered</span><br><b>Dr</b> Contractor Payable · <b>Cr</b> Contractor Advance</div><hr class="dash">
+          <div class="blk d-fin"><span class="t">Payment</span><br><b>Dr</b> Contractor Payable · <b>Cr</b> Bank</div><hr class="dash">
+          <div class="blk d-fin"><span class="t">Retention release (post-DLP)</span><br><b>Dr</b> Retention Payable · <b>Cr</b> Bank</div>
+        </div></div>
+      </div>
+
+      <div class="col" style="flex:.9">
+        <p class="band d-const">Distinct from Supplier</p>
+        <div class="card d-const soft"><div class="bd mini">
+          Contractor = <b>work &amp; service</b> against BOQ with <b>retention, advance recovery, DLP &amp; claims</b>.
+          Supplier = <b>goods</b> against PO/GRN. Different sub-ledgers, different controls.
+        </div></div>
+        <p class="band d-const">Connects To</p>
+        <div class="card d-const soft grow"><div class="bd"><div class="pills">
+          <span class="pill solid">Construction</span><span class="pill solid">Cost Control</span><span class="pill solid">Finance</span>
+          <span class="pill">Documents</span><span class="pill">Approvals</span><span class="pill">Legal</span>
+          <span class="pill">Contractor Portal</span><span class="pill">BI</span>
+        </div></div></div>
+      </div>
+    </div>
+
+  </div>
+  <div class="foot">
+    <span><b>AL-BERUNIY OPERATING SYSTEM</b> · Enterprise Architecture Blueprint</span>
+    <span>Blueprint 11 · Contractor Management · v1.0 · 2026-09-17</span>
+    <span>Certified progress → IPC → retention/advance → Contractor Payable</span>
+  </div>
+</section>
+</body>
+</html>

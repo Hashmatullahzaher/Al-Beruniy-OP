@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>21 · Master Data — AL-BERUNIY OS</title>
+<link rel="stylesheet" href="assets/blueprint.css">
+</head>
+<body>
+<nav class="topnav">
+  <b>AL-BERUNIY OS</b>
+  <a href="index.html">00 · Index</a>
+  <a href="20-ai-architecture.html">20 · AI</a>
+  <a href="21-master-data.html">21 · Master Data</a>
+  <a href="22-data-integration.html">22 · Integration</a>
+  <a href="04-financial-architecture.html">04 · Finance</a>
+  <span class="screen-note">Print → A3 · Landscape · Margins None · Background graphics ON</span>
+</nav>
+
+<section class="page">
+  <div class="titleblock">
+    <div class="tb-brand"><div class="os">AL-BERUNIY</div><div class="sub">OPERATING SYSTEM</div></div>
+    <div class="tb-title">
+      <div class="no">BLUEPRINT 21 · MASTER DATA</div>
+      <div class="name">One Governed Foundation Every Module Shares</div>
+      <div class="desc">The masters that guarantee consistency — defined once, consumed everywhere, versioned &amp; owned.</div>
+    </div>
+    <div class="tb-meta">
+      <span class="k">Version</span><b>1.0</b>
+      <span class="k">Date</span><b>2026-09-17</b>
+      <span class="k">Connector</span><b>MDM-01</b>
+      <span class="k">Sheet</span><b>21 / 26</b>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span class="lg-title">LEGEND</span>
+    <span class="legend-item"><span class="sw" style="background:var(--infra)"></span>Master object</span>
+    <span class="legend-item"><span class="arrow">→</span> consumed by</span>
+    <span class="legend-item"><b>Owner</b> data steward</span>
+    <span class="legend-item"><span class="cid">MDM-01</span> master-data connector</span>
+  </div>
+
+  <div class="canvas">
+
+    <div class="row grow">
+      <div class="col" style="flex:1.6">
+        <p class="band d-infra">Master Registry — object · owner · key consumers</p>
+        <div class="card d-infra soft grow"><div class="bd"><div class="grid cols-2" style="gap:5px">
+          <div class="blk d-exec"><span class="t">Projects</span> <span class="pill">Owner: PMO</span><br>→ Construction · Sales · Finance · Cost · WH · HR</div>
+          <div class="blk d-sales"><span class="t">Units</span> <span class="pill">Owner: Sales/PMO</span><br>→ Sales · Handover · Finance (revenue)</div>
+          <div class="blk d-sales"><span class="t">Customers</span> <span class="pill">Owner: Sales</span><br>→ CRM · Collections · Finance (AR) · Portal</div>
+          <div class="blk d-proc"><span class="t">Suppliers</span> <span class="pill">Owner: Procurement</span><br>→ Procurement · Finance (AP) · Portal</div>
+          <div class="blk d-const"><span class="t">Contractors</span> <span class="pill">Owner: Projects</span><br>→ Construction · Cost · Finance · Portal</div>
+          <div class="blk d-hr"><span class="t">Employees</span> <span class="pill">Owner: HR</span><br>→ HR · Payroll · Projects · Finance</div>
+          <div class="blk d-wh"><span class="t">Materials</span> <span class="pill">Owner: Procurement/WH</span><br>→ Procurement · Warehouse · Cost</div>
+          <div class="blk d-proc"><span class="t">Services</span> <span class="pill">Owner: Procurement</span><br>→ Procurement · Contractor · Cost</div>
+          <div class="blk d-fin"><span class="t">Assets</span> <span class="pill">Owner: Finance</span><br>→ Fixed Assets · Projects · Finance</div>
+          <div class="blk d-wh"><span class="t">Warehouses</span> <span class="pill">Owner: WH</span><br>→ Inventory · Procurement · Cost</div>
+          <div class="blk d-hr"><span class="t">Departments</span> <span class="pill">Owner: HR/Admin</span><br>→ All (org dimension)</div>
+          <div class="blk d-fin"><span class="t">Cost Centers</span> <span class="pill">Owner: Finance</span><br>→ Finance · Expense · Payroll · Cost</div>
+          <div class="blk d-fin"><span class="t">Chart of Accounts</span> <span class="pill">Owner: Finance</span><br>→ All financial postings</div>
+          <div class="blk d-fin"><span class="t">Banks</span> <span class="pill">Owner: Treasury</span><br>→ Finance · Collections · Payroll · AP</div>
+          <div class="blk d-fin"><span class="t">Currencies</span> <span class="pill">Owner: Finance</span><br>→ All (multi-currency)</div>
+          <div class="blk d-fin"><span class="t">Tax Codes</span> <span class="pill">Owner: Finance</span><br>→ Sales · Procurement · Payroll</div>
+          <div class="blk d-doc"><span class="t">Document Types</span> <span class="pill">Owner: Doc Control</span><br>→ Document Mgmt · All</div>
+          <div class="blk d-exec"><span class="t">Approval Policies</span> <span class="pill">Owner: Governance</span><br>→ Workflow Engine · All</div>
+        </div></div></div>
+      </div>
+
+      <div class="col" style="flex:1">
+        <p class="band d-infra">MDM Governance</p>
+        <div class="card d-infra grow"><div class="bd mini">
+          <div class="blk d-infra"><span class="t">Single definition</span><br>each master created once; no duplicates across modules.</div>
+          <div class="blk d-infra"><span class="t">Data steward &amp; approval</span><br>new/changed masters go through Workflow <span class="cid">WF-01</span>.</div>
+          <div class="blk d-infra"><span class="t">Versioning &amp; history</span><br>effective-dated changes, full audit.</div>
+          <div class="blk d-infra"><span class="t">Validation rules</span><br>codes, formats, mandatory fields, uniqueness.</div>
+          <div class="blk d-infra"><span class="t">Deduplication &amp; merge</span><br>AI-assisted match for parties/materials <span class="cid">BP-20</span>.</div>
+          <div class="blk d-infra"><span class="t">Status lifecycle</span><br>draft → active → inactive → archived.</div>
+          <div class="blk d-infra"><span class="t">Distribution</span><br>published via API / event bus <span class="cid">BP-22</span>.</div>
+        </div></div>
+        <div class="facets d-infra">
+          <div class="f"><span class="ft">Actors</span>Data Stewards · Module owners</div>
+          <div class="f"><span class="ft">Inputs</span>New/changed master requests</div>
+          <div class="f"><span class="ft">Master Data</span>The registry itself</div>
+          <div class="f"><span class="ft">Process</span>Request→Validate→Approve→Publish</div>
+          <div class="f"><span class="ft">Decisions</span>Create · merge · retire</div>
+          <div class="f"><span class="ft">Approvals</span>Steward + governance</div>
+          <div class="f"><span class="ft">Transactions</span>Master CRUD (versioned)</div>
+          <div class="f"><span class="ft">Documents</span>Supporting KYC/specs</div>
+          <div class="f"><span class="ft">Outputs</span>Golden records</div>
+          <div class="f"><span class="ft">Accounting</span>CoA/CC integrity</div>
+          <div class="f"><span class="ft">Modules</span>All (provider)</div>
+          <div class="f"><span class="ft">Notifications</span>Change published</div>
+          <div class="f"><span class="ft">Reports/KPIs</span>Duplicate rate · completeness</div>
+          <div class="f"><span class="ft">Audit</span>Full change history</div>
+          <div class="f"><span class="ft">Exceptions</span>Duplicates · invalid codes</div>
+          <div class="f"><span class="ft">Security</span>Steward-only edit rights</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+  <div class="foot">
+    <span><b>AL-BERUNIY OPERATING SYSTEM</b> · Enterprise Architecture Blueprint</span>
+    <span>Blueprint 21 · Master Data · v1.0 · 2026-09-17</span>
+    <span>Defined once · governed · consumed by every module</span>
+  </div>
+</section>
+</body>
+</html>

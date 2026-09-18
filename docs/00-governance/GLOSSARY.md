@@ -1,0 +1,2 @@
+# Glossary
+Type A Account = system user/login. Type B Account = business party (customer/supplier/contractor/employee). Type C Account = financial ledger account. RBAC = role-based access control. SoD = segregation of duties. WBS = work breakdown structure. BOQ = bill of quantities. PR/RFQ/PO/GRN = purchase requisition/request for quotation/purchase order/goods receipt note. IPC = interim payment certificate. EAC/CTC/BAC = estimate at completion/cost to complete/budget at completion. AR/AP/GL = accounts receivable/payable/general ledger.

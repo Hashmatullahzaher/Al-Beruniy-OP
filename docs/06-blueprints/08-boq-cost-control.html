@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>08 · BOQ &amp; Cost Control — AL-BERUNIY OS</title>
+<link rel="stylesheet" href="assets/blueprint.css">
+</head>
+<body>
+<nav class="topnav">
+  <b>AL-BERUNIY OS</b>
+  <a href="index.html">00 · Index</a>
+  <a href="07-construction.html">07 · Construction</a>
+  <a href="08-boq-cost-control.html">08 · BOQ/Cost</a>
+  <a href="09-procurement.html">09 · Procurement</a>
+  <a href="04-financial-architecture.html">04 · Finance</a>
+  <span class="screen-note">Print → A3 · Landscape · Margins None · Background graphics ON</span>
+</nav>
+
+<section class="page">
+  <div class="titleblock">
+    <div class="tb-brand"><div class="os">AL-BERUNIY</div><div class="sub">OPERATING SYSTEM</div></div>
+    <div class="tb-title">
+      <div class="no">BLUEPRINT 08 · BOQ &amp; COST CONTROL</div>
+      <div class="name">From WBS to Estimate-at-Completion</div>
+      <div class="desc">How construction activity turns into committed, actual and forecast cost against budget.</div>
+    </div>
+    <div class="tb-meta">
+      <span class="k">Version</span><b>1.0</b>
+      <span class="k">Date</span><b>2026-09-17</b>
+      <span class="k">Connector</span><b>COST-01</b>
+      <span class="k">Sheet</span><b>08 / 26</b>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span class="lg-title">LEGEND</span>
+    <span class="legend-item"><span class="sw" style="background:var(--const)"></span>Cost structure</span>
+    <span class="legend-item"><span class="sw" style="background:var(--fin)"></span>Financial value</span>
+    <span class="legend-item"><span class="arrow">→</span> rolls up</span>
+    <span class="legend-item"><span class="cid in">◂ PROC-01</span> commitments</span>
+    <span class="legend-item"><span class="cid in">◂ WH-01</span> material actuals</span>
+    <span class="legend-item"><span class="cid in">◂ CON-01</span> subcontract actuals</span>
+  </div>
+
+  <div class="canvas">
+
+    <div class="row" style="flex:0 0 auto">
+      <div class="card d-const grow"><div class="hd">COST BREAKDOWN STRUCTURE</div>
+        <div class="bd"><div class="chain">
+          <div class="step"><span class="n">1</span><b>WBS</b><span class="mini">work packages</span></div>
+          <div class="step"><span class="n">2</span><b>BOQ</b><span class="mini">bill of quantities</span></div>
+          <div class="step"><span class="n">3</span><b>BOQ Item</b><span class="mini">Qty × Unit × Rate</span></div>
+          <div class="step"><span class="n">4</span><b>Budget Cost</b><span class="mini">baseline</span></div>
+          <div class="step"><span class="n">5</span><b>Committed Cost</b><span class="mini">POs + subcontracts <span class="cid in">◂ PROC-01</span></span></div>
+          <div class="step"><span class="n">6</span><b>Actual Cost</b><span class="mini">issues + IPC + payroll</span></div>
+          <div class="step"><span class="n">7</span><b>Forecast / CTC</b><span class="mini">cost to complete</span></div>
+          <div class="step"><span class="n">8</span><b>EAC</b><span class="mini">estimate at completion</span></div>
+        </div></div>
+      </div>
+    </div>
+
+    <div class="row grow">
+      <div class="col" style="flex:1.3">
+        <p class="band d-const">Cost Composition per BOQ Item</p>
+        <div class="card d-const soft grow"><div class="bd"><div class="grid cols-2" style="gap:4px">
+          <div class="blk d-const"><span class="t">Material Cost</span><br>issues valued at cost <span class="cid in">◂ WH-01</span></div>
+          <div class="blk d-const"><span class="t">Labor Cost</span><br>timesheet × rate <span class="cid in">◂ PAY-01</span></div>
+          <div class="blk d-const"><span class="t">Equipment Cost</span><br>usage × hire rate</div>
+          <div class="blk d-const"><span class="t">Subcontract Cost</span><br>certified IPC <span class="cid in">◂ CON-01</span></div>
+          <div class="blk d-const"><span class="t">Variation</span><br>approved VO adjusts budget</div>
+          <div class="blk d-const"><span class="t">Remaining Cost</span><br>budget − actual − committed</div>
+        </div>
+        <hr class="dash">
+        <div class="mini"><b>Rate build-up:</b> each BOQ item carries a resource-based rate (material + labor + equipment + subcon + overhead + margin). Configurable Accounting Policy governs overhead absorption &amp; WIP capitalisation.</div>
+        </div></div>
+      </div>
+
+      <div class="col" style="flex:1.4">
+        <p class="band d-fin">Budget vs Actual Control Model</p>
+        <div class="card d-fin grow"><div class="bd">
+          <div class="grid cols-4" style="gap:4px">
+            <div class="kpi d-fin"><div class="v">BAC</div><div class="k">Budget at Completion</div></div>
+            <div class="kpi d-proc"><div class="v">COM</div><div class="k">Committed</div></div>
+            <div class="kpi d-const"><div class="v">AC</div><div class="k">Actual Cost</div></div>
+            <div class="kpi d-hr"><div class="v">CTC</div><div class="k">Cost to Complete</div></div>
+            <div class="kpi d-const"><div class="v">EAC</div><div class="k">Estimate at Completion</div></div>
+            <div class="kpi d-fin"><div class="v">VAR</div><div class="k">Budget Variance</div></div>
+            <div class="kpi d-data"><div class="v">CPI</div><div class="k">Cost Perf. Index</div></div>
+            <div class="kpi d-data"><div class="v">%</div><div class="k">% Cost Consumed</div></div>
+          </div>
+          <hr class="dash">
+          <div class="mini"><b>Cost engine:</b> Commitment created at PO/subcontract approval → converted to Actual at GRN/issue/IPC. <b>EAC = AC + CTC</b>; alerts when EAC &gt; BAC. Every figure drills to source transaction <span class="cid">BP-26</span>.</div>
+        </div></div>
+      </div>
+
+      <div class="col" style="flex:1">
+        <p class="band d-const">Activity → Cost Relationships</p>
+        <div class="card d-const grow"><div class="bd mini">
+          <div class="rel"><span>PO approved</span><span class="arrow">→</span><span class="lbl">creates</span><span>Committed Cost</span></div><hr class="dash">
+          <div class="rel"><span>GRN</span><span class="arrow">→</span><span class="lbl">converts</span><span>Committed→Actual</span></div><hr class="dash">
+          <div class="rel"><span>Material Issue</span><span class="arrow">→</span><span class="lbl">posts</span><span>Actual to BOQ item</span></div><hr class="dash">
+          <div class="rel"><span>IPC certified</span><span class="arrow">→</span><span class="lbl">posts</span><span>Subcontract Actual</span></div><hr class="dash">
+          <div class="rel"><span>Variation Order</span><span class="arrow">→</span><span class="lbl">revises</span><span>Budget Cost</span></div><hr class="dash">
+          <div class="rel"><span>EAC &gt; BAC</span><span class="arrow">→</span><span class="lbl">triggers</span><span>Overrun Alert <span class="cid">BP-20</span></span></div>
+        </div></div>
+      </div>
+    </div>
+
+    <div class="facets d-const">
+      <div class="f"><span class="ft">Actors</span>QS · Cost Controller · PM</div>
+      <div class="f"><span class="ft">Inputs</span>BOQ · POs · issues · IPC</div>
+      <div class="f"><span class="ft">Master Data</span>WBS · Rate library · Project</div>
+      <div class="f"><span class="ft">Process</span>Budget→Commit→Actual→Forecast</div>
+      <div class="f"><span class="ft">Decisions</span>Overrun · VO · reforecast</div>
+      <div class="f"><span class="ft">Approvals</span>Budget revision · VO</div>
+      <div class="f"><span class="ft">Transactions</span>Commitment · actual posting</div>
+      <div class="f"><span class="ft">Documents</span>BOQ · cost report · VO</div>
+      <div class="f"><span class="ft">Outputs</span>EAC · variance · CPI</div>
+      <div class="f"><span class="ft">Accounting</span>WIP · project cost</div>
+      <div class="f"><span class="ft">Modules</span>Construction · Procure · WH · Contractor · Fin</div>
+      <div class="f"><span class="ft">Notifications</span>Overrun · budget breach</div>
+      <div class="f"><span class="ft">Reports/KPIs</span>Budget vs Actual · EAC · CPI</div>
+      <div class="f"><span class="ft">Audit</span>Budget &amp; rate change log</div>
+      <div class="f"><span class="ft">Exceptions</span>Overrun · negative float cost</div>
+      <div class="f"><span class="ft">Security</span>Cost visible to project team + Fin</div>
+    </div>
+
+  </div>
+  <div class="foot">
+    <span><b>AL-BERUNIY OPERATING SYSTEM</b> · Enterprise Architecture Blueprint</span>
+    <span>Blueprint 08 · BOQ &amp; Cost Control · v1.0 · 2026-09-17</span>
+    <span>Commitment → Actual → Forecast, all dimensioned by Project &amp; WBS</span>
+  </div>
+</section>
+</body>
+</html>

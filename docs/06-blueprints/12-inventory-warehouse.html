@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>12 · Inventory &amp; Warehouse — AL-BERUNIY OS</title>
+<link rel="stylesheet" href="assets/blueprint.css">
+</head>
+<body>
+<nav class="topnav">
+  <b>AL-BERUNIY OS</b>
+  <a href="index.html">00 · Index</a>
+  <a href="09-procurement.html">09 · Procurement</a>
+  <a href="12-inventory-warehouse.html">12 · Inventory</a>
+  <a href="07-construction.html">07 · Construction</a>
+  <a href="04-financial-architecture.html">04 · Finance</a>
+  <span class="screen-note">Print → A3 · Landscape · Margins None · Background graphics ON</span>
+</nav>
+
+<section class="page">
+  <div class="titleblock">
+    <div class="tb-brand"><div class="os">AL-BERUNIY</div><div class="sub">OPERATING SYSTEM</div></div>
+    <div class="tb-title">
+      <div class="no">BLUEPRINT 12 · INVENTORY &amp; WAREHOUSE</div>
+      <div class="name">Receipt to Consumption to Cost</div>
+      <div class="desc">Procurement → Warehouse → Construction → Cost Accounting, with valuation &amp; traceability.</div>
+    </div>
+    <div class="tb-meta">
+      <span class="k">Version</span><b>1.0</b>
+      <span class="k">Date</span><b>2026-09-17</b>
+      <span class="k">Connector</span><b>WH-01</b>
+      <span class="k">Sheet</span><b>12 / 26</b>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span class="lg-title">LEGEND</span>
+    <span class="legend-item"><span class="sw" style="background:var(--wh)"></span>Warehouse</span>
+    <span class="legend-item"><span class="sw" style="background:var(--fin)"></span>Valuation / Cost</span>
+    <span class="legend-item"><span class="arrow">→</span> movement</span>
+    <span class="legend-item"><span class="cid in">◂ PROC-01</span> receipt</span>
+    <span class="legend-item"><span class="cid out">COST-01</span> project cost</span>
+  </div>
+
+  <div class="canvas">
+
+    <div class="row" style="flex:0 0 auto">
+      <div class="card d-wh grow"><div class="hd">MATERIAL FLOW — receipt to consumption</div>
+        <div class="bd"><div class="chain">
+          <div class="step"><span class="n">1</span><b>Purchase Receipt</b><span class="mini">delivery arrives <span class="cid in">◂ PROC-01</span></span></div>
+          <div class="step"><span class="n">2</span><b>Inspection</b><span class="mini">QC accept/reject</span></div>
+          <div class="step"><span class="n">3</span><b>GRN + Stock In</b><span class="mini">valued into store</span></div>
+          <div class="step"><span class="n">4</span><b>Material Request</b><span class="mini">site raises <span class="cid in">◂ CONST-01</span></span></div>
+          <div class="step"><span class="n">5</span><b>Material Issue</b><span class="mini">stock out to project</span></div>
+          <div class="step"><span class="n">6</span><b>Project Consumption</b><span class="mini">→ Project Cost <span class="cid out">COST-01</span></span></div>
+          <div class="step"><span class="n">7</span><b>Transfer / Return / Adjust</b><span class="mini">inter-store · to store</span></div>
+        </div></div>
+      </div>
+    </div>
+
+    <div class="row grow">
+      <div class="col" style="flex:1.5">
+        <p class="band d-wh">Warehouse Operations</p>
+        <div class="card d-wh soft grow"><div class="bd"><div class="grid cols-3" style="gap:4px">
+          <div class="blk d-wh"><span class="t">Material Master</span><br>code · UoM · category <span class="cid">MDM-01</span></div>
+          <div class="blk d-wh"><span class="t">Warehouse / Store</span><br>central + project stores</div>
+          <div class="blk d-wh"><span class="t">Stock Location / Bin</span><br>zone · rack · bin</div>
+          <div class="blk d-wh"><span class="t">GRN / Stock In</span><br>from delivery</div>
+          <div class="blk d-wh"><span class="t">Material Issue / Stock Out</span><br>to project/activity</div>
+          <div class="blk d-wh"><span class="t">Material Transfer</span><br>store ↔ store</div>
+          <div class="blk d-wh"><span class="t">Material Return</span><br>site → store</div>
+          <div class="blk d-wh"><span class="t">Adjustment</span><br>approved variance</div>
+          <div class="blk d-wh"><span class="t">Damaged / Scrap</span><br>write-off</div>
+          <div class="blk d-wh"><span class="t">Min Stock / Reorder</span><br>auto-PR trigger <span class="cid out">PROC-01</span></div>
+          <div class="blk d-wh"><span class="t">Reserved Stock</span><br>committed to activity</div>
+          <div class="blk d-wh"><span class="t">Batch / Serial</span><br>lot traceability</div>
+          <div class="blk d-wh"><span class="t">Barcode / QR</span><br>scan in/out</div>
+          <div class="blk d-wh"><span class="t">Inventory Count</span><br>cycle · full · variance</div>
+          <div class="blk d-fin"><span class="t">Inventory Valuation</span><br>FIFO / Weighted Avg (Policy)</div>
+        </div></div></div>
+        <div class="facets d-wh">
+          <div class="f"><span class="ft">Actors</span>WH Mgr · Storekeeper · QC · Site</div>
+          <div class="f"><span class="ft">Inputs</span>Delivery · requests · counts</div>
+          <div class="f"><span class="ft">Master Data</span>Material · Warehouse · Project</div>
+          <div class="f"><span class="ft">Process</span>In→Store→Issue→Return</div>
+          <div class="f"><span class="ft">Decisions</span>Accept · issue · adjust · reorder</div>
+          <div class="f"><span class="ft">Approvals</span>Issue · adjustment · write-off</div>
+          <div class="f"><span class="ft">Transactions</span>GRN · issue · transfer · count</div>
+          <div class="f"><span class="ft">Documents</span>GRN · issue note · count sheet</div>
+          <div class="f"><span class="ft">Outputs</span>Stock balance · consumption</div>
+          <div class="f"><span class="ft">Accounting</span>Inventory · project cost · scrap</div>
+          <div class="f"><span class="ft">Modules</span>Procure · Construction · Cost · Fin</div>
+          <div class="f"><span class="ft">Notifications</span>Low stock · expiry · variance</div>
+          <div class="f"><span class="ft">Reports/KPIs</span>Stock value · turns · variance</div>
+          <div class="f"><span class="ft">Audit</span>Movement &amp; adjustment log</div>
+          <div class="f"><span class="ft">Exceptions</span>Damage · shortage · variance</div>
+          <div class="f"><span class="ft">Security</span>Storekeeper: no payment rights</div>
+        </div>
+      </div>
+
+      <div class="col" style="flex:1">
+        <p class="band d-fin">Valuation &amp; Accounting</p>
+        <div class="card d-fin grow"><div class="bd mini">
+          <div class="blk d-fin"><span class="t">Stock In (GRN)</span><br><b>Dr</b> Inventory · <b>Cr</b> GRNI</div><hr class="dash">
+          <div class="blk d-fin"><span class="t">Material Issue</span><br><b>Dr</b> Project Cost/WIP · <b>Cr</b> Inventory</div><hr class="dash">
+          <div class="blk d-fin"><span class="t">Return to store</span><br><b>Dr</b> Inventory · <b>Cr</b> Project Cost</div><hr class="dash">
+          <div class="blk d-fin"><span class="t">Damage / Scrap</span><br><b>Dr</b> Loss/Scrap · <b>Cr</b> Inventory</div><hr class="dash">
+          <div class="blk d-fin"><span class="t">Count Variance</span><br><b>Dr/Cr</b> Inventory Adj · contra P&amp;L</div>
+          <div class="mini" style="margin-top:5px"><b>Costing method</b> (FIFO / Weighted Average / Standard) is a Configurable Accounting Policy, applied per material category.</div>
+        </div></div>
+      </div>
+
+      <div class="col" style="flex:.9">
+        <p class="band d-wh">Flow Integration</p>
+        <div class="card d-wh soft grow"><div class="bd">
+          <div class="chain vert">
+            <div class="step"><b>Procurement</b><span class="mini">PO → delivery</span></div>
+            <div class="step"><b>Warehouse</b><span class="mini">GRN → issue</span></div>
+            <div class="step"><b>Construction</b><span class="mini">consumption</span></div>
+            <div class="step" style="--c:var(--fin);--ci:var(--fin-ink)"><b>Cost Accounting</b><span class="mini">project cost &amp; GL</span></div>
+          </div>
+        </div></div>
+      </div>
+    </div>
+
+  </div>
+  <div class="foot">
+    <span><b>AL-BERUNIY OPERATING SYSTEM</b> · Enterprise Architecture Blueprint</span>
+    <span>Blueprint 12 · Inventory &amp; Warehouse · v1.0 · 2026-09-17</span>
+    <span>Issue belongs to Project · creates Project Cost</span>
+  </div>
+</section>
+</body>
+</html>

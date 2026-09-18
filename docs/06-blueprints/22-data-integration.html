@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>22 · Data &amp; Integration — AL-BERUNIY OS</title>
+<link rel="stylesheet" href="assets/blueprint.css">
+</head>
+<body>
+<nav class="topnav">
+  <b>AL-BERUNIY OS</b>
+  <a href="index.html">00 · Index</a>
+  <a href="21-master-data.html">21 · Master Data</a>
+  <a href="22-data-integration.html">22 · Integration</a>
+  <a href="23-security-architecture.html">23 · Security</a>
+  <a href="24-external-portals.html">24 · Portals</a>
+  <span class="screen-note">Print → A3 · Landscape · Margins None · Background graphics ON</span>
+</nav>
+
+<section class="page">
+  <div class="titleblock">
+    <div class="tb-brand"><div class="os">AL-BERUNIY</div><div class="sub">OPERATING SYSTEM</div></div>
+    <div class="tb-title">
+      <div class="no">BLUEPRINT 22 · DATA &amp; INTEGRATION ARCHITECTURE</div>
+      <div class="name">API-First Platform — Layered, Event-Driven, Connected</div>
+      <div class="desc">Frontend to data stores, through gateway, workflow, services, events and external connectors.</div>
+    </div>
+    <div class="tb-meta">
+      <span class="k">Version</span><b>1.0</b>
+      <span class="k">Date</span><b>2026-09-17</b>
+      <span class="k">Connector</span><b>INT-01</b>
+      <span class="k">Sheet</span><b>22 / 26</b>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span class="lg-title">LEGEND</span>
+    <span class="legend-item"><span class="sw" style="background:var(--infra)"></span>Platform layer</span>
+    <span class="legend-item"><span class="sw" style="background:var(--data)"></span>Data store</span>
+    <span class="legend-item"><span class="arrow">→</span> request / event</span>
+    <span class="legend-item"><span class="cid">SEC-01</span> secured by BP-23</span>
+    <span class="legend-item"><span class="cid">MDM-01</span> master data</span>
+  </div>
+
+  <div class="canvas">
+
+    <!-- LAYERED STACK -->
+    <div class="row" style="flex:0 0 auto">
+      <div class="card d-infra grow"><div class="hd">CLIENT / EXPERIENCE</div><div class="bd"><div class="pills">
+        <span class="pill solid">Web App</span><span class="pill solid">Mobile App</span><span class="pill">Site/Warehouse App</span>
+        <span class="pill">Executive Cockpit</span><span class="pill">Customer Portal</span><span class="pill">Supplier Portal</span><span class="pill">Contractor Portal</span>
+      </div></div></div>
+    </div>
+    <div class="row" style="flex:0 0 auto">
+      <div class="card d-infra grow" style="flex:1"><div class="hd">API GATEWAY</div><div class="bd mini">Routing · rate-limit · versioning · <b>REST</b> + GraphQL · request validation <span class="cid">SEC-01</span></div></div>
+      <div class="card d-infra grow" style="flex:1"><div class="hd">AUTHENTICATION / IdP</div><div class="bd mini">OAuth2/OIDC · MFA · SSO · token issuance <span class="cid">BP-23</span></div></div>
+      <div class="card d-exec grow" style="flex:1"><div class="hd">WORKFLOW ENGINE</div><div class="bd mini">Shared approvals across services <span class="cid">WF-01</span></div></div>
+    </div>
+
+    <div class="row" style="flex:0 0 auto">
+      <div class="card d-infra grow"><div class="hd">ERP DOMAIN SERVICES (modular / micro-services)</div><div class="bd"><div class="grid cols-7" style="gap:4px">
+        <div class="blk d-sales mini">Sales/CRM</div>
+        <div class="blk d-sales mini">Collections</div>
+        <div class="blk d-const mini">Construction</div>
+        <div class="blk d-const mini">Cost</div>
+        <div class="blk d-proc mini">Procurement</div>
+        <div class="blk d-wh mini">Inventory</div>
+        <div class="blk d-fin mini">Finance</div>
+        <div class="blk d-const mini">Contractor</div>
+        <div class="blk d-proc mini">Supplier</div>
+        <div class="blk d-hr mini">HR</div>
+        <div class="blk d-hr mini">Payroll</div>
+        <div class="blk d-fin mini">Expense/Assets</div>
+        <div class="blk d-doc mini">Documents</div>
+        <div class="blk d-data mini">BI/AI</div>
+      </div></div></div>
+    </div>
+
+    <div class="row" style="flex:0 0 auto">
+      <div class="card d-infra grow" style="flex:1"><div class="hd">MESSAGE QUEUE / EVENT BUS</div><div class="bd mini">Async events (GRN posted, receipt cleared, IPC certified) · webhooks · sagas · CDC to DWH</div></div>
+      <div class="card d-data grow" style="flex:1.4"><div class="hd">DATA STORES</div><div class="bd"><div class="grid cols-5" style="gap:4px">
+        <div class="blk d-data mini">OLTP DB</div>
+        <div class="blk d-data mini">Master Data <span class="cid">MDM-01</span></div>
+        <div class="blk d-data mini">Document / Object Store</div>
+        <div class="blk d-data mini">Analytics DB / DWH</div>
+        <div class="blk d-data mini">AI Feature/Vector Store</div>
+      </div></div></div>
+    </div>
+
+    <!-- EXTERNAL CONNECTORS -->
+    <div class="row grow">
+      <div class="col grow">
+        <p class="band d-infra">External Connectors &amp; Integrations</p>
+        <div class="card d-infra soft grow"><div class="bd"><div class="grid cols-4" style="gap:5px">
+          <div class="blk d-fin"><span class="t">Banks</span><br>statements · payment files · reconciliation</div>
+          <div class="blk d-fin"><span class="t">Payment Gateways</span><br>online installment collection</div>
+          <div class="blk d-sales"><span class="t">Email / SMS / WhatsApp</span><br>reminders · OTP · notifications</div>
+          <div class="blk d-const"><span class="t">Primavera / MS Project</span><br>schedule sync (WBS · dates)</div>
+          <div class="blk d-const"><span class="t">BIM / Revit</span><br>models · quantities · design docs</div>
+          <div class="blk d-hr"><span class="t">Biometric Devices</span><br>attendance punches</div>
+          <div class="blk d-wh"><span class="t">Barcode / QR</span><br>stock scan in/out</div>
+          <div class="blk d-legal"><span class="t">Government / Tax</span><br>filings · title registry</div>
+          <div class="blk d-fin"><span class="t">External Accounting</span><br>legacy GL migration/bridge</div>
+          <div class="blk d-sales"><span class="t">Customer Portal (ext)</span><br>self-service surface <span class="cid">BP-24</span></div>
+          <div class="blk d-proc"><span class="t">Supplier/Contractor Portal</span><br>quotes · invoices · IPC</div>
+          <div class="blk d-data"><span class="t">Analytics / AI APIs</span><br>model serving</div>
+        </div></div></div>
+        <div class="facets d-infra">
+          <div class="f"><span class="ft">Actors</span>Integrators · Admins · Services</div>
+          <div class="f"><span class="ft">Inputs</span>API calls · events · files</div>
+          <div class="f"><span class="ft">Master Data</span>Shared via MDM</div>
+          <div class="f"><span class="ft">Process</span>Request→Route→Service→Event</div>
+          <div class="f"><span class="ft">Decisions</span>Sync vs async · retries</div>
+          <div class="f"><span class="ft">Approvals</span>Connector onboarding</div>
+          <div class="f"><span class="ft">Transactions</span>Idempotent · sagas</div>
+          <div class="f"><span class="ft">Documents</span>Object store refs</div>
+          <div class="f"><span class="ft">Outputs</span>Integrated ecosystem</div>
+          <div class="f"><span class="ft">Accounting</span>Bank/payment postings</div>
+          <div class="f"><span class="ft">Modules</span>All (backbone)</div>
+          <div class="f"><span class="ft">Notifications</span>Webhooks · alerts</div>
+          <div class="f"><span class="ft">Reports/KPIs</span>Uptime · latency · error rate</div>
+          <div class="f"><span class="ft">Audit</span>API &amp; event logs</div>
+          <div class="f"><span class="ft">Exceptions</span>Retry · dead-letter · replay</div>
+          <div class="f"><span class="ft">Security</span>mTLS · scopes · signed webhooks</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+  <div class="foot">
+    <span><b>AL-BERUNIY OPERATING SYSTEM</b> · Enterprise Architecture Blueprint</span>
+    <span>Blueprint 22 · Data &amp; Integration · v1.0 · 2026-09-17</span>
+    <span>API-first · event-driven · cloud-ready</span>
+  </div>
+</section>
+</body>
+</html>

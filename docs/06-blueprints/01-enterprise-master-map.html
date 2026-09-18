@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>01 · Enterprise Master Map — AL-BERUNIY OS</title>
+<link rel="stylesheet" href="assets/blueprint.css">
+</head>
+<body>
+<nav class="topnav">
+  <b>AL-BERUNIY OS</b>
+  <a href="index.html">00 · Index</a>
+  <a href="01-enterprise-master-map.html">01 · Master Map</a>
+  <a href="02-organization-access.html">02 · Org &amp; Access</a>
+  <a href="03-multi-project.html">03 · Multi-Project</a>
+  <a href="04-financial-architecture.html">04 · Finance</a>
+  <a href="05-sales-crm.html">05 · Sales/CRM</a>
+  <a href="06-installments-collections.html">06 · Installments</a>
+  <a href="07-construction.html">07 · Construction</a>
+  <a href="18-executive-command-center.html">18 · Exec Center</a>
+  <a href="25-cross-system-relationships.html">25 · Relationships</a>
+  <a href="26-transaction-traceability.html">26 · Traceability</a>
+  <span class="screen-note">Print → A3 · Landscape · Margins None · Background graphics ON</span>
+</nav>
+
+<section class="page">
+  <div class="titleblock">
+    <div class="tb-brand"><div class="os">AL-BERUNIY</div><div class="sub">OPERATING SYSTEM</div></div>
+    <div class="tb-title">
+      <div class="no">BLUEPRINT 01 · ENTERPRISE MASTER MAP</div>
+      <div class="name">The Digital Operating System — One Company, One Platform</div>
+      <div class="desc">Understand the entire AL-BERUNIY ecosystem in under five minutes — from stakeholders to infrastructure.</div>
+    </div>
+    <div class="tb-meta">
+      <span class="k">Version</span><b>1.0</b>
+      <span class="k">Date</span><b>2026-09-17</b>
+      <span class="k">Layer</span><b>Enterprise L0</b>
+      <span class="k">Sheet</span><b>01 / 26</b>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span class="lg-title">LEGEND</span>
+    <span class="legend-item"><span class="sw" style="background:var(--exec)"></span>Governance</span>
+    <span class="legend-item"><span class="sw" style="background:var(--sales)"></span>Sales/CRM</span>
+    <span class="legend-item"><span class="sw" style="background:var(--fin)"></span>Finance</span>
+    <span class="legend-item"><span class="sw" style="background:var(--const)"></span>Construction</span>
+    <span class="legend-item"><span class="sw" style="background:var(--proc)"></span>Procurement</span>
+    <span class="legend-item"><span class="sw" style="background:var(--wh)"></span>Warehouse</span>
+    <span class="legend-item"><span class="sw" style="background:var(--hr)"></span>HR/Payroll</span>
+    <span class="legend-item"><span class="sw" style="background:var(--data)"></span>Data/AI/BI</span>
+    <span class="legend-item"><span class="sw" style="background:var(--infra)"></span>Infrastructure</span>
+    <span class="legend-item"><span class="cid out">OUT ▸</span> flow leaves sheet</span>
+    <span class="legend-item"><span class="cid in">IN ◂</span> flow enters sheet</span>
+  </div>
+
+  <div class="canvas">
+
+    <!-- LAYER 1 — STAKEHOLDERS -->
+    <div class="row" style="flex:0 0 auto">
+      <div class="card d-exec soft grow"><div class="hd">1 · STAKEHOLDERS &amp; GOVERNANCE <span class="tag">WHO OWNS &amp; DIRECTS</span></div>
+        <div class="bd"><div class="pills">
+          <span class="pill solid">Chairman</span><span class="pill solid">Board of Directors</span><span class="pill solid">CEO</span>
+          <span class="pill">COO</span><span class="pill">CFO</span><span class="pill">Investors / Shareholders</span>
+          <span class="pill">Audit Committee</span><span class="pill">Executive Committee</span>
+          <span class="pill" style="border-color:var(--legal);color:var(--legal-ink)">Regulators / Government</span>
+          <span class="pill" style="border-color:var(--sales);color:var(--sales-ink)">Customers</span>
+          <span class="pill" style="border-color:var(--proc);color:var(--proc-ink)">Suppliers</span>
+          <span class="pill" style="border-color:var(--const);color:var(--const-ink)">Contractors</span>
+          <span class="pill" style="border-color:var(--infra);color:var(--infra-ink)">Banks / Payment Gateways</span>
+        </div></div>
+      </div>
+    </div>
+
+    <!-- LAYER 2 — EXPERIENCE / ACCESS -->
+    <div class="row" style="flex:0 0 auto">
+      <div class="card d-exec grow"><div class="hd">2 · EXPERIENCE &amp; ACCESS LAYER — role-tailored workspaces (RBAC-governed)</div>
+        <div class="bd"><div class="grid cols-6" style="gap:5px">
+          <div class="blk d-exec"><span class="t">Executive Command Center</span><br>Chairman · CEO · COO · CFO <span class="cid">BP-18</span></div>
+          <div class="blk d-sales"><span class="t">Sales &amp; CRM Workspace</span><br>Sales Dir · Mgr · Agent <span class="cid">BP-05</span></div>
+          <div class="blk d-const"><span class="t">Site &amp; Project Console</span><br>PM · Site Eng · QS <span class="cid">BP-07</span></div>
+          <div class="blk d-fin"><span class="t">Finance Workbench</span><br>FD · FM · Accountant <span class="cid">BP-04</span></div>
+          <div class="blk d-proc"><span class="t">Procurement Desk</span><br>Proc Mgr · Officer <span class="cid">BP-09</span></div>
+          <div class="blk d-hr"><span class="t">HR &amp; Employee Self-Service</span><br>HR Mgr · Officer · Staff <span class="cid">BP-14</span></div>
+          <div class="blk d-legal" style="grid-column:span 2"><span class="t">External Portals</span> — Customer · Supplier · Contractor (segregated identity &amp; data) <span class="cid">BP-24</span></div>
+          <div class="blk d-wh"><span class="t">Warehouse App</span><br>WH Mgr · Storekeeper <span class="cid">BP-12</span></div>
+          <div class="blk d-data"><span class="t">Analyst / BI Studio</span><br>Auditor · Analyst <span class="cid">BP-19</span></div>
+          <div class="blk d-data"><span class="t">AI Copilot (in every app)</span><br>NL query · alerts <span class="cid">BP-20</span></div>
+        </div></div>
+      </div>
+    </div>
+
+    <!-- LAYER 3 — CORE ERP MODULES -->
+    <div class="row grow" style="align-items:stretch">
+      <div class="card d-exec grow" style="border-color:var(--exec)"><div class="hd" style="background:var(--exec)">3 · CORE ERP MODULES — the functional heart of the platform</div>
+        <div class="bd" style="background:#f7f9fc">
+          <div class="grid cols-4" style="gap:5px;height:100%">
+            <div class="card soft d-sales"><div class="hd">Sales &amp; CRM</div><div class="bd mini">Lead→Opportunity→Reservation→Contract→Handover · Pricing · Discounts · Commission <span class="cid out">SALE-01</span></div></div>
+            <div class="card soft d-sales"><div class="hd">Installments &amp; Collection</div><div class="bd mini">Schedules · Receipts · Overdue · Penalty · Reschedule · Escalation <span class="cid out">COLL-01</span></div></div>
+            <div class="card soft d-const"><div class="hd">Construction &amp; Project Control</div><div class="bd mini">WBS · Schedule · Progress · RFI · QA/QC · Variations · EVM <span class="cid out">CONST-01</span></div></div>
+            <div class="card soft d-const"><div class="hd">BOQ &amp; Cost Control</div><div class="bd mini">BOQ · Committed · Actual · Forecast · EAC · Budget vs Actual <span class="cid out">COST-01</span></div></div>
+
+            <div class="card soft d-proc"><div class="hd">Procurement</div><div class="bd mini">PR→RFQ→Bid→PO→GRN→3-way Match→Pay <span class="cid out">PROC-01</span></div></div>
+            <div class="card soft d-proc"><div class="hd">Supplier Management</div><div class="bd mini">KYC · Prequalify · Contracts · Performance · Portal <span class="cid out">SUP-01</span></div></div>
+            <div class="card soft d-const"><div class="hd">Contractor Management</div><div class="bd mini">Tender · IPC · Retention · Advance Recovery · Claims <span class="cid out">CON-01</span></div></div>
+            <div class="card soft d-wh"><div class="hd">Inventory &amp; Warehouse</div><div class="bd mini">GRN · Issue · Transfer · Return · Valuation · Barcode/QR <span class="cid out">WH-01</span></div></div>
+
+            <div class="card soft d-hr"><div class="hd">Human Resources</div><div class="bd mini">Recruit→Employee→Attendance→Leave→Performance→Exit <span class="cid out">HR-01</span></div></div>
+            <div class="card soft d-hr"><div class="hd">Payroll</div><div class="bd mini">Salary structure · OT · Deduction · Payslip · Bank file <span class="cid out">PAY-01</span></div></div>
+            <div class="card soft d-fin"><div class="hd">Expense Management</div><div class="bd mini">Request→Budget check→Approval→Pay <span class="cid out">EXP-01</span></div></div>
+            <div class="card soft d-fin"><div class="hd">Fixed Assets</div><div class="bd mini">Register · Depreciation · Transfer · Disposal <span class="cid out">FA-01</span></div></div>
+
+            <div class="card soft d-exec" style="grid-column:span 2"><div class="hd">Project &amp; Portfolio (Multi-Project)</div><div class="bd mini">Company→Entity→Project→Phase→Zone→Block/Tower→Floor→Unit · data isolation + corporate consolidation <span class="cid out">PROJ-01</span></div></div>
+            <div class="card soft d-doc"><div class="hd">Document Management</div><div class="bd mini">Versioning · e-Sign · Retention <span class="cid out">DOC-01</span></div></div>
+            <div class="card soft d-legal"><div class="hd">Legal &amp; Compliance</div><div class="bd mini">Titles · Contracts · Cases <span class="cid out">LEG-01</span></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- LAYER 4 — SHARED ENGINES -->
+    <div class="row" style="flex:0 0 auto">
+      <div class="card d-fin grow" style="flex:1.4"><div class="hd">4 · FINANCIAL ENGINE — single source of financial truth</div>
+        <div class="bd mini">GL · Chart of Accounts · Sub-ledgers (AR/AP) · Cost Centers · Project Accounting · Budgeting · Multi-currency · Tax · Period Close · Audit Trail. <b>Every operational transaction posts here.</b> <span class="cid in">◂ all modules</span> <span class="cid out">FIN-GL-01</span></div>
+      </div>
+      <div class="card d-exec grow"><div class="hd">4 · WORKFLOW &amp; APPROVAL ENGINE</div>
+        <div class="bd mini">Sequential · Parallel · Conditional · Amount/Project/Role-based routing · Delegation · Escalation · SoD. Shared by every module. <span class="cid out">WF-01</span></div>
+      </div>
+      <div class="card d-infra grow"><div class="hd">4 · MASTER DATA &amp; MDM</div>
+        <div class="bd mini">Projects · Units · Parties · Materials · CoA · Cost Centers · Banks · Currencies · Tax · Policies — governed &amp; versioned. <span class="cid out">MDM-01</span></div>
+      </div>
+    </div>
+
+    <!-- LAYER 5 — PLATFORM LAYERS -->
+    <div class="row" style="flex:0 0 auto">
+      <div class="card d-data grow"><div class="hd">5 · DATA &amp; AI</div><div class="bd mini">OLTP → Data Warehouse → BI/KPIs → <b>Intelligence Layer</b> (predictions, anomaly, copilot). AI reads only RBAC-authorized data. <span class="cid">BP-19/20</span></div></div>
+      <div class="card d-doc grow"><div class="hd">5 · DOCUMENT LAYER</div><div class="bd mini">Object storage · versioning · e-signature · retention across all modules. <span class="cid">BP-16</span></div></div>
+      <div class="card d-data grow"><div class="hd">5 · REPORTING LAYER</div><div class="bd mini">Operational + statutory + executive reports · scheduled distribution · drill-down. <span class="cid">BP-19</span></div></div>
+      <div class="card d-infra grow"><div class="hd">5 · INTEGRATION LAYER</div><div class="bd mini">API Gateway · Event Bus · Webhooks · Connectors. <span class="cid">BP-22</span></div></div>
+      <div class="card d-infra grow"><div class="hd">5 · SECURITY LAYER</div><div class="bd mini">AuthN/MFA · RBAC · project/field security · audit &amp; encryption. <span class="cid">BP-23</span></div></div>
+    </div>
+
+    <!-- LAYER 6 — INFRA + EXTERNAL -->
+    <div class="row" style="flex:0 0 auto">
+      <div class="card d-infra grow" style="flex:1.6"><div class="hd">6 · INFRASTRUCTURE — cloud-ready, HA, DR, backup, observability, multi-region</div>
+        <div class="bd"><div class="pills">
+          <span class="pill">App Services (micro/modular)</span><span class="pill">Databases (OLTP)</span><span class="pill">Analytics DB / DWH</span>
+          <span class="pill">Message Queue</span><span class="pill">Object Storage</span><span class="pill">Identity Provider</span>
+          <span class="pill">CDN</span><span class="pill">Backup &amp; DR</span><span class="pill">Monitoring / SIEM</span>
+        </div></div>
+      </div>
+      <div class="card d-infra grow"><div class="hd">6 · EXTERNAL SYSTEMS</div>
+        <div class="bd"><div class="pills">
+          <span class="pill">Banks</span><span class="pill">Payment Gateways</span><span class="pill">SMS / WhatsApp / Email</span>
+          <span class="pill">Primavera / MS Project</span><span class="pill">BIM / Revit</span><span class="pill">Biometric Devices</span>
+          <span class="pill">Barcode / QR</span><span class="pill">Government / Tax</span>
+        </div></div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="foot">
+    <span><b>AL-BERUNIY OPERATING SYSTEM</b> · Enterprise Architecture Blueprint</span>
+    <span>Blueprint 01 · Enterprise Master Map · v1.0 · 2026-09-17</span>
+    <span>Read top-down: Stakeholders → Access → Modules → Engines → Platform → Infrastructure</span>
+  </div>
+</section>
+</body>
+</html>

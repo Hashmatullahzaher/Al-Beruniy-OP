@@ -1,0 +1,2 @@
+# System Architecture
+Modular API-first platform. Layers: web/mobile/portals → API gateway/identity → shared authorization/workflow → domain services (Sales, Collections, Projects/Construction/Cost, Procurement, Inventory, Supplier, Contractor, Finance, HR, Payroll, Expense/Assets, Documents, BI/AI) → event/message layer → OLTP/master data/object store/DWH/vector store → external connectors. Finance is authoritative for accounting; domain services enforce rules below UI; events are idempotent; company/project scope is explicit.
