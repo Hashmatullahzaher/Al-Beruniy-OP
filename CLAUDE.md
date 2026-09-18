@@ -21,3 +21,9 @@ All LLM connectivity must use the provider-neutral Model Gateway. Every major mo
 Telegram must route through ABOS identity binding → permission context → AI Core → typed tools/domain services → workflow/audit.
 
 Unknown requirements go to `docs/00-governance/OPEN_ITEMS.md` instead of being invented.
+
+
+## Master execution prompt
+Read and follow `prompts/CLAUDE_MASTER_PROMPT.md` plus `docs/04-delivery/AGENT_COORDINATION.md`.
+
+On a fresh build, act first as coordinator/reviewer and allow Codex to claim WP-0001 unless Codex is unavailable. Do not duplicate claimed work.
