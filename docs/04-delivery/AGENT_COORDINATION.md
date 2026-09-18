@@ -69,6 +69,18 @@ Primary responsibilities:
 
 Antigravity may take backend/domain work if capable and eligible. Role specialization must never become a blocker.
 
+## 2A. Fresh-Repository Boot Sequence
+
+To prevent a race at the start of an empty implementation repository:
+
+1. **Claude** initializes orchestration by reading current status/release files, but does not claim WP-0001 while Codex is available.
+2. **Codex** claims and implements WP-0001.
+3. After WP-0001 is DONE, eligible F0 packages are opened according to dependencies.
+4. **Antigravity** claims the first eligible UI/application/integration/review package rather than duplicating Codex.
+5. Claude reviews high-risk/foundation output and maintains gate discipline.
+
+If one agent is unavailable, another may take the package after recording the claim.
+
 ## 3. Work Package State Machine
 
 Allowed states:
