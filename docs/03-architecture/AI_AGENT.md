@@ -1,2 +1,21 @@
 # AI Agent Architecture
-Required pattern: `User → AI intent → typed tool → domain service → authorization → validation → transaction/audit → response`. Never `LLM → arbitrary SQL → database`. AI cannot expand permissions, authoritative financial calculations come from deterministic services, proposed actions pass normal workflow, prompts/tool calls/data scope/material outputs are audited, low-confidence/high-risk cases route to humans.
+
+The agent runtime is one component of the broader AI Core defined in `AI_CORE.md`.
+
+Required execution pattern:
+
+`User / Telegram / System Trigger → AI Core → permission & policy gateway → intent/orchestrator → typed tool → domain service → authorization → validation → workflow/transaction/audit → grounded response`
+
+Never:
+
+`LLM → arbitrary SQL → database`
+
+Key rules:
+- AI cannot expand user permissions.
+- Model/provider access is centralized in the Model Gateway.
+- Enterprise knowledge ingestion is governed and security-tagged.
+- Authoritative financial calculations come from deterministic services.
+- Proposed actions pass normal workflow and SoD.
+- Prompts, retrieved sources, tool calls, permission scope, model/provider/version and material outputs are audited.
+- Low-confidence/high-risk cases route to humans.
+- Telegram is an input/output channel to this same runtime, never a separate logic path.
