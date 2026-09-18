@@ -68,3 +68,33 @@ Shared execution state:
 4. All three continue from repository state without needing module-by-module human prompts.
 
 Release 1 is complete only at WP-1220 after F0–F12 and J1–J6 gates pass.
+
+## 3D Holographic Presentation Experience
+
+A real-time, browser-based, gesture-controlled 3D holographic digital twin of the entire AL-BERUNIY Operating System (`apps/holographic-presentation`) for client presentations and blueprint approval.
+
+### Commands
+- **Install command:**
+  ```bash
+  cd apps/holographic-presentation && npm install
+  ```
+- **Development command:**
+  ```bash
+  cd apps/holographic-presentation && npm run dev
+  ```
+- **Production build command:**
+  ```bash
+  cd apps/holographic-presentation && npm run build
+  ```
+- **Local presentation command (recommended for live demo):**
+  ```bash
+  cd apps/holographic-presentation && npm run preview
+  ```
+
+### Documentation & Runbooks
+- `docs/07-presentation/HOLOGRAPHIC_PRESENTATION_SPEC.md`
+- `docs/07-presentation/PRESENTER_RUNBOOK.md`
+- `docs/07-presentation/GESTURE_REFERENCE.md`
+- `docs/07-presentation/CLIENT_DEMO_SCRIPT.md`
+- `docs/07-presentation/PREFLIGHT_CHECKLIST.md`
+
