@@ -2,7 +2,7 @@
 
 **Document ID:** ABOS-IMP-001  
 **Purpose:** Governing implementation contract for the complete AL-BERUNIY Operating System (ABOS).  
-**Blueprint baseline:** repository commit `3e3d96bbb3c1ec2cbed0b25444d474525c588444` and the blueprint package under `docs/06-blueprints/`.  
+**Blueprint baseline:** AI Core / Telegram revised blueprint package as of repository commit `e280c73f8d3eb29fcdab3ae35e98090778e73cf8` under `docs/06-blueprints/`. Formal build approval must record the accepted exact SHA in `BLUEPRINT_APPROVAL.md`.  
 **Status:** Build-ready functional implementation plan; unresolved official policies remain configuration/open items and must not be invented.
 
 ---
@@ -638,7 +638,7 @@ Deliver:
 - access recertification procedure
 - release/rollback procedure
 - end-user training/UAT data
-- browser UAT of the five primary end-to-end journeys
+- browser UAT of the six primary end-to-end journeys
 - severity triage and remediation
 - exact-SHA release candidate
 - production verification checklist
