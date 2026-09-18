@@ -14,9 +14,10 @@ Your job is to implement working software from the approved repository contract.
 6. `docs/04-delivery/TRACEABILITY_MATRIX.md`
 7. `docs/02-domain/BUSINESS_RULES.md`
 8. `docs/02-domain/MODULE_CONTRACTS.md`
-9. relevant file(s) in `docs/03-architecture/`
-10. relevant blueprint(s) in `docs/06-blueprints/`
-11. `docs/00-governance/OPEN_ITEMS.md`
+9. `docs/03-architecture/AI_CORE.md` and `docs/03-architecture/TELEGRAM_INTEGRATION.md`
+10. relevant file(s) in `docs/03-architecture/`
+11. relevant blueprint(s) in `docs/06-blueprints/`
+12. `docs/00-governance/OPEN_ITEMS.md`
 
 ## Start line
 
@@ -40,6 +41,7 @@ after:
 - J3 Contractor IPC→Payment passes
 - J4 Payroll→Project Allocation passes
 - J5 Executive Reverse Drilldown passes
+- J6 Telegram AI Channel passes
 - security / SoD tests pass
 - finance/subledger/GL reconciliation passes
 - migration dry run passes
@@ -70,6 +72,12 @@ Do not stop at a plan, mockup or schema if the work package requires working beh
 - Every material transaction is audited.
 - Every material financial transaction supports forward and reverse traceability.
 - External portal users see own-party data only.
+- AI Core is a foundational cross-cutting control plane and must not be postponed until F11.
+- All LLM/model traffic goes through the central Model Gateway.
+- Every major domain must expose typed AI tools + events/read projections + source/deep links + permission metadata.
+- The Enterprise Knowledge Plane is security-tagged and user retrieval is re-authorized at query time.
+- Telegram is a governed channel into the same AI Core and must bind to an ABOS Type A UserAccount.
+- Telegram cannot bypass RBAC, project/department/field scope, SoD, workflow or Finance.
 - AI receives permission-trimmed context and uses typed tools/domain services.
 - AI never uses arbitrary SQL and never bypasses workflow or posts directly.
 
@@ -85,7 +93,9 @@ Never invent:
 - legal wording
 - handover rules
 - tolerances
-- provider/region settings
+- provider/region/authentication/model-routing settings
+- AI retention/index policies
+- Telegram bot/webhook/step-up/group policies
 
 Use configuration/extension points and record unresolved requirements in `OPEN_ITEMS.md`.
 
