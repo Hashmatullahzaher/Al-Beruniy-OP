@@ -31,3 +31,9 @@ Any approved blueprint baseline after this change must record the exact reposito
 - Status: **AUTHORIZED FOR IMPLEMENTATION**
 
 Material business-architecture changes after this baseline must update documentation/blueprints and record a new approved SHA before dependent implementation.
+
+
+## Agent Execution Baseline
+- Agent execution baseline SHA: `e733c1cb6d5cb575f77b34e884493147bb3e34e7`
+- Includes the zero-to-100 master build runbook, technology baseline, 205-package work-status ledger, release-readiness ledger, final completion report template, and one-time master prompts for Claude, Codex and Antigravity.
+- Status: **READY FOR CONNECTED AGENT EXECUTION**
