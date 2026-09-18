@@ -30,7 +30,7 @@ The implementation must cover the full approved operating model:
 - Shared workflow and approval engine
 - Master data governance
 - BI / DWH / reporting
-- Permission-bounded AI
+- Enterprise AI Core / Intelligence Control Plane with provider-neutral LLM gateway, governed knowledge plane, typed tools, in-app copilot and Telegram channel
 - Customer, supplier and contractor portals
 - Integration backbone
 - Security, audit, migration, backup/restore, UAT and production readiness
@@ -114,6 +114,17 @@ Every material transaction must support both:
 - **Forward trace:** source operation → approvals → documents → posting → ledger → report/dashboard.
 - **Reverse trace:** KPI/report → transaction → source → party → creator/approver → payment → journal/ledger.
 
+### 3.7 AI Core and channel invariants
+- AI Core is a foundational cross-cutting control plane, not a late standalone chatbot.
+- All LLM/model traffic goes through the central Model Gateway.
+- Model providers may connect by approved API key, service credential, OAuth/provider sign-in, or private endpoint.
+- The Enterprise Knowledge Plane continuously ingests/indexes approved documents, metadata, events, BI semantics and authorized read projections from all modules.
+- Indexing uses explicit machine identity and security tags; user retrieval is re-authorized at query time.
+- Every domain publishes typed AI tools, source IDs, events/read projections, permission metadata and deep links.
+- AI write actions use domain services and remain subject to validation, workflow, SoD, approval and Finance controls.
+- Telegram is a first-class channel into this same AI Core and never a parallel business-logic path.
+- Telegram identities must be bound to ABOS Type A UserAccounts before protected access.
+
 ---
 
 ## 4. Implementation Method
@@ -191,6 +202,34 @@ Deliver:
 - approval inbox
 
 **Gate F1:** negative authorization tests fail closed; a requester cannot approve a conflicting own transaction; all approval/document actions are traceable.
+
+### F1A — AI Core Foundation & Telegram Channel Foundation
+**Start:** F1 identity/security/audit foundations passed.  
+**End:** ABOS has a provider-neutral AI Core that can securely connect to an LLM, maintain governed system knowledge, use typed tools, and receive an authenticated Telegram conversation.
+
+Deliver:
+- Model Gateway and provider/model registry
+- provider authentication abstraction: API key / service credential / OAuth-provider sign-in / private endpoint
+- encrypted credential references, rotation hooks and model health checks
+- AI Orchestrator / Agent Runtime
+- typed Tool Registry and authorization proxy
+- Enterprise Knowledge Plane
+- ingestion from repository/system documentation, published documents, domain metadata, event bus, BI semantic definitions and authorized read projections
+- vector/search/knowledge index abstraction
+- source IDs, versioning, deep links and security tags on indexed objects
+- scheduled index reconciliation/rebuild
+- AI conversation/task memory scoped to identity
+- AI prompt/tool/source/model audit and observability
+- in-app AI Copilot shell available from the global application shell
+- Machine Identity model for background AI monitors
+- Telegram Gateway foundation
+- Telegram Bot configuration using managed secrets
+- secure webhook handling
+- Telegram↔ABOS identity binding/revocation
+- step-up/deep-link pattern for sensitive actions
+- Telegram message/audit/correlation model
+
+**Gate F1A:** at least one approved LLM provider can be connected through the Model Gateway; an authenticated user can ask a source-grounded question over documentation/system metadata; a safe typed read tool is authorized; an unprivileged request is denied; a Telegram user can securely bind and reach the same AI Core.
 
 ### F2 — Master Data & Multi-Project Operating Structure
 **Start:** F1 passed.  
@@ -500,9 +539,9 @@ Deliver:
 
 **Gate F10:** headline KPIs reconcile to source transactions and GL where applicable; every material executive number drills to evidence and audit lineage.
 
-### F11 — External Portals, Integrations & AI
-**Start:** relevant internal domain services are stable.  
-**End:** external users and connected systems use the same governed domain rules; AI operates only within permissions.
+### F11 — External Portals, Integrations, Telegram Expansion & Advanced AI
+**Start:** relevant internal domain services are stable; AI Core foundation from F1A is already running.  
+**End:** external users/channels and advanced AI capabilities use the same governed domain rules and enterprise knowledge plane.
 
 Customer Portal:
 - contracts
@@ -542,6 +581,7 @@ Integration Backbone:
 - bank statement/payment file adapters
 - payment-gateway adapter
 - email/SMS/WhatsApp adapter
+- Telegram Bot API production adapter
 - schedule (Primavera/MS Project) adapter
 - BIM/Revit adapter
 - biometric attendance adapter
@@ -549,20 +589,35 @@ Integration Backbone:
 - government/tax adapter extension points
 - legacy migration/import interfaces
 
-AI:
-- User → Permission Engine → typed tool/domain service → authorized data
-- contextual copilot
-- natural-language query over authorized data
-- executive summaries
-- document AI hooks
+Telegram:
+- production bot/webhook configuration
+- private-chat identity binding
+- notification routing
+- AI query/conversation
+- approval/task summaries
+- secure deep links
+- document/photo intake through Document Service
+- delivery audit
+- optional low-risk typed actions
+- high-risk actions require approved step-up/workflow
+- group-chat sensitive data disabled by default
+
+Advanced AI:
+- contextual copilot in every major module
+- natural-language cross-module query over authorized data
+- executive briefings
+- AI search over documents + structured records
+- document extraction/analysis
 - cash-flow/sales/collection/cost/delay/supplier-risk model interfaces
 - anomaly and duplicate-invoice signals
-- explanation/source references
-- prompt/output/scope audit
-- human-in-the-loop for every action
+- management recommendations
+- source citations/deep links
+- model routing/fallback/cost/usage controls
+- prompt/tool/source/model audit
+- human-in-the-loop for material actions
 - no arbitrary SQL and no direct accounting posting
 
-**Gate F11:** portal own-party negative tests pass; integrations are secure/idempotent/audited; AI cannot retrieve or act outside the user's authorization.
+**Gate F11:** portal own-party negative tests pass; integrations are secure/idempotent/audited; Telegram identity and authorization tests pass; AI cannot retrieve or act outside user scope; advanced AI answers are source-grounded and actions follow normal workflow.
 
 ### F12 — Hardening, Migration, UAT & Production Readiness
 **Start:** F0–F11 gates passed for target release scope.  
@@ -611,6 +666,9 @@ Employee → Attendance/OT/Leave → Payroll Calculation → HR Approval → Fin
 ### J5 — Executive reverse drill-down
 KPI → Project → Department/Cost Center → Transaction → Source Request/Contract/PO/GRN/Invoice/IPC/Receipt → Party → Supporting Document → Creator → Approver → Payment/Bank Transaction → Journal → Ledger Account.
 
+### J6 — Telegram AI operating channel
+Telegram User → ABOS Identity Binding → Permission Context → AI Core → Enterprise Knowledge / Typed Tool → Domain Service → Workflow/Approval when needed → Transaction/Document/Finance → Audit → Telegram Response / Secure Deep Link.
+
 ---
 
 ## 7. Shared UX/Application Shell Requirements
@@ -629,7 +687,8 @@ The complete application shell must provide:
 - task/work queue
 - contextual documents
 - contextual activity/audit timeline
-- contextual AI entry point after F11
+- persistent AI Copilot entry point from F1A onward
+- Telegram-linked conversation/notification status where authorized
 - user/session menu
 - authorization-aware action visibility
 
@@ -678,7 +737,10 @@ The following must be configuration/policy driven rather than hard-coded because
 - cloud/region/IdP/provider choices
 - bank/payment/messaging/BIM/biometric connectors
 - RPO/RTO
-- AI provider/data-residency constraints
+- AI provider/model/data-residency constraints
+- AI provider authentication method (API key / service credential / OAuth/provider sign-in / private endpoint)
+- AI prompt/output retention, model routing/fallback and knowledge-index policy
+- Telegram bot ownership/token/webhook/step-up/group policy
 
 The code must provide safe extension/configuration points and sensible validation, but must not fabricate official numbers or legal/accounting policy.
 
@@ -782,6 +844,6 @@ Together these documents define where implementation starts, what is built at ea
 
 **Implementation START:** F0/WP-0001 after this plan and supporting scope/work-package documents are accepted as the build contract.
 
-**Implementation END:** F12 release gate after all in-scope work packages are complete, integration journeys J1–J5 pass, security/financial reconciliation/restore/UAT evidence is accepted, and an exact Git SHA is approved for release.
+**Implementation END:** F12 release gate after all in-scope work packages are complete, integration journeys J1–J6 pass, security/financial reconciliation/restore/UAT evidence is accepted, and an exact Git SHA is approved for release.
 
 Anything beyond that boundary is a controlled next release, not an undocumented extension of Release 1.
