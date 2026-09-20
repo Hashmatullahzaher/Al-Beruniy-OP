@@ -9,7 +9,7 @@ Agents must update the relevant row when status changes. `DONE` requires evidenc
 
 | Phase | Work Package | Scope | Status | Agent | Branch | Commit / PR | Reviewer | Evidence / Notes | Updated |
 |---|---|---|---|---|---|---|---|---|---|
-| F0 — Engineering Foundation | WP-0001 | Repository / Application Skeleton | TODO | Codex (default owner) |  |  |  |  |  |
+| F0 — Engineering Foundation | WP-0001 | Repository / Application Skeleton | CLAIMED | Codex | agent/codex/WP-0001-app-skeleton |  | Claude or Antigravity | Stage 0 contract read; implementation starting from `89c24fe` | 2026-09-20 |
 | F0 — Engineering Foundation | WP-0002 | Database & Migration Foundation | TODO |  |  |  |  |  |  |
 | F0 — Engineering Foundation | WP-0003 | API / Service Boundary | TODO |  |  |  |  |  |  |
 | F0 — Engineering Foundation | WP-0004 | Events / Outbox / Jobs | TODO |  |  |  |  |  |  |
@@ -225,3 +225,4 @@ The pointer advances to the first eligible TODO package whose dependencies are D
 ## Status Update Rule
 
 Do not rewrite history to hide failures. Use REMEDIATION/BLOCKED and retain evidence references. A package may move to DONE only after its finish condition and applicable tests/review pass.
+
