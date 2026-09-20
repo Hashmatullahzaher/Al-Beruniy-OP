@@ -13,6 +13,12 @@ Telegram is a channel into the same AI Core. It requires ABOS identity binding a
 Handoffs identify exact Git SHA.
 
 
+## Current staged execution gate — operational OS (2026-09-20)
+
+The owner has explicitly changed the operational-app build from unattended end-to-end execution to **one client-reviewed slice at a time**. Read `docs/04-delivery/PHASE_00_UI_KICKOFF.md` and issue #1 before claiming new operational implementation work. The *current authorized scope* is WP-0001 application foundation and a screenshot-faithful enterprise UX/UI shell in `apps/web`, with visual client sign-off required before Stage 1 shareholder/cash/GL business logic. The existing `apps/holographic-presentation` remains separate.
+
+**For the operational build, do not autonomously advance beyond the current approved gate.** Existing autonomous-run instructions below apply only when a subsequent owner/client decision explicitly authorizes that scope; the mandatory documentation, security, finance, and quality invariants remain in force. Codex and Antigravity coordinate on one shared operational app, not two separate frontends. In every later financial slice identify and approve counterpart Debit/Credit accounts, test reconciliation, and obtain client sign-off before the next slice.
+
 ## Autonomous execution
 Read `docs/04-delivery/AGENT_COORDINATION.md`, `WORK_STATUS.md`, `RELEASE_READINESS.md` and `docs/03-architecture/TECHNOLOGY_BASELINE.md`.
 
