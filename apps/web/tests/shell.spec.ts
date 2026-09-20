@@ -17,7 +17,8 @@ test("@smoke routes to each approved Stage 0 workspace", async ({ page }) => {
   await page.getByRole("link", { name: /Finance/ }).click();
   await expect(page).toHaveURL(/\/finance$/);
   await expect(page.getByRole("heading", { level: 1, name: "Finance" })).toBeVisible();
-  await expect(page.getByText("This module is not operational yet")).toBeVisible();
+  await expect(page.getByText("INTERFACE PREVIEW ONLY")).toBeVisible();
+  await expect(page.getByText(/No real balances, capital receipts, vouchers, journals, posting, or treasury actions/)).toBeVisible();
 });
 
 test("health and readiness endpoints expose release metadata", async ({ request }) => {

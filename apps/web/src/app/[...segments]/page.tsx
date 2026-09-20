@@ -2,6 +2,8 @@ import { findWorkspaceRoute, workspaceRoutes } from "@abos/contracts";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
+import { ConstructionWorkspace } from "@/components/ConstructionWorkspace";
+import { FinanceWorkspace } from "@/components/FinanceWorkspace";
 import { ModuleFoundation } from "@/components/ModuleFoundation";
 import { ProjectsWorkspace } from "@/components/ProjectsWorkspace";
 import { SalesCrmWorkspace } from "@/components/SalesCrmWorkspace";
@@ -40,6 +42,14 @@ export default async function ModulePage({ params }: ModulePageProps) {
 
   if (route.id === "sales-crm") {
     return <SalesCrmWorkspace />;
+  }
+
+  if (route.id === "finance") {
+    return <FinanceWorkspace />;
+  }
+
+  if (route.id === "construction") {
+    return <ConstructionWorkspace />;
   }
 
   return <ModuleFoundation route={route} />;

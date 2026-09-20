@@ -56,3 +56,49 @@ test("Projects and Sales remain usable at tablet width and in Dari RTL", async (
   await expect(page.getByRole("heading", { level: 1, name: "فروش و مشتریان" })).toBeVisible();
   await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
 });
+
+test("Finance exposes its intended structure without operational financial actions", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/finance");
+
+  await expect(page.getByRole("heading", { level: 1, name: "Finance" })).toBeVisible();
+  await expect(page.getByText("INTERFACE PREVIEW ONLY")).toBeVisible();
+  await expect(page.getByText("Stage 1 not authorized")).toBeVisible();
+  await page.getByRole("button", { name: "Treasury preview" }).click();
+  await expect(page.locator(".finance-detail-panel").getByRole("heading", { level: 2, name: "Treasury" })).toBeVisible();
+  await page.getByRole("tab", { name: "Treasury" }).click();
+  await expect(page.getByRole("heading", { level: 2, name: "No treasury accounts connected" })).toBeVisible();
+  await expect(page.getByText(/No cash, bank, sarafi, receipt, payment, custody, or reconciliation service/)).toBeVisible();
+});
+
+test("Construction supports read-only progress, milestone, area, and update views", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/construction");
+
+  await expect(page.getByRole("heading", { level: 1, name: "Construction" })).toBeVisible();
+  await expect(page.getByText(/no certified quantities, costs, approvals, or financial posting/i)).toBeVisible();
+  await page.getByRole("button", { name: "Select DEMO-WA-02 demo work area" }).click();
+  await expect(page.locator(".construction-detail-panel").getByRole("heading", { level: 2, name: "Demo Wing B" })).toBeVisible();
+  await page.getByRole("tab", { name: /Milestones/ }).click();
+  await expect(page.getByText("DEMO-M01 · DEMO")).toBeVisible();
+  await page.getByRole("tab", { name: /Work areas/ }).click();
+  await expect(page.getByText("DEMO-WA-03 · DEMO")).toBeVisible();
+  await page.getByRole("tab", { name: /Site updates/ }).click();
+  await expect(page.getByText("DEMO-U03 · Demo Services Core")).toBeVisible();
+});
+
+test("Finance and Construction remain usable at tablet width and in Dari RTL", async ({ page }) => {
+  await page.setViewportSize({ width: 768, height: 1024 });
+
+  await page.goto("/finance");
+  expect(await page.locator("html").evaluate((element) => element.scrollWidth > element.clientWidth)).toBeFalsy();
+  await page.getByRole("button", { name: "Switch to Dari" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "مالی" })).toBeVisible();
+  await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
+
+  await page.goto("/construction");
+  expect(await page.locator("html").evaluate((element) => element.scrollWidth > element.clientWidth)).toBeFalsy();
+  await page.getByRole("button", { name: "Switch to Dari" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "ساخت‌وساز" })).toBeVisible();
+  await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
+});
