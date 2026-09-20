@@ -1,0 +1,14 @@
+{
+  "name": "al-beruniy-op",
+  "version": "1.0.0",
+  "private": true,
+  "packageManager": "pnpm@11.8.0",
+  "scripts": {
+    "dev:web": "pnpm --filter web dev",
+    "build:web": "pnpm --filter web build",
+    "typecheck:web": "pnpm --filter web typecheck",
+    "lint:web": "pnpm --filter web lint",
+    "dev:presentation": "pnpm --filter holographic-presentation dev",
+    "build:presentation": "pnpm --filter holographic-presentation build"
+  }
+}

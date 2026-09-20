@@ -9,7 +9,7 @@ Agents must update the relevant row when status changes. `DONE` requires evidenc
 
 | Phase | Work Package | Scope | Status | Agent | Branch | Commit / PR | Reviewer | Evidence / Notes | Updated |
 |---|---|---|---|---|---|---|---|---|---|
-| F0 — Engineering Foundation | WP-0001 | Repository / Application Skeleton | TODO | Codex (default owner) |  |  |  |  |  |
+| F0 — Engineering Foundation | WP-0001 | Repository / Application Skeleton | REVIEW | Antigravity / Codex | feat/stage-0-enterprise-ui | Pending PR | Codex / Owner | Stage 0 Enterprise UI implemented; tsc & vite build passing; screenshots verified | 2026-09-20 |
 | F0 — Engineering Foundation | WP-0002 | Database & Migration Foundation | TODO |  |  |  |  |  |  |
 | F0 — Engineering Foundation | WP-0003 | API / Service Boundary | TODO |  |  |  |  |  |  |
 | F0 — Engineering Foundation | WP-0004 | Events / Outbox / Jobs | TODO |  |  |  |  |  |  |
