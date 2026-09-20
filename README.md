@@ -5,6 +5,25 @@ Documentation-first source of truth for the AL-BERUNIY Operating System: a multi
 ## Current phase
 **Build-ready / multi-agent execution.** Documentation, blueprints, implementation sequencing, technology baseline, AI Core/Telegram architecture, work-package ledger and agent master prompts are present. Production implementation starts at WP-0001 and proceeds through WP-1220.
 
+The operational application is being introduced through the governed Stage 0 client-approval gate. The Next.js shell lives in `apps/web`; the separate holographic presentation remains in `apps/holographic-presentation`.
+
+## Operational application foundation
+
+Requirements: Node.js 24 LTS and pnpm 11.
+
+```bash
+pnpm install --frozen-lockfile
+pnpm dev
+pnpm lint
+pnpm typecheck
+pnpm build
+pnpm test:smoke
+```
+
+Copy `.env.example` or one of the environment-specific examples under `apps/web` when an override is needed. No secret is required for Stage 0. `/api/health` and `/api/ready` expose application status and exact Git SHA metadata.
+
+Stage 0 is an application shell. It contains no production identity, database, finance, posting, workflow or AI implementation and must not be described as operationally complete.
+
 ## Source-of-truth order
 1. `docs/04-delivery/ACCEPTANCE_CONTRACT.md`
 2. `docs/02-domain/BUSINESS_RULES.md`

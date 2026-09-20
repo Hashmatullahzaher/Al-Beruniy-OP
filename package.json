@@ -1,0 +1,31 @@
+{
+  "name": "al-beruniy-operating-system",
+  "version": "0.0.0",
+  "private": true,
+  "description": "AL-BERUNIY Operating System monorepo",
+  "packageManager": "pnpm@11.8.0",
+  "engines": {
+    "node": ">=24 <25",
+    "pnpm": ">=11 <12"
+  },
+  "scripts": {
+    "dev": "turbo run dev --filter=@abos/web",
+    "lint": "eslint apps/web packages --max-warnings=0",
+    "typecheck": "turbo run typecheck",
+    "build": "turbo run build",
+    "test": "pnpm test:smoke",
+    "test:smoke": "pnpm --filter @abos/web test:smoke",
+    "test:e2e": "pnpm --filter @abos/web test:e2e",
+    "clean": "turbo run clean"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "@types/node": "24.10.1",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "eslint": "9.39.1",
+    "eslint-config-next": "16.3.5",
+    "turbo": "2.11.2",
+    "typescript": "5.9.3"
+  }
+}

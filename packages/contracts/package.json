@@ -1,0 +1,13 @@
+{
+  "name": "@abos/contracts",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "clean": "node -e \"require('fs').rmSync('tsconfig.tsbuildinfo',{force:true})\""
+  }
+}

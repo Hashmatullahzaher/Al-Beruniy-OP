@@ -1,0 +1,8 @@
+packages:
+  - apps/web
+  - packages/*
+
+onlyBuiltDependencies:
+  - unrs-resolver
+allowBuilds:
+  unrs-resolver: true
