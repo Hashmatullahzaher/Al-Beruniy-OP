@@ -3,6 +3,8 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { ModuleFoundation } from "@/components/ModuleFoundation";
+import { ProjectsWorkspace } from "@/components/ProjectsWorkspace";
+import { SalesCrmWorkspace } from "@/components/SalesCrmWorkspace";
 
 interface ModulePageProps {
   readonly params: Promise<{ segments: string[] }>;
@@ -30,6 +32,14 @@ export default async function ModulePage({ params }: ModulePageProps) {
 
   if (!route || route.path === "/") {
     notFound();
+  }
+
+  if (route.id === "projects") {
+    return <ProjectsWorkspace />;
+  }
+
+  if (route.id === "sales-crm") {
+    return <SalesCrmWorkspace />;
   }
 
   return <ModuleFoundation route={route} />;
