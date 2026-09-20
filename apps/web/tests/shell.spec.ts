@@ -28,26 +28,29 @@ test("health and readiness endpoints expose release metadata", async ({ request 
   expect(await ready.json()).toMatchObject({ status: "ready", checks: { applicationShell: "ready" } });
 });
 
-test("keyboard skip link and RTL readiness work", async ({ page }) => {
+test("keyboard skip link and direction preview work", async ({ page }) => {
   await page.goto("/");
   await page.keyboard.press("Tab");
   await expect(page.getByRole("link", { name: "Skip to main content" })).toBeFocused();
   await page.keyboard.press("Enter");
   await expect(page.locator("#main-content")).toBeFocused();
 
-  await page.getByRole("button", { name: "Toggle English and Dari layout direction" }).click();
+  await page.getByRole("button", { name: "Toggle layout direction preview" }).click();
   await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
-  await expect(page.locator("html")).toHaveAttribute("lang", "fa");
+  await expect(page.locator("html")).toHaveAttribute("lang", "en");
 });
 
 test("tablet navigation remains operable", async ({ page }) => {
   await page.setViewportSize({ width: 768, height: 1024 });
   await page.goto("/");
   const menu = page.getByRole("button", { name: "Toggle navigation" });
+  const projectsLink = page.getByRole("link", { name: /Projects/ });
   await expect(menu).toBeVisible();
+  await expect(projectsLink).toBeHidden();
   await menu.click();
   await expect(page.getByRole("navigation", { name: "Primary navigation" })).toBeVisible();
-  await page.getByRole("link", { name: /Projects/ }).click();
+  await expect(projectsLink).toBeVisible();
+  await projectsLink.click();
   await expect(page).toHaveURL(/\/projects$/);
   await expect(page.getByRole("heading", { level: 1, name: "Projects" })).toBeVisible();
 });

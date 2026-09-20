@@ -18,7 +18,7 @@ export function AppShell({ children }: AppShellProps) {
 
   useEffect(() => {
     document.documentElement.dir = direction;
-    document.documentElement.lang = direction === "rtl" ? "fa" : "en";
+    document.documentElement.lang = "en";
   }, [direction]);
 
   const shortSha = publicEnvironment.gitSha === "unknown" ? "unknown" : publicEnvironment.gitSha.slice(0, 12);
@@ -64,8 +64,8 @@ export function AppShell({ children }: AppShellProps) {
           </div>
           <div className="topbar-actions">
             <Link href="/ai-insights" className="ai-entry"><span aria-hidden="true">✦</span> AI Insights <em>Shell</em></Link>
-            <button type="button" className="direction-toggle" onClick={() => setDirection((value) => value === "ltr" ? "rtl" : "ltr")} aria-label="Toggle English and Dari layout direction">
-              {direction === "ltr" ? "دری" : "English"}
+            <button type="button" className="direction-toggle" onClick={() => setDirection((value) => value === "ltr" ? "rtl" : "ltr")} aria-label="Toggle layout direction preview">
+              {direction === "ltr" ? "RTL" : "LTR"}
             </button>
           </div>
         </header>

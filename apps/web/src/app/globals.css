@@ -162,9 +162,9 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible { outline: 3px s
 @media (max-width: 1080px) {
   .app-frame { grid-template-columns: 1fr; }
   .workspace { grid-column: 1; }
-  .sidebar { transform: translateX(-105%); transition: transform 180ms ease; box-shadow: 24px 0 80px rgba(0, 0, 0, 0.45); }
+  .sidebar { visibility: hidden; transform: translateX(-105%); transition: transform 180ms ease, visibility 0s linear 180ms; box-shadow: 24px 0 80px rgba(0, 0, 0, 0.45); }
   [dir="rtl"] .sidebar { transform: translateX(105%); }
-  .sidebar[data-open="true"] { transform: translateX(0); }
+  .sidebar[data-open="true"] { visibility: visible; transform: translateX(0); transition-delay: 0s; }
   .menu-button { display: inline-grid; place-items: center; }
   .mobile-scrim { position: fixed; inset: 0; z-index: 25; display: block; border: 0; background: rgba(0, 0, 0, 0.55); }
 }
