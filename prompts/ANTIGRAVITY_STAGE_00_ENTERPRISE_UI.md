@@ -1,0 +1,14 @@
+# ANTIGRAVITY — Stage 0 / Client-Approved Enterprise UX/UI
+
+Work in `Hashmatullahzaher/Al-Beruniy-OP`. First read `docs/04-delivery/PHASE_00_UI_KICKOFF.md` and its referenced authority/blueprint docs. Start only after Codex's WP-0001 operational Next.js `apps/web` scaffold is available and you have its exact branch/SHA. Do not build a parallel front end.
+
+**VISUAL SOURCE:** The owner-supplied screenshot from the conversation (2026-09-20), `Al-Beruniy Enterprise Command Center`; ask for/accept the attached image in the agent session if absent. Inspect reference visually. It is not an image to paste as one giant UI background: reproduce functional interface components and layout. Existing `apps/holographic-presentation` is separate and must remain unchanged.
+
+Deliver within the Codex shared app:
+1. Faithful premium navy/blue/gold AL-BERUNIY shell: logo/nav sidebar, header/search/context, hero/project photograph with accessible title overlay, KPI grid, chart cards, progress list, alerts and AI section, lower department panel. Preserve visual hierarchy from screenshot rather than inventing a generic SaaS dashboard.
+2. Real sidebar navigation and routes for Overview, Projects, Sales & CRM, Finance, Construction, Procurement, Human Resources, Reports & Analytics, AI Insights, Documents, Settings. Routes not approved for operational build show professional explicit placeholders/empty states—not fake functional finance.
+3. Design tokens, reusable buttons/cards/menus/typography/tables/forms, project-selector shell, responsive layout, keyboard navigation, usable Dari/RTL support and accessible contrast.
+4. Every enabled control genuinely changes route/state; disable or mark future functionality. No silent inert widgets. No unverified financial amounts, personnel names, dates, customer data, alerts, percent KPIs or AI claims. If visual tests require fixtures, isolate behind an explicit DEMO DATA switch and persistent label; use safe non-real examples.
+5. Use an authorized AL-BERUNIY architectural photograph; verify existing image source and usage or obtain approved asset from owner. Keep hero photo in the hero area, not as an entire screenshot overlay.
+
+Acceptance: inspect actual 1920×1080 browser render, compare screenshot side-by-side, capture screenshots at desktop + tablet, check empty states and sidebar actions, run lint/typecheck/build/browser smoke tests, preserve 3D demo build. Commit on coordinated feature branch or open PR, hand off code/screenshots to Codex for independent functional review and owner/client for visual approval. Do not start shareholder, GL, treasury or any production ledger implementation without the separate Stage 1 blueprint/client gate. Report exact branch/SHA/tests/issues. Do NOT claim the UI is approved unless owner/client explicitly signs it off.
