@@ -1,7 +1,7 @@
 # ABOS Stage 0 — Enterprise UI Foundation / Client Approval Gate
 
 **Date:** 2026-09-20
-**Status:** COMMAND CENTER, PROJECTS, AND SALES & CRM VISUALLY APPROVED — remaining application routes pending; Stage 1 not authorized.
+**Status:** COMMAND CENTER, PROJECTS, SALES & CRM, FINANCE, AND CONSTRUCTION VISUALLY APPROVED — remaining application routes pending; Stage 1 not authorized.
 **Baseline:** main `b972155cc56da7e81bc5b8c121bfe1fd059501d1`.
 **Applies to:** new operational web application; NOT `apps/holographic-presentation/`.
 
@@ -53,6 +53,16 @@ Visual scope:
 - **Approved implementation SHA:** `9f60ad8e198dd3df3d8356992671199c49a2c6c6`
 - **Validation:** lint passed; strict TypeScript passed (3/3 packages); production build passed; smoke tests passed (2/2); full Chromium browser suite passed (10/10), including desktop layout, tablet navigation, keyboard access, responsive overflow, Projects filtering/search/selection, Sales & CRM tab/search/selection behavior, and English/Dari RTL coverage.
 - **Scope of approval:** the Command Center, Projects, and Sales & CRM interfaces only. Synthetic records remain persistently labeled as demonstration data, and protected customer, contract, collection, receipt, posting, and balance operations remain unavailable in Stage 0.
+- **Gate:** remaining Stage 0 routes are not visually approved by this record. Do not merge into `main`, mark the entire Stage 0 approved, or begin Stage 1 business logic until explicitly authorized.
+
+## Finance and Construction visual approval record
+
+- **Decision date:** 2026-09-21
+- **Decision:** The product owner reviewed the Finance and Construction pages locally and visually approved both interfaces. Their approved layouts, proportions, colors, typography, interaction patterns, and Stage 0 boundary language must be preserved with the previously approved Command Center, Projects, Sales & CRM, and original Mazar Mall image.
+- **Approved branch:** `agent/codex/WP-0001-command-center-rebuild`
+- **Approved implementation SHA:** `461d9911acd0345001c6c6e488293e0e54145400`
+- **Validation:** lint passed; strict TypeScript passed (3/3 packages); production build passed; smoke tests passed (2/2); full Chromium browser suite passed on the clean rerun (13/13), including the five approved interfaces, desktop and tablet layouts, keyboard access, responsive overflow, Finance safeguards, Construction preview interactions, and English/Dari RTL coverage.
+- **Scope of approval:** the Command Center, Projects, Sales & CRM, Finance, and Construction interfaces only. Finance remains an interface preview without real balances, capital receipts, vouchers, journals, posting, treasury actions, or accounting effects. Construction fixtures remain synthetic and have no certified quantities, costs, approvals, or financial posting.
 - **Gate:** remaining Stage 0 routes are not visually approved by this record. Do not merge into `main`, mark the entire Stage 0 approved, or begin Stage 1 business logic until explicitly authorized.
 
 ## Stage 1 next gate (NOT authorized for posting implementation by this Stage 0 decision)
