@@ -1,7 +1,7 @@
 # ABOS Stage 0 — Enterprise UI Foundation / Client Approval Gate
 
 **Date:** 2026-09-20
-**Status:** AUTHORIZED TO START — implementation and client visual approval PENDING.
+**Status:** COMMAND CENTER VISUALLY APPROVED — remaining application routes pending; Stage 1 not authorized.
 **Baseline:** main `b972155cc56da7e81bc5b8c121bfe1fd059501d1`.
 **Applies to:** new operational web application; NOT `apps/holographic-presentation/`.
 
@@ -34,6 +34,16 @@ Visual scope:
 6. Existing blueprints and 3D demo build remain unaffected.
 7. Work committed on a dedicated feature branch; independent code/browser review recorded.
 8. **Owner + client explicitly approve UI gate** in repository with decision/date/exact SHA before Stage 1 finance business logic proceeds. UI-only skeleton does not constitute finance implementation or production readiness.
+
+## Command Center visual approval record
+
+- **Decision date:** 2026-09-20
+- **Decision:** The product owner reviewed the rebuilt AL-BERUNIY Command Center locally and confirmed that its UX/UI matches the supplied reference. The Command Center design, layout, proportions, colors, typography, and approved Mazar Mall image are visually approved and must be preserved.
+- **Approved branch:** `agent/codex/WP-0001-command-center-rebuild`
+- **Approved implementation SHA:** `5d94876a93a8f14a8dfa61c8eafe6d330dc21418`
+- **Validation:** lint passed; strict TypeScript passed; production build passed; smoke tests passed (2/2); browser tests passed (7/7), including 1920×1080 desktop layout, tablet navigation, keyboard skip navigation, accessible control names, responsive overflow, notification/search states, and English/Dari RTL switching.
+- **Scope of approval:** the main Command Center only. Remaining routes may adopt this design system only after the owner approves the follow-on implementation plan.
+- **Gate:** do not merge into `main` and do not begin Stage 1 until explicitly authorized.
 
 ## Stage 1 next gate (NOT authorized for posting implementation by this Stage 0 decision)
 
