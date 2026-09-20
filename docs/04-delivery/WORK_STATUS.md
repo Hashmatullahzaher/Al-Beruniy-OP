@@ -9,7 +9,7 @@ Agents must update the relevant row when status changes. `DONE` requires evidenc
 
 | Phase | Work Package | Scope | Status | Agent | Branch | Commit / PR | Reviewer | Evidence / Notes | Updated |
 |---|---|---|---|---|---|---|---|---|---|
-| F0 — Engineering Foundation | WP-0001 | Repository / Application Skeleton | REVIEW | Antigravity / Codex | feat/stage-0-enterprise-ui | Pending PR | Codex / Owner | Stage 0 Enterprise UI implemented; tsc & vite build passing; screenshots verified | 2026-09-20 |
+| F0 — Engineering Foundation | WP-0001 | Repository / Application Skeleton | DONE | Antigravity / Codex | feat/stage-0-enterprise-ui | 043e77d | Owner / Client | Stage 0 UI gate approved; Desktop 1920x1080 & Tablet verified; build & tsc pass | 2026-09-20 |
 | F0 — Engineering Foundation | WP-0002 | Database & Migration Foundation | TODO |  |  |  |  |  |  |
 | F0 — Engineering Foundation | WP-0003 | API / Service Boundary | TODO |  |  |  |  |  |  |
 | F0 — Engineering Foundation | WP-0004 | Events / Outbox / Jobs | TODO |  |  |  |  |  |  |
@@ -218,7 +218,8 @@ Agents must update the relevant row when status changes. `DONE` requires evidenc
 
 ## Current Execution Pointer
 
-First eligible package at repository initialization: **WP-0001 — Repository / Application Skeleton**.
+First eligible package at repository initialization: **WP-0001 — Repository / Application Skeleton** (DONE).
+Current active execution pointer: **WP-0002 — Database & Migration Foundation** (Prerequisites met).
 
 The pointer advances to the first eligible TODO package whose dependencies are DONE. Dependency truth comes from `BUILD_WORK_PACKAGES.md`; this ledger records execution state, not dependency definitions.
 
