@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 
 import { AppShell } from "@/components/AppShell";
+import { I18nProvider } from "@/i18n/I18nProvider";
+import { ToastHost } from "@/components/toast";
 import { publicEnvironment } from "@/lib/env";
 
 import "./globals.css";
@@ -23,7 +25,14 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
     <html lang="en" dir="ltr">
-      <body><AppShell>{children}</AppShell></body>
+      <body className="bg-[#070e1e] text-slate-100 min-h-screen">
+        <I18nProvider>
+          <AppShell>
+            {children}
+            <ToastHost />
+          </AppShell>
+        </I18nProvider>
+      </body>
     </html>
   );
 }

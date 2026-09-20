@@ -9,8 +9,8 @@ Agents must update the relevant row when status changes. `DONE` requires evidenc
 
 | Phase | Work Package | Scope | Status | Agent | Branch | Commit / PR | Reviewer | Evidence / Notes | Updated |
 |---|---|---|---|---|---|---|---|---|---|
-| F0 — Engineering Foundation | WP-0001 | Repository / Application Skeleton | VERIFIED | Codex | agent/codex/WP-0001-app-skeleton | 177c09aab5ec6baaa0ff56f05195a9e403a69035 | Independent Codex review | Frozen install, lint, typecheck, build, 2/2 smoke and 5/5 browser tests pass after accessibility remediation; Antigravity/client UI gate pending | 2026-09-20 |
-| F0 — Engineering Foundation | WP-0002 | Database & Migration Foundation | TODO |  |  |  |  |  |  |
+| F0 — Engineering Foundation | WP-0001 | Repository / Application Skeleton & Enterprise UX/UI | REVIEW | Codex + Antigravity | feat/stage-0-nextjs-integration | b2eeb7f4cf45ea3240205e16f48fbbedc1d3439f | Codex review + Client Gate | Next.js 15 App Router unified foundation; 5/5 Playwright tests pass, 0 typecheck errors, turbo build clean. PENDING CLIENT APPROVAL before Stage 1 | 2026-09-20 |
+| F0 — Engineering Foundation | WP-0002 | Database & Migration Foundation | TODO |  |  |  |  | Stage 1 gate blocked until Stage 0 client approval |  |
 | F0 — Engineering Foundation | WP-0003 | API / Service Boundary | TODO |  |  |  |  |  |  |
 | F0 — Engineering Foundation | WP-0004 | Events / Outbox / Jobs | TODO |  |  |  |  |  |  |
 | F0 — Engineering Foundation | WP-0005 | CI / Quality / Test Harness | TODO |  |  |  |  |  |  |
