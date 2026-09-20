@@ -3,8 +3,9 @@
 ## Scope and baseline
 
 - Work package: WP-0001 Repository / Application Skeleton
-- Base: `origin/main` at `89c24fe`
+- Base: `origin/main` at `89c24feb725b447a8a8fe11f7f8c65631342ef37`
 - Branch: `agent/codex/WP-0001-app-skeleton`
+- Independently reviewed implementation: `177c09aab5ec6baaa0ff56f05195a9e403a69035`
 - Acceptance: Stage 0 shell only; no identity, database, finance, posting, workflow or live AI behavior
 - Existing `apps/holographic-presentation` remains independent and unchanged
 
@@ -65,7 +66,8 @@ Executed locally on 2026-09-20 with Node `v24.16.0` and pnpm `11.8.0`:
 - `pnpm typecheck` — PASS; 3/3 workspace packages
 - `pnpm build` — PASS; 13 application pages generated, health/readiness routes available
 - `pnpm test:smoke` — PASS; 2/2 Chromium smoke tests
-- `pnpm test:e2e` — PASS; 5/5 Chromium tests, covering routes, explicit empty states, probes/SHA metadata, keyboard skip navigation, RTL switching and tablet navigation
+- `pnpm test:e2e` — PASS; 5/5 Chromium tests, covering routes, explicit empty states, probes/SHA metadata, keyboard skip navigation, RTL direction preview and tablet navigation
+- Independent read-only review — PASS after remediation; responsive navigation is absent from the focus/accessibility tree while closed, and the English RTL preview retains the correct document language
 
 ## Implemented repository tree
 
@@ -88,10 +90,15 @@ eslint.config.mjs           repository lint baseline
 ## Known gaps and approval status
 
 - Screenshot-faithful enterprise styling is assigned to Antigravity on this scaffold.
-- Independent review and client visual approval are pending.
+- Independent technical review is complete; screenshot-faithful implementation and client visual approval remain pending.
 - Stage 0 is not approved until the decision, date and exact approved SHA are recorded.
 - WP-0002 through WP-0005, all identity/backend/domain/database work, and all financial behavior remain out of scope.
 
 ## Stage boundary
 
 WP-0001 completion does not satisfy the full F0 gate. WP-0002 through WP-0005 remain separate packages. Client UI approval must be recorded before Stage 1 financial behavior is implemented.
+
+## Package status
+
+- WP-0001: `VERIFIED`
+- Stage 0 approval: `PENDING` until Antigravity's screenshot-faithful UI and the client visual gate are recorded against an exact SHA
