@@ -1,7 +1,7 @@
 # ABOS Stage 0 — Enterprise UI Foundation / Client Approval Gate
 
 **Date:** 2026-09-20
-**Status:** COMMAND CENTER, PROJECTS, SALES & CRM, FINANCE, CONSTRUCTION, PROCUREMENT, AND HUMAN RESOURCES VISUALLY APPROVED — remaining application routes pending; Stage 1 not authorized.
+**Status:** COMMAND CENTER, PROJECTS, SALES & CRM, FINANCE, CONSTRUCTION, PROCUREMENT, HUMAN RESOURCES, REPORTS & ANALYTICS, AND AI INSIGHTS VISUALLY APPROVED — Documents and Settings pending; Stage 1 not authorized.
 **Baseline:** main `b972155cc56da7e81bc5b8c121bfe1fd059501d1`.
 **Applies to:** new operational web application; NOT `apps/holographic-presentation/`.
 
@@ -74,6 +74,16 @@ Visual scope:
 - **Validation:** lint passed; strict TypeScript passed (3/3 packages); production build passed; smoke tests passed (2/2); the full Chromium browser suite passed serially (16/16), including all approved interfaces, desktop and tablet layouts, keyboard access, responsive overflow, Procurement safeguards, Human Resources privacy/payroll safeguards, and English/Dari RTL coverage.
 - **Scope of approval:** the Command Center, Projects, Sales & CRM, Finance, Construction, Procurement, and Human Resources interfaces only. Procurement cannot create purchases, supplier liabilities, inventory valuation, payments, accounting entries, or inter-project transfers. Human Resources contains no real identities, payroll, salary calculations, employee financial records, or accounting entries.
 - **Gate:** remaining Stage 0 routes are not visually approved by this record. Do not merge into `main`, mark the entire Stage 0 approved, or begin Stage 1 business logic until explicitly authorized.
+
+## Reports & Analytics and AI Insights visual approval record
+
+- **Decision date:** 2026-09-21
+- **Decision:** The product owner reviewed the Reports & Analytics and AI Insights pages locally and visually approved both interfaces. Their approved layouts, proportions, colors, typography, interaction patterns, synthetic-data labeling, source-context presentation, and Stage 0 safeguards must be preserved with all previously approved interfaces and the original Mazar Mall image.
+- **Approved branch:** `agent/codex/WP-0001-command-center-rebuild`
+- **Approved implementation SHA:** `9ddfc526b0500ecfaa06486b9ed3995b3f38ec82`
+- **Validation:** lint passed; strict TypeScript passed (3/3 packages); production build passed; smoke tests passed (2/2); the full Chromium browser suite passed serially (19/19), including all approved interfaces, desktop and tablet layouts, keyboard access, responsive overflow, report-preview safeguards, illustrative AI/source-context behavior, and English/Dari RTL coverage.
+- **Scope of approval:** the Command Center, Projects, Sales & CRM, Finance, Construction, Procurement, Human Resources, Reports & Analytics, and AI Insights interfaces only. Reports cannot export, certify, reconcile, post, or represent synthetic figures as official statements. AI Insights has no live model, verified findings, permission bypass, executable actions, or operational workflow integration.
+- **Gate:** Documents and Settings remain unapproved. Do not merge into `main`, mark the entire Stage 0 approved, or begin Stage 1 business logic until explicitly authorized.
 
 ## Stage 1 next gate (NOT authorized for posting implementation by this Stage 0 decision)
 
