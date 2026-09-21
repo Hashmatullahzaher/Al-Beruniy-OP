@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { ConstructionWorkspace } from "@/components/ConstructionWorkspace";
+import { DocumentsWorkspace } from "@/components/DocumentsWorkspace";
 import { FinanceWorkspace } from "@/components/FinanceWorkspace";
 import { HumanResourcesWorkspace } from "@/components/HumanResourcesWorkspace";
 import { AiInsightsWorkspace } from "@/components/AiInsightsWorkspace";
@@ -11,6 +12,7 @@ import { ProcurementWorkspace } from "@/components/ProcurementWorkspace";
 import { ReportsAnalyticsWorkspace } from "@/components/ReportsAnalyticsWorkspace";
 import { ProjectsWorkspace } from "@/components/ProjectsWorkspace";
 import { SalesCrmWorkspace } from "@/components/SalesCrmWorkspace";
+import { SettingsWorkspace } from "@/components/SettingsWorkspace";
 
 interface ModulePageProps {
   readonly params: Promise<{ segments: string[] }>;
@@ -70,6 +72,14 @@ export default async function ModulePage({ params }: ModulePageProps) {
 
   if (route.id === "ai-insights") {
     return <AiInsightsWorkspace />;
+  }
+
+  if (route.id === "documents") {
+    return <DocumentsWorkspace />;
+  }
+
+  if (route.id === "settings") {
+    return <SettingsWorkspace />;
   }
 
   return <ModuleFoundation route={route} />;

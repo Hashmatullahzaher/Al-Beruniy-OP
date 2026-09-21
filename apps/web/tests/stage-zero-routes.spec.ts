@@ -210,3 +210,69 @@ test("Reports and AI Insights remain usable at tablet width and in Dari RTL", as
   await expect(page.getByRole("heading", { level: 1, name: "بینش‌های هوش مصنوعی" })).toBeVisible();
   await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
 });
+
+test("Documents supports guarded synthetic discovery and read-only preview", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/documents");
+
+  await expect(page.getByRole("heading", { level: 1, name: "Documents" })).toBeVisible();
+  const boundary = page.getByRole("region", { name: "Documents Stage 0 boundary" });
+  await expect(boundary).toContainText(/No real storage, sharing, approvals, signing, or unrestricted downloads/i);
+  await expect(boundary.getByText("DEMO DATA", { exact: true })).toBeVisible();
+
+  const search = page.getByRole("searchbox", { name: "Search demo metadata" });
+  await search.fill("DEMO-DOC-002");
+  const contractFixture = page.getByRole("button", { name: "Preview Illustrative contract index entry" });
+  await expect(contractFixture).toBeVisible();
+  await contractFixture.click();
+  await expect(contractFixture).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator(".docw-preview").getByRole("heading", { level: 2, name: "Illustrative contract index entry" })).toBeVisible();
+  await expect(page.locator(".docw-preview")).toContainText("Synthetic · unverified");
+  await expect(page.getByRole("button", { name: "Download locked" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Share locked" })).toBeDisabled();
+
+  await search.fill("no matching synthetic fixture");
+  await expect(page.getByRole("status")).toContainText("No demo metadata matches");
+});
+
+test("Settings changes local interface previews without operational mutation", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/settings");
+
+  await expect(page.getByRole("heading", { level: 1, name: "Settings" })).toBeVisible();
+  const boundary = page.getByRole("region", { name: "Settings Stage 0 boundary" });
+  await expect(boundary).toContainText(/No permissions, security policy, organization records, system services, or financial configuration can be changed/i);
+
+  await page.getByRole("tab", { name: "Interface preferences" }).click();
+  const compact = page.getByRole("button", { name: /Compact/ });
+  await compact.click();
+  await expect(compact).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator(".setw-workspace")).toHaveAttribute("data-density", "compact");
+  await expect(page.getByRole("status")).toContainText("Compact density selected for this local preview");
+  await expect(page.getByRole("status")).toContainText("Nothing was saved to a user account or operational service");
+
+  await page.getByRole("tab", { name: "Roles & permissions" }).click();
+  await expect(page.getByRole("heading", { level: 3, name: "Roles and permissions overview" })).toBeVisible();
+  await expect(page.getByText("STRUCTURE PREVIEW · NOT ASSIGNED").first()).toBeVisible();
+  await page.getByRole("tab", { name: "System configuration" }).click();
+  await expect(page.getByRole("heading", { level: 3, name: "Governed system categories" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Configuration locked" }).first()).toBeDisabled();
+});
+
+test("Documents and Settings remain usable at tablet width and in Dari RTL", async ({ page }) => {
+  await page.setViewportSize({ width: 768, height: 1024 });
+
+  await page.goto("/documents");
+  expect(await page.locator("html").evaluate((element) => element.scrollWidth > element.clientWidth)).toBeFalsy();
+  await page.getByRole("button", { name: "Switch to Dari" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "اسناد" })).toBeVisible();
+  await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
+  await expect(page.locator("html")).toHaveAttribute("lang", "fa");
+
+  await page.goto("/settings");
+  expect(await page.locator("html").evaluate((element) => element.scrollWidth > element.clientWidth)).toBeFalsy();
+  await page.getByRole("button", { name: "Switch to Dari" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "تنظیمات" })).toBeVisible();
+  await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
+  await expect(page.locator("html")).toHaveAttribute("lang", "fa");
+});
