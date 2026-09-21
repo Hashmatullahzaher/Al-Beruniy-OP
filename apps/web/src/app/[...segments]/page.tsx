@@ -4,7 +4,9 @@ import { notFound } from "next/navigation";
 
 import { ConstructionWorkspace } from "@/components/ConstructionWorkspace";
 import { FinanceWorkspace } from "@/components/FinanceWorkspace";
+import { HumanResourcesWorkspace } from "@/components/HumanResourcesWorkspace";
 import { ModuleFoundation } from "@/components/ModuleFoundation";
+import { ProcurementWorkspace } from "@/components/ProcurementWorkspace";
 import { ProjectsWorkspace } from "@/components/ProjectsWorkspace";
 import { SalesCrmWorkspace } from "@/components/SalesCrmWorkspace";
 
@@ -50,6 +52,14 @@ export default async function ModulePage({ params }: ModulePageProps) {
 
   if (route.id === "construction") {
     return <ConstructionWorkspace />;
+  }
+
+  if (route.id === "procurement") {
+    return <ProcurementWorkspace />;
+  }
+
+  if (route.id === "human-resources") {
+    return <HumanResourcesWorkspace />;
   }
 
   return <ModuleFoundation route={route} />;

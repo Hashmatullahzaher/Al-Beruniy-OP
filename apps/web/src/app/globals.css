@@ -522,9 +522,103 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible { outline: 2px s
 .construction-area-cards article > div b { display: block; margin-bottom: 7px; font-size: 16px; }
 .construction-area-cards article > strong { display: block; padding-top: 10px; border-top: 1px solid rgba(57, 119, 160, .16); color: #72899a; font-size: 6px; font-weight: 650; }
 
-[dir="rtl"] .project-directory-row, [dir="rtl"] .demo-table-header, [dir="rtl"] .demo-data-table > [role="listitem"] > button, [dir="rtl"] .finance-area-grid button, [dir="rtl"] .construction-area-list > [role="listitem"] > button { text-align: right; }
-[dir="rtl"] .project-detail-copy dd, [dir="rtl"] .lead-detail-panel dd, [dir="rtl"] .construction-detail-panel dd { text-align: left; }
-[dir="rtl"] .project-directory-row > svg, [dir="rtl"] .finance-area-grid button > svg, [dir="rtl"] .construction-area-list button > svg { transform: rotate(180deg); }
+/* Procurement and Human Resources Stage 0 previews. */
+.procurement-guardrail { min-width: 0; min-height: 61px; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 11px; padding: 9px 12px; border: 1px solid rgba(224, 180, 79, .24); border-radius: 7px; background: linear-gradient(100deg, rgba(70, 52, 18, .2), rgba(7, 29, 47, .94) 36%, rgba(4, 18, 31, .97)); }
+.procurement-guardrail > span { width: 38px; height: 38px; display: grid; place-items: center; border-radius: 9px; background: rgba(224, 180, 79, .1); color: #e9c76d; }
+.procurement-guardrail p, .procurement-guardrail strong { display: block; margin: 0; }
+.procurement-guardrail p { color: #c9a858; font-size: 6px; font-weight: 850; letter-spacing: .15em; }
+.procurement-guardrail strong { margin-top: 4px; color: #b9c8d3; font-size: 7.5px; font-weight: 650; }
+.procurement-guardrail > em { padding: 5px 7px; border: 1px solid rgba(224, 180, 79, .27); border-radius: 999px; color: #e0bf68; font-size: 6px; font-style: normal; font-weight: 850; letter-spacing: .09em; }
+.procurement-overview-layout { min-width: 0; display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(280px, .64fr); min-height: 407px; }
+.procurement-main-column { min-width: 0; padding: 9px; border-inline-end: 1px solid rgba(59, 128, 173, .17); }
+.procurement-flow { min-width: 0; display: grid; grid-template-columns: repeat(6, minmax(68px, 1fr)); margin: 0 0 9px; padding: 9px; border: 1px solid rgba(58, 130, 177, .2); border-radius: 6px; background: rgba(4, 18, 31, .55); list-style: none; }
+.procurement-flow li { position: relative; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; color: #7e94a4; }
+.procurement-flow li:not(:last-child)::after { content: ""; position: absolute; z-index: 0; inset-block-start: 10px; inset-inline-start: calc(50% + 13px); width: calc(100% - 26px); height: 1px; background: rgba(61, 145, 198, .3); }
+.procurement-flow li span { position: relative; z-index: 1; width: 22px; height: 22px; display: grid; place-items: center; border: 1px solid rgba(61, 158, 216, .34); border-radius: 50%; background: #0b2b44; color: #65c8fb; font-size: 7px; font-weight: 800; }
+.procurement-flow li small { font-size: 6px; }
+.procurement-list { min-width: 0; overflow: hidden; border: 1px solid rgba(57, 128, 174, .18); border-radius: 6px; }
+.procurement-list-heading, .hr-list-heading { min-height: 29px; display: flex; align-items: center; justify-content: space-between; padding: 0 10px; background: rgba(16, 51, 78, .45); color: #70879a; font-size: 6px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.procurement-list > [role="listitem"] > button { width: 100%; min-width: 0; min-height: 77px; display: grid; grid-template-columns: auto minmax(150px, 1fr) minmax(110px, .58fr) auto; align-items: center; gap: 10px; padding: 9px 10px; border: 0; border-top: 1px solid rgba(57, 119, 160, .16); background: transparent; color: #dce6ed; cursor: pointer; text-align: start; }
+.procurement-list > [role="listitem"] > button:hover { background: rgba(16, 55, 83, .27); }
+.procurement-list > [role="listitem"] > button.selected { background: linear-gradient(90deg, rgba(224, 180, 79, .08), rgba(24, 90, 133, .12)); box-shadow: inset 3px 0 rgba(224, 180, 79, .54); }
+.procurement-item-icon { width: 39px; height: 39px; display: grid; place-items: center; border-radius: 9px; background: rgba(40, 132, 192, .13); color: #62c6fb; }
+.procurement-item-icon.gold { background: rgba(224, 180, 79, .1); color: #e7c46b; }
+.procurement-item-icon.cyan { background: rgba(48, 187, 197, .1); color: #5ed3dc; }
+.procurement-item-copy strong, .procurement-item-copy small, .procurement-stage b, .procurement-stage small { display: block; }
+.procurement-item-copy strong { font-size: 9px; }
+.procurement-item-copy small { margin-top: 4px; color: #7e94a5; font-size: 6.5px; }
+.procurement-stage b { font-size: 8px; }
+.procurement-stage small { margin-top: 4px; color: #b69959; font-size: 6px; }
+.procurement-list button > svg { color: #5f8197; }
+.procurement-detail-panel, .hr-detail-panel { min-width: 0; padding: 16px; background: rgba(3, 16, 28, .55); }
+.procurement-detail-panel > p, .procurement-detail-panel > h2 { margin: 0; }
+.procurement-detail-panel > p { color: var(--abos-gold-300); font-size: 7px; font-weight: 800; letter-spacing: .12em; }
+.procurement-detail-panel > h2 { margin-top: 5px; font-size: 17px; }
+.procurement-detail-panel > span { display: block; margin-top: 4px; color: #8297a7; font-size: 7px; }
+.procurement-detail-panel dl, .hr-detail-panel dl { display: grid; margin: 16px 0 14px; }
+.procurement-detail-panel dl > div, .hr-detail-panel dl > div { display: grid; grid-template-columns: 1fr 1.15fr; gap: 8px; padding: 8px 0; border-top: 1px solid rgba(58, 121, 163, .16); }
+.procurement-detail-panel dt, .procurement-detail-panel dd, .hr-detail-panel dt, .hr-detail-panel dd { margin: 0; font-size: 7px; }
+.procurement-detail-panel dt, .hr-detail-panel dt { color: #72889a; }
+.procurement-detail-panel dd, .hr-detail-panel dd { color: #b9c8d3; text-align: end; }
+.procurement-detail-panel > div, .hr-detail-panel > div { display: grid; grid-template-columns: auto 1fr; gap: 8px; padding: 9px; border: 1px solid rgba(224, 180, 79, .18); border-radius: 6px; background: rgba(224, 180, 79, .05); color: var(--abos-gold-300); }
+.procurement-detail-panel > div p, .procurement-detail-panel > div strong, .hr-detail-panel > div p, .hr-detail-panel > div strong { display: block; margin: 0; }
+.procurement-detail-panel > div strong, .hr-detail-panel > div strong { margin-bottom: 3px; color: #dfe8ef; font-size: 7px; }
+.procurement-detail-panel > div p, .hr-detail-panel > div p { color: #859aaa; font-size: 6.5px; line-height: 1.45; }
+.procurement-requirement-cards { min-height: 407px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding: 12px; }
+.procurement-requirement-cards article { min-width: 0; padding: 14px; border: 1px solid rgba(57, 132, 181, .23); border-radius: 7px; background: rgba(8, 31, 51, .62); }
+.procurement-requirement-cards p, .procurement-requirement-cards h3, .procurement-requirement-cards small { display: block; margin: 0; }
+.procurement-requirement-cards p { margin-top: 15px; color: #b39758; font-size: 6px; font-weight: 800; letter-spacing: .08em; }
+.procurement-requirement-cards h3 { margin-top: 4px; font-size: 11px; }
+.procurement-requirement-cards small { margin-top: 4px; color: #7d93a3; font-size: 7px; }
+.procurement-requirement-cards dl { display: grid; margin: 20px 0 0; }
+.procurement-requirement-cards dl > div { display: flex; justify-content: space-between; gap: 9px; padding: 8px 0; border-top: 1px solid rgba(57, 119, 160, .16); }
+.procurement-requirement-cards dt, .procurement-requirement-cards dd { margin: 0; font-size: 7px; }
+.procurement-requirement-cards dt { color: #71889a; }
+.procurement-requirement-cards dd { color: #b7c5ce; text-align: end; }
+
+.hr-summary { min-width: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; }
+.hr-summary > div { min-width: 0; min-height: 67px; display: grid; grid-template-columns: auto 1fr auto; grid-template-rows: auto auto; align-items: center; gap: 2px 9px; padding: 9px 11px; border: 1px solid rgba(55, 132, 183, .27); border-radius: 7px; background: linear-gradient(135deg, rgba(11, 42, 66, .82), rgba(4, 18, 31, .94)); }
+.hr-summary > div > span { grid-row: 1 / 3; width: 37px; height: 37px; display: grid; place-items: center; border-radius: 9px; background: rgba(43, 136, 193, .12); color: #61c7fb; }
+.hr-summary small { align-self: end; color: #859aa9; font-size: 7px; }
+.hr-summary strong { grid-column: 3; grid-row: 1 / 3; font-size: 21px; }
+.hr-summary em { align-self: start; color: #b49a60; font-size: 5.5px; font-style: normal; font-weight: 800; letter-spacing: .08em; }
+.hr-summary > p { grid-column: 1 / -1; display: flex; align-items: center; gap: 7px; margin: 0; padding: 7px 10px; border: 1px solid rgba(224, 180, 79, .17); border-radius: 6px; background: rgba(224, 180, 79, .04); color: #a9905b; font-size: 7px; }
+.hr-directory-layout { min-width: 0; display: grid; grid-template-columns: minmax(0, 1.62fr) minmax(280px, .62fr); min-height: 407px; }
+.hr-staff-list { min-width: 0; padding: 8px; border-inline-end: 1px solid rgba(59, 128, 173, .17); }
+.hr-staff-list > [role="listitem"] > button { width: 100%; min-width: 0; min-height: 76px; display: grid; grid-template-columns: auto minmax(155px, 1fr) minmax(125px, .8fr) minmax(100px, .55fr) auto; align-items: center; gap: 10px; padding: 9px 10px; border: 1px solid transparent; border-top-color: rgba(57, 119, 160, .16); background: transparent; color: #dce6ed; cursor: pointer; text-align: start; }
+.hr-staff-list > [role="listitem"] > button:hover { border-color: rgba(51, 137, 191, .24); border-radius: 6px; background: rgba(16, 55, 83, .27); }
+.hr-staff-list > [role="listitem"] > button.selected { border-color: rgba(224, 180, 79, .3); border-radius: 6px; background: linear-gradient(90deg, rgba(224, 180, 79, .07), rgba(24, 90, 133, .12)); }
+.hr-avatar { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 50%; background: rgba(40, 132, 192, .13); color: #62c6fb; }
+.hr-avatar.gold { background: rgba(224, 180, 79, .1); color: #e7c46b; }
+.hr-avatar.cyan { background: rgba(48, 187, 197, .1); color: #5ed3dc; }
+.hr-avatar.green { background: rgba(61, 186, 137, .1); color: #67dba9; }
+.hr-profile-copy strong, .hr-profile-copy small, .hr-role-copy b, .hr-role-copy small { display: block; }
+.hr-profile-copy strong { font-size: 9px; }
+.hr-profile-copy small { margin-top: 4px; color: #6f8697; font-size: 5.5px; letter-spacing: .04em; }
+.hr-role-copy b { font-size: 8px; }
+.hr-role-copy small { margin-top: 4px; color: #7b91a1; font-size: 6px; }
+.hr-attendance-chip { width: max-content; padding: 4px 6px; border: 1px solid rgba(62, 190, 142, .2); border-radius: 999px; background: rgba(61, 186, 137, .07); color: #64d5a4; font-size: 6px; }
+.hr-staff-list button > svg { color: #5f8197; }
+.hr-detail-panel > .hr-avatar { width: 45px; height: 45px; margin-bottom: 12px; }
+.hr-detail-panel > p, .hr-detail-panel > h2, .hr-detail-panel > small { display: block; margin: 0; }
+.hr-detail-panel > p { color: var(--abos-gold-300); font-size: 6px; font-weight: 800; letter-spacing: .09em; }
+.hr-detail-panel > h2 { margin-top: 4px; font-size: 16px; }
+.hr-detail-panel > small { margin-top: 4px; color: #7c92a2; font-size: 7px; }
+.hr-role-cards { min-height: 407px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding: 12px; }
+.hr-role-cards article { min-width: 0; padding: 14px; border: 1px solid rgba(57, 132, 181, .23); border-radius: 7px; background: rgba(8, 31, 51, .62); }
+.hr-role-cards article > span { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 9px; background: rgba(43, 136, 193, .12); color: #61c7fb; }
+.hr-role-cards p, .hr-role-cards h3, .hr-role-cards small { display: block; margin: 0; }
+.hr-role-cards p { margin-top: 15px; color: #b39758; font-size: 6px; font-weight: 800; letter-spacing: .08em; }
+.hr-role-cards h3 { margin-top: 4px; font-size: 12px; }
+.hr-role-cards small { min-height: 34px; margin-top: 5px; color: #7d93a3; font-size: 7px; line-height: 1.5; }
+.hr-role-cards article > div { display: flex; align-items: baseline; gap: 7px; margin: 19px 0 12px; }
+.hr-role-cards article > div b { color: #63c8fb; font-size: 21px; }
+.hr-role-cards article > div em { color: #8398a8; font-size: 6px; font-style: normal; }
+.hr-role-cards article > strong { display: block; padding-top: 10px; border-top: 1px solid rgba(57, 119, 160, .16); color: #72899a; font-size: 6px; font-weight: 650; }
+
+[dir="rtl"] .project-directory-row, [dir="rtl"] .demo-table-header, [dir="rtl"] .demo-data-table > [role="listitem"] > button, [dir="rtl"] .finance-area-grid button, [dir="rtl"] .construction-area-list > [role="listitem"] > button, [dir="rtl"] .procurement-list > [role="listitem"] > button, [dir="rtl"] .hr-staff-list > [role="listitem"] > button { text-align: right; }
+[dir="rtl"] .project-detail-copy dd, [dir="rtl"] .lead-detail-panel dd, [dir="rtl"] .construction-detail-panel dd, [dir="rtl"] .procurement-detail-panel dd, [dir="rtl"] .hr-detail-panel dd { text-align: left; }
+[dir="rtl"] .project-directory-row > svg, [dir="rtl"] .finance-area-grid button > svg, [dir="rtl"] .construction-area-list button > svg, [dir="rtl"] .procurement-list button > svg, [dir="rtl"] .hr-staff-list button > svg { transform: rotate(180deg); }
 
 .page-stack { display: grid; gap: 12px; padding: 12px 4px; }
 .page-header { max-width: 790px; }
@@ -564,6 +658,8 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible { outline: 2px s
   .project-directory-row { grid-template-columns: 72px minmax(135px, 1fr) minmax(88px, .55fr) minmax(110px, .7fr) auto; }
   .sales-lifecycle { grid-template-columns: 135px minmax(0, 1fr); }
   .finance-structure-layout, .construction-overview-layout { grid-template-columns: minmax(0, 1.45fr) minmax(260px, .72fr); }
+  .procurement-overview-layout, .hr-directory-layout { grid-template-columns: minmax(0, 1.48fr) minmax(260px, .72fr); }
+  .hr-staff-list > [role="listitem"] > button { grid-template-columns: auto minmax(140px, 1fr) minmax(110px, .72fr) minmax(90px, .55fr) auto; }
 }
 
 @media (max-width: 1080px) {
@@ -587,6 +683,9 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible { outline: 2px s
   .finance-structure-layout, .construction-overview-layout { grid-template-columns: 1fr; }
   .finance-area-column, .construction-area-list { border-inline-end: 0; border-bottom: 1px solid rgba(59, 128, 173, .17); }
   .finance-detail-panel, .construction-detail-panel { min-height: 290px; }
+  .procurement-overview-layout, .hr-directory-layout { grid-template-columns: 1fr; }
+  .procurement-main-column, .hr-staff-list { border-inline-end: 0; border-bottom: 1px solid rgba(59, 128, 173, .17); }
+  .procurement-detail-panel, .hr-detail-panel { min-height: 285px; }
 }
 
 @media (max-width: 760px) {
@@ -636,6 +735,18 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible { outline: 2px s
   .construction-progress { grid-column: 2 / -1; }
   .construction-area-list button > svg { grid-column: 3; grid-row: 1 / 3; }
   .construction-area-cards { grid-template-columns: 1fr; min-height: 0; }
+  .procurement-guardrail { grid-template-columns: auto minmax(0, 1fr); }
+  .procurement-guardrail > em { grid-column: 2; width: max-content; }
+  .procurement-flow { overflow-x: auto; grid-template-columns: repeat(6, minmax(90px, 1fr)); }
+  .procurement-list > [role="listitem"] > button { grid-template-columns: auto minmax(0, 1fr) auto; }
+  .procurement-stage { grid-column: 2 / -1; }
+  .procurement-list button > svg { grid-column: 3; grid-row: 1 / 3; }
+  .procurement-requirement-cards, .hr-role-cards { grid-template-columns: 1fr; min-height: 0; }
+  .hr-summary { grid-template-columns: 1fr 1fr; }
+  .hr-summary > div:last-of-type { grid-column: 1 / -1; }
+  .hr-staff-list > [role="listitem"] > button { grid-template-columns: auto minmax(0, 1fr) auto; }
+  .hr-role-copy, .hr-attendance-chip { grid-column: 2; }
+  .hr-staff-list button > svg { grid-column: 3; grid-row: 1 / 4; }
 }
 
 @media (max-width: 520px) {
@@ -673,6 +784,18 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible { outline: 2px s
   .construction-area-list > [role="listitem"] > button { grid-template-columns: auto minmax(0, 1fr); }
   .construction-progress { grid-column: 1 / -1; }
   .construction-area-list button > svg { display: none; }
+  .procurement-guardrail { grid-template-columns: 1fr; text-align: center; }
+  .procurement-guardrail > span { margin-inline: auto; }
+  .procurement-guardrail > em { grid-column: 1; width: auto; }
+  .procurement-list > [role="listitem"] > button { grid-template-columns: auto minmax(0, 1fr); }
+  .procurement-stage { grid-column: 1 / -1; }
+  .procurement-list button > svg { display: none; }
+  .hr-summary { grid-template-columns: 1fr; }
+  .hr-summary > div:last-of-type { grid-column: auto; }
+  .hr-summary > p { grid-column: auto; }
+  .hr-staff-list > [role="listitem"] > button { grid-template-columns: auto minmax(0, 1fr); }
+  .hr-role-copy, .hr-attendance-chip { grid-column: 2; }
+  .hr-staff-list button > svg { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {

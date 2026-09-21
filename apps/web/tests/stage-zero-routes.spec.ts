@@ -102,3 +102,47 @@ test("Finance and Construction remain usable at tablet width and in Dari RTL", a
   await expect(page.getByRole("heading", { level: 1, name: "ساخت‌وساز" })).toBeVisible();
   await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
 });
+
+test("Procurement presents a guarded supply workflow without purchasing actions", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/procurement");
+
+  await expect(page.getByRole("heading", { level: 1, name: "Procurement" })).toBeVisible();
+  await expect(page.getByText(/No purchases, supplier liabilities, inventory valuation, payments, accounting entries, or inter-project transfers/)).toBeVisible();
+  await page.getByRole("button", { name: "Select DEMO-MR-002 demo requirement" }).click();
+  await expect(page.locator(".procurement-detail-panel").getByRole("heading", { level: 2, name: "MEP coordination sample" })).toBeVisible();
+  await page.getByRole("tab", { name: /Material requirements/ }).click();
+  await expect(page.getByText("DEMO-MR-003 · DEMO")).toBeVisible();
+  await page.getByRole("tab", { name: "Purchase orders" }).click();
+  await expect(page.getByRole("heading", { level: 2, name: "No authorized purchase orders" })).toBeVisible();
+});
+
+test("Human Resources supports synthetic staff and role previews without payroll", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/human-resources");
+
+  await expect(page.getByRole("heading", { level: 1, name: "Human Resources" })).toBeVisible();
+  await expect(page.getByText(/no real identities, salaries, payroll calculations, employee finance, or accounting entries/i)).toBeVisible();
+  await page.getByRole("button", { name: "Select DEMO-EMP-004 demo staff profile" }).click();
+  await expect(page.locator(".hr-detail-panel").getByRole("heading", { level: 2, name: "Document control fixture" })).toBeVisible();
+  await page.getByRole("tab", { name: /Roles/ }).click();
+  await expect(page.getByText("DEMO-ROLE-03 · DEMO")).toBeVisible();
+  await page.getByRole("tab", { name: "Attendance" }).click();
+  await expect(page.getByRole("heading", { level: 2, name: "No verified attendance service" })).toBeVisible();
+});
+
+test("Procurement and Human Resources remain usable at tablet width and in Dari RTL", async ({ page }) => {
+  await page.setViewportSize({ width: 768, height: 1024 });
+
+  await page.goto("/procurement");
+  expect(await page.locator("html").evaluate((element) => element.scrollWidth > element.clientWidth)).toBeFalsy();
+  await page.getByRole("button", { name: "Switch to Dari" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "تدارکات" })).toBeVisible();
+  await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
+
+  await page.goto("/human-resources");
+  expect(await page.locator("html").evaluate((element) => element.scrollWidth > element.clientWidth)).toBeFalsy();
+  await page.getByRole("button", { name: "Switch to Dari" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "منابع انسانی" })).toBeVisible();
+  await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
+});
