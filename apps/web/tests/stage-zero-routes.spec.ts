@@ -146,3 +146,67 @@ test("Procurement and Human Resources remain usable at tablet width and in Dari 
   await expect(page.getByRole("heading", { level: 1, name: "منابع انسانی" })).toBeVisible();
   await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
 });
+
+test("Reports and Analytics supports guarded executive report previews", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/reports-analytics");
+
+  await expect(page.getByRole("heading", { level: 1, name: "Reports & Analytics" })).toBeVisible();
+  const boundary = page.getByRole("region", { name: "Reporting Stage 0 boundary" });
+  await expect(boundary).toContainText(/No official statements, verified balances, live-ledger reconciliation, or operational report exports/i);
+  await expect(boundary.getByText("DEMO DATA", { exact: true })).toBeVisible();
+
+  const reportControls = page.locator(".reports-controls");
+  await reportControls.locator("select").nth(0).selectOption({ label: "All demo projects" });
+  await reportControls.locator("select").nth(1).selectOption({ label: "Illustrative quarter" });
+  await expect(page.locator(".reports-readiness-panel")).toContainText("All demo projects");
+  await expect(page.locator(".reports-readiness-panel")).toContainText("Illustrative quarter");
+
+  await page.getByRole("tab", { name: "Financial" }).click();
+  await expect(page.getByRole("heading", { level: 3, name: "Financial reporting structure" })).toBeVisible();
+  await expect(page.getByRole("img", { name: /Synthetic demonstration bar chart/i })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Official export locked" })).toBeDisabled();
+});
+
+test("AI Insights separates illustrative narratives from live AI and exposes context", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/ai-insights");
+
+  await expect(page.getByRole("heading", { level: 1, name: "AI Insights" })).toBeVisible();
+  const boundary = page.getByRole("region", { name: "AI Insights Stage 0 boundary" });
+  await expect(boundary).toContainText(/No live model, verified findings, permission bypass, or executable actions/i);
+  await expect(page.getByText(/Synthetic narratives · not AI findings/i)).toBeVisible();
+
+  const constructionInsight = page.getByRole("button", { name: "Select Milestone review pattern illustrative insight" });
+  await constructionInsight.click();
+  await expect(constructionInsight).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator(".aiw-insight-detail").getByRole("heading", { level: 2, name: "Milestone review pattern" })).toBeVisible();
+  await expect(page.getByText("Synthetic Construction fixture")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Open Construction" })).toHaveAttribute("href", "/construction");
+
+  await page.getByRole("tab", { name: "Ask a question" }).click();
+  await page.getByRole("textbox", { name: "Management question" }).fill("Which demo work area needs review?");
+  await page.getByRole("button", { name: /Stage question/ }).click();
+  await expect(page.getByRole("status")).toContainText("Question staged locally");
+  await expect(page.getByRole("status")).toContainText("No AI response generated");
+
+  await page.getByRole("tab", { name: /Sources & context/ }).click();
+  await expect(page.getByRole("heading", { level: 2, name: "Illustrative context register" })).toBeVisible();
+  await expect(page.getByText("Synthetic · unverified").first()).toBeVisible();
+});
+
+test("Reports and AI Insights remain usable at tablet width and in Dari RTL", async ({ page }) => {
+  await page.setViewportSize({ width: 768, height: 1024 });
+
+  await page.goto("/reports-analytics");
+  expect(await page.locator("html").evaluate((element) => element.scrollWidth > element.clientWidth)).toBeFalsy();
+  await page.getByRole("button", { name: "Switch to Dari" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "گزارش‌ها و تحلیل‌ها" })).toBeVisible();
+  await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
+
+  await page.goto("/ai-insights");
+  expect(await page.locator("html").evaluate((element) => element.scrollWidth > element.clientWidth)).toBeFalsy();
+  await page.getByRole("button", { name: "Switch to Dari" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "بینش‌های هوش مصنوعی" })).toBeVisible();
+  await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
+});
