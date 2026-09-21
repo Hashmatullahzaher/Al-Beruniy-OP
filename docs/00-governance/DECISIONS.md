@@ -13,4 +13,5 @@
 - All LLM access goes through a provider-neutral Model Gateway; no domain module calls an LLM provider directly.
 - The AI enterprise knowledge plane may index cross-system knowledge under explicit machine identity and security tags, but user retrieval/actions are always permission-trimmed.
 - Telegram is an official governed AI/notification channel and must reuse ABOS identity, permissions, workflow, finance and audit rather than implement parallel business logic.
+- Multi-currency is a mandatory cross-domain foundation for every relevant business module, not a later Finance add-on. AFN and USD must be supported as transaction currencies; legal-entity base currency, reporting currencies, additional supported currencies, exchange-rate policy, precision, revaluation and gain/loss policy remain explicit approval gates.
 

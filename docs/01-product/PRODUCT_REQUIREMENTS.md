@@ -1,6 +1,9 @@
 # Product Requirements
 ABOS is a modular enterprise OS supporting tens/hundreds of concurrent projects and two views: independent project operations/financials and corporate consolidation. Required domains: Executive Command Center; organization/users/RBAC/project assignments/approval authority; Sales/CRM/unit inventory/contracts/installments/collections/handover; Finance/GL/AR/AP/cash-bank/budget/project accounting/cost centers/assets/multi-currency; Construction/WBS/schedule/progress/RFI/QA-QC/HSE/variations/EVM; BOQ/cost control; Procurement/suppliers/warehouse; Contractor IPC/retention/advance; Expenses; HR/attendance/payroll; Documents; Workflow; Master Data; BI/DWH; AI; external portals; integrations; security/audit. Nonfunctional: API-first, multi-company/project/currency/language-ready, encrypted, auditable, backup/DR capable, desktop-first with targeted mobile workflows.
 
+## Mandatory Multi-Currency Capability
+Multi-currency support is foundational across all applicable domains. AFN and USD are required transaction currencies. Every monetary event must retain its original currency and amount and, when posted, its approved base-currency accounting amount and immutable exchange-rate reference. The platform must never silently aggregate different currencies. Legal-entity base currencies, reporting currencies, additional supported currencies, rate sources, precision, revaluation and accounting treatment require explicit owner/client approval before implementation.
+
 ## AI Core Product Requirement
 ABOS requires a system-wide AI Core that sits logically above/across all modules and continuously maintains governed awareness of the operating system through documentation, master data, events, documents, BI measures and authorized transactional projections. The Core must expose an in-app copilot and contextual AI in every major domain.
 
