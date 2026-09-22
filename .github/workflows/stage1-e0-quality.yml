@@ -5,6 +5,14 @@ on:
   push:
     branches:
       - "agent/codex/stage-1-finance-foundation"
+    paths:
+      - "apps/web/**"
+      - "packages/contracts/**"
+      - "packages/database/**"
+      - "packages/finance/**"
+      - "infrastructure/database/**"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/stage1-e0-quality.yml"
   pull_request:
     paths:
       - "apps/web/**"
@@ -54,6 +62,6 @@ jobs:
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f infrastructure/database/verify/0001_e0_finance_foundation.sql
           psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f infrastructure/database/tests/0001_e0_finance_invariants.sql
       - run: pnpm build
-      - run: pnpm test:smoke
       - run: pnpm --filter @abos/web exec playwright install --with-deps chromium
+      - run: pnpm test:smoke
       - run: pnpm --filter @abos/web exec playwright test --workers=1
