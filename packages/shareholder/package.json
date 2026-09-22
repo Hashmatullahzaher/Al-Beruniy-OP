@@ -1,0 +1,13 @@
+{
+  "name": "@abos/shareholder",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": { ".": "./src/index.ts" },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "node --test --experimental-strip-types src/*.test.ts",
+    "clean": "node -e \"require('fs').rmSync('tsconfig.tsbuildinfo',{force:true})\""
+  },
+  "dependencies": { "@abos/contracts": "workspace:*" }
+}
