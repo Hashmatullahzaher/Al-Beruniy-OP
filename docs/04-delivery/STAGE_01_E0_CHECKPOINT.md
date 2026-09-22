@@ -5,7 +5,7 @@
 **Branch:** `agent/codex/stage-1-finance-foundation`
 **Exact base SHA:** `999a5335521fac5a9ac9b01b9e5d8261c47424d5`
 **Approved Stage 0 reference:** `a4ff484d357d22ba60ab1efd1650022bde9ab43c`
-**Checkpoint implementation SHA:** `bf7af4bca28df840971f7100bced3a5e9f9693f2`
+**Checkpoint implementation SHA:** `8fb471475a76587b36414dfa3ab3f8dfc0cb0124`
 
 ## Authorization and purpose
 
@@ -27,9 +27,9 @@ The implementation is complete for the authorized E0 checkpoint. Operational pos
 | Area | State | Evidence |
 |---|---|---|
 | Governance and dependency exception | Documented | ADR-0001 and governance ledgers |
-| Shared schema/API contract | Frozen for E0 review | `docs/03-architecture/STAGE_01_SHARED_SCHEMA_API_CONTRACT.md`; typed-contract SHA `bf7af4bca28df840971f7100bced3a5e9f9693f2` |
-| Typed contracts | Implemented and locally validated | `packages/contracts`; exact implementation SHA `bf7af4bca28df840971f7100bced3a5e9f9693f2` |
-| Database/migration foundation | Implemented for E0 review | `infrastructure/database`; migration checksum `9259f624433992d71aeff84078cb606f066a24f8fc2dfb4a7dcd5592c9ebd80e` |
+| Shared schema/API contract | Frozen for E0 review | `docs/03-architecture/STAGE_01_SHARED_SCHEMA_API_CONTRACT.md`; typed-contract SHA `8fb471475a76587b36414dfa3ab3f8dfc0cb0124` |
+| Typed contracts | Implemented and locally validated | `packages/contracts`; exact implementation SHA `8fb471475a76587b36414dfa3ab3f8dfc0cb0124` |
+| Database/migration foundation | Implemented for E0 review | `infrastructure/database`; migration checksum `babff85293e0addc526c6b1c39dd3fdbb9da0bd6c8038443069584dc42f7f6ef` |
 | API/service boundary | Read-only E0 status implemented | `apps/web/src/app/api/v1/finance/foundation/route.ts`; no financial mutation route enabled |
 | Finance invariant kernel | Implemented and locally validated | `packages/finance`; posting remains synthetic development/test only |
 | CI quality gate | Implemented; remote run pending push | `.github/workflows/stage1-e0-quality.yml`; PostgreSQL 17 applies, verifies and behavior-tests the migration |
