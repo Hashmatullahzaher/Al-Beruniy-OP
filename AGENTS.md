@@ -19,6 +19,10 @@ The owner has explicitly changed the operational-app build from unattended end-t
 
 **For the operational build, do not autonomously advance beyond the current approved gate.** Existing autonomous-run instructions below apply only when a subsequent owner/client decision explicitly authorizes that scope; the mandatory documentation, security, finance, and quality invariants remain in force. Codex and Antigravity coordinate on one shared operational app, not two separate frontends. In every later financial slice identify and approve counterpart Debit/Credit accounts, test reconciliation, and obtain client sign-off before the next slice.
 
+## Current Stage 1 E0 gate — finance foundation (2026-09-22)
+
+The owner has authorized only the shared Stage 1 E0 database/API contract and eligible WP-0002, WP-0003 and WP-0005 foundations from coordination SHA `999a5335521fac5a9ac9b01b9e5d8261c47424d5`. This gate permits strict typed contracts, migrations, fail-closed security and Finance invariant kernels, synthetic tests, and a read-only foundation-status endpoint. It does not permit production posting, real opening positions, official financial reports, deployment, a merge to `main`, or later Stage 1 workflows. The canonical E0 boundary is `docs/03-architecture/STAGE_01_SHARED_SCHEMA_API_CONTRACT.md`; high-risk Finance and authorization code requires independent review before handoff.
+
 ## Autonomous execution
 Read `docs/04-delivery/AGENT_COORDINATION.md`, `WORK_STATUS.md`, `RELEASE_READINESS.md` and `docs/03-architecture/TECHNOLOGY_BASELINE.md`.
 

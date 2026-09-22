@@ -1,5 +1,5 @@
 {
-  "name": "@abos/contracts",
+  "name": "@abos/database",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -12,6 +12,6 @@
     "clean": "node -e \"require('fs').rmSync('tsconfig.tsbuildinfo',{force:true})\""
   },
   "dependencies": {
-    "zod": "4.6.5"
+    "@abos/contracts": "workspace:*"
   }
 }

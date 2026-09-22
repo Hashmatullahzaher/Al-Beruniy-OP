@@ -1,0 +1,59 @@
+name: Stage 1 E0 quality
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - "agent/codex/stage-1-finance-foundation"
+  pull_request:
+    paths:
+      - "apps/web/**"
+      - "packages/contracts/**"
+      - "packages/database/**"
+      - "packages/finance/**"
+      - "infrastructure/database/**"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/stage1-e0-quality.yml"
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: abos
+          POSTGRES_PASSWORD: abos_test
+          POSTGRES_DB: abos_e0
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U abos -d abos_e0"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://abos:abos_test@127.0.0.1:5432/abos_e0
+      CI: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.8.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test:unit
+      - name: Apply and verify the E0 PostgreSQL migration
+        run: |
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f infrastructure/database/migrations/0001_e0_finance_foundation.sql
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f infrastructure/database/verify/0001_e0_finance_foundation.sql
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f infrastructure/database/tests/0001_e0_finance_invariants.sql
+      - run: pnpm build
+      - run: pnpm test:smoke
+      - run: pnpm --filter @abos/web exec playwright install --with-deps chromium
+      - run: pnpm --filter @abos/web exec playwright test --workers=1

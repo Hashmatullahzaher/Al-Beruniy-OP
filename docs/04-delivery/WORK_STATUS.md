@@ -10,10 +10,10 @@ Agents must update the relevant row when status changes. `DONE` requires evidenc
 | Phase | Work Package | Scope | Status | Agent | Branch | Commit / PR | Reviewer | Evidence / Notes | Updated |
 |---|---|---|---|---|---|---|---|---|---|
 | F0 — Engineering Foundation | WP-0001 | Repository / Application Skeleton | VERIFIED | Codex | agent/codex/WP-0001-app-skeleton | 177c09aab5ec6baaa0ff56f05195a9e403a69035 | Independent Codex review | Frozen install, lint, typecheck, build, 2/2 smoke and 5/5 browser tests pass after accessibility remediation; Antigravity/client UI gate pending | 2026-09-20 |
-| F0 — Engineering Foundation | WP-0002 | Database & Migration Foundation | TODO |  |  |  |  |  |  |
-| F0 — Engineering Foundation | WP-0003 | API / Service Boundary | TODO |  |  |  |  |  |  |
+| F0 — Engineering Foundation | WP-0002 | Database & Migration Foundation | IN_PROGRESS | Codex | agent/codex/stage-1-finance-foundation | TO_BE_RECORDED_IN_FINAL_HANDOFF | Independent Codex database review; owner checkpoint review pending | E0 migration checksum `9259f624433992d71aeff84078cb606f066a24f8fc2dfb4a7dcd5592c9ebd80e`; 5/5 package tests pass; CI PostgreSQL gate pending push; no real data | 2026-09-22 |
+| F0 — Engineering Foundation | WP-0003 | API / Service Boundary | IN_PROGRESS | Codex | agent/codex/stage-1-finance-foundation | TO_BE_RECORDED_IN_FINAL_HANDOFF | Independent Codex finance/security review; owner checkpoint review pending | `stage1-e0-v1` contract and read-only foundation endpoint implemented; financial mutations and operational posting remain blocked | 2026-09-22 |
 | F0 — Engineering Foundation | WP-0004 | Events / Outbox / Jobs | TODO |  |  |  |  |  |  |
-| F0 — Engineering Foundation | WP-0005 | CI / Quality / Test Harness | TODO |  |  |  |  |  |  |
+| F0 — Engineering Foundation | WP-0005 | CI / Quality / Test Harness | IN_PROGRESS | Codex | agent/codex/stage-1-finance-foundation | TO_BE_RECORDED_IN_FINAL_HANDOFF | Owner checkpoint review | Local frozen install, lint, 5/5 workspace typecheck, build, 33/33 unit, 3/3 smoke and 23/23 serial browser tests pass; remote PostgreSQL CI gate pending push | 2026-09-22 |
 | F1 — Identity, Access, Workflow, Audit, Documents | WP-0101 | Identity / User Account | TODO |  |  |  |  |  |  |
 | F1 — Identity, Access, Workflow, Audit, Documents | WP-0102 | Organization / Department | TODO |  |  |  |  |  |  |
 | F1 — Identity, Access, Workflow, Audit, Documents | WP-0103 | Role / Permission Engine | TODO |  |  |  |  |  |  |

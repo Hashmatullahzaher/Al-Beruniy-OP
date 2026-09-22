@@ -1,0 +1,94 @@
+openapi: 3.1.0
+info:
+  title: AL-BERUNIY Stage 1 Finance Integration Contract
+  version: 0.1.0-e0
+  description: >-
+    Contract-first E0 boundary for the first USD shareholder capital receipt.
+    No endpoint is authorized for production until identity, policy, CoA, period,
+    opening-position and Finance Manager gates are satisfied.
+servers:
+  - url: /api/v1
+paths:
+  /shareholder-capital/receipts:
+    post:
+      operationId: createCapitalReceiptIntent
+      summary: Create a draft or eligible capital receipt intent; never posts Treasury or GL effects.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CorrelationId'
+      responses:
+        '201': { description: Draft intent created }
+        '409': { $ref: '#/components/responses/ControlledError' }
+        '422': { $ref: '#/components/responses/ControlledError' }
+  /treasury/cash-receipts:
+    post:
+      operationId: verifyPhysicalCashReceipt
+      summary: Record a physical cash count and verified receipt; cashier comes from server identity.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CorrelationId'
+      responses:
+        '201': { description: Treasury receipt verified }
+        '409': { $ref: '#/components/responses/ControlledError' }
+        '422': { $ref: '#/components/responses/ControlledError' }
+  /finance/posting-intents/{id}/approve:
+    post:
+      operationId: approveFinancePostingIntent
+      summary: Record independent Finance approval; actor and authority are server-derived.
+      parameters:
+        - $ref: '#/components/parameters/PostingIntentId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CorrelationId'
+      responses:
+        '200': { description: Approval recorded }
+        '403': { $ref: '#/components/responses/ControlledError' }
+        '422': { $ref: '#/components/responses/ControlledError' }
+  /finance/posting-intents/{id}/post:
+    post:
+      operationId: postFinancePostingIntent
+      summary: Dispatch exclusively to the Finance posting service; fails closed until all gates pass.
+      parameters:
+        - $ref: '#/components/parameters/PostingIntentId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CorrelationId'
+      responses:
+        '200': { description: Exactly-one balanced journal posted }
+        '403': { $ref: '#/components/responses/ControlledError' }
+        '409': { $ref: '#/components/responses/ControlledError' }
+        '422': { $ref: '#/components/responses/ControlledError' }
+        '503': { $ref: '#/components/responses/ControlledError' }
+components:
+  parameters:
+    PostingIntentId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema: { type: string, minLength: 8, maxLength: 200 }
+    CorrelationId:
+      name: X-Correlation-ID
+      in: header
+      required: true
+      schema: { type: string, minLength: 8, maxLength: 200 }
+  responses:
+    ControlledError:
+      description: Structured fail-closed domain or authorization error.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [ok, error, correlationId]
+            properties:
+              ok: { const: false }
+              correlationId: { type: string }
+              error:
+                type: object
+                required: [code, message, retryable]
+                properties:
+                  code: { type: string }
+                  message: { type: string }
+                  retryable: { type: boolean }

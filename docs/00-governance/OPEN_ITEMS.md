@@ -17,6 +17,29 @@ Resolve before F2 currency masters, F3 Finance Kernel, or any dependent operatio
 - shareholder equity versus loan classification, opening balances and migration-rate evidence
 - tax/statutory currency and presentation requirements
 
+## Stage 1 E0 Finance Manager Approval Gates
+
+The following items remain `CLIENT_FINANCE_PENDING`. Provisional inputs may be represented as non-operational configuration states for contract testing, but they must not activate accounting. Record the Finance Manager response as a new versioned decision and retain any difference from earlier proposals.
+
+- legal name and identifier of the first operating legal entity, and its approved base accounting currency
+- approved Chart of Accounts, account codes and control-account relationships for office cash, paid-in capital, shareholder loans, capital pending registration and corrections
+- fiscal calendar, accounting periods, period-close authority and the first permitted accounting-effective date
+- evidence requirements for capital agreements, registration, receipt/count and Finance approval
+- accounting treatment of funds received before formal capital registration is complete
+- opening-balance cutoff, source records, GL counterpart, reconciliation evidence, discrepancy handling and approval chain
+- activation criteria for each physical cash-location × currency account, including tolerances or exceptions
+- production safes/cash locations, responsible cashiers and approved currency accounts
+- final server-side permission matrix, segregation-of-duties conflicts, Finance approver authority, limits, substitutes and step-up requirements
+- monetary amount scale, FX-rate precision and rounding rules for storage, validation, posting and display
+- exchange-rate source, rate category, effective date/time, timezone, cutoff, staleness and evidence for each future cross-currency transaction
+- realized/unrealized exchange-difference accounts and policy, revaluation scope/frequency/rate/reversal policy, and settlement-difference treatment
+- Saraf acknowledgement, company confirmation, reconciliation thresholds, exception authority, spread/fee treatment and custody/receivable/payable classification
+- reversal versus adjustment authority, reason/evidence requirements, period treatment and reporting presentation
+- operational-report scope during phased openings and the exact gate for company-wide financial statements
+- retention, numbering, signing and audit requirements for capital, cash, approval and journal evidence
+
+Until these are resolved, E0 must reject or withhold requests requiring the missing policy. No fallback rate, balancing account, assumed opening balance, automatic project attribution or permissive authorization default is allowed.
+
 ## AI Core / LLM / Telegram Open Items
 Resolve before dependent production configuration:
 - approved LLM provider(s), model families and regions

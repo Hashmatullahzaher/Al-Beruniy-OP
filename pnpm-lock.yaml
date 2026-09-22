@@ -51,7 +51,23 @@ importers:
         specifier: 19.3.0
         version: 19.3.0(react@19.3.0)
 
-  packages/contracts: {}
+  packages/contracts:
+    dependencies:
+      zod:
+        specifier: 4.6.5
+        version: 4.6.5
+
+  packages/database:
+    dependencies:
+      '@abos/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+
+  packages/finance:
+    dependencies:
+      '@abos/contracts':
+        specifier: workspace:*
+        version: link:../contracts
 
   packages/ui:
     dependencies:

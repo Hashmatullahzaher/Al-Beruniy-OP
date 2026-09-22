@@ -13,7 +13,9 @@
     "lint": "eslint apps/web packages --max-warnings=0",
     "typecheck": "turbo run typecheck",
     "build": "turbo run build",
-    "test": "pnpm test:smoke",
+    "test": "pnpm test:unit && pnpm test:smoke",
+    "test:unit": "pnpm --filter @abos/contracts test && pnpm --filter @abos/database test && pnpm --filter @abos/finance test",
+    "test:database": "pnpm --filter @abos/database test",
     "test:smoke": "pnpm --filter @abos/web test:smoke",
     "test:e2e": "pnpm --filter @abos/web test:e2e",
     "clean": "turbo run clean"
