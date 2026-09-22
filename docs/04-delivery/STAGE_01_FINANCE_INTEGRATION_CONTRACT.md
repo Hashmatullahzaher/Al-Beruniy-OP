@@ -1,0 +1,66 @@
+# Stage 1 — Shareholder / Treasury / Finance Integration Contract (engineering draft)
+
+**Status:** OWNER-AUTHORIZED LIMITED ENGINEERING PREPARATION; CLIENT FINANCE POLICY APPROVAL PENDING. This is a coordination contract, not an approved accounting-policy document or an authorization for production accounting.
+**Foundation ref:** `agent/codex/WP-0001-command-center-rebuild` at `a4ff484d357d22ba60ab1efd1650022bde9ab43c`.
+**Owner direction:** Begin coordinated coding of the real shareholder, treasury, and Finance modules for a Finance Manager walkthrough, while keeping unresolved financial policy and real-data activation gated. Supersedes the older *blanket* prohibition on beginning Stage 1 only for the narrow development scope below; it does not authorize live posting, opening-balance imports, production deployment, accounting policy selection, or autonomous expansion.
+**Change control:** Owner's responses to the 64-question questionnaire are provisional pending the client's independent Finance Office review. Do not claim the client has confirmed them. Maintain differences as open items, configure where appropriate, block policy-dependent operations.
+
+## 1. Repo precedence and preservation
+
+Read `AGENTS.md`, `docs/04-delivery/ACCEPTANCE_CONTRACT.md`, `docs/02-domain/BUSINESS_RULES.md`, `docs/01-product/PRODUCT_REQUIREMENTS.md`, BP-02/BP-03/BP-04/BP-16/BP-17/BP-21/BP-23/BP-26, `docs/03-architecture/TECHNOLOGY_BASELINE.md`, `docs/04-delivery/IMPLEMENTATION_PLAN.md`, `docs/04-delivery/BUILD_WORK_PACKAGES.md`, `docs/04-delivery/AGENT_COORDINATION.md`, `docs/00-governance/OPEN_ITEMS.md` and `docs/04-delivery/STAGE_00_RELEASE_READINESS_REPORT.md`. This narrower owner-authorized engineering scope must be reconciled in governance before material downstream code is merged. Do not silently rewrite historical design approvals.
+
+Keep the existing strict-TypeScript Next.js `apps/web` and shared `packages/ui` / `packages/contracts`; extend one modular monolith, not three apps. Preserve all Stage 0 approved routes, original Mazar Mall architectural asset, English/Dari RTL, desktop/tablet, accessibility and `apps/holographic-presentation`. Do not merge `main` or deploy to production without a separate owner gate. Explicitly mark sandbox/sample figures and distinguish them from actual records.
+
+## 2. Business facts (owner-provisional pending Finance confirmation)
+
+- Initial **one** operating legal entity: USD base accounting currency; transaction currencies USD and AFN only. Do not apply USD base automatically to another entity.
+- The company uses **multiple physical safes/cash locations and individual Sarafs**, not bank accounts in this initial scope. Each cash location has unique name/responsible cashier and USD/AFN balances maintained and activated separately; transfers require both currency-location accounts active. Saraf-held money is not cash physically in a company safe.
+- Saraf: independent party ledger, on-demand company funds, other evidenced receivables, and same-principal/same-currency repayable cash advances. Both Saraf acknowledgment and company confirmation mandatory for a shareholder's direct-to-Saraf receipt; reconcile each Saraf transaction against written evidence and periodically under thresholds still to be confirmed. No holding/advance fees under the stated arrangement; currency exchange spread/fees not yet resolved.
+- Shareholders: separate party, agreement, capital contribution, capital pending registration and shareholder loan. Capital is legally recognized only with received funds plus approved agreement and formal registration evidence; partial installments are allowed. Agreement governs denomination and consequences of incomplete registration. A loan can be repaid in another currency only if its agreement permits. The designated cashier records/confirms physical counts; a **different** designated Finance approver verifies capital documents, approves and initiates Finance posting.
+- Sarafi rates vary by transaction type and rate date. Ordinary AFN shareholder receipt: applicable documented contractual rate, otherwise separately Finance-approved Sarafi rate, subject to accountant-approved accounting valuation. Keep source currency, USD valuation, effective time and immutable rate snapshot. Do not invent rate/rounding/revaluation/FX-gain policy.
+- Existing records are spreadsheets; management and Finance approve a particular opening cutoff. Reconcile source and required GL counterparts; only explicitly approved reconciled location–currency accounts may activate. Block transfers involving inactive accounts. Allow conspicuously scoped operational reports during phased opening; **block company-wide official statements** until the complete required opening position is approved.
+
+## 3. Shared domain identifiers and interface contracts (proposal to lock before feature code)
+
+`UserAccount` (Type A), `BusinessParty` (Type B: `SHAREHOLDER` or `SARAF` party roles), `LedgerAccount` (Type C) are different records. A shareholder or Saraf is **not** a GL account, and a Saraf is **not** a bank or physical safe.
+
+Use opaque IDs and explicit `legalEntityId`, relevant project/department/cost-center attribution or a documented company-level/not-applicable dimension; never invent a project for corporate share capital. Document IDs and receipt numbers are distinct from database IDs. All monetary values are exact decimal-string/NUMERIC amount plus explicit ISO currency (`USD` | `AFN` for this slice); never JS floating point for money. Separate `businessEventAt`, `evidenceCompletedAt`, `accountingEffectiveDate`, `approvedAt`, `postedAt`. Rate/conversion may be absent only for same-currency USD-base transactions when policy permits; do not silently use 1:1 for AFN.
+
+Suggested stable ownership and events (subject to joint schema review):
+- **Shareholder domain (Claude):** `ShareholderProfile`, `CapitalAgreement`, `RegistrationEvidence`, `CapitalInstallment`, `ShareholderLoanAgreement`; produces `CapitalReceiptIntent` referencing `partyId`, `agreementId`, permitted amount/currency, eligible legal classification, expected treasury destination and supporting evidence. No direct Treasury/GL writes.
+- **Treasury domain (Antigravity):** `CashLocation`, `CashLocationCurrencyAccount`, `PhysicalCashCount`, `CashReceipt`, `SarafPosition`, `SarafMovement`, `ReconciliationCase`; returns `VerifiedTreasuryReceipt` with actual physical/saraf destination, counted amount and cashier actor/evidence. Never creates a journal or treats an unverified direct-to-Saraf payment as company cash.
+- **Finance domain (Codex):** `AccountingPeriod`, `LedgerAccount`, `Journal`, `JournalLine`, `PostingAuthorization`, `OpeningBalanceBatch`, `FxRateSnapshot`; accepts `PostingIntent` only after legal eligibility, Treasury verification, approved cash-account activation, approved CoA/period, Finance approval and idempotency checks. Only the Finance posting service commits GL entries. All posted journals immutable and exactly balanced in base USD.
+
+**Proposed domain boundary API (contract-first, no independent endpoint invention):**
+`POST /api/v1/shareholder-capital/receipts` creates *draft intent only* (shareholder service);
+`POST /api/v1/treasury/cash-receipts` records/validates counted cash (Treasury service);
+`POST /api/v1/finance/posting-intents/{id}/approve` uses server-enforced separate Finance approver and records approval;
+`POST /api/v1/finance/posting-intents/{id}/post` may be initiated by the designated approver but dispatches exclusively to the Finance posting service. API paths are **proposed** and require agreed OpenAPI/schema freeze; no endpoint may post while policy/configuration, identity, opening scope or approval is missing. Every retry-prone write uses idempotency key, correlation ID and immutable audit references. Domain event delivery is transactional-outbox based once the foundation exists; read reports come from authoritative posted projections only.
+
+## 4. First connected vertical slice — USD cash capital installment
+
+After prerequisites are implemented and approved: recognized initial entity + shareholder/approved agreement + formal registration evidence; agreed USD installment within agreement terms; receiving cash location's **USD account** with approved reconciled opening and required GL counterparts; authorized cashier records actual cash and count; separate Finance approver verifies documents, amount, period and ledger classification; that same approver initiates authorized Finance posting.
+
+**Illustrative intended pattern, conditional on approved CoA:** Dr Office Cash USD (with cash location subledger), Cr Paid-in Share Capital, equal USD amounts. No Saraf or FX is used in this *first* happy path. The agreement commitment is not automatically posted as cash or paid-in capital. Corrections use linked reversal/adjustment approval. An actual count can be recorded in a controlled pending workflow before approval; a draft must not alter **posted** safe/GL balance. Do not create duplicate treasury or capital effects when the same intent is retried.
+
+Pass a full integration test: shareholder agreement → actual cashier receipt/count → independent Finance approval → exactly-one balanced journal → matching safe USD, shareholder capital, GL and scoped operational report → reverse trace to evidence. Fail-closed negative tests: missing registration/receipt evidence, inactive safe USD, wrong legal entity/currency, excess installment, self-approval, duplicate request, closed period, unbalanced posting, unresolved discrepancy, direct-to-Saraf without both confirmations, unapproved rate, cross-currency sum. Distinguish simulated fixtures from actual verified customer data.
+
+## 5. Approval and delivery gates
+
+**E0: code-safe foundation now permitted** — review existing repo, update scoped governance, agree schemas/contracts, isolated feature branches, dev/test DB and migrations with no real data, authorization/audit scaffolding, shareholder and treasury draft workflows, Finance journal invariant/test kernel. Package dependency exceptions require owner-approved ADR; do not mark old WP rows DONE on the basis of Stage 0 UI alone.
+
+**E1: accounting-rule gate** — no policy-dependent live-equivalent posting enabled until Finance Office questionnaire compared/approved, exact company/safes, document rules, approved CoA, fiscal periods, cutoff, historical/opening GL and per-location/currency activation, permission matrix, correction policy are confirmed. Do not implement speculative default rates, FX gain/loss, revaluation, generic opening-balance plug or actual balance imports.
+
+**E2: sandbox end-to-end review** — a functioning **development** workflow with clearly isolated synthetic fixtures may demonstrate the same connected domain/API/GL code behind a non-production flag once required test policies are explicit; any simulated policy/CoA must be labeled, test-only, not an implied real-business decision. Before client review show exact SHA, integration test evidence, deviations from approved Stage 0 visuals, unresolved finance items and a working reversal/duplicate/SoD negative test. Finance Manager feedback results in versioned decision records, no silent edits to historical accounting.
+
+**E3: production financial release** — separate written owner + Finance/client sign-off, security/migration/backup/UAT, reconciled opening balances and company-specific posting policies. Not authorized here.
+
+## 6. Agent ownership and integration order
+
+1. **Codex — foundation and Finance posting authority:** review WP-0002/0003/0005 prerequisites, own single DB/migration/schema and OpenAPI generation, exact-decimal money value contracts, server identity/SoD/audit boundary, CoA/period/journal immutable engine and integration tests. Do not independently decide policy. Publish schema/contract SHA **before** other agents write migrations or handlers.
+2. **Claude — shareholder domain and architecture review:** verify capital/loan agreement fields and legal-evidence gates, implement shareholder models/application services/API **using Codex-shared schema** after contract freeze, draft/eligibility/partial installments and contribution-pending status without unapproved GL classification. Independently review Codex finance/SoD work; do not directly post GL.
+3. **Antigravity — cash-safe/Saraf treasury plus integration UX:** implement cash location/currency subledger, counts, receipts, Saraf position/reconciliation domain interfaces **using Codex-shared schema**; integrate into approved Finance UI without redesigning it, preserve English/Dari RTL/accessibility, run browser tests. Independently review Claude party isolation and contract flows; do not post GL or fabricate real balances.
+
+All three share ONE repo, additive isolated branches off the same approved base/integration SHA, no overlapping file writes or unreviewed shared-schema edits. Use feature flags to keep unfinished routes clearly marked and posting unavailable. Claude leads contract/interface reviews, but owner controls design and business-policy gates. The agent that implements high-risk financial or access code cannot solely review it.
+
+See `STAGE_01_REPOSITORY_CONFLICT_AUDIT.md` for doc contradictions and the explicit old-plan update required before live operation.
