@@ -1016,11 +1016,12 @@ BEGIN
       RAISE EXCEPTION 'journal posting requires the approved legal-entity base currency';
     END IF;
 
-    SELECT status, intent_kind, source_id, created_by_user_account_id, base_amount, base_currency_code
+    SELECT pi.status, pi.intent_kind, pi.source_id, pi.created_by_user_account_id,
+           pi.base_amount, pi.base_currency_code
       INTO intent_status, intent_kind, intent_source_id, intent_creator_id, intent_base_amount, intent_base_currency
-      FROM abos.posting_intents
-     WHERE id = NEW.posting_intent_id
-       AND legal_entity_id = NEW.legal_entity_id;
+      FROM abos.posting_intents pi
+     WHERE pi.id = NEW.posting_intent_id
+       AND pi.legal_entity_id = NEW.legal_entity_id;
 
     IF intent_status IS DISTINCT FROM 'APPROVED'
        OR intent_base_amount IS NULL

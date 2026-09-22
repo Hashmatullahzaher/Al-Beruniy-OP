@@ -39,6 +39,7 @@ test("migration text contains fail-closed posting, immutability, reversal, and s
   assert.match(sql, /posted financial provenance is immutable/i);
   assert.match(sql, /mapped safe CASH debit and matching shareholder control credit/i);
   assert.match(sql, /posting_intents_one_intent_per_receipt/i);
+  assert.match(sql, /SELECT pi\.status, pi\.intent_kind, pi\.source_id/i);
   assert.match(sql, /must remain separate from intent creator, cashier and cash counter/i);
   assert.match(sql, /verified structured formal-registration evidence/i);
   assert.match(sql, /registration_evidence_posted_provenance_guard/i);

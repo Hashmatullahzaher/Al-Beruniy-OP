@@ -15,7 +15,7 @@ export interface LoadedMigration extends MigrationDefinition {
 export const migrationCatalog = [
   {
     id: "0001_e0_finance_foundation",
-    checksumSha256: "9259f624433992d71aeff84078cb606f066a24f8fc2dfb4a7dcd5592c9ebd80e",
+    checksumSha256: "babff85293e0addc526c6b1c39dd3fdbb9da0bd6c8038443069584dc42f7f6ef",
     relativePath:
       "infrastructure/database/migrations/0001_e0_finance_foundation.sql",
   },
