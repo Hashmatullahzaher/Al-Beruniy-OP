@@ -28,7 +28,12 @@ import {
 import { assessInstallmentEligibility } from "./eligibility.ts";
 import { ShareholderDomainError } from "./errors.ts";
 import { InMemoryShareholderRepository } from "./memory-repository.ts";
-import { toContractAgreementStatus } from "./schema-divergence.ts";
+import {
+  CANONICAL_STATUS_DECISION_PENDING,
+  toContractAgreementStatus,
+  toPersistedAgreementStatus
+} from "./schema-divergence.ts";
+import type { JointStatusDecision, PersistedAgreementStatus } from "./schema-divergence.ts";
 import type {
   CapitalAgreementRecord,
   CapitalInstallmentRecord,
@@ -585,14 +590,49 @@ test("pending registration is neither paid-in capital nor automatically a liabil
 
 // ---------------------------------------------------------------- schema divergence (Finance F-1)
 
-test("the persisted agreement vocabulary maps to the contract, and the gap is explicit", () => {
-  assert.equal(toContractAgreementStatus("ELIGIBLE"), "APPROVED");
+test("the unresolved status divergence fails closed and is never silently mapped", () => {
+  // Identical names assert nothing about policy, so they map without a decision.
   assert.equal(toContractAgreementStatus("DRAFT"), "DRAFT");
   assert.equal(toContractAgreementStatus("SUSPENDED"), "SUSPENDED");
   assert.equal(toContractAgreementStatus("CLOSED"), "CLOSED");
+
+  // ELIGIBLE → APPROVED is a policy-semantic claim. Without a recorded joint decision it must throw,
+  // per the owner's direction on issue #3 not to resolve the mismatch silently.
+  const pending = (persisted: PersistedAgreementStatus) => () => toContractAgreementStatus(persisted);
+  for (const persisted of ["ELIGIBLE", "PENDING_EVIDENCE"] as const) {
+    assert.throws(
+      pending(persisted),
+      (error: unknown) =>
+        error instanceof ShareholderDomainError && error.code === "POLICY_CONFIGURATION_PENDING",
+      `${persisted} must not map without a recorded decision`
+    );
+  }
+  assert.equal(CANONICAL_STATUS_DECISION_PENDING, true);
+
+  // With a recorded decision the mapping applies, and only for the status it covers.
+  const decision: JointStatusDecision = {
+    decisionReference: "SYNTHETIC-TEST-ONLY — not an agreed decision",
+    canonicalFundableStatus: "ELIGIBLE",
+    contractEquivalent: "APPROVED"
+  };
+  assert.equal(toContractAgreementStatus("ELIGIBLE", decision), "APPROVED");
   assert.throws(
-    () => toContractAgreementStatus("PENDING_EVIDENCE"),
+    () => toContractAgreementStatus("PENDING_EVIDENCE", decision),
     (error: unknown) =>
       error instanceof ShareholderDomainError && error.code === "POLICY_CONFIGURATION_PENDING"
   );
+  assert.throws(
+    () => toContractAgreementStatus("ELIGIBLE", { ...decision, decisionReference: "  " }),
+    (error: unknown) =>
+      error instanceof ShareholderDomainError && error.code === "POLICY_CONFIGURATION_PENDING"
+  );
+
+  // The reverse direction is gated identically.
+  assert.equal(toPersistedAgreementStatus("DRAFT"), "DRAFT");
+  assert.throws(
+    () => toPersistedAgreementStatus("APPROVED"),
+    (error: unknown) =>
+      error instanceof ShareholderDomainError && error.code === "POLICY_CONFIGURATION_PENDING"
+  );
+  assert.equal(toPersistedAgreementStatus("APPROVED", decision), "ELIGIBLE");
 });

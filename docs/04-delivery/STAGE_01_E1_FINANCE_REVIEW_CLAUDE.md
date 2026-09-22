@@ -80,8 +80,11 @@ adopt the DB vocabulary in the contract, i.e.
 `"DRAFT" | "PENDING_EVIDENCE" | "ELIGIBLE" | "SUSPENDED" | "CLOSED"`, and change the kernel assertion
 to `=== "ELIGIBLE"`. `ELIGIBLE` is the more accurate word: the gate is "this agreement may fund an
 installment", not "someone approved a document". This is an additive `stage1-e0-v2` contract bump.
-I have isolated my dependency on this in one file — `packages/shareholder/src/schema-divergence.ts` —
-so the fix is a single edit on my side once you rule.
+I have isolated my dependency on this in one file — `packages/shareholder/src/schema-divergence.ts`.
+Per the owner's direction on issue #3, that module now **fails closed**: `ELIGIBLE` and
+`PENDING_EVIDENCE` throw `POLICY_CONFIGURATION_PENDING` unless the caller supplies a
+`JointStatusDecision` citing a durable decision reference. Nothing is silently mapped, and until we
+decide jointly no adapter can produce a fundable agreement from persisted rows.
 
 **Test to add on your side:** a posting attempt whose eligibility carries each non-eligible status,
 asserting `CAPITAL_AGREEMENT_REQUIRED`.

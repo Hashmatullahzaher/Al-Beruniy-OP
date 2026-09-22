@@ -108,8 +108,10 @@ six treasury-handoff divergences · no-posting boundary · schema divergence.
 Full detail in `STAGE_01_E1_FINANCE_REVIEW_CLAUDE.md`. Blocking me:
 
 - **F-1** `CapitalAgreementStatus` — contract says `APPROVED`, the database stores
-  `PENDING_EVIDENCE` / `ELIGIBLE`. My dependency is isolated in `schema-divergence.ts`; one edit once
-  you rule.
+  `PENDING_EVIDENCE` / `ELIGIBLE`. My dependency is isolated in `schema-divergence.ts`, which now
+  **fails closed**: the mapping applies only with a `JointStatusDecision` citing a durable decision
+  reference. No unapproved policy-semantic mapping ships. We version the canonical vocabulary
+  together, then I supply the decision record.
 - **F-2** `abos.capital_receipt_intents` does not exist, so my output cannot be persisted and
   `posting_intents.source_id` has no foreign key. `ShareholderRepository` is written to the shape that
   table needs.
@@ -150,6 +152,11 @@ I can write steps 1–4 and 6 as fixtures the moment the integration harness exi
 ## Remaining blockers and Finance Manager decisions
 
 **Blockers (Codex):** F-1 and F-2 — until both land, the domain runs only on the in-memory adapter.
+
+**Not yet proven.** 32/32 unit tests exercise domain logic against an in-memory adapter. They do
+**not** prove persistent cross-domain behaviour. There are no PostgreSQL tests, because F-2 means the
+table my adapter needs does not exist. E1 remains in progress and synthetic only; the real
+PostgreSQL and cross-domain E2E tests are outstanding work, not a passed gate.
 
 **Requires Finance Manager, not an engineer:**
 
