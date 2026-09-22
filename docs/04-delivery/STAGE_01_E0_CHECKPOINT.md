@@ -5,7 +5,8 @@
 **Branch:** `agent/codex/stage-1-finance-foundation`
 **Exact base SHA:** `999a5335521fac5a9ac9b01b9e5d8261c47424d5`
 **Approved Stage 0 reference:** `a4ff484d357d22ba60ab1efd1650022bde9ab43c`
-**Checkpoint implementation SHA:** `8fb471475a76587b36414dfa3ab3f8dfc0cb0124`
+**Checkpoint tested SHA:** `0102d5d506bd827c4937319226dd3a639c7cb415`
+**Canonical contract/migration SHA:** `8fb471475a76587b36414dfa3ab3f8dfc0cb0124`
 
 ## Authorization and purpose
 
@@ -32,7 +33,7 @@ The implementation is complete for the authorized E0 checkpoint. Operational pos
 | Database/migration foundation | Implemented for E0 review | `infrastructure/database`; migration checksum `babff85293e0addc526c6b1c39dd3fdbb9da0bd6c8038443069584dc42f7f6ef` |
 | API/service boundary | Read-only E0 status implemented | `apps/web/src/app/api/v1/finance/foundation/route.ts`; no financial mutation route enabled |
 | Finance invariant kernel | Implemented and locally validated | `packages/finance`; posting remains synthetic development/test only |
-| CI quality gate | Implemented; remote run pending push | `.github/workflows/stage1-e0-quality.yml`; PostgreSQL 17 applies, verifies and behavior-tests the migration |
+| CI quality gate | PASS | [GitHub Actions run 35749422219](https://github.com/Hashmatullahzaher/Al-Beruniy-OP/actions/runs/35749422219); PostgreSQL 17 applied, verified and behavior-tested the migration |
 | Operational capital posting | **BLOCKED** | E1 policies and prerequisites unresolved |
 | Real opening balances and production records | **NOT AUTHORIZED** | separate owner and Finance approval required |
 
@@ -53,11 +54,11 @@ The implementation is complete for the authorized E0 checkpoint. Operational pos
 
 The database behavior fixture covers balanced posting, duplicate receipt/intent prevention, source uniqueness, cashier/approver segregation, scope, agreement classification, shareholder role, formal registration, active safe linkage, controlled-account composition, immutable provenance and reversal linkage. It executes inside a rolled-back transaction.
 
-Local PostgreSQL execution was unavailable because the Docker daemon was not running. The branch CI gate provisions PostgreSQL 17 and applies the migration, verification SQL and rolled-back behavior fixture after push. Recovery is forward-only remediation or an approved database restore; no destructive down migration is supplied.
+Local PostgreSQL execution was unavailable because the Docker daemon was not running. GitHub Actions run `35749422219` provisioned PostgreSQL 17 and passed migration apply, schema verification and the rolled-back behavior fixture at tested SHA `0102d5d506bd827c4937319226dd3a639c7cb415`. Recovery is forward-only remediation or an approved database restore; no destructive down migration is supplied.
 
 The independent database review retained one P2 operational limitation: opposing parent/child lock order can make PostgreSQL abort one concurrent transaction. Integrity remains atomic; a future database adapter must translate the transient error and apply bounded retry.
 
-**Validation status:** `LOCAL_CHECKS_PASS_REMOTE_POSTGRESQL_GATE_PENDING_PUSH`
+**Validation status:** `PASS_FOR_E0_OWNER_REVIEW`
 
 ## Gates that remain closed
 
