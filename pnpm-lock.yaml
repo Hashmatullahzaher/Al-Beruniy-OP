@@ -69,6 +69,12 @@ importers:
         specifier: workspace:*
         version: link:../contracts
 
+  packages/shareholder:
+    dependencies:
+      '@abos/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+
   packages/ui:
     dependencies:
       react:
