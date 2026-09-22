@@ -4,7 +4,7 @@
 **Contract version:** `stage1-e0-v1`
 **Coordination baseline:** `999a5335521fac5a9ac9b01b9e5d8261c47424d5`
 **Stage 0 reference:** `a4ff484d357d22ba60ab1efd1650022bde9ab43c`
-**Canonical typed contract SHA:** `TO_BE_RECORDED_IN_FINAL_HANDOFF`
+**Canonical typed contract SHA:** `bf7af4bca28df840971f7100bced3a5e9f9693f2`
 
 This document freezes the shared names, ownership boundaries and wire-level invariants required for E0. It is not accounting-policy approval, a production API specification or authorization to post. The canonical TypeScript representation is the reviewed `packages/contracts` commit cited in the final handoff. Domain teams must not create competing ID, money, evidence, event, API-error or General Ledger contracts.
 
@@ -99,7 +99,7 @@ Unknown or unconfigured policy is an error, never a permissive default. Authoriz
 - Additive implementation details may proceed behind these contracts.
 - A rename, removal, type broadening, currency addition, ID substitution, endpoint-ownership change or posting-invariant change is breaking and requires a new contract version plus joint review.
 - Database migrations, OpenAPI output and events derive from or are checked against the reviewed shared contract. Other domains must not create separate migrations for shared tables before the common-schema owner publishes the contract SHA.
-- The final E0 handoff records the commit containing typed contracts and test evidence. Until then the SHA remains `TO_BE_RECORDED_IN_FINAL_HANDOFF`; no downstream agent may claim a production-stable API.
+- The E0 handoff records `bf7af4bca28df840971f7100bced3a5e9f9693f2` as the commit containing the canonical typed contracts and local test evidence. This development freeze is not a production-stable API claim.
 - Finance Manager decisions enter through versioned policy/configuration and a documented contract revision when necessary. Historical events or posted records are never silently reinterpreted.
 
 ## 8. Outside this freeze

@@ -5,7 +5,7 @@
 **Branch:** `agent/codex/stage-1-finance-foundation`
 **Exact base SHA:** `999a5335521fac5a9ac9b01b9e5d8261c47424d5`
 **Approved Stage 0 reference:** `a4ff484d357d22ba60ab1efd1650022bde9ab43c`
-**Checkpoint implementation SHA:** `TO_BE_RECORDED_IN_FINAL_HANDOFF`
+**Checkpoint implementation SHA:** `bf7af4bca28df840971f7100bced3a5e9f9693f2`
 
 ## Authorization and purpose
 
@@ -27,8 +27,8 @@ The implementation is complete for the authorized E0 checkpoint. Operational pos
 | Area | State | Evidence |
 |---|---|---|
 | Governance and dependency exception | Documented | ADR-0001 and governance ledgers |
-| Shared schema/API contract | Frozen for E0 review | `docs/03-architecture/STAGE_01_SHARED_SCHEMA_API_CONTRACT.md`; typed-contract SHA `TO_BE_RECORDED_IN_FINAL_HANDOFF` |
-| Typed contracts | Implemented and locally validated | `packages/contracts`; exact implementation SHA `TO_BE_RECORDED_IN_FINAL_HANDOFF` |
+| Shared schema/API contract | Frozen for E0 review | `docs/03-architecture/STAGE_01_SHARED_SCHEMA_API_CONTRACT.md`; typed-contract SHA `bf7af4bca28df840971f7100bced3a5e9f9693f2` |
+| Typed contracts | Implemented and locally validated | `packages/contracts`; exact implementation SHA `bf7af4bca28df840971f7100bced3a5e9f9693f2` |
 | Database/migration foundation | Implemented for E0 review | `infrastructure/database`; migration checksum `9259f624433992d71aeff84078cb606f066a24f8fc2dfb4a7dcd5592c9ebd80e` |
 | API/service boundary | Read-only E0 status implemented | `apps/web/src/app/api/v1/finance/foundation/route.ts`; no financial mutation route enabled |
 | Finance invariant kernel | Implemented and locally validated | `packages/finance`; posting remains synthetic development/test only |
