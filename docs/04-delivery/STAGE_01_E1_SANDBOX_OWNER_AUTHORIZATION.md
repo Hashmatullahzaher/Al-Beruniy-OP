@@ -1,0 +1,32 @@
+# Stage 1 — E1 Owner Approval: Synthetic Integrated Sandbox
+
+**Status:** OWNER APPROVED — E1 DEVELOPMENT ONLY (2026-09-22). This approval is not client Finance policy approval, an operational activation, or approval of any real financial record.
+**Owner's instruction:** Explicitly approved commencing E1 **in development and with synthetic test information only**, following the E0 report and pending Finance Manager questionnaire review.
+**E0 final reviewed branch baseline:** `agent/codex/stage-1-finance-foundation` at `25b6a56b978e29bf037d1cd5aa004ffd88f405e8`.
+**E0 canonical shared contract/migration reference:** `8fb471475a76587b36414dfa3ab3f8dfc0cb0124`, `stage1-e0-v1`; CI-tested implementation SHA `0102d5d506bd827c4937319226dd3a639c7cb415`; GitHub Actions run `35749422219` as recorded in `STAGE_01_E0_CHECKPOINT.md`. The final E0 HEAD is documentation-only after that tested SHA, not a newly tested code build.
+
+## Narrow authorization / intended E1 deliverable
+
+Produce **real, connected application code and durable, authenticated sandbox persistence** linking the existing shared contract:
+`CapitalAgreement → eligible USD CapitalReceiptIntent → cashier-verified physical CashReceipt → independent Finance Approval → Finance-only balanced journal → linked shareholder/safe-USD subledger and scoped operational projection`. Demonstration uses **synthetic identities, accounts, agreement/registration evidence, safe-opening values, USD amounts and explicit `SYNTHETIC_TEST_ONLY` policy** in an isolated nonproduction database. Realistic but invented company figures must always be labelled synthetic and must never be uploaded/imported as actual AL-BERUNIY opening balances.
+
+The **first** connected happy path is an eligible USD installment physically received at one named *synthetic* office safe's *USD* account, with a specifically approved *synthetic* opening and a synthetic test-only CoA/period; no Saraf, AFN conversion, banks or other transaction types in the first posting path. Any simulation of `CLIENT_FINANCE_APPROVED` must be a test-only fixture that is technically barred from live configuration. Absence of a safe's own activation/evidence, agreement/registration, cashier count, separate Finance approver or approved synthetic policy must fail closed; a draft must not change any posted balance.
+
+This is an **engineering test of the actual cross-domain backend/UI wiring** (not a disconnected mocked-UI demo); any proposed exchange-rate/accounting policy must not be presented as legally/accountant approved. No production-ready Finance signoff is inferred from passing sandbox tests.
+
+## Workstream allocation; parallel agents required where available
+
+1. **Codex — lead integration / Finance authority:** own shared schema, all common DB migrations, typed contracts/OpenAPI, secured persistent adapter, bounded typed retries for PostgreSQL deadlock/serialization conflicts (including the documented E0 P2), SoD and evidence checking, Finance-only posting, idempotency, reconciliation and actual E1 integration tests. Use parallel independent agents for Finance/security review, PostgreSQL/concurrency review and browser/integration QA, provided they work on nonoverlapping files or perform read-only audits. Lead resolves findings and integrates. Do not invent missing policies, grant yourself Finance Manager approval, or bypass prerequisites in the work-status ledger.
+2. **Claude — shareholder domain and independent reviewer:** independently review the E0 Finance/Security code and E1 changes; build shareholder agreement/registration/partial-installment intent logic against `stage1-e0-v1` (or a jointly reviewed versioned additive extension). No direct Treasury/GL mutations. Do not conflate pending registration with paid-in capital or automatically classify every pending contribution as liability.
+3. **Antigravity — Treasury / UI integration:** build per-safe USD/AFN accounts and currency-specific activation/status, physical cashier receipt/count, verified source links, optional Saraf master/ledger *interfaces only* at this checkpoint, and usable approved-stage-0-consistent Finance/Shareholder/Treasury workflow UX. Do not execute Saraf money movement or bank features; all posting routes delegate to Codex's Finance service.
+
+Agents implement on **separate feature branches** off this exact coordination SHA after receiving it, share a single repo and one contract, declare file ownership; no concurrent conflicting schema migrations or silent changes to the canonical financial contract. Preserve the original Mazar Mall photograph, 11 approved Stage 0 screens, English/Dari and RTL, and the unrelated `apps/holographic-presentation` application.
+
+## Gates / tests / stop conditions
+
+- Keep the broader F0/F1/F2/F3 dependency contract, approved E0 ADR and work-package status intact; E1 is a narrowly approved exception for sandbox integration, **not** a declaration that unmet hard prerequisites are DONE. Implement the required dependency or present a precisely scoped ADR rather than installing permissive authorization stubs.
+- Demonstrate tests for missing/invalid capital registration or agreement, installment excess, wrong company/party/project/currency, inactive safe USD even when AFN active, unchecked cash count, unverified receipt, self-approval or unauthorized role, duplicate source/intent/receipt/post attempt, missing CoA/closed period, reversal, divergent subledger vs GL, mixed-currency total, scope of operational report, and PostgreSQL concurrent/retry behavior.
+- Maintain signed-off real-transaction policies as an explicit separate future gate: **no real shareholders, company money, real opening balances, production posting endpoints, public official financial statements, bank integration, Saraf movement, FX valuation, deployment or main merge** under this authorization.
+- No automatic advancement beyond the first E1 integrated USD capital-receipt checkpoint. Handoff exact base/head and shared-contract SHA, changed files, test/CI evidence, independent Claude review status, any policy assumptions clearly marked synthetic, open Finance Manager decisions and next approval request.
+
+**Approval source:** owner expressly answered "بلی اجازه میدهم" to the proposal to begin **E1 only in development with synthetic data**. This records authorization of development scope, not evidence of client Finance acceptance of policies, company identity/amounts or activation of any operational ledger.
