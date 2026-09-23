@@ -1,4 +1,4 @@
-import { createHmac, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import type { SqlExecutor } from "@abos/database";
 import { sandboxGateFingerprint } from "@abos/contracts";
 import type {
@@ -161,12 +161,14 @@ export class SandboxAuthenticator {
 
     await this.database.query(
       `INSERT INTO abos.sandbox_sessions
-         (id, user_account_id, token_sha256, legal_entity_id, issued_at, expires_at)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
+         (id, user_account_id, token_sha256, runtime_token_sha256,
+          legal_entity_id, issued_at, expires_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
       [
         sessionId,
         input.userAccountId,
         this.digest(token),
+        createHash("sha256").update(token).digest("hex"),
         input.legalEntityId,
         issuedAt.toISOString(),
         expiresAt.toISOString()

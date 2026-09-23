@@ -28,35 +28,38 @@ if (databaseUrl() === undefined) {
       await harness.close();
     });
 
-    test("migration and runtime identities are separate; runtime can read only", async () => {
+    test("migration and runtime identities are separate; runtime has only the posting capability", async () => {
       await asRuntime(harness, async (client) => {
         const identity = await client.query<{ current_user: string }>("SELECT current_user");
         assert.equal(identity.rows[0]?.current_user, "abos_e1_runtime");
-        const entity = await client.query<{ id: string }>(
-          "SELECT id FROM abos.legal_entities WHERE id = $1",
-          [world.legalEntityId]
-        );
-        assert.equal(entity.rows[0]?.id, world.legalEntityId);
 
         const privileges = await client.query<{
+          can_read_sessions: boolean;
           can_insert_journal: boolean;
           can_update_journal: boolean;
           can_grant_permission: boolean;
           can_edit_gate: boolean;
           can_create_in_schema: boolean;
+          can_execute_secure_post: boolean;
         }>(
-          `SELECT has_table_privilege(current_user, 'abos.journals', 'INSERT') AS can_insert_journal,
+          `SELECT has_table_privilege(current_user, 'abos.sandbox_sessions', 'SELECT') AS can_read_sessions,
+                  has_table_privilege(current_user, 'abos.journals', 'INSERT') AS can_insert_journal,
                   has_table_privilege(current_user, 'abos.journals', 'UPDATE') AS can_update_journal,
                   has_table_privilege(current_user, 'abos.user_permission_grants', 'INSERT') AS can_grant_permission,
                   has_table_privilege(current_user, 'abos.sandbox_authorizations', 'UPDATE') AS can_edit_gate,
-                  has_schema_privilege(current_user, 'abos', 'CREATE') AS can_create_in_schema`
+                  has_schema_privilege(current_user, 'abos', 'CREATE') AS can_create_in_schema,
+                  has_function_privilege(current_user,
+                    'abos.post_synthetic_capital_receipt(text,uuid,uuid)', 'EXECUTE')
+                    AS can_execute_secure_post`
         );
         assert.deepEqual(privileges.rows[0], {
+          can_read_sessions: false,
           can_insert_journal: false,
           can_update_journal: false,
           can_grant_permission: false,
           can_edit_gate: false,
-          can_create_in_schema: false
+          can_create_in_schema: false,
+          can_execute_secure_post: true
         });
       });
     });

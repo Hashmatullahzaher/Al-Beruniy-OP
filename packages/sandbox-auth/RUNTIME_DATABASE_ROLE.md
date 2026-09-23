@@ -1,11 +1,24 @@
 # E1 sandbox database identities
 
-Migration `0004_e1_runtime_role.sql` creates `abos_e1_runtime` as a PostgreSQL `NOLOGIN` role. A privileged migration identity owns the `abos` schema and applies migrations. The runtime role has schema `USAGE` and table `SELECT`; it has no table writes, sequence privileges, schema `CREATE`, role administration, or trigger ownership. No runtime password is stored in the repository.
+The migration identity owns the `abos` schema, applies migrations, and is never the application
+credential. Migration `0004` creates `abos_e1_runtime` as `NOLOGIN`; deployment provisions a
+separate restricted login and grants it membership only in that role.
 
-This is an intentionally closed boundary. The current Finance persistence adapter assembles a journal with direct SQL. Migration `0002` checks a PostgreSQL session setting called `abos.runtime_marker`, but a database user who can read that setting can also set it on their own connection. Granting direct journal or authorization-table writes to the runtime identity would therefore let a database credential holder bypass the application authorization checks. A restricted login must not be granted those writes.
+Migration `0007` removes the role's table and sequence access. Its sole financial capability is
+`EXECUTE` on `abos.post_synthetic_capital_receipt(text, uuid, uuid)`. The `SECURITY DEFINER`
+function has a fixed `pg_catalog` search path, uses schema-qualified objects, accepts no actor,
+amount, currency, account, journal-line, policy, or evidence values, and derives them from locked
+database records. It authenticates the opaque token against a private digest, then rechecks the
+active user, live session, Finance grants, scopes, synthetic-only gate, independent approval and
+evidence, segregation of duties, Treasury/source identity, period, ledger mapping, balance,
+source uniqueness, and idempotency in one transaction.
 
-Before the E1 posting route can operate under restricted credentials, a separate controlled database write API must replace direct runtime DML. It must perform the authority recheck and journal assembly atomically, keep its privileged owner separate from the login role, validate every argument, and grant only `EXECUTE` on that API to the runtime role. A `SECURITY DEFINER` function would need a fixed `search_path` and no dynamic SQL from untrusted input. Until that boundary exists, E1 direct posting requires an owner connection and cannot be claimed as database-privilege-safe, even if application tests pass.
+The runtime role cannot read token digests or authorization configuration, set its own actor,
+write protected tables, disable triggers, replace guard functions, grant permissions, or enable
+real posting. The runtime marker remains defense in depth for owner-side fixtures; the controlled
+function derives and presents it only after validating the protected gate.
 
-The application currently revalidates the bearer session, active user, Finance grants, legal-entity scope, dimension grants, and sandbox authorization inside the posting transaction. It holds `FOR SHARE` locks so a concurrent revocation and posting are ordered; a stale `REPEATABLE READ` transaction must abort and retry. That application control does not replace database privilege separation.
-
-The real-PostgreSQL test `packages/e1-integration/src/restricted-role.test.ts` assumes a dedicated disposable database whose migration identity can create roles. It proves the runtime role can read its synthetic context and cannot disable triggers, replace guards, modify the gate, grant Finance permissions, or directly mutate journals and subledgers. The test does not claim the role can post; that is the outstanding database write boundary.
+The real PostgreSQL suites use separate migration-owner and restricted runtime identities. They
+prove successful synthetic USD posting and denial after revocation, without approval, with a
+forged token, or through direct SQL. This is a development/test boundary, not production identity,
+Treasury completion, client Chart of Accounts approval, or authorization for real records.

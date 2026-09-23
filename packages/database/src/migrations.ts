@@ -40,6 +40,11 @@ export const migrationCatalog = [
     checksumSha256: "6801fdec89a895d3ae5f0cbbb49f62a6f4184d6a652ea55e108388fc0f3c6236",
     relativePath: "infrastructure/database/migrations/0005_e1_capital_provenance.sql",
   },
+  {
+    id: "0007_e1_secure_posting_boundary",
+    checksumSha256: "0acbd2aecb4e9eed22641f802d811f1b7bdbf1418111e9010ff722729b162b3d",
+    relativePath: "infrastructure/database/migrations/0007_e1_secure_posting_boundary.sql",
+  },
 ] as const satisfies readonly MigrationDefinition[];
 
 const migrationTableSql = `
