@@ -12,6 +12,7 @@ import type {
   PostingCommit,
   StoredIdempotencyResult
 } from "@abos/finance";
+import { SandboxAuthenticator } from "@abos/sandbox-auth";
 
 /**
  * Durable adapter for the Finance posting kernel.
@@ -32,10 +33,19 @@ import type {
  */
 export class PostgresFinancePostingRepository implements FinancePostingRepository {
   private readonly database: SqlExecutor;
+  private readonly authenticator: SandboxAuthenticator;
   private readonly newId: () => string;
 
-  constructor(database: SqlExecutor, newId: () => string = () => crypto.randomUUID()) {
+  constructor(
+    database: SqlExecutor,
+    authenticator: SandboxAuthenticator,
+    newId: () => string = () => crypto.randomUUID()
+  ) {
+    if (!(authenticator instanceof SandboxAuthenticator)) {
+      throw new Error("Persistent Finance posting requires authoritative transaction-bound authorization");
+    }
     this.database = database;
+    this.authenticator = authenticator;
     this.newId = newId;
   }
 
@@ -138,6 +148,19 @@ export class PostgresFinancePostingRepository implements FinancePostingRepositor
 
     const { journal } = commit;
     await this.database.transaction(async (transaction) => {
+      const bearerToken = commit.authorization.bearerToken;
+      if (typeof bearerToken !== "string" || bearerToken.length === 0) {
+        throw new Error("Persistent Finance posting requires the actor's opaque sandbox credential");
+      }
+      if (journal.lines.length === 0) throw new Error("Persistent Finance posting requires scoped journal lines");
+      for (const line of journal.lines) {
+        await this.authenticator.revalidatePostingAuthority(transaction, {
+          bearerToken,
+          actor: commit.authorization.actor,
+          legalEntityId: journal.legalEntityId,
+          dimensions: line.dimensions
+        });
+      }
       const intent = await this.loadPostingIntent(transaction, journal);
       const journalId = journal.id;
 
@@ -222,6 +245,14 @@ export class PostgresFinancePostingRepository implements FinancePostingRepositor
 
       // Posting is a status transition, never an INSERT of a POSTED row: migration 0001 refuses
       // the latter outright, and this UPDATE is what fires the full posting guard.
+      for (const line of journal.lines) {
+        await this.authenticator.revalidatePostingAuthority(transaction, {
+          bearerToken,
+          actor: commit.authorization.actor,
+          legalEntityId: journal.legalEntityId,
+          dimensions: line.dimensions
+        });
+      }
       await transaction.query(
         `UPDATE abos.journals
             SET status = 'POSTED', posted_by_user_account_id = $2, posted_at = $3
@@ -279,6 +310,16 @@ export class PostgresFinancePostingRepository implements FinancePostingRepositor
           journal.postedAt
         ]
       );
+      // The transaction has not committed yet. Expiry can occur while writing audit/outbox rows,
+      // so verify the credential and all line scopes once more at the final commit boundary.
+      for (const line of journal.lines) {
+        await this.authenticator.revalidatePostingAuthority(transaction, {
+          bearerToken,
+          actor: commit.authorization.actor,
+          legalEntityId: journal.legalEntityId,
+          dimensions: line.dimensions
+        });
+      }
     });
   }
 

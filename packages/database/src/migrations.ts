@@ -25,6 +25,21 @@ export const migrationCatalog = [
     relativePath:
       "infrastructure/database/migrations/0002_e1_sandbox_integration.sql",
   },
+  {
+    id: "0003_e1_commitment_concurrency",
+    checksumSha256: "d976a9c2930915086f84b5e2e30aaa2cce57ab3de4d3412bf4a8eed33cc5c7b2",
+    relativePath: "infrastructure/database/migrations/0003_e1_commitment_concurrency.sql",
+  },
+  {
+    id: "0004_e1_runtime_role",
+    checksumSha256: "5ef214d258a1bab6cad51f2100fdfd3e3f628efe972ad21fdade8541b5ea1ffd",
+    relativePath: "infrastructure/database/migrations/0004_e1_runtime_role.sql",
+  },
+  {
+    id: "0005_e1_capital_provenance",
+    checksumSha256: "6801fdec89a895d3ae5f0cbbb49f62a6f4184d6a652ea55e108388fc0f3c6236",
+    relativePath: "infrastructure/database/migrations/0005_e1_capital_provenance.sql",
+  },
 ] as const satisfies readonly MigrationDefinition[];
 
 const migrationTableSql = `

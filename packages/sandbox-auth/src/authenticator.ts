@@ -12,6 +12,7 @@ import type {
   SandboxPostingGate,
   ServerActorContext,
   SupportedCurrency,
+  TransactionDimensions,
   UserAccountId
 } from "@abos/contracts";
 import type { SandboxAuthConfiguration } from "./configuration.ts";
@@ -233,6 +234,135 @@ export class SandboxAuthenticator {
       sessionId: session.id,
       expiresAt: iso(session.expires_at)
     }) satisfies ServerActorContext;
+  }
+
+  /**
+   * Re-read posting authority on the same connection and inside the same transaction that will
+   * insert the journal. Row locks serialize a concurrent grant/session/user/gate revocation with
+   * posting; under REPEATABLE READ a changed row raises a serialization error and the entire
+   * transaction must retry. A context captured at request authentication is never sufficient.
+   */
+  async revalidatePostingAuthority(
+    transaction: SqlExecutor,
+    input: {
+      readonly bearerToken: string;
+      readonly actor: ServerActorContext;
+      readonly legalEntityId: LegalEntityId;
+      readonly dimensions: TransactionDimensions;
+    }
+  ): Promise<void> {
+    assertSandbox(
+      typeof input.bearerToken === "string" && input.bearerToken.length > 0,
+      "AUTHENTICATION_REQUIRED",
+      "A sandbox bearer token is required at posting"
+    );
+    assertSandbox(
+      input.dimensions.legalEntityId === input.legalEntityId,
+      "SCOPE_MISMATCH",
+      "Posting dimensions belong to another legal entity"
+    );
+
+    const sessions = await transaction.query<SessionRow>(
+      `SELECT s.id, s.user_account_id, s.legal_entity_id, s.issued_at, s.expires_at,
+              s.revoked_at, u.status AS user_status
+         FROM abos.sandbox_sessions s
+         JOIN abos.user_accounts u ON u.id = s.user_account_id
+        WHERE s.token_sha256 = $1
+        FOR SHARE OF s, u`,
+      [this.digest(input.bearerToken)]
+    );
+    const session = sessions.rows[0];
+    assertSandbox(session !== undefined, "AUTHENTICATION_REQUIRED", "Unknown sandbox session");
+    assertSandbox(session.revoked_at === null, "AUTHENTICATION_REQUIRED", "Sandbox session was revoked");
+    assertSandbox(
+      new Date(iso(session.expires_at)).getTime() > this.now().getTime(),
+      "AUTHENTICATION_REQUIRED",
+      "Sandbox session expired"
+    );
+    assertSandbox(session.user_status === "ACTIVE", "AUTHENTICATION_REQUIRED", "User account is inactive");
+    assertSandbox(
+      session.id === input.actor.sessionId && session.user_account_id === input.actor.userAccountId,
+      "AUTHENTICATION_REQUIRED",
+      "Posting actor does not match the current sandbox session"
+    );
+    assertSandbox(
+      session.legal_entity_id === input.legalEntityId &&
+        input.actor.legalEntityIds.includes(input.legalEntityId),
+      "SCOPE_MISMATCH",
+      "Posting actor is outside the legal-entity scope"
+    );
+
+    // Lock both rows; a concurrent operator revocation must complete before or after this commit.
+    const authorization = await transaction.query<AuthorizationRow>(
+      `SELECT environment, configuration_state, policy_version_id, real_posting_enabled,
+              runtime_marker, authorized_by_user_account_id, authorized_at, expires_at
+         FROM abos.sandbox_authorizations WHERE singleton FOR SHARE`
+    );
+    const gate = authorization.rows[0];
+    assertSandbox(gate !== undefined, "POLICY_CONFIGURATION_PENDING", "Sandbox authorization is absent");
+    assertSandbox(
+      gate.configuration_state === "SYNTHETIC_TEST_ONLY" &&
+        gate.environment === this.configuration.environment &&
+        gate.real_posting_enabled === false &&
+        equalsConstantTime(gate.runtime_marker, this.configuration.runtimeMarker) &&
+        new Date(iso(gate.expires_at)).getTime() > this.now().getTime(),
+      "POLICY_CONFIGURATION_PENDING",
+      "Sandbox authorization is no longer current"
+    );
+    const scope = await transaction.query<{ readonly legal_entity_id: LegalEntityId }>(
+      `SELECT legal_entity_id FROM abos.sandbox_legal_entity_scopes
+        WHERE legal_entity_id = $1 FOR SHARE`,
+      [input.legalEntityId]
+    );
+    assertSandbox(scope.rows.length === 1, "SCOPE_MISMATCH", "Legal entity is outside the sandbox gate");
+
+    const required: readonly FinancePermission[] = [
+      "finance.posting-intent.approve",
+      "finance.journal.post"
+    ];
+    const grants = await transaction.query<{ readonly permission_code: FinancePermission }>(
+      `SELECT permission_code FROM abos.user_permission_grants
+        WHERE user_account_id = $1 AND legal_entity_id = $2
+          AND permission_code = ANY($3::text[]) AND revoked_at IS NULL
+        FOR SHARE`,
+      [session.user_account_id, input.legalEntityId, required]
+    );
+    for (const permission of required) {
+      assertSandbox(
+        input.actor.permissions.includes(permission) &&
+          grants.rows.some((grant) => grant.permission_code === permission),
+        "PERMISSION_DENIED",
+        `Current Finance authority is missing ${permission}`
+      );
+    }
+
+    const dimensions = input.dimensions;
+    const requiredScopes: readonly (readonly ["PROJECT" | "DEPARTMENT" | "COST_CENTER", string])[] = [
+      ...(dimensions.scope === "PROJECT_LEVEL" ? [["PROJECT", dimensions.projectId] as const] : []),
+      ...(dimensions.departmentId === undefined ? [] : [["DEPARTMENT", dimensions.departmentId] as const]),
+      ...(dimensions.costCenterId === undefined ? [] : [["COST_CENTER", dimensions.costCenterId] as const])
+    ];
+    if (requiredScopes.length > 0) {
+      const scopes = await transaction.query<{
+        readonly scope_kind: "PROJECT" | "DEPARTMENT" | "COST_CENTER";
+        readonly scope_id: string;
+      }>(
+        `SELECT scope_kind, scope_id FROM abos.user_scope_grants
+          WHERE user_account_id = $1 AND legal_entity_id = $2 AND revoked_at IS NULL
+          FOR SHARE`,
+        [session.user_account_id, input.legalEntityId]
+      );
+      for (const [kind, id] of requiredScopes) {
+        const actorIds: readonly string[] =
+          kind === "PROJECT" ? input.actor.projectIds :
+          kind === "DEPARTMENT" ? input.actor.departmentIds : input.actor.costCenterIds ?? [];
+        assertSandbox(
+          actorIds.includes(id) && scopes.rows.some((row) => row.scope_kind === kind && row.scope_id === id),
+          "SCOPE_MISMATCH",
+          `Current ${kind.toLowerCase()} grant is missing`
+        );
+      }
+    }
   }
 
   /**

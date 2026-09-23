@@ -1,7 +1,12 @@
-import type { AuditRecordId, CorrelationId, IdempotencyKey, JournalId, LegalEntityId, PostedJournal } from "@abos/contracts";
+import type { AuditRecordId, CorrelationId, IdempotencyKey, JournalId, LegalEntityId, PostedJournal, ServerActorContext } from "@abos/contracts";
 
 export interface PostingCommit {
   readonly journal: PostedJournal;
+  /** Rechecked against the durable session and grants inside a persistent commit. */
+  readonly authorization: {
+    readonly actor: ServerActorContext;
+    readonly bearerToken?: string;
+  };
   readonly idempotency: {
     readonly legalEntityId: LegalEntityId;
     readonly operation: "POST_CAPITAL_RECEIPT" | "REVERSE_JOURNAL";

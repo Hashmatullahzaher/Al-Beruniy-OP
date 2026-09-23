@@ -108,6 +108,9 @@ importers:
       '@abos/finance':
         specifier: workspace:*
         version: link:../finance
+      '@abos/sandbox-auth':
+        specifier: workspace:*
+        version: link:../sandbox-auth
       '@abos/shareholder':
         specifier: workspace:*
         version: link:../shareholder

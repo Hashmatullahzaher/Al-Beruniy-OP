@@ -32,6 +32,7 @@ import {
 } from "@abos/shareholder";
 import { databaseUrl, MISSING_DATABASE_MESSAGE, openHarness, resetSchema, type Harness } from "./harness.ts";
 import {
+  addInstallment,
   recordCapitalPostingIntent,
   recordSyntheticTreasuryReceipt,
   seedSyntheticWorld,
@@ -212,13 +213,14 @@ if (databaseUrl() === undefined) {
       });
 
       // --- 5. Finance posts. ---------------------------------------------------------------
-      const financeRepository = new PostgresFinancePostingRepository(harness.executor);
+      const financeRepository = new PostgresFinancePostingRepository(harness.executor, authenticator);
       const financeService = new FinancePostingService(financeRepository, authenticator.verifyGate);
 
       const command = await postCommand({
         harness,
         world,
         actor,
+        bearerToken: session.token,
         gate,
         intent,
         receipt,
@@ -294,13 +296,11 @@ if (databaseUrl() === undefined) {
       );
 
       // --- 7. The shareholder record records the posting, without having done it. ----------
-      const posted = await shareholderService.markPosted({
-        legalEntityId: world.legalEntityId as LegalEntityId,
-        intentId: intent.id,
-        treasuryReceiptId: treasury.cashReceiptId,
-        journalId: journal.id
-      });
-      assert.equal(posted.status, "POSTED");
+      const posted = await shareholderRepository.findIntentById(
+        world.legalEntityId as LegalEntityId,
+        intent.id
+      );
+      assert.equal(posted?.status, "POSTED", "the journal and source advance atomically");
 
       const history = await shareholderService.contributionHistory(
         world.legalEntityId as LegalEntityId,
@@ -362,7 +362,7 @@ if (databaseUrl() === undefined) {
       const actor = await authenticator.authenticate(session.token);
       const gate = await authenticator.resolveGate(world.legalEntityId as LegalEntityId);
 
-      const journalId = await postOnce(harness, world, authenticator, actor, gate);
+      const journalId = await postOnce(harness, world, authenticator, actor, session.token, gate);
 
       // A REVERSAL posting intent whose source is the posted journal, posted by the same actor.
       const reversalIntentId = randomUUID();
@@ -422,7 +422,7 @@ if (databaseUrl() === undefined) {
       const gate = await authenticator.resolveGate(world.legalEntityId as LegalEntityId);
 
       const financeService = new FinancePostingService(
-        new PostgresFinancePostingRepository(harness.executor),
+        new PostgresFinancePostingRepository(harness.executor, authenticator),
         authenticator.verifyGate
       );
       assert.throws(
@@ -430,6 +430,128 @@ if (databaseUrl() === undefined) {
         /signature is invalid/
       );
       assert.ok(financeService);
+    });
+
+    test("a revoked Finance session and grant cannot post a prepared capital receipt", async () => {
+      await resetSchema(harness.pool);
+      const world = await seedSyntheticWorld(harness.executor);
+      const authenticator = new SandboxAuthenticator(harness.executor, configuration);
+      const session = await authenticator.issueSession({
+        userAccountId: world.approverId as UserAccountId,
+        legalEntityId: world.legalEntityId as LegalEntityId
+      });
+      const actor = await authenticator.authenticate(session.token);
+      const gate = await authenticator.resolveGate(world.legalEntityId as LegalEntityId);
+      const command = await prepareUnposted(harness, world, actor, session.token, gate);
+      await assertUnpostedSource(harness, command.intent.sourceIntentId);
+
+      // The command still carries the old, once-valid actor. The repository must revalidate
+      // session and grants against PostgreSQL in the posting transaction, not trust that snapshot.
+      await harness.executor.query(
+        "UPDATE abos.sandbox_sessions SET revoked_at = clock_timestamp() WHERE id = $1",
+        [session.sessionId]
+      );
+      await harness.executor.query(
+        `UPDATE abos.user_permission_grants
+            SET revoked_at = clock_timestamp()
+          WHERE user_account_id = $1 AND legal_entity_id = $2
+            AND permission_code IN ('finance.journal.post', 'finance.posting-intent.approve')`,
+        [world.approverId, world.legalEntityId]
+      );
+
+      const financeService = new FinancePostingService(
+        new PostgresFinancePostingRepository(harness.executor, authenticator),
+        authenticator.verifyGate
+      );
+      await assert.rejects(
+        () => financeService.postCapitalReceipt(command),
+        /revoked|session|permission/i
+      );
+      await assertUnpostedSource(harness, command.intent.sourceIntentId);
+    });
+
+    test("a Treasury receipt from another installment cannot advance a capital source or journal", async () => {
+      await resetSchema(harness.pool);
+      const world = await seedSyntheticWorld(harness.executor);
+      const authenticator = new SandboxAuthenticator(harness.executor, configuration);
+      const session = await authenticator.issueSession({
+        userAccountId: world.approverId as UserAccountId,
+        legalEntityId: world.legalEntityId as LegalEntityId
+      });
+      const actor = await authenticator.authenticate(session.token);
+      const gate = await authenticator.resolveGate(world.legalEntityId as LegalEntityId);
+      const prepared = await prepareUnposted(harness, world, actor, session.token, gate);
+
+      const otherInstallment = await addInstallment(harness.executor, world, {
+        sequenceNumber: 2,
+        expectedAmount: world.installmentAmount
+      });
+      const foreignReceipt = await recordSyntheticTreasuryReceipt(
+        harness.executor,
+        { ...world, installmentId: otherInstallment },
+        { capitalReceiptIntentId: prepared.intent.sourceIntentId, amount: world.installmentAmount }
+      );
+
+      // A compromised upstream writer makes the source and posting intent agree on a receipt
+      // whose actual cash_receipts.capital_installment_id belongs to the other installment.
+      // The final database transition must check the persisted Treasury row, not this command.
+      await harness.executor.query(
+        `UPDATE abos.capital_receipt_intents
+            SET treasury_cash_receipt_id = $2, version = version + 1
+          WHERE id = $1`,
+        [prepared.intent.sourceIntentId, foreignReceipt.cashReceiptId]
+      );
+      await harness.executor.query(
+        "UPDATE abos.posting_intents SET treasury_cash_receipt_id = $2 WHERE id = $1",
+        [prepared.intent.id, foreignReceipt.cashReceiptId]
+      );
+
+      const foreignCount = await harness.executor.query<{
+        readonly counted_amount: string;
+        readonly counted_at: Date | string;
+        readonly counted_by_user_account_id: string;
+        readonly confirmed_by_user_account_id: string;
+      }>(
+        `SELECT counted_amount::text AS counted_amount, counted_at,
+                counted_by_user_account_id, confirmed_by_user_account_id
+           FROM abos.physical_cash_counts WHERE id = $1`,
+        [foreignReceipt.physicalCashCountId]
+      );
+      const count = foreignCount.rows[0];
+      assert.ok(count);
+      const command: PostCapitalReceiptCommand = {
+        ...prepared,
+        intent: {
+          ...prepared.intent,
+          treasuryReceiptId: foreignReceipt.cashReceiptId as CashReceiptId
+        },
+        treasuryReceipt: {
+          ...prepared.treasuryReceipt,
+          id: foreignReceipt.cashReceiptId as CashReceiptId,
+          physicalCashCountId: foreignReceipt.physicalCashCountId as PhysicalCashCountId
+        },
+        configuration: {
+          ...prepared.configuration,
+          physicalCashCount: {
+            ...prepared.configuration.physicalCashCount,
+            id: foreignReceipt.physicalCashCountId as PhysicalCashCountId,
+            countedAmount: count.counted_amount,
+            countedAt: count.counted_at instanceof Date
+              ? count.counted_at.toISOString() : String(count.counted_at),
+            countedByUserAccountId: count.counted_by_user_account_id as UserAccountId,
+            confirmedByUserAccountId: count.confirmed_by_user_account_id as UserAccountId
+          }
+        }
+      };
+      const financeService = new FinancePostingService(
+        new PostgresFinancePostingRepository(harness.executor, authenticator),
+        authenticator.verifyGate
+      );
+      await assert.rejects(
+        () => financeService.postCapitalReceipt(command),
+        /source, shareholder, installment and Treasury receipt must agree/i
+      );
+      await assertUnpostedSource(harness, command.intent.sourceIntentId);
     });
   });
 }
@@ -476,10 +598,32 @@ async function journalCount(harness: Harness): Promise<number> {
   return Number(result.rows[0]?.count ?? "0");
 }
 
+async function assertUnpostedSource(harness: Harness, sourceId: string): Promise<void> {
+  const result = await harness.executor.query<{
+    readonly status: string;
+    readonly journal_id: string | null;
+  }>(
+    "SELECT status, journal_id FROM abos.capital_receipt_intents WHERE id = $1",
+    [sourceId]
+  );
+  assert.equal(result.rows[0]?.status, "TREASURY_VERIFIED");
+  assert.equal(result.rows[0]?.journal_id, null);
+  assert.equal(await journalCount(harness), 0);
+  const allJournals = await harness.executor.query<{ readonly count: string }>(
+    "SELECT count(*)::text AS count FROM abos.journals"
+  );
+  assert.equal(allJournals.rows[0]?.count, "0", "the failed transaction rolled back its draft journal");
+  const subledger = await harness.executor.query<{ readonly count: string }>(
+    "SELECT count(*)::text AS count FROM abos.subledger_entries"
+  );
+  assert.equal(subledger.rows[0]?.count, "0", "the failed transaction left no subledger entry");
+}
+
 async function postCommand(input: {
   readonly harness: Harness;
   readonly world: SyntheticWorld;
   readonly actor: ServerActorContext;
+  readonly bearerToken: string;
   readonly gate: PostCapitalReceiptCommand["configuration"]["gate"];
   readonly intent: CapitalReceiptIntent;
   readonly receipt: VerifiedTreasuryReceipt;
@@ -550,6 +694,7 @@ async function postCommand(input: {
       status: "APPROVED"
     },
     actor: input.actor,
+    bearerToken: input.bearerToken,
     metadata: {
       correlationId: randomUUID() as CorrelationId,
       idempotencyKey: `post-${randomUUID()}` as IdempotencyKey
@@ -634,8 +779,26 @@ async function postOnce(
   world: SyntheticWorld,
   authenticator: SandboxAuthenticator,
   actor: ServerActorContext,
+  bearerToken: string,
   gate: PostCapitalReceiptCommand["configuration"]["gate"]
 ): Promise<string> {
+  const command = await prepareUnposted(harness, world, actor, bearerToken, gate);
+  const financeService = new FinancePostingService(
+    new PostgresFinancePostingRepository(harness.executor, authenticator),
+    authenticator.verifyGate
+  );
+  const journal = await financeService.postCapitalReceipt(command);
+  return journal.id;
+}
+
+/** Persists a valid source, count, Treasury receipt, posting intent and Finance approval. */
+async function prepareUnposted(
+  harness: Harness,
+  world: SyntheticWorld,
+  actor: ServerActorContext,
+  bearerToken: string,
+  gate: PostCapitalReceiptCommand["configuration"]["gate"]
+): Promise<PostCapitalReceiptCommand> {
   const shareholderService = new CapitalReceiptIntentService(
     new PostgresShareholderRepository(harness.executor, world.intentCreatorId as UserAccountId)
   );
@@ -686,21 +849,15 @@ async function postOnce(
     correlationId: randomUUID()
   });
 
-  const financeService = new FinancePostingService(
-    new PostgresFinancePostingRepository(harness.executor),
-    authenticator.verifyGate
-  );
-  const journal = await financeService.postCapitalReceipt(
-    await postCommand({
-      harness,
-      world,
-      actor,
-      gate,
-      intent,
-      receipt,
-      postingIntentId,
-      physicalCashCountId: treasury.physicalCashCountId
-    })
-  );
-  return journal.id;
+  return postCommand({
+    harness,
+    world,
+    actor,
+    bearerToken,
+    gate,
+    intent,
+    receipt,
+    postingIntentId,
+    physicalCashCountId: treasury.physicalCashCountId
+  });
 }

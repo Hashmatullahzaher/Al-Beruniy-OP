@@ -99,6 +99,8 @@ export interface PostCapitalReceiptCommand {
   readonly treasuryReceipt: VerifiedTreasuryReceipt;
   readonly approval: FinanceApproval;
   readonly actor: ServerActorContext;
+  /** Opaque credential. Persistent adapters require and revalidate it at commit. */
+  readonly bearerToken?: string;
   readonly metadata: RequestMetadata;
   readonly accountingEffectiveDate: string;
   readonly configuration: PostingConfiguration;
@@ -209,9 +211,10 @@ export class FinancePostingService {
       status: "POSTED"
     });
     try {
-      await this.repository.commit(createCommit(journal, command.metadata, requestHash, "POST_CAPITAL_RECEIPT", "FINANCE_JOURNAL_POSTED"));
+      await this.repository.commit(createCommit(journal, command.metadata, requestHash, "POST_CAPITAL_RECEIPT", "FINANCE_JOURNAL_POSTED", command.actor, command.bearerToken));
       return journal;
     } catch (error) {
+      if (error instanceof Error && error.name === "SandboxAuthError") throw error;
       const raced = await this.repository.findIdempotencyResult(
         command.intent.dimensions.legalEntityId,
         "POST_CAPITAL_RECEIPT",
@@ -288,7 +291,7 @@ export class FinancePostingService {
       reversalOfJournalId: original.id,
       status: "POSTED"
     });
-    const commit = createCommit(reversal, command.metadata, requestHash, "REVERSE_JOURNAL", "FINANCE_JOURNAL_REVERSED");
+    const commit = createCommit(reversal, command.metadata, requestHash, "REVERSE_JOURNAL", "FINANCE_JOURNAL_REVERSED", command.actor);
     try {
       const reversalEvidence = command.evidence.find((item) => item.kind === "REVERSAL_REASON");
       assertFinance(reversalEvidence, "EVIDENCE_REQUIRED", "Reversal evidence is required");
@@ -564,9 +567,10 @@ function canonicalize(value: unknown): unknown {
   return value;
 }
 
-function createCommit(journal: PostedJournal, metadata: RequestMetadata, requestHash: string, operation: PostingCommit["idempotency"]["operation"], action: PostingCommit["audit"]["action"]): PostingCommit {
+function createCommit(journal: PostedJournal, metadata: RequestMetadata, requestHash: string, operation: PostingCommit["idempotency"]["operation"], action: PostingCommit["audit"]["action"], actor: ServerActorContext, bearerToken?: string): PostingCommit {
   return {
     journal,
+    authorization: { actor, ...(bearerToken === undefined ? {} : { bearerToken }) },
     idempotency: { legalEntityId: journal.legalEntityId, operation, key: metadata.idempotencyKey, requestHash },
     audit: {
       id: randomUUID() as AuditRecordId,
