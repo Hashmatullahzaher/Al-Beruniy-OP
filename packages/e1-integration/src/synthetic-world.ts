@@ -1,5 +1,15 @@
 import { randomUUID } from "node:crypto";
+import type {
+  CapitalReceiptIntentId,
+  CashLocationCurrencyAccountId,
+  CashReceiptId,
+  LegalEntityId,
+  UserAccountId
+} from "@abos/contracts";
 import type { SqlExecutor } from "@abos/database";
+import { PostgresTreasuryRepository } from "@abos/persistence";
+import { SandboxAuthenticator, type SandboxAuthConfiguration } from "@abos/sandbox-auth";
+import { TreasuryService, type TreasuryActor } from "@abos/treasury";
 
 /**
  * A complete synthetic E1 world, built from nothing.
@@ -12,7 +22,23 @@ import type { SqlExecutor } from "@abos/database";
  * role, because the schema refuses anything else:
  *
  *   intent creator != approver != cashier != cash counter, and the poster is the approver.
+ *
+ * Treasury is not stood in for. The safe, its USD and AFN accounts, the cashier assignment and the
+ * opening reconciliation are created through `TreasuryService` against migration 0006, by separate
+ * synthetic people, exactly as the real workflow requires. The USD account is activated; the AFN
+ * account is opened and deliberately left DRAFT, to show the two are independent.
+ *
+ * The opening count of the synthetic safe is recorded as 0.00: a new, empty synthetic safe. It is
+ * not, and must not be read as, any real opening position.
  */
+
+/** Synthetic sandbox credentials shared by the seed and the suites. Test-only; never deployed. */
+export const SYNTHETIC_AUTH_CONFIGURATION: SandboxAuthConfiguration = {
+  runtimeMarker: "synthetic-e1-sandbox-marker",
+  signingSecret: "synthetic-e1-signing-secret-at-least-32-chars",
+  environment: "test",
+  maxSessionSeconds: 900
+};
 
 export interface SyntheticWorld {
   readonly companyId: string;
@@ -27,12 +53,18 @@ export interface SyntheticWorld {
   readonly counterId: string;
   readonly countConfirmerId: string;
   readonly reverserId: string;
+  readonly treasuryManagerId: string;
+  readonly treasuryReconcilerId: string;
+  readonly treasuryApproverId: string;
 
   readonly accountingPeriodId: string;
   readonly cashLedgerAccountId: string;
   readonly capitalLedgerAccountId: string;
   readonly cashLocationId: string;
   readonly cashAccountId: string;
+  /** Opened, never activated: the AFN account of the same safe stays DRAFT. */
+  readonly afnCashAccountId: string;
+  readonly afnCashLedgerAccountId: string;
 
   readonly businessPartyId: string;
   readonly shareholderProfileId: string;
@@ -46,6 +78,7 @@ export interface SyntheticWorld {
   readonly approvalEvidenceId: string;
   readonly reversalEvidenceId: string;
   readonly openingEvidenceId: string;
+  readonly openingCountEvidenceId: string;
 
   readonly committedAmount: string;
   readonly installmentAmount: string;
@@ -84,11 +117,16 @@ export async function seedSyntheticWorld(
     counterId: randomUUID(),
     countConfirmerId: randomUUID(),
     reverserId: randomUUID(),
+    treasuryManagerId: randomUUID(),
+    treasuryReconcilerId: randomUUID(),
+    treasuryApproverId: randomUUID(),
     accountingPeriodId: randomUUID(),
     cashLedgerAccountId: randomUUID(),
     capitalLedgerAccountId: randomUUID(),
     cashLocationId: randomUUID(),
     cashAccountId: randomUUID(),
+    afnCashAccountId: randomUUID(),
+    afnCashLedgerAccountId: randomUUID(),
     businessPartyId: randomUUID(),
     shareholderProfileId: randomUUID(),
     agreementId: randomUUID(),
@@ -100,6 +138,7 @@ export async function seedSyntheticWorld(
     approvalEvidenceId: randomUUID(),
     reversalEvidenceId: randomUUID(),
     openingEvidenceId: randomUUID(),
+    openingCountEvidenceId: randomUUID(),
     committedAmount: options.committedAmount ?? "100000.00",
     installmentAmount: options.installmentAmount ?? "25000.00",
     accountingEffectiveDate: "2026-09-22"
@@ -134,7 +173,10 @@ export async function seedSyntheticWorld(
     [world.cashierId, "Synthetic Cashier"],
     [world.counterId, "Synthetic Cash Counter"],
     [world.countConfirmerId, "Synthetic Count Confirmer"],
-    [world.reverserId, "Synthetic Reversal Approver"]
+    [world.reverserId, "Synthetic Reversal Approver"],
+    [world.treasuryManagerId, "Synthetic Treasury Manager"],
+    [world.treasuryReconcilerId, "Synthetic Treasury Reconciler"],
+    [world.treasuryApproverId, "Synthetic Treasury Approver"]
   ];
   for (const [userId, name] of people) {
     await q(
@@ -164,9 +206,13 @@ export async function seedSyntheticWorld(
   const grants: readonly (readonly [string, readonly string[]])[] = [
     [world.intentCreatorId, ["shareholder.capital-intent.create"]],
     [world.approverId, ["finance.posting-intent.approve", "finance.journal.post"]],
-    [world.cashierId, ["treasury.cash-receipt.verify"]],
-    [world.counterId, ["treasury.cash-count.record"]],
-    [world.countConfirmerId, ["treasury.cash-receipt.verify"]],
+    // Treasury roles. The cashier receives and counts; the verifier confirms and hands off.
+    [world.cashierId, ["treasury.read", "treasury.cash-receipt.record", "treasury.cash-count.record"]],
+    [world.counterId, ["treasury.read", "treasury.cash-count.record"]],
+    [world.countConfirmerId, ["treasury.read", "treasury.cash-receipt.verify", "treasury.handoff.create"]],
+    [world.treasuryManagerId, ["treasury.read", "treasury.cash-location.manage"]],
+    [world.treasuryReconcilerId, ["treasury.read", "treasury.cash-account.reconcile"]],
+    [world.treasuryApproverId, ["treasury.read", "treasury.cash-account.approve"]],
     [world.reverserId, ["finance.journal.reverse"]]
   ];
   for (const [userId, permissions] of grants) {
@@ -199,6 +245,13 @@ export async function seedSyntheticWorld(
     `INSERT INTO abos.ledger_accounts
        (id, legal_entity_id, account_code, account_name, account_type, control_account_type,
         posting_allowed, account_currency_code, status)
+     VALUES ($1, $2, '1011-AFN', 'Synthetic Office Cash - AFN', 'ASSET', 'CASH', true, 'AFN', 'ACTIVE')`,
+    [world.afnCashLedgerAccountId, world.legalEntityId]
+  );
+  await q(
+    `INSERT INTO abos.ledger_accounts
+       (id, legal_entity_id, account_code, account_name, account_type, control_account_type,
+        posting_allowed, account_currency_code, status)
      VALUES ($1, $2, '3010-USD', 'Synthetic Paid-in Share Capital', 'EQUITY', 'SHAREHOLDER_CAPITAL',
              true, 'USD', 'ACTIVE')`,
     [world.capitalLedgerAccountId, world.legalEntityId]
@@ -211,7 +264,8 @@ export async function seedSyntheticWorld(
     [world.countEvidenceId, "PHYSICAL_CASH_COUNT"],
     [world.approvalEvidenceId, "FINANCE_APPROVAL"],
     [world.reversalEvidenceId, "REVERSAL_REASON"],
-    [world.openingEvidenceId, "OPENING_RECONCILIATION"]
+    [world.openingEvidenceId, "OPENING_RECONCILIATION"],
+    [world.openingCountEvidenceId, "PHYSICAL_CASH_COUNT"]
   ];
   for (const [evidenceId, kind] of evidence) {
     await q(
@@ -297,37 +351,78 @@ export async function seedSyntheticWorld(
     );
   }
 
-  await q(
-    `INSERT INTO abos.cash_locations
-       (id, legal_entity_id, location_name, responsible_cashier_user_account_id, status)
-     VALUES ($1, $2, 'Synthetic Head Office Safe', $3, 'ACTIVE')`,
-    [world.cashLocationId, world.legalEntityId, world.cashierId]
-  );
-  await q(
-    `INSERT INTO abos.cash_location_currency_accounts
-       (id, legal_entity_id, cash_location_id, currency_code, ledger_account_id, activation_status,
-        reconciliation_evidence_reference_id, activated_by_user_account_id, activated_at)
-     VALUES ($1, $2, $3, 'USD', $4, 'ACTIVE', $5, $6, clock_timestamp())`,
-    [
-      world.cashAccountId,
-      world.legalEntityId,
-      world.cashLocationId,
-      world.cashLedgerAccountId,
-      world.openingEvidenceId,
-      world.bootstrapUserId
-    ]
-  );
+  if (options.withoutSandboxAuthorization === true) {
+    // No sandbox, so Treasury cannot open a safe at all. The identifiers stay unused placeholders.
+    return world;
+  }
+  return openSyntheticSafe(database, world);
+}
 
-  return world;
+/** A Treasury service acting as one synthetic person, with that person's own sandbox session. */
+export async function treasuryAs(
+  database: SqlExecutor,
+  world: SyntheticWorld,
+  userAccountId: string
+): Promise<{ readonly service: TreasuryService; readonly actor: TreasuryActor; readonly token: string }> {
+  const authenticator = new SandboxAuthenticator(database, SYNTHETIC_AUTH_CONFIGURATION);
+  const session = await authenticator.issueSession({
+    userAccountId: userAccountId as UserAccountId,
+    legalEntityId: world.legalEntityId as LegalEntityId
+  });
+  const context = await authenticator.authenticate(session.token);
+  const actor: TreasuryActor = {
+    userAccountId: context.userAccountId,
+    legalEntityId: world.legalEntityId as LegalEntityId,
+    treasuryPermissions: context.treasuryPermissions ?? [],
+    sessionId: session.sessionId
+  };
+  const repository = new PostgresTreasuryRepository(database, { authenticator, bearerToken: session.token });
+  return { service: new TreasuryService(repository), actor, token: session.token };
 }
 
 /**
- * Treasury's part of the workflow, stood in for until Antigravity's domain is available.
- *
- * This is explicitly a stand-in and not a Treasury implementation: it writes the two rows the
- * schema requires so the rest of the chain can be exercised, and it does not claim to be
- * Antigravity's logic. When `agent/antigravity/stage-1-e1-treasury` appears, its records replace
- * these and `assertHandoffPreservesSource` is what they must satisfy.
+ * Opens the synthetic safe through the real Treasury workflow:
+ * manager creates the safe and both currency accounts and assigns the cashier; the counter counts
+ * the (empty) safe; the approver confirms that count; the reconciler reconciles the opening; the
+ * approver approves it and activates USD. AFN is left DRAFT.
+ */
+async function openSyntheticSafe(database: SqlExecutor, world: SyntheticWorld): Promise<SyntheticWorld> {
+  const manager = await treasuryAs(database, world, world.treasuryManagerId);
+  const counter = await treasuryAs(database, world, world.counterId);
+  const reconciler = await treasuryAs(database, world, world.treasuryReconcilerId);
+  const approver = await treasuryAs(database, world, world.treasuryApproverId);
+
+  const cashLocationId = await manager.service.createOfficeSafe(manager.actor, {
+    name: "Synthetic Head Office Safe",
+    responsibleCashierUserAccountId: world.cashierId as UserAccountId
+  });
+  await manager.service.activateSafe(manager.actor, cashLocationId);
+  const cashAccountId = await manager.service.openCurrencyAccount(manager.actor, { cashLocationId, currency: "USD" });
+  const afnCashAccountId = await manager.service.openCurrencyAccount(manager.actor, { cashLocationId, currency: "AFN" });
+  await manager.service.assignCashier(manager.actor, { cashLocationId, userAccountId: world.cashierId as UserAccountId });
+
+  const openingCount = await counter.service.recordOpeningCount(counter.actor, {
+    cashAccountId,
+    countedAmount: "0.00",
+    evidenceReferenceId: world.openingCountEvidenceId
+  });
+  await approver.service.confirmOpeningCount(approver.actor, openingCount);
+  await reconciler.service.reconcileOpening(reconciler.actor, {
+    cashAccountId,
+    physicalCashCountId: openingCount,
+    reconciliationEvidenceReferenceId: world.openingEvidenceId
+  });
+  await approver.service.approveOpening(approver.actor, cashAccountId);
+  await approver.service.activateAccount(approver.actor, cashAccountId);
+
+  return { ...world, cashLocationId, cashAccountId, afnCashAccountId };
+}
+
+/**
+ * Treasury's part of the workflow, through the real Treasury services:
+ * the assigned cashier records the receipt, counts it and submits it; an independent verifier
+ * confirms the count and verifies the receipt. It stops short of the handoff to Finance, which is
+ * `handOffSyntheticReceipt`, so tests can exercise the gap between verification and handoff.
  */
 export async function recordSyntheticTreasuryReceipt(
   database: SqlExecutor,
@@ -338,55 +433,36 @@ export async function recordSyntheticTreasuryReceipt(
     readonly countedAmount?: string;
   }
 ): Promise<{ readonly cashReceiptId: string; readonly physicalCashCountId: string }> {
-  const physicalCashCountId = randomUUID();
-  const cashReceiptId = randomUUID();
+  const cashier = await treasuryAs(database, world, world.cashierId);
+  const verifier = await treasuryAs(database, world, world.countConfirmerId);
 
-  await database.query(
-    `INSERT INTO abos.physical_cash_counts
-       (id, legal_entity_id, cash_location_currency_account_id, currency_code, counted_amount,
-        counted_at, counted_by_user_account_id, evidence_reference_id, status,
-        confirmed_by_user_account_id, confirmed_at)
-     VALUES ($1, $2, $3, 'USD', $4::numeric, clock_timestamp(), $5, $6, 'CONFIRMED', $7,
-             clock_timestamp())`,
-    [
-      physicalCashCountId,
-      world.legalEntityId,
-      world.cashAccountId,
-      input.countedAmount ?? input.amount,
-      world.counterId,
-      world.countEvidenceId,
-      world.countConfirmerId
-    ]
-  );
-
-  await database.query(
-    `INSERT INTO abos.cash_receipts
-       (id, legal_entity_id, capital_installment_id, cash_location_currency_account_id,
-        physical_cash_count_id, receipt_reference, amount, currency_code, business_event_at,
-        received_by_user_account_id, evidence_reference_id, status, verified_by_user_account_id,
-        verified_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7::numeric, 'USD', '2026-09-22T07:10:00Z', $8, $9,
-             'VERIFIED', $10, clock_timestamp())`,
-    [
-      cashReceiptId,
-      world.legalEntityId,
-      world.installmentId,
-      world.cashAccountId,
-      physicalCashCountId,
-      `RCPT-${cashReceiptId.slice(0, 8)}`,
-      input.amount,
-      world.cashierId,
-      world.receiptEvidenceId,
-      world.countConfirmerId
-    ]
-  );
-
-  // Deliberately does NOT touch abos.capital_receipt_intents. Treasury writes Treasury's rows; the
-  // link from the intent to this receipt is written by the shareholder domain's own transition to
-  // TREASURY_VERIFIED, which is also what advances the intent's version. An earlier draft of this
-  // helper updated the intent directly and was refused by the immutability trigger, correctly.
+  const cashReceiptId = await cashier.service.recordReceipt(cashier.actor, {
+    capitalReceiptIntentId: input.capitalReceiptIntentId as CapitalReceiptIntentId,
+    receiptReference: `RCPT-SYN-${randomUUID().slice(0, 8)}`,
+    businessEventAt: "2026-09-22T07:10:00.000Z"
+  });
+  const physicalCashCountId = await cashier.service.countReceipt(cashier.actor, {
+    receiptId: cashReceiptId,
+    countedAmount: input.countedAmount ?? input.amount,
+    countEvidenceReferenceId: world.countEvidenceId,
+    receiptEvidenceReferenceId: world.receiptEvidenceId
+  });
+  await cashier.service.submitForVerification(cashier.actor, cashReceiptId);
+  await verifier.service.verifyReceipt(verifier.actor, cashReceiptId);
   return { cashReceiptId, physicalCashCountId };
 }
+
+/** Step 7: the independent verifier hands the verified receipt to Finance. */
+export async function handOffSyntheticReceipt(
+  database: SqlExecutor,
+  world: SyntheticWorld,
+  cashReceiptId: string
+): Promise<string> {
+  const verifier = await treasuryAs(database, world, world.countConfirmerId);
+  return verifier.service.handOffToFinance(verifier.actor, { receiptId: cashReceiptId as CashReceiptId });
+}
+
+export type { CashLocationCurrencyAccountId };
 
 /** Finance's posting intent and its independent approval. */
 export async function recordCapitalPostingIntent(

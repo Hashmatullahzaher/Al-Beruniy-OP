@@ -22,3 +22,12 @@ export const STAGE_ONE_V2_ADDITIONS: readonly string[] = [
   "ServerActorContext.costCenterIds (F-8), .sessionId, .expiresAt (sandbox authentication)",
   "sandbox.ts: SandboxAuthorization, SandboxPostingGate (F-3)"
 ];
+
+/**
+ * `stage1-e1-treasury-v1`, additive on top of `stage1-e0-v2`. Raised by Claude for the Treasury
+ * domain and listed here for Codex's review; nothing in it changes a Finance type.
+ */
+export const STAGE_ONE_TREASURY_ADDITIONS: readonly string[] = [
+  "treasury.ts: TreasuryPermission, TREASURY_PERMISSIONS, CashLocationSummary, TreasuryReceiptRecord, TreasuryReceiptStatus, TreasuryFinanceHandoff",
+  "ServerActorContext.treasuryPermissions (separate from Finance permissions)"
+];

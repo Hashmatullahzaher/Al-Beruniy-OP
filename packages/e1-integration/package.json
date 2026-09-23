@@ -3,7 +3,9 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "exports": { ".": "./src/index.ts" },
+  "exports": {
+    ".": "./src/index.ts"
+  },
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "node --test --test-concurrency=1 --experimental-strip-types src/*.test.ts",
@@ -16,6 +18,7 @@
     "@abos/persistence": "workspace:*",
     "@abos/sandbox-auth": "workspace:*",
     "@abos/shareholder": "workspace:*",
+    "@abos/treasury": "workspace:*",
     "pg": "8.16.3"
   },
   "devDependencies": {

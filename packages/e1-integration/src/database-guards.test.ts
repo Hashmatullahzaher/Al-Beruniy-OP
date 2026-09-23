@@ -242,7 +242,7 @@ if (databaseUrl() === undefined) {
                      100, 'USD', '2026-09-22', $4, 'key-2', $5)`,
             [randomUUID(), world.legalEntityId, randomUUID(), randomUUID(), world.intentCreatorId]
           ),
-        /posting_intents_capital_source_required|violates check constraint/i
+        /posting_intents_capital_source_required|violates check constraint|requires a Treasury handoff/i
       );
     });
 
@@ -411,64 +411,75 @@ if (databaseUrl() === undefined) {
     test("F-7: a verified receipt requires a confirmed, matching physical cash count", async () => {
       await resetSchema(harness.pool);
       const world = await seedSyntheticWorld(harness.executor);
-      const countId = randomUUID();
-      await harness.executor.query(
-        `INSERT INTO abos.physical_cash_counts
-           (id, legal_entity_id, cash_location_currency_account_id, currency_code, counted_amount,
-            counted_at, counted_by_user_account_id, evidence_reference_id, status)
-         VALUES ($1, $2, $3, 'USD', 25000, clock_timestamp(), $4, $5, 'RECORDED')`,
-        [countId, world.legalEntityId, world.cashAccountId, world.counterId, world.countEvidenceId]
-      );
+      const intentId = await insertIntent(harness, world, world.installmentId, "25000.00");
 
+      // The cashier receives 25,000 but records a count of only 24,999.99. Raw SQL under a named
+      // actor: this proves the database's refusal, with no service in the way.
+      const receiptId = randomUUID();
+      const shortCount = randomUUID();
+      await asActor(harness, world.cashierId, async (client) => {
+        await client.query(...receiptStatement(world, receiptId, intentId, "25000.00"));
+        await client.query(...countStatement(world, shortCount, world.cashierId, "24999.99"));
+        await client.query(
+          `UPDATE abos.cash_receipts SET status = 'COUNTED', physical_cash_count_id = $2, evidence_reference_id = $3
+            WHERE id = $1`, [receiptId, shortCount, world.receiptEvidenceId]);
+        await client.query(
+          "UPDATE abos.cash_receipts SET submitted_for_verification_at = clock_timestamp() WHERE id = $1", [receiptId]);
+      });
+
+      // Verifying without confirming the count is refused.
       await assert.rejects(
-        () => insertVerifiedReceipt(harness, world, countId, "25000.00"),
-        /has not been confirmed/
+        () => asActor(harness, world.countConfirmerId, (client) => client.query(
+          `UPDATE abos.cash_receipts SET status = 'VERIFIED', verified_by_user_account_id = $2,
+                  verified_at = clock_timestamp() WHERE id = $1`, [receiptId, world.countConfirmerId])),
+        /must personally confirm the physical cash count|has not been confirmed/
       );
 
-      await harness.executor.query(
-        `UPDATE abos.physical_cash_counts
-            SET status = 'CONFIRMED', confirmed_by_user_account_id = $2, confirmed_at = clock_timestamp()
-          WHERE id = $1`,
-        [countId, world.countConfirmerId]
-      );
-
-      // A count below the received amount is still refused.
+      // Confirming a count below the received amount and then verifying is refused.
       await assert.rejects(
-        () => insertVerifiedReceipt(harness, world, countId, "25000.01"),
+        () => asActor(harness, world.countConfirmerId, async (client) => {
+          await client.query(
+            `UPDATE abos.physical_cash_counts SET status = 'CONFIRMED', confirmed_by_user_account_id = $2,
+                    confirmed_at = clock_timestamp() WHERE id = $1`, [shortCount, world.countConfirmerId]);
+          await client.query(
+            `UPDATE abos.cash_receipts SET status = 'VERIFIED', verified_by_user_account_id = $2,
+                    verified_at = clock_timestamp() WHERE id = $1`, [receiptId, world.countConfirmerId]);
+        }),
         /below the received amount/
       );
 
-      const receiptId = await insertVerifiedReceipt(harness, world, countId, "25000.00");
-      assert.ok(receiptId);
+      const stored = await harness.executor.query<{ readonly status: string }>(
+        "SELECT status FROM abos.cash_receipts WHERE id = $1", [receiptId]);
+      assert.equal(stored.rows[0]?.status, "COUNTED", "the receipt did not become VERIFIED");
     });
 
     test("F-7: the actor who counted the cash cannot confirm the count", async () => {
       await resetSchema(harness.pool);
       const world = await seedSyntheticWorld(harness.executor);
+      const countId = randomUUID();
+      await asActor(harness, world.cashierId, (client) =>
+        client.query(...countStatement(world, countId, world.cashierId, "25000.00")));
+
+      // Even inserted in one step, a count cannot arrive already confirmed.
       await assert.rejects(
-        () =>
-          harness.executor.query(
-            `INSERT INTO abos.physical_cash_counts
-               (id, legal_entity_id, cash_location_currency_account_id, currency_code,
-                counted_amount, counted_at, counted_by_user_account_id, evidence_reference_id,
-                status, confirmed_by_user_account_id, confirmed_at)
-             VALUES ($1, $2, $3, 'USD', 25000, clock_timestamp(), $4, $5, 'CONFIRMED', $4,
-                     clock_timestamp())`,
-            [
-              randomUUID(),
-              world.legalEntityId,
-              world.cashAccountId,
-              world.counterId,
-              world.countEvidenceId
-            ]
-          ),
-        /violates check constraint/i
+        () => asActor(harness, world.cashierId, (client) => client.query(
+          `INSERT INTO abos.physical_cash_counts
+             (id, legal_entity_id, cash_location_currency_account_id, currency_code, counted_amount,
+              counted_at, counted_by_user_account_id, evidence_reference_id, status,
+              confirmed_by_user_account_id, confirmed_at)
+           VALUES ($1, $2, $3, 'USD', 25000, clock_timestamp(), $4, $5, 'CONFIRMED', $4, clock_timestamp())`,
+          [randomUUID(), world.legalEntityId, world.cashAccountId, world.cashierId, world.countEvidenceId])),
+        /must be recorded before it can be confirmed|violates check constraint/i
+      );
+
+      // And the counter cannot confirm their own count afterwards.
+      await assert.rejects(
+        () => asActor(harness, world.cashierId, (client) => client.query(
+          `UPDATE abos.physical_cash_counts SET status = 'CONFIRMED', confirmed_by_user_account_id = $2,
+                  confirmed_at = clock_timestamp() WHERE id = $1`, [countId, world.cashierId])),
+        /violates check constraint|requires treasury\.cash-receipt\.verify/i
       );
     });
-
-    // -----------------------------------------------------------------------
-    // Authentication tables.
-    // -----------------------------------------------------------------------
 
     test("a user cannot grant themselves a permission, and a sandbox session cannot be long-lived", async () => {
       await resetSchema(harness.pool);
@@ -577,35 +588,48 @@ async function concurrentIntent(
   }
 }
 
-async function insertVerifiedReceipt(
+/** Runs raw SQL as one named synthetic person, inside a transaction carrying the sandbox marker. */
+async function asActor<Result>(
   harness: Harness,
-  world: SyntheticWorld,
-  physicalCashCountId: string,
-  amount: string
-): Promise<string> {
-  const receiptId = randomUUID();
-  await harness.executor.query(
+  userAccountId: string,
+  work: (client: pg.PoolClient) => Promise<Result>
+): Promise<Result> {
+  const client = await harness.pool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query("SELECT set_config('abos.runtime_marker', $1, true)", [MARKER]);
+    await client.query("SELECT set_config('abos.actor_user_account_id', $1, true)", [userAccountId]);
+    const result = await work(client);
+    await client.query("COMMIT");
+    return result;
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+function receiptStatement(world: SyntheticWorld, receiptId: string, intentId: string, amount: string): [string, unknown[]] {
+  return [
     `INSERT INTO abos.cash_receipts
-       (id, legal_entity_id, capital_installment_id, cash_location_currency_account_id,
-        physical_cash_count_id, receipt_reference, amount, currency_code, business_event_at,
-        received_by_user_account_id, evidence_reference_id, status, verified_by_user_account_id,
-        verified_at)
-     VALUES ($1,$2,$3,$4,$5,$6,$7::numeric,'USD','2026-09-22T07:10:00Z',$8,$9,'VERIFIED',$10,
-             clock_timestamp())`,
-    [
-      receiptId,
-      world.legalEntityId,
-      world.installmentId,
-      world.cashAccountId,
-      physicalCashCountId,
-      `RCPT-${receiptId.slice(0, 8)}`,
-      amount,
-      world.cashierId,
-      world.receiptEvidenceId,
-      world.countConfirmerId
-    ]
-  );
-  return receiptId;
+       (id, legal_entity_id, capital_installment_id, capital_receipt_intent_id,
+        cash_location_currency_account_id, receipt_reference, amount, currency_code,
+        business_event_at, received_by_user_account_id, status)
+     VALUES ($1, $2, $3, $4, $5, $6, $7::numeric, 'USD', '2026-09-22T07:10:00Z', $8, 'DRAFT')`,
+    [receiptId, world.legalEntityId, world.installmentId, intentId, world.cashAccountId,
+     `RCPT-${receiptId.slice(0, 8)}`, amount, world.cashierId]
+  ];
+}
+
+function countStatement(world: SyntheticWorld, countId: string, countedBy: string, amount: string): [string, unknown[]] {
+  return [
+    `INSERT INTO abos.physical_cash_counts
+       (id, legal_entity_id, cash_location_currency_account_id, currency_code, counted_amount,
+        counted_at, counted_by_user_account_id, evidence_reference_id, status, count_purpose)
+     VALUES ($1, $2, $3, 'USD', $4::numeric, clock_timestamp(), $5, $6, 'RECORDED', 'RECEIPT')`,
+    [countId, world.legalEntityId, world.cashAccountId, amount, countedBy, world.countEvidenceId]
+  ];
 }
 
 /** Keep numeric as exact decimal text in this file too. */

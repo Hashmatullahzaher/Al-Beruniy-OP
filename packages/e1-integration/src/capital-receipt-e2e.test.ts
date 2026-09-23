@@ -33,6 +33,7 @@ import {
 import { databaseUrl, MISSING_DATABASE_MESSAGE, openHarness, resetSchema, type Harness } from "./harness.ts";
 import {
   addInstallment,
+  handOffSyntheticReceipt,
   recordCapitalPostingIntent,
   recordSyntheticTreasuryReceipt,
   seedSyntheticWorld,
@@ -54,10 +55,10 @@ import {
  * No AFN, no conversion, no bank, no Saraf, no production balances, and the ledger accounts are a
  * test-only mapping rather than the client's Chart of Accounts.
  *
- * Treasury's two rows are written by a documented stand-in, because
- * `agent/antigravity/stage-1-e1-treasury` does not exist on the remote yet. The stand-in is not
- * Treasury and is not presented as Treasury being done - what it produces is exactly what
- * `assertHandoffPreservesSource` will check when the real domain arrives.
+ * Treasury runs through the real Treasury services and migration 0006: an assigned cashier
+ * records, counts and submits the receipt, an independent verifier confirms the count and verifies
+ * it, and the verifier hands it to Finance. The handoff itself performs the shareholder
+ * TREASURY_VERIFIED transition, through the shareholder domain's own service.
  */
 
 const MARKER = "synthetic-e1-sandbox-marker";
@@ -174,7 +175,7 @@ if (databaseUrl() === undefined) {
       });
       assert.equal(replay.id, intent.id, "an idempotent replay returns the stored intent");
 
-      // --- 2. Treasury (stand-in): a confirmed count and a verified receipt. ---------------
+      // --- 2. Treasury: received, counted, submitted and independently verified. -----------
       const treasury = await recordSyntheticTreasuryReceipt(harness.executor, world, {
         capitalReceiptIntentId: intent.id,
         amount: world.installmentAmount
@@ -193,15 +194,15 @@ if (databaseUrl() === undefined) {
         status: "VERIFIED"
       };
 
-      // --- 3. The handoff contract, then the shareholder-side transition. ------------------
+      // --- 3. The handoff contract, then Treasury hands the verified receipt to Finance. ---
       assertHandoffPreservesSource(intent, receipt);
-      const verified = await shareholderService.markTreasuryVerified({
-        legalEntityId: world.legalEntityId as LegalEntityId,
-        intentId: intent.id,
-        receipt
-      });
-      assert.equal(verified.status, "TREASURY_VERIFIED");
-      assert.equal(verified.version, intent.version + 1);
+      await handOffSyntheticReceipt(harness.executor, world, treasury.cashReceiptId);
+      const verified = await shareholderRepository.findIntentById(
+        world.legalEntityId as LegalEntityId,
+        intent.id
+      );
+      assert.equal(verified?.status, "TREASURY_VERIFIED");
+      assert.equal(verified?.version, intent.version + 1);
 
       // --- 4. Finance: the posting intent and an independent approval. ---------------------
       const postingIntentId = await recordCapitalPostingIntent(harness.executor, world, {
@@ -486,72 +487,51 @@ if (databaseUrl() === undefined) {
         sequenceNumber: 2,
         expectedAmount: world.installmentAmount
       });
-      const foreignReceipt = await recordSyntheticTreasuryReceipt(
-        harness.executor,
-        { ...world, installmentId: otherInstallment },
-        { capitalReceiptIntentId: prepared.intent.sourceIntentId, amount: world.installmentAmount }
-      );
-
-      // A compromised upstream writer makes the source and posting intent agree on a receipt
-      // whose actual cash_receipts.capital_installment_id belongs to the other installment.
-      // The final database transition must check the persisted Treasury row, not this command.
-      await harness.executor.query(
-        `UPDATE abos.capital_receipt_intents
-            SET treasury_cash_receipt_id = $2, version = version + 1
-          WHERE id = $1`,
-        [prepared.intent.sourceIntentId, foreignReceipt.cashReceiptId]
-      );
-      await harness.executor.query(
-        "UPDATE abos.posting_intents SET treasury_cash_receipt_id = $2 WHERE id = $1",
-        [prepared.intent.id, foreignReceipt.cashReceiptId]
-      );
-
-      const foreignCount = await harness.executor.query<{
-        readonly counted_amount: string;
-        readonly counted_at: Date | string;
-        readonly counted_by_user_account_id: string;
-        readonly confirmed_by_user_account_id: string;
-      }>(
-        `SELECT counted_amount::text AS counted_amount, counted_at,
-                counted_by_user_account_id, confirmed_by_user_account_id
-           FROM abos.physical_cash_counts WHERE id = $1`,
-        [foreignReceipt.physicalCashCountId]
-      );
-      const count = foreignCount.rows[0];
-      assert.ok(count);
-      const command: PostCapitalReceiptCommand = {
-        ...prepared,
-        intent: {
-          ...prepared.intent,
-          treasuryReceiptId: foreignReceipt.cashReceiptId as CashReceiptId
+      // A genuine, fully verified Treasury receipt - but for a different installment's intent.
+      const otherIntent = await new CapitalReceiptIntentService(
+        new PostgresShareholderRepository(harness.executor, world.intentCreatorId as UserAccountId)
+      ).createCapitalReceiptIntent({
+        legalEntityId: world.legalEntityId as LegalEntityId,
+        shareholderPartyId: world.businessPartyId as never,
+        agreementId: world.agreementId as CapitalAgreementId,
+        installmentId: otherInstallment as CapitalInstallmentId,
+        amount: { amount: asDecimalString(world.installmentAmount), currency: "USD" },
+        expectedDestinationAccountId: world.cashAccountId as CashLocationCurrencyAccountId,
+        businessEventAt: "2026-09-22T07:00:00.000Z",
+        source: {
+          legalEntityId: world.legalEntityId as LegalEntityId,
+          idempotencyKey: `capital-${randomUUID()}` as IdempotencyKey,
+          correlationId: randomUUID() as CorrelationId
         },
-        treasuryReceipt: {
-          ...prepared.treasuryReceipt,
-          id: foreignReceipt.cashReceiptId as CashReceiptId,
-          physicalCashCountId: foreignReceipt.physicalCashCountId as PhysicalCashCountId
-        },
-        configuration: {
-          ...prepared.configuration,
-          physicalCashCount: {
-            ...prepared.configuration.physicalCashCount,
-            id: foreignReceipt.physicalCashCountId as PhysicalCashCountId,
-            countedAmount: count.counted_amount,
-            countedAt: count.counted_at instanceof Date
-              ? count.counted_at.toISOString() : String(count.counted_at),
-            countedByUserAccountId: count.counted_by_user_account_id as UserAccountId,
-            confirmedByUserAccountId: count.confirmed_by_user_account_id as UserAccountId
-          }
-        }
-      };
-      const financeService = new FinancePostingService(
-        new PostgresFinancePostingRepository(harness.executor, authenticator),
-        authenticator.verifyGate
-      );
+        evidence: [await loadEvidence(harness, world.agreementDocumentEvidenceId)]
+      });
+      const foreignReceipt = await recordSyntheticTreasuryReceipt(harness.executor, world, {
+        capitalReceiptIntentId: otherIntent.id,
+        amount: world.installmentAmount
+      });
+
+      // A compromised upstream writer tries to make the prepared source point at that receipt.
+      // Treasury's link guard refuses: a source may only reference its own verified receipt.
       await assert.rejects(
-        () => financeService.postCapitalReceipt(command),
-        /source, shareholder, installment and Treasury receipt must agree/i
+        () =>
+          harness.executor.query(
+            `UPDATE abos.capital_receipt_intents
+                SET treasury_cash_receipt_id = $2, version = version + 1
+              WHERE id = $1`,
+            [prepared.intent.sourceIntentId, foreignReceipt.cashReceiptId]
+          ),
+        /can only reference its own VERIFIED Treasury receipt/
       );
-      await assertUnpostedSource(harness, command.intent.sourceIntentId);
+      // And Finance cannot be pointed at a receipt Treasury never handed off for this source.
+      await assert.rejects(
+        () =>
+          harness.executor.query(
+            "UPDATE abos.posting_intents SET treasury_cash_receipt_id = $2 WHERE id = $1",
+            [prepared.intent.id, foreignReceipt.cashReceiptId]
+          ),
+        /requires a Treasury handoff of this verified receipt|disagree on the Treasury receipt/
+      );
+      await assertUnpostedSource(harness, prepared.intent.sourceIntentId);
     });
   });
 }
@@ -835,11 +815,7 @@ async function prepareUnposted(
     verifiedAt: "2026-09-22T07:15:00.000Z",
     status: "VERIFIED"
   };
-  await shareholderService.markTreasuryVerified({
-    legalEntityId: world.legalEntityId as LegalEntityId,
-    intentId: intent.id,
-    receipt
-  });
+  await handOffSyntheticReceipt(harness.executor, world, treasury.cashReceiptId);
 
   const postingIntentId = await recordCapitalPostingIntent(harness.executor, world, {
     capitalReceiptIntentId: intent.id,
