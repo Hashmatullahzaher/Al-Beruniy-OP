@@ -290,7 +290,18 @@ export class FinancePostingService {
     });
     const commit = createCommit(reversal, command.metadata, requestHash, "REVERSE_JOURNAL", "FINANCE_JOURNAL_REVERSED");
     try {
-      await this.repository.commit({ ...commit, reversalOfJournalId: original.id });
+      const reversalEvidence = command.evidence.find((item) => item.kind === "REVERSAL_REASON");
+      assertFinance(reversalEvidence, "EVIDENCE_REQUIRED", "Reversal evidence is required");
+      await this.repository.commit({
+        ...commit,
+        reversalOfJournalId: original.id,
+        reversal: {
+          originalJournalId: original.id,
+          reason: command.reason,
+          approvedByUserAccountId: command.actor.userAccountId,
+          evidenceReferenceId: reversalEvidence.id
+        }
+      });
       return reversal;
     } catch (error) {
       const raced = await this.repository.findIdempotencyResult(

@@ -230,7 +230,7 @@ test("F-3: a gate resolved for another legal entity cannot post here", async () 
 
 test("F-3: an actor context that did not come from a server session is refused", async () => {
   const withoutSession = fixture();
-  const { sessionId: _ignored, ...actorWithoutSession } = withoutSession.command.actor;
+  const actorWithoutSession = omit(withoutSession.command.actor, "sessionId");
   await rejects(
     () =>
       withoutSession.service.postCapitalReceipt({
@@ -333,10 +333,10 @@ test("F-6: a reversal needs its own accounting date, inside the open period", as
 
 test("F-7: an unconfirmed, mismatched or self-confirmed cash count blocks posting", async () => {
   const unconfirmed = fixture();
-  const {
-    confirmedByUserAccountId: _unconfirmedActor,
-    ...countWithoutConfirmation
-  } = unconfirmed.command.configuration.physicalCashCount;
+  const countWithoutConfirmation = omit(
+    unconfirmed.command.configuration.physicalCashCount,
+    "confirmedByUserAccountId"
+  );
   await rejects(
     () =>
       unconfirmed.service.postCapitalReceipt({
@@ -410,7 +410,7 @@ test("F-8: a cost-centre-scoped posting requires cost-centre authority", async (
 test("F-8: an actor with no costCenterIds field at all is refused, not waved through", async () => {
   const { service, command } = fixture();
   const scoped = projectScoped(command, []);
-  const { costCenterIds: _dropped, ...actorWithoutField } = scoped.actor;
+  const actorWithoutField = omit(scoped.actor, "costCenterIds");
   await rejects(
     () => service.postCapitalReceipt({ ...scoped, actor: actorWithoutField }),
     "SCOPE_MISMATCH"
@@ -646,6 +646,16 @@ function projectScoped(
       costCenterIds
     }
   };
+}
+
+/** Builds a copy without one optional property, to model a caller that simply did not send it. */
+function omit<Value extends object, Key extends keyof Value>(
+  value: Value,
+  key: Key
+): Omit<Value, Key> {
+  const copy = { ...value };
+  delete copy[key];
+  return copy;
 }
 
 function evidence(kind: EvidenceReference["kind"], suffix: string): EvidenceReference {

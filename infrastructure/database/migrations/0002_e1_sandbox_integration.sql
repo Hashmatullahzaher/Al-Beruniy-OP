@@ -485,6 +485,12 @@ FOR EACH ROW EXECUTE FUNCTION abos.guard_posted_capital_receipt_intent();
 -- Migration 0001 already keeps the posting actor separate from the intent creator, the cashier and
 -- the counter, and requires the reversal to be an exact inverse. It does not stop the person who
 -- posted a journal from also reversing it.
+--
+-- The rule is enforced twice, because the link-level trigger alone is not enough. PostgreSQL fires
+-- triggers in name order, so 0001's journal_reversal_links_guard runs first and rejects anything
+-- that is not already a valid posted pair; the segregation check below is therefore only reached
+-- late. The same rule is applied again in abos.validate_e1_sandbox_posting, at the moment the
+-- reversal journal is posted, where it is reached first and refuses earlier.
 CREATE OR REPLACE FUNCTION abos.enforce_reversal_segregation_of_duties()
 RETURNS trigger LANGUAGE plpgsql AS $$
 DECLARE
@@ -577,6 +583,8 @@ RETURNS trigger LANGUAGE plpgsql AS $$
 DECLARE
   intent_kind text;
   source_intent_id uuid;
+  source_intent_id_reversal uuid;
+  original_poster uuid;
   agreement_status text;
   funding_policy abos.capital_agreement_funding_policies%ROWTYPE;
 BEGIN
@@ -585,10 +593,21 @@ BEGIN
   END IF;
   PERFORM abos.assert_sandbox_mutation_authorized(NEW.legal_entity_id);
 
-  SELECT pi.intent_kind, pi.capital_receipt_intent_id
-    INTO intent_kind, source_intent_id
+  SELECT pi.intent_kind, pi.capital_receipt_intent_id, pi.source_id
+    INTO intent_kind, source_intent_id, source_intent_id_reversal
     FROM abos.posting_intents pi
    WHERE pi.id = NEW.posting_intent_id AND pi.legal_entity_id = NEW.legal_entity_id;
+
+  -- F-5, enforced at the moment of posting so it is reached before the reversal link is written.
+  IF intent_kind = 'REVERSAL' THEN
+    SELECT posted_by_user_account_id INTO original_poster
+      FROM abos.journals
+     WHERE id = source_intent_id_reversal
+       FOR SHARE;
+    IF original_poster IS NOT NULL AND original_poster = NEW.posted_by_user_account_id THEN
+      RAISE EXCEPTION 'the actor who posted a journal cannot also post its reversal';
+    END IF;
+  END IF;
 
   IF intent_kind = 'SHAREHOLDER_CAPITAL_RECEIPT' THEN
     IF source_intent_id IS NULL THEN

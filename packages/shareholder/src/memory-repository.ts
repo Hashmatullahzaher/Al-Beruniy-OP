@@ -1,5 +1,7 @@
 import type {
+  CapitalAgreementFundingPolicy,
   CapitalAgreementId,
+  CorrelationId,
   CapitalInstallmentId,
   CapitalReceiptIntent,
   CapitalReceiptIntentId,
@@ -19,8 +21,9 @@ import type {
 /**
  * Synthetic in-memory adapter for E1 development and tests.
  *
- * It is NOT the durable adapter: that depends on `abos.capital_receipt_intents`, which Codex has not
- * created yet (Finance review F-2). Seeded state is synthetic by construction.
+ * It is NOT the durable adapter. The durable one is `PostgresShareholderRepository` in
+ * `@abos/persistence`, which writes `abos.capital_receipt_intents` (created by migration 0002,
+ * Finance review F-2). Seeded state here is synthetic by construction.
  */
 export class InMemoryShareholderRepository implements ShareholderRepository {
   private readonly profiles = new Map<string, ShareholderProfile>();
@@ -32,6 +35,7 @@ export class InMemoryShareholderRepository implements ShareholderRepository {
   private readonly byIdempotency = new Map<string, StoredIntentResult>();
   private readonly byInstallment = new Map<string, CapitalReceiptIntent>();
   private readonly contributions = new Map<string, ContributionHistoryEntry[]>();
+  private readonly fundingPolicies = new Map<string, CapitalAgreementFundingPolicy>();
 
   seedProfile(profile: ShareholderProfile): void {
     this.profiles.set(key(profile.legalEntityId, profile.businessPartyId), profile);
@@ -49,6 +53,15 @@ export class InMemoryShareholderRepository implements ShareholderRepository {
     const mapKey = key(document.legalEntityId, agreementId);
     this.documents.set(mapKey, [...(this.documents.get(mapKey) ?? []), document]);
   }
+  /**
+   * Records a funding decision for a legal entity.
+   *
+   * Nothing is fundable until this is called, which is finding F-1 staying closed: a repository
+   * with no seeded decision refuses every capital receipt.
+   */
+  seedFundingPolicy(legalEntityId: LegalEntityId, policy: CapitalAgreementFundingPolicy): void {
+    this.fundingPolicies.set(legalEntityId, policy);
+  }
   seedContribution(entry: ContributionHistoryEntry): void {
     const mapKey = key(entry.legalEntityId, entry.agreementId);
     this.contributions.set(mapKey, [...(this.contributions.get(mapKey) ?? []), entry]);
@@ -65,6 +78,11 @@ export class InMemoryShareholderRepository implements ShareholderRepository {
     agreementId: CapitalAgreementId
   ): Promise<CapitalAgreementRecord | undefined> {
     return this.agreements.get(key(legalEntityId, agreementId));
+  }
+  async findFundingPolicy(
+    legalEntityId: LegalEntityId
+  ): Promise<CapitalAgreementFundingPolicy | undefined> {
+    return this.fundingPolicies.get(legalEntityId);
   }
   async findRegistrationEvidence(
     legalEntityId: LegalEntityId,
@@ -113,6 +131,7 @@ export class InMemoryShareholderRepository implements ShareholderRepository {
     readonly intent: CapitalReceiptIntent;
     readonly requestHash: string;
     readonly idempotencyKey: IdempotencyKey;
+    readonly correlationId: CorrelationId;
     readonly history: ContributionHistoryEntry;
   }): Promise<void> {
     const entity = input.intent.dimensions.legalEntityId;

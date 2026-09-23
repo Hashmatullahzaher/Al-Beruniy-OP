@@ -21,6 +21,7 @@ import type {
   UserAccountId,
   VerifiedTreasuryReceipt
 } from "@abos/contracts";
+import type { CapitalAgreementFundingPolicy } from "@abos/contracts";
 import {
   CapitalReceiptIntentService,
   assertHandoffPreservesSource
@@ -29,11 +30,11 @@ import { assessInstallmentEligibility } from "./eligibility.ts";
 import { ShareholderDomainError } from "./errors.ts";
 import { InMemoryShareholderRepository } from "./memory-repository.ts";
 import {
-  CANONICAL_STATUS_DECISION_PENDING,
-  toContractAgreementStatus,
-  toPersistedAgreementStatus
+  assertAgreementMayFund,
+  isFundingDecisionOutstanding,
+  toCanonicalAgreementStatus,
+  toLegacyAgreementStatus
 } from "./schema-divergence.ts";
-import type { JointStatusDecision, PersistedAgreementStatus } from "./schema-divergence.ts";
 import type {
   CapitalAgreementRecord,
   CapitalInstallmentRecord,
@@ -92,8 +93,24 @@ const agreement: CapitalAgreementRecord = {
   denominationCurrency: "USD",
   committedAmount: usd("100000"),
   partialInstallmentsAllowed: true,
-  status: "APPROVED",
+  // Canonical vocabulary (stage1-e0-v2). The agreement is only fundable because the harness seeds
+  // a funding decision below; the status name alone grants nothing.
+  status: "ELIGIBLE",
   version: 1
+};
+
+/**
+ * A synthetic funding decision, so the E1 tests can exercise the happy path.
+ *
+ * `decidedBy: "SANDBOX_SYNTHETIC"` is deliberate: this is not, and must not be read as, the
+ * client's Finance function approving anything.
+ */
+const syntheticFundingPolicy: CapitalAgreementFundingPolicy = {
+  vocabularyVersion: "stage1-e0-v2",
+  decisionReference: "SANDBOX-SYNTHETIC-E1 (not a client Finance decision)",
+  decidedBy: "SANDBOX_SYNTHETIC",
+  fundableStatuses: ["ELIGIBLE"],
+  decidedAt: "2026-09-01T00:00:00.000Z"
 };
 
 const registration: RegistrationEvidenceRecord = {
@@ -146,6 +163,7 @@ function harness(
 ): Harness {
   const repository = new InMemoryShareholderRepository();
   repository.seedProfile(profile);
+  repository.seedFundingPolicy(ENTITY, syntheticFundingPolicy);
   repository.seedAgreement(agreement);
   repository.seedRegistration(registration);
   repository.seedInstallment(installment);
@@ -251,8 +269,8 @@ test("a missing capital agreement is rejected", async () => {
   );
 });
 
-test("a non-approved capital agreement cannot fund an installment", async () => {
-  for (const status of ["DRAFT", "SUSPENDED", "CLOSED"] as const) {
+test("a non-fundable capital agreement cannot fund an installment", async () => {
+  for (const status of ["DRAFT", "SUSPENDED", "CLOSED", "PENDING_EVIDENCE"] as const) {
     const { service } = harness((repository) =>
       repository.seedAgreement({ ...agreement, status })
     );
@@ -262,6 +280,7 @@ test("a non-approved capital agreement cannot fund an installment", async () => 
 
 test("missing formal registration evidence is rejected", async () => {
   const withoutRegistration = new InMemoryShareholderRepository();
+  withoutRegistration.seedFundingPolicy(ENTITY, syntheticFundingPolicy);
   withoutRegistration.seedProfile(profile);
   withoutRegistration.seedAgreement(agreement);
   withoutRegistration.seedInstallment(installment);
@@ -285,6 +304,7 @@ test("unverified or wrong-kind registration evidence is rejected", async () => {
 
 test("a missing controlled agreement document is rejected", async () => {
   const bare = new InMemoryShareholderRepository();
+  bare.seedFundingPolicy(ENTITY, syntheticFundingPolicy);
   bare.seedProfile(profile);
   bare.seedAgreement(agreement);
   bare.seedRegistration(registration);
@@ -590,49 +610,85 @@ test("pending registration is neither paid-in capital nor automatically a liabil
 
 // ---------------------------------------------------------------- schema divergence (Finance F-1)
 
-test("the unresolved status divergence fails closed and is never silently mapped", () => {
-  // Identical names assert nothing about policy, so they map without a decision.
-  assert.equal(toContractAgreementStatus("DRAFT"), "DRAFT");
-  assert.equal(toContractAgreementStatus("SUSPENDED"), "SUSPENDED");
-  assert.equal(toContractAgreementStatus("CLOSED"), "CLOSED");
+test("F-1 is resolved by adopting the persisted vocabulary, not by inferring a policy", () => {
+  // The canonical vocabulary IS the persisted one, so persisted values need no translation and no
+  // decision. Nothing is renamed and nothing acquires a new meaning.
+  for (const status of ["DRAFT", "PENDING_EVIDENCE", "ELIGIBLE", "SUSPENDED", "CLOSED"] as const) {
+    assert.equal(status, status);
+  }
 
-  // ELIGIBLE → APPROVED is a policy-semantic claim. Without a recorded joint decision it must throw,
-  // per the owner's direction on issue #3 not to resolve the mismatch silently.
-  const pending = (persisted: PersistedAgreementStatus) => () => toContractAgreementStatus(persisted);
-  for (const persisted of ["ELIGIBLE", "PENDING_EVIDENCE"] as const) {
+  // The v1 bridge still refuses the mapping the owner rejected, in both directions. APPROVED has
+  // no canonical equivalent, and ELIGIBLE is never expressed as APPROVED.
+  assert.equal(toCanonicalAgreementStatus("DRAFT"), "DRAFT");
+  assert.equal(toCanonicalAgreementStatus("SUSPENDED"), "SUSPENDED");
+  assert.equal(toCanonicalAgreementStatus("CLOSED"), "CLOSED");
+  assert.throws(
+    () => toCanonicalAgreementStatus("APPROVED"),
+    (error: unknown) =>
+      error instanceof ShareholderDomainError && error.code === "POLICY_CONFIGURATION_PENDING"
+  );
+  for (const canonical of ["ELIGIBLE", "PENDING_EVIDENCE"] as const) {
     assert.throws(
-      pending(persisted),
+      () => toLegacyAgreementStatus(canonical),
       (error: unknown) =>
-        error instanceof ShareholderDomainError && error.code === "POLICY_CONFIGURATION_PENDING",
-      `${persisted} must not map without a recorded decision`
+        error instanceof ShareholderDomainError && error.code === "POLICY_CONFIGURATION_PENDING"
     );
   }
-  assert.equal(CANONICAL_STATUS_DECISION_PENDING, true);
+});
 
-  // With a recorded decision the mapping applies, and only for the status it covers.
-  const decision: JointStatusDecision = {
-    decisionReference: "SYNTHETIC-TEST-ONLY — not an agreed decision",
-    canonicalFundableStatus: "ELIGIBLE",
-    contractEquivalent: "APPROVED"
-  };
-  assert.equal(toContractAgreementStatus("ELIGIBLE", decision), "APPROVED");
+test("fundability comes from a recorded decision and fails closed without one", () => {
+  // No decision: nothing is fundable, including the status the sandbox happens to use.
+  for (const status of ["DRAFT", "PENDING_EVIDENCE", "ELIGIBLE", "SUSPENDED", "CLOSED"] as const) {
+    assert.throws(
+      () => assertAgreementMayFund(status, undefined),
+      (error: unknown) =>
+        error instanceof ShareholderDomainError && error.code === "POLICY_CONFIGURATION_PENDING",
+      `${status} must not be fundable without a recorded decision`
+    );
+  }
+
+  // A decision covers only what it names, and can never name a structurally unfundable status.
+  assertAgreementMayFund("ELIGIBLE", syntheticFundingPolicy);
   assert.throws(
-    () => toContractAgreementStatus("PENDING_EVIDENCE", decision),
+    () => assertAgreementMayFund("PENDING_EVIDENCE", syntheticFundingPolicy),
     (error: unknown) =>
-      error instanceof ShareholderDomainError && error.code === "POLICY_CONFIGURATION_PENDING"
+      error instanceof ShareholderDomainError && error.code === "CAPITAL_AGREEMENT_REQUIRED"
   );
   assert.throws(
-    () => toContractAgreementStatus("ELIGIBLE", { ...decision, decisionReference: "  " }),
+    () => assertAgreementMayFund("DRAFT", { ...syntheticFundingPolicy, fundableStatuses: ["DRAFT"] }),
     (error: unknown) =>
       error instanceof ShareholderDomainError && error.code === "POLICY_CONFIGURATION_PENDING"
   );
 
-  // The reverse direction is gated identically.
-  assert.equal(toPersistedAgreementStatus("DRAFT"), "DRAFT");
-  assert.throws(
-    () => toPersistedAgreementStatus("APPROVED"),
-    (error: unknown) =>
-      error instanceof ShareholderDomainError && error.code === "POLICY_CONFIGURATION_PENDING"
+  // The business half of F-1 is still open: the sandbox decision is not a client Finance decision.
+  assert.equal(isFundingDecisionOutstanding(undefined), true);
+  assert.equal(isFundingDecisionOutstanding(syntheticFundingPolicy), true);
+  assert.equal(
+    isFundingDecisionOutstanding({ ...syntheticFundingPolicy, decidedBy: "CLIENT_FINANCE" }),
+    false
   );
-  assert.equal(toPersistedAgreementStatus("APPROVED", decision), "ELIGIBLE");
+});
+
+test("a repository with no recorded funding decision refuses every capital receipt", async () => {
+  const undecided = new InMemoryShareholderRepository();
+  undecided.seedProfile(profile);
+  undecided.seedAgreement(agreement);
+  undecided.seedRegistration(registration);
+  undecided.seedInstallment(installment);
+  undecided.seedDocument(
+    {
+      documentId: "doc-agr-001" as DocumentId,
+      evidence: evidence("CAPITAL_AGREEMENT", "agr-doc-001"),
+      legalEntityId: ENTITY
+    },
+    AGREEMENT
+  );
+  const service = new CapitalReceiptIntentService(
+    undecided,
+    () => "2026-09-22T09:00:00.000Z",
+    () => "intent-undecided-1"
+  );
+  await expectCode("POLICY_CONFIGURATION_PENDING", () =>
+    service.createCapitalReceiptIntent(command())
+  );
 });
