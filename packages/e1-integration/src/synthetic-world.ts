@@ -45,6 +45,8 @@ export interface SyntheticWorld {
   readonly legalEntityId: string;
   readonly runtimeMarker: string;
   readonly policyVersionId: string;
+  /** The sandbox configuration this world was authorized for; sessions are issued against it. */
+  readonly authConfiguration: SandboxAuthConfiguration;
 
   readonly bootstrapUserId: string;
   readonly intentCreatorId: string;
@@ -86,6 +88,8 @@ export interface SyntheticWorld {
 }
 
 export interface SeedOptions {
+  /** Defaults to SYNTHETIC_AUTH_CONFIGURATION (environment "test"). The dev sandbox passes its own. */
+  readonly authConfiguration?: SandboxAuthConfiguration;
   readonly runtimeMarker?: string;
   /** Skip the sandbox authorization, to prove that finance mutation is impossible without it. */
   readonly withoutSandboxAuthorization?: boolean;
@@ -105,10 +109,12 @@ export async function seedSyntheticWorld(
   database: SqlExecutor,
   options: SeedOptions = {}
 ): Promise<SyntheticWorld> {
+  const authConfiguration = options.authConfiguration ?? SYNTHETIC_AUTH_CONFIGURATION;
   const world: SyntheticWorld = {
+    authConfiguration,
     companyId: randomUUID(),
     legalEntityId: randomUUID(),
-    runtimeMarker: options.runtimeMarker ?? DEFAULT_MARKER,
+    runtimeMarker: options.runtimeMarker ?? authConfiguration.runtimeMarker ?? DEFAULT_MARKER,
     policyVersionId: "synthetic-e1-policy-v1",
     bootstrapUserId: randomUUID(),
     intentCreatorId: randomUUID(),
@@ -191,9 +197,9 @@ export async function seedSyntheticWorld(
       `INSERT INTO abos.sandbox_authorizations
          (singleton, environment, configuration_state, policy_version_id, runtime_marker,
           authorized_by_user_account_id, authorized_at, expires_at)
-       VALUES (true, 'test', 'SYNTHETIC_TEST_ONLY', $1, $2, $3,
+       VALUES (true, $4, 'SYNTHETIC_TEST_ONLY', $1, $2, $3,
                clock_timestamp(), clock_timestamp() + interval '1 day')`,
-      [world.policyVersionId, world.runtimeMarker, world.bootstrapUserId]
+      [world.policyVersionId, world.runtimeMarker, world.bootstrapUserId, authConfiguration.environment]
     );
     await q(
       `INSERT INTO abos.sandbox_legal_entity_scopes
@@ -364,7 +370,7 @@ export async function treasuryAs(
   world: SyntheticWorld,
   userAccountId: string
 ): Promise<{ readonly service: TreasuryService; readonly actor: TreasuryActor; readonly token: string }> {
-  const authenticator = new SandboxAuthenticator(database, SYNTHETIC_AUTH_CONFIGURATION);
+  const authenticator = new SandboxAuthenticator(database, world.authConfiguration);
   const session = await authenticator.issueSession({
     userAccountId: userAccountId as UserAccountId,
     legalEntityId: world.legalEntityId as LegalEntityId

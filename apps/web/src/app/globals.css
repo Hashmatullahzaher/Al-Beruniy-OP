@@ -1129,3 +1129,148 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible { outline: 2px s
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+
+/* ---------------------------------------------------------------------------------------------
+ * Treasury (E1 synthetic sandbox). Logical properties throughout, so Dari RTL mirrors correctly.
+ * ------------------------------------------------------------------------------------------- */
+.treasury-workspace { display: grid; gap: 12px; }
+.treasury-boundary strong { font-size: 10px; }
+.treasury-back-link { color: #b9c9d6; font-size: 10px; text-decoration: none; }
+.treasury-card { min-width: 0; padding: 18px; border: 1px solid rgba(52, 129, 181, .34); border-radius: 7px; background: linear-gradient(150deg, rgba(9, 34, 55, .96), rgba(3, 17, 29, .98)); }
+.treasury-placeholder { display: flex; align-items: center; gap: 12px; color: #a9bbca; font-size: 12px; line-height: 1.5; }
+.treasury-placeholder p { margin: 0; }
+.treasury-message { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 10px 12px; border-radius: 7px; font-size: 11.5px; line-height: 1.45; }
+.treasury-message.error { border: 1px solid rgba(255, 107, 102, .45); background: rgba(120, 30, 28, .28); color: #ffd0cd; }
+.treasury-message.success { border: 1px solid rgba(75, 221, 162, .4); background: rgba(20, 90, 64, .25); color: #c9f7e3; }
+.treasury-message button { border: 0; background: transparent; color: inherit; font-size: 18px; cursor: pointer; }
+
+.treasury-signin { max-width: 620px; display: grid; gap: 10px; }
+.treasury-signin-icon { width: 46px; height: 46px; display: grid; place-items: center; border-radius: 11px; background: rgba(224, 180, 79, .12); color: var(--abos-gold-300); }
+.treasury-signin h2 { margin: 0; font-size: 16px; }
+.treasury-signin p { margin: 0; color: #a9bbca; font-size: 11.5px; line-height: 1.55; }
+.treasury-signin form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: end; }
+.treasury-signin label { grid-column: 1 / -1; color: #8ea3b5; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; }
+.treasury-signin details { color: #8ea3b5; font-size: 11px; }
+.treasury-signin code { display: block; margin-top: 6px; padding: 8px; overflow-x: auto; border-radius: 6px; background: rgba(0, 0, 0, .3); color: var(--abos-cyan-300); font-size: 11px; }
+
+.treasury-workspace input, .treasury-workspace select { min-height: 36px; min-width: 0; padding: 0 10px; border: 1px solid rgba(73, 145, 192, .35); border-radius: 6px; background: rgba(3, 15, 26, .85); color: var(--abos-ivory-100); font-size: 12px; }
+.treasury-workspace input:focus, .treasury-workspace select:focus { outline: 2px solid var(--abos-gold-300); outline-offset: 1px; }
+.treasury-button { min-height: 36px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 0 14px; border: 1px solid rgba(101, 203, 255, .45); border-radius: 6px; background: linear-gradient(180deg, rgba(40, 167, 243, .32), rgba(21, 96, 146, .4)); color: white; font-size: 11.5px; font-weight: 650; text-decoration: none; cursor: pointer; white-space: nowrap; }
+.treasury-button:hover:not(:disabled) { border-color: var(--abos-cyan-300); }
+.treasury-button:disabled { cursor: not-allowed; opacity: .45; }
+.treasury-button.gold { border-color: rgba(241, 207, 119, .6); background: linear-gradient(180deg, rgba(224, 180, 79, .4), rgba(140, 104, 31, .45)); }
+.treasury-button.danger { border-color: rgba(255, 107, 102, .5); background: rgba(150, 40, 36, .35); }
+.treasury-button.quiet { border-color: rgba(73, 145, 192, .3); background: transparent; color: #b9c9d6; }
+
+.treasury-identity { display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(0, 2fr) auto; gap: 12px; align-items: center; padding: 10px 13px; border: 1px solid rgba(52, 129, 181, .34); border-radius: 7px; background: rgba(6, 25, 41, .9); }
+.treasury-avatar { width: 38px; height: 38px; display: grid; place-items: center; border-radius: 50%; background: rgba(224, 180, 79, .16); color: var(--abos-gold-300); font-size: 12px; font-weight: 800; }
+.treasury-identity small, .treasury-identity strong, .treasury-identity > div > span { display: block; }
+.treasury-identity small { color: #7f95a8; font-size: 9px; letter-spacing: .1em; text-transform: uppercase; }
+.treasury-identity strong { font-size: 13px; }
+.treasury-identity > div > span { color: #8ea3b5; font-size: 10px; }
+.treasury-identity ul { display: flex; flex-wrap: wrap; gap: 5px; margin: 0; padding: 0; list-style: none; }
+.treasury-identity li { padding: 3px 7px; border: 1px solid rgba(101, 203, 255, .3); border-radius: 999px; color: #b8dcf2; font-size: 9.5px; }
+.treasury-identity li.none { border-color: rgba(255, 107, 102, .4); color: #ffb3ae; }
+
+.treasury-chip { display: inline-flex; align-items: center; padding: 3px 8px; border: 1px solid rgba(73, 145, 192, .35); border-radius: 999px; color: #b9c9d6; font-size: 10px; font-weight: 650; white-space: nowrap; }
+.treasury-chip.ok, .treasury-chip.stage-verified, .treasury-chip.stage-posted_by_finance { border-color: rgba(75, 221, 162, .5); color: #9ef0cb; }
+.treasury-chip.gold, .treasury-chip.stage-handed_to_finance { border-color: rgba(241, 207, 119, .55); color: var(--abos-gold-300); }
+.treasury-chip.stage-pending_verification { border-color: rgba(101, 203, 255, .55); color: var(--abos-cyan-300); }
+.treasury-chip.danger, .treasury-chip.stage-voided { border-color: rgba(255, 107, 102, .5); color: #ffb3ae; }
+.treasury-chip.muted { color: #8ea3b5; }
+
+.treasury-empty, .treasury-muted { margin: 0; color: #8ea3b5; font-size: 11.5px; line-height: 1.5; }
+.treasury-empty { padding: 22px; }
+.treasury-note { margin: 0; color: #7f95a8; font-size: 10px; line-height: 1.5; }
+.treasury-waiting { margin: 0; padding: 10px; border-inline-start: 3px solid var(--abos-gold-400); background: rgba(224, 180, 79, .07); color: #e6d3a1; font-size: 11.5px; line-height: 1.5; }
+
+.treasury-safes { display: grid; gap: 12px; padding: 12px; }
+.treasury-safe { display: grid; gap: 10px; padding: 12px; border: 1px solid rgba(52, 129, 181, .28); border-radius: 7px; background: rgba(4, 18, 31, .55); }
+.treasury-safe header { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: center; }
+.treasury-safe header > span:first-child { width: 38px; height: 38px; display: grid; place-items: center; border-radius: 9px; background: rgba(40, 167, 243, .12); color: var(--abos-cyan-300); }
+.treasury-safe small { color: #7f95a8; font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase; }
+.treasury-safe h3 { margin: 2px 0 0; font-size: 14px; }
+.treasury-accounts { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; }
+.treasury-account { display: grid; gap: 8px; padding: 11px; border: 1px solid rgba(73, 145, 192, .25); border-radius: 7px; }
+.treasury-account.active { border-color: rgba(75, 221, 162, .35); }
+.treasury-account > strong { font-size: 18px; letter-spacing: .06em; }
+.treasury-account .treasury-chip { justify-self: start; }
+.treasury-account dl { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 10px; margin: 0; font-size: 10.5px; }
+.treasury-account dt { color: #7f95a8; }
+.treasury-account dd { margin: 0; color: #cdd9e3; }
+.treasury-safe footer { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; font-size: 11px; color: #cdd9e3; }
+
+.treasury-table-wrap { overflow-x: auto; }
+.treasury-table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+.treasury-table th { padding: 9px 12px; border-bottom: 1px solid rgba(60, 130, 176, .25); color: #7f95a8; font-size: 9.5px; font-weight: 700; letter-spacing: .08em; text-align: start; text-transform: uppercase; }
+.treasury-table td { padding: 10px 12px; border-bottom: 1px solid rgba(60, 130, 176, .12); vertical-align: middle; }
+.treasury-table td.amount { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.treasury-inline-form { display: flex; flex-wrap: wrap; gap: 6px; }
+.treasury-inline-form input { width: 130px; }
+
+.treasury-receipts { display: grid; grid-template-columns: minmax(250px, 1fr) minmax(0, 2fr); min-height: 420px; }
+.treasury-receipt-list { margin: 0; padding: 8px; list-style: none; border-inline-end: 1px solid rgba(60, 130, 176, .2); }
+.treasury-receipt-list button { width: 100%; display: grid; gap: 4px; margin-bottom: 6px; padding: 10px; border: 1px solid transparent; border-radius: 7px; background: rgba(8, 30, 49, .6); color: inherit; text-align: start; cursor: pointer; }
+.treasury-receipt-list button:hover { border-color: rgba(101, 203, 255, .3); }
+.treasury-receipt-list button.selected { border-color: rgba(224, 180, 79, .5); background: rgba(224, 180, 79, .08); }
+.treasury-receipt-list .ref { color: #7f95a8; font-size: 10px; }
+.treasury-receipt-list strong { font-size: 13.5px; font-variant-numeric: tabular-nums; }
+.treasury-receipt-list small { color: #9fb2c3; font-size: 10.5px; }
+.treasury-receipt-list .treasury-chip { justify-self: start; }
+.treasury-detail { min-width: 0; padding: 12px; }
+.treasury-receipt-detail { display: grid; gap: 14px; }
+.treasury-receipt-detail > header { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px; align-items: center; }
+.treasury-receipt-detail h3 { margin: 2px 0 0; font-size: 20px; font-variant-numeric: tabular-nums; }
+.treasury-receipt-detail h4 { margin: 0 0 8px; color: #7f95a8; font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase; }
+.treasury-receipt-detail small { color: #7f95a8; font-size: 10px; }
+
+.treasury-chain { display: grid; margin: 0; padding: 0; list-style: none; }
+.treasury-chain li { position: relative; display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 10px; padding-block: 5px; }
+.treasury-chain li > span { width: 12px; height: 12px; margin-top: 3px; border: 2px solid rgba(119, 139, 160, .7); border-radius: 50%; }
+.treasury-chain li.done > span { border-color: var(--abos-success-400); background: rgba(75, 221, 162, .35); }
+.treasury-chain li:not(:last-child)::after { content: ""; position: absolute; inset-inline-start: 5px; top: 20px; bottom: -5px; width: 2px; background: rgba(119, 139, 160, .3); }
+.treasury-chain li.done:not(:last-child)::after { background: rgba(75, 221, 162, .35); }
+.treasury-chain small, .treasury-chain strong { display: block; }
+.treasury-chain strong { font-size: 12px; font-weight: 600; overflow-wrap: anywhere; }
+.treasury-chain li.pending strong { color: #8ea3b5; font-weight: 500; }
+
+.treasury-evidence dl { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 5px 12px; margin: 0; font-size: 11px; }
+.treasury-evidence dt { color: #7f95a8; }
+.treasury-evidence dd { margin: 0; color: #cdd9e3; overflow-wrap: anywhere; }
+.treasury-actions { padding: 12px; border: 1px solid rgba(224, 180, 79, .25); border-radius: 7px; background: rgba(224, 180, 79, .04); }
+.treasury-form { display: grid; grid-template-columns: minmax(130px, auto) minmax(0, 1fr); gap: 8px 10px; align-items: center; }
+.treasury-form label { color: #9fb2c3; font-size: 11px; }
+.treasury-form button { grid-column: 2; justify-self: start; }
+.treasury-void { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; align-items: center; margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(60, 130, 176, .18); }
+.treasury-void label { color: #9fb2c3; font-size: 11px; }
+.treasury-history ol { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.treasury-history li { display: grid; grid-template-columns: minmax(120px, auto) minmax(110px, auto) minmax(0, 1fr) auto; gap: 10px; padding: 6px 8px; border-radius: 5px; background: rgba(8, 30, 49, .5); font-size: 10.5px; }
+.treasury-history time { color: #7f95a8; }
+.treasury-history span { color: #9fb2c3; text-transform: capitalize; }
+.treasury-history em { color: var(--abos-gold-300); font-style: normal; }
+
+.treasury-entry { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 16px; align-items: center; padding: 22px; }
+.treasury-entry > span { width: 52px; height: 52px; display: grid; place-items: center; border-radius: 12px; background: rgba(224, 180, 79, .12); color: var(--abos-gold-300); }
+.treasury-entry p { margin: 0; color: #d9b963; font-size: 9px; font-weight: 800; letter-spacing: .16em; }
+.treasury-entry h2 { margin: 4px 0; font-size: 15px; }
+.treasury-entry div > span { color: #a9bbca; font-size: 11px; line-height: 1.5; }
+
+@media (max-width: 1080px) {
+  .treasury-receipts { grid-template-columns: 1fr; }
+  .treasury-receipt-list { border-inline-end: 0; border-bottom: 1px solid rgba(60, 130, 176, .2); }
+  .treasury-identity { grid-template-columns: auto minmax(0, 1fr) auto; }
+  .treasury-identity ul { grid-column: 1 / -1; grid-row: 2; }
+}
+
+@media (max-width: 760px) {
+  .treasury-entry { grid-template-columns: 1fr; }
+  .treasury-signin form, .treasury-form, .treasury-void { grid-template-columns: 1fr; }
+  .treasury-form button { grid-column: 1; }
+  .treasury-history li { grid-template-columns: 1fr; gap: 2px; }
+  .treasury-table thead { display: none; }
+  .treasury-table, .treasury-table tbody, .treasury-table tr, .treasury-table td { display: block; width: 100%; }
+  .treasury-table tr { padding: 8px 0; border-bottom: 1px solid rgba(60, 130, 176, .2); }
+  .treasury-table td { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 8px; padding: 5px 12px; border: 0; }
+  .treasury-table td::before { content: attr(data-label); color: #7f95a8; font-size: 10px; }
+  .treasury-inline-form input { width: 100%; }
+}

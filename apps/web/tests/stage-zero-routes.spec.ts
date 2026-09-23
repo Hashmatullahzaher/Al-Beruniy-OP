@@ -66,9 +66,13 @@ test("Finance exposes its intended structure without operational financial actio
   await expect(page.getByText("Stage 1 not authorized")).toBeVisible();
   await page.getByRole("button", { name: "Treasury preview" }).click();
   await expect(page.locator(".finance-detail-panel").getByRole("heading", { level: 2, name: "Treasury" })).toBeVisible();
+  // Treasury is no longer an empty placeholder: it links to the E1 synthetic Treasury sandbox,
+  // which states that it posts nothing to the General Ledger.
   await page.getByRole("tab", { name: "Treasury" }).click();
-  await expect(page.getByRole("heading", { level: 2, name: "No treasury accounts connected" })).toBeVisible();
-  await expect(page.getByText(/No cash, bank, sarafi, receipt, payment, custody, or reconciliation service/)).toBeVisible();
+  await expect(page.getByRole("heading", { level: 2, name: "Treasury workspace" })).toBeVisible();
+  await expect(page.getByText("E1 SYNTHETIC SANDBOX")).toBeVisible();
+  await expect(page.getByText(/no General Ledger posting from Treasury/)).toBeVisible();
+  await expect(page.getByRole("link", { name: "Open Treasury" })).toHaveAttribute("href", "/finance/treasury");
 });
 
 test("Construction supports read-only progress, milestone, area, and update views", async ({ page }) => {

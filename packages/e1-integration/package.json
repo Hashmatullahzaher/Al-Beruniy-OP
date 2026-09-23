@@ -9,7 +9,9 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "node --test --test-concurrency=1 --experimental-strip-types src/*.test.ts",
-    "clean": "node -e \"require('fs').rmSync('tsconfig.tsbuildinfo',{force:true})\""
+    "clean": "node -e \"require('fs').rmSync('tsconfig.tsbuildinfo',{force:true})\"",
+    "sandbox:seed": "node --experimental-strip-types scripts/dev-sandbox.ts seed",
+    "sandbox:sessions": "node --experimental-strip-types scripts/dev-sandbox.ts sessions"
   },
   "dependencies": {
     "@abos/contracts": "workspace:*",
