@@ -54,37 +54,94 @@ test("migration text contains fail-closed posting, immutability, reversal, and s
   assert.match(sql, /cashier or cash counter cannot approve the same intent/i);
 });
 
-test("migration runner applies an unseen checked migration in one transaction", async () => {
-  const migration = await loadMigration();
+test("migration runner applies unseen checked migrations in one transaction", async () => {
+  const migrations = await loadAllMigrations();
   const executor = new RecordingExecutor([]);
-  const applied = await applyMigrations(executor, [migration]);
-  assert.deepEqual(applied, [migration.id]);
+  const applied = await applyMigrations(executor, migrations);
+  assert.deepEqual(applied, migrations.map((migration) => migration.id));
   assert.equal(executor.transactionCount, 1);
   assert.equal(executor.queries.some((query) => query.includes("pg_advisory_xact_lock")), true);
-  assert.equal(executor.queries.some((query) => query.includes(migration.sql)), true);
+  for (const migration of migrations) {
+    assert.equal(executor.queries.some((query) => query.includes(migration.sql)), true);
+  }
   assert.equal(executor.queries.some((query) => query.includes("INSERT INTO abos.schema_migrations")), true);
 });
 
 test("migration runner is idempotent when the recorded checksum matches", async () => {
-  const migration = await loadMigration();
-  const executor = new RecordingExecutor([
-    { migration_id: migration.id, checksum_sha256: migration.checksumSha256 }
-  ]);
-  const applied = await applyMigrations(executor, [migration]);
+  const migrations = await loadAllMigrations();
+  const executor = new RecordingExecutor(
+    migrations.map((migration) => ({
+      migration_id: migration.id,
+      checksum_sha256: migration.checksumSha256
+    }))
+  );
+  const applied = await applyMigrations(executor, migrations);
   assert.deepEqual(applied, []);
   assert.equal(executor.transactionCount, 1);
 });
 
 test("migration drift fails before applying SQL", async () => {
-  const migration = await loadMigration();
-  const drifted: LoadedMigration = { ...migration, sql: `${migration.sql}\n-- drift` };
-  assert.throws(() => assertMigrationSet([drifted]), /content checksum mismatch/);
+  const migrations = await loadAllMigrations();
+  const drifted = migrations.map((migration, index) =>
+    index === 0 ? { ...migration, sql: `${migration.sql}\n-- drift` } : migration
+  );
+  assert.throws(() => assertMigrationSet(drifted), /content checksum mismatch/);
+});
+
+test("the E1 sandbox migration is additive and installs the fail-closed gate", async () => {
+  const migrations = await loadAllMigrations();
+  const e1 = migrations.find((migration) => migration.id === "0002_e1_sandbox_integration");
+  assert.ok(e1, "0002 must be in the catalog");
+  assert.equal(calculateMigrationChecksum(e1.sql), e1.checksumSha256);
+
+  // 0001 is untouched: its recorded checksum still matches its file byte for byte.
+  const e0 = migrations[0] as LoadedMigration;
+  assert.equal(e0.id, "0001_e0_finance_foundation");
+  assert.equal(calculateMigrationChecksum(e0.sql), e0.checksumSha256);
+
+  // Additive only: nothing is dropped and no 0001 trigger function is rewritten.
+  assert.doesNotMatch(e1.sql, /\bdrop\s+(table|trigger|function|column|constraint)\b/i);
+  assert.doesNotMatch(e1.sql, /create\s+or\s+replace\s+function\s+abos\.validate_journal_posting/i);
+  assert.doesNotMatch(e1.sql, /\bnumeric\s*\(/i);
+
+  // F-3: the gate cannot be satisfied by a caller-supplied object.
+  assert.match(e1.sql, /create\s+table\s+abos\.sandbox_authorizations/i);
+  assert.match(
+    e1.sql,
+    /real_posting_enabled\s+boolean\s+not\s+null\s+default\s+false\s+check\s*\(real_posting_enabled\s*=\s*false\)/i
+  );
+  assert.match(e1.sql, /current_setting\('abos\.runtime_marker',\s*true\)/i);
+  assert.match(e1.sql, /this database has none/i);
+
+  // F-2: the persisted source record and a real foreign key from Finance.
+  assert.match(e1.sql, /create\s+table\s+abos\.capital_receipt_intents/i);
+  assert.match(e1.sql, /posting_intents_capital_source_fk/i);
+  assert.match(e1.sql, /unique\s*\(legal_entity_id,\s*capital_installment_id\)/i);
+
+  // F-1: fundability is a recorded decision, and a structurally unfundable status cannot be
+  // named in one at all.
+  assert.match(e1.sql, /create\s+table\s+abos\.capital_agreement_funding_policies/i);
+  assert.match(e1.sql, /fundable_statuses\s*<@\s*array\['PENDING_EVIDENCE',\s*'ELIGIBLE'\]/i);
+  assert.match(e1.sql, /nothing is fundable/i);
+
+  // F-4, F-5, F-7.
+  assert.match(e1.sql, /from\s+abos\.capital_agreements[\s\S]{0,200}for\s+update/i);
+  assert.match(e1.sql, /would exceed the committed amount/i);
+  assert.match(e1.sql, /cannot also post its reversal/i);
+  assert.match(e1.sql, /has not been confirmed/i);
 });
 
 async function loadMigration(): Promise<LoadedMigration> {
-  const definition = migrationCatalog[0];
-  const sql = await readFile(resolve(import.meta.dirname, "../../../", definition.relativePath), "utf8");
-  return { ...definition, sql };
+  return (await loadAllMigrations())[0] as LoadedMigration;
+}
+
+async function loadAllMigrations(): Promise<readonly LoadedMigration[]> {
+  return Promise.all(
+    migrationCatalog.map(async (definition) => ({
+      ...definition,
+      sql: await readFile(resolve(import.meta.dirname, "../../../", definition.relativePath), "utf8")
+    }))
+  );
 }
 
 class RecordingExecutor implements SqlExecutor {

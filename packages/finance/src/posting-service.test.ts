@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type {
   AccountingPeriodId,
+  CapitalAgreementFundingPolicy,
   CapitalAgreementId,
   CapitalInstallmentId,
   CapitalReceiptIntentId,
@@ -21,6 +22,7 @@ import type {
   PhysicalCashCountId,
   PostingIntentId,
   ProjectId,
+  SandboxPostingGate,
   UserAccountId
 } from "@abos/contracts";
 import { asDecimalString } from "@abos/contracts";
@@ -36,6 +38,56 @@ import { reconcileCapitalReceipt } from "./reconciliation.ts";
 
 const id = <T extends string>(value: string) => value as T;
 
+/**
+ * The gate a server-side `SandboxAuthenticator` would have resolved from the target database.
+ *
+ * The signature is opaque to the Finance kernel: it only knows that `verifyGate` must accept it.
+ * `testGateVerifier` stands in for the real HMAC check, and rejects any gate it did not issue -
+ * which is what makes the "hand-built gate" test below meaningful.
+ */
+const SANDBOX_GATE_SIGNATURE = "test-gate-signature";
+
+function sandboxGate(overrides: Partial<SandboxPostingGate> = {}): SandboxPostingGate {
+  return {
+    authorization: {
+      singleton: true,
+      environment: "test",
+      configurationState: "SYNTHETIC_TEST_ONLY",
+      policyVersionId: "synthetic-test-policy-v1",
+      realPostingEnabled: false,
+      runtimeMarker: "synthetic-sandbox-marker",
+      authorizedByUserAccountId: id<UserAccountId>("10000000-0000-4000-8000-0000000000ff"),
+      authorizedAt: "2026-09-01T00:00:00.000Z",
+      expiresAt: "2026-12-31T00:00:00.000Z"
+    },
+    scope: {
+      legalEntityId,
+      baseCurrency: "USD",
+      authorizedAt: "2026-09-01T00:00:00.000Z"
+    },
+    resolvedAt: "2026-09-22T07:55:00.000Z",
+    signature: SANDBOX_GATE_SIGNATURE,
+    ...overrides
+  };
+}
+
+function testGateVerifier(gate: SandboxPostingGate): void {
+  if (gate.signature !== SANDBOX_GATE_SIGNATURE) {
+    throw new FinanceDomainError(
+      "POLICY_CONFIGURATION_PENDING",
+      "The sandbox gate signature is invalid; this gate was not resolved from the database"
+    );
+  }
+}
+
+const syntheticFundingPolicy: CapitalAgreementFundingPolicy = {
+  vocabularyVersion: "stage1-e0-v2",
+  decisionReference: "SANDBOX-SYNTHETIC-E1",
+  decidedBy: "SANDBOX_SYNTHETIC",
+  fundableStatuses: ["ELIGIBLE"],
+  decidedAt: "2026-09-01T00:00:00.000Z"
+};
+
 const legalEntityId = id<LegalEntityId>("10000000-0000-4000-8000-000000000001");
 const cashierId = id<UserAccountId>("10000000-0000-4000-8000-000000000002");
 const approverId = id<UserAccountId>("10000000-0000-4000-8000-000000000003");
@@ -48,6 +100,9 @@ const sourceIntentId = id<CapitalReceiptIntentId>("10000000-0000-4000-8000-00000
 const postingIntentId = id<PostingIntentId>("10000000-0000-4000-8000-000000000010");
 const receiptId = id<CashReceiptId>("10000000-0000-4000-8000-000000000011");
 const periodId = id<AccountingPeriodId>("10000000-0000-4000-8000-000000000012");
+const physicalCashCountId = id<PhysicalCashCountId>("10000000-0000-4000-8000-000000000013");
+const counterConfirmerId = id<UserAccountId>("10000000-0000-4000-8000-000000000016");
+const reverserId = id<UserAccountId>("10000000-0000-4000-8000-000000000017");
 
 const registrationEvidence = evidence("FORMAL_REGISTRATION", "reg");
 const receiptEvidence = evidence("CASH_RECEIPT", "receipt");
@@ -204,7 +259,7 @@ test("approval is bound to the approved posting intent", async () => {
 test("missing agreement approval or registration evidence fails closed", async () => {
   const first = fixture();
   await rejectsCode(
-    () => first.service.postCapitalReceipt({ ...first.command, eligibility: { ...first.command.eligibility, agreementStatus: "DRAFT" } }),
+    () => first.service.postCapitalReceipt({ ...first.command, eligibility: { ...first.command.eligibility, canonicalAgreementStatus: "DRAFT" } }),
     "CAPITAL_AGREEMENT_REQUIRED"
   );
   const second = fixture();
@@ -212,7 +267,9 @@ test("missing agreement approval or registration evidence fails closed", async (
     installmentId: second.command.eligibility.installmentId,
     agreementId: second.command.eligibility.agreementId,
     eligibleAmount: second.command.eligibility.eligibleAmount,
-    agreementStatus: second.command.eligibility.agreementStatus
+    remainingEligibleAmount: second.command.eligibility.remainingEligibleAmount,
+    partialInstallmentsAllowed: second.command.eligibility.partialInstallmentsAllowed,
+    canonicalAgreementStatus: second.command.eligibility.canonicalAgreementStatus
   };
   await rejectsCode(
     () => second.service.postCapitalReceipt({ ...second.command, eligibility: withoutRegistration }),
@@ -401,7 +458,7 @@ test("controlled reversal requires evidence, swaps lines, and cannot repeat", as
   const base: ReverseJournalCommand = {
     originalJournalId: journal.id,
     accountingPeriod: command.configuration.accountingPeriod,
-    actor: { ...command.actor, permissions: ["finance.journal.reverse"] },
+    actor: reverserActor(command),
     metadata: {
       correlationId: id<CorrelationId>("reverse-correlation"),
       idempotencyKey: id<IdempotencyKey>("reverse-key")
@@ -409,6 +466,8 @@ test("controlled reversal requires evidence, swaps lines, and cannot repeat", as
     reason: "Cash receipt classification correction",
     evidence: [],
     policy: command.configuration.policy,
+    gate: command.configuration.gate,
+    accountingEffectiveDate: "2026-09-23",
     ledgerAccounts: command.configuration.ledgerAccounts
   };
   await rejectsCode(() => service.reverseJournal(base), "EVIDENCE_REQUIRED");
@@ -440,7 +499,7 @@ test("concurrent identical reversal retries return the stored reversal", async (
   const reversalCommand: ReverseJournalCommand = {
     originalJournalId: journal.id,
     accountingPeriod: command.configuration.accountingPeriod,
-    actor: { ...command.actor, permissions: ["finance.journal.reverse"] },
+    actor: reverserActor(command),
     metadata: {
       correlationId: id<CorrelationId>("concurrent-reversal-correlation"),
       idempotencyKey: id<IdempotencyKey>("concurrent-reversal-key")
@@ -448,6 +507,8 @@ test("concurrent identical reversal retries return the stored reversal", async (
     reason: "Concurrent synthetic reversal",
     evidence: [evidence("REVERSAL_REASON", "concurrent-reversal")],
     policy: command.configuration.policy,
+    gate: command.configuration.gate,
+    accountingEffectiveDate: "2026-09-23",
     ledgerAccounts: command.configuration.ledgerAccounts
   };
   const [first, second] = await Promise.all([
@@ -461,7 +522,7 @@ test("concurrent identical reversal retries return the stored reversal", async (
 function fixture() {
   const repository = new InMemoryFinancePostingRepository();
   let sequence = 0;
-  const service = new FinancePostingService(repository, () => "2026-09-22T08:00:00.000Z", () => `20000000-0000-4000-8000-${String(++sequence).padStart(12, "0")}`);
+  const service = new FinancePostingService(repository, testGateVerifier, () => "2026-09-22T08:00:00.000Z", () => `20000000-0000-4000-8000-${String(++sequence).padStart(12, "0")}`);
   const command: PostCapitalReceiptCommand = {
     intent: {
       id: postingIntentId,
@@ -485,7 +546,9 @@ function fixture() {
       installmentId,
       agreementId,
       eligibleAmount: { amount: asDecimalString("25000.00"), currency: "USD" },
-      agreementStatus: "APPROVED",
+      canonicalAgreementStatus: "ELIGIBLE",
+      remainingEligibleAmount: { amount: asDecimalString("25000.00"), currency: "USD" },
+      partialInstallmentsAllowed: false,
       registrationEvidence
     },
     treasuryReceipt: {
@@ -493,7 +556,7 @@ function fixture() {
       capitalReceiptIntentId: sourceIntentId,
       destinationType: "CASH_LOCATION",
       destinationAccountId: cashAccountId,
-      physicalCashCountId: id<PhysicalCashCountId>("10000000-0000-4000-8000-000000000013"),
+      physicalCashCountId,
       amount: { amount: asDecimalString("25000.00"), currency: "USD" },
       cashierUserAccountId: cashierId,
       evidence: [receiptEvidence],
@@ -514,7 +577,10 @@ function fixture() {
       legalEntityIds: [legalEntityId],
       projectIds: [] as ProjectId[],
       departmentIds: [],
-      authenticatedAt: "2026-09-22T07:40:00.000Z"
+      costCenterIds: [] as CostCenterId[],
+      authenticatedAt: "2026-09-22T07:40:00.000Z",
+      sessionId: "30000000-0000-4000-8000-000000000001",
+      expiresAt: "2026-09-22T08:15:00.000Z"
     },
     metadata: {
       correlationId: id<CorrelationId>("capital-receipt-correlation"),
@@ -528,6 +594,19 @@ function fixture() {
         policyVersionId: "synthetic-test-policy-v1",
         baseCurrency: "USD",
         realPostingEnabled: false
+      },
+      gate: sandboxGate(),
+      fundingPolicy: syntheticFundingPolicy,
+      physicalCashCount: {
+        id: physicalCashCountId,
+        legalEntityId,
+        cashLocationCurrencyAccountId: cashAccountId,
+        currency: "USD",
+        countedAmount: "25000.00",
+        countedAt: "2026-09-22T07:25:00.000Z",
+        countedByUserAccountId: cashierId,
+        status: "CONFIRMED",
+        confirmedByUserAccountId: counterConfirmerId
       },
       accountingPeriod: {
         id: periodId,
@@ -555,6 +634,19 @@ function fixture() {
     }
   };
   return { repository, service, command };
+}
+
+/**
+ * A reverser who is not the poster. Finding F-5: the fixture previously reused the posting actor,
+ * which the kernel and the database now both refuse.
+ */
+function reverserActor(command: PostCapitalReceiptCommand): PostCapitalReceiptCommand["actor"] {
+  return {
+    ...command.actor,
+    userAccountId: reverserId,
+    permissions: ["finance.journal.reverse"],
+    sessionId: "30000000-0000-4000-8000-000000000002"
+  };
 }
 
 function withAmount(command: PostCapitalReceiptCommand, amount: string): PostCapitalReceiptCommand {

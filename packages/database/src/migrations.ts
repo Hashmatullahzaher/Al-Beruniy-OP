@@ -19,6 +19,12 @@ export const migrationCatalog = [
     relativePath:
       "infrastructure/database/migrations/0001_e0_finance_foundation.sql",
   },
+  {
+    id: "0002_e1_sandbox_integration",
+    checksumSha256: "30e34395d7d7d71586cf6783e4f7f71890702d933e746e36c4d9eaf3cac7720d",
+    relativePath:
+      "infrastructure/database/migrations/0002_e1_sandbox_integration.sql",
+  },
 ] as const satisfies readonly MigrationDefinition[];
 
 const migrationTableSql = `
