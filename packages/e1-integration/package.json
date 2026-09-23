@@ -1,0 +1,24 @@
+{
+  "name": "@abos/e1-integration",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": { ".": "./src/index.ts" },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "node --test --test-concurrency=1 --experimental-strip-types src/*.test.ts",
+    "clean": "node -e \"require('fs').rmSync('tsconfig.tsbuildinfo',{force:true})\""
+  },
+  "dependencies": {
+    "@abos/contracts": "workspace:*",
+    "@abos/database": "workspace:*",
+    "@abos/finance": "workspace:*",
+    "@abos/persistence": "workspace:*",
+    "@abos/sandbox-auth": "workspace:*",
+    "@abos/shareholder": "workspace:*",
+    "pg": "8.16.3"
+  },
+  "devDependencies": {
+    "@types/pg": "8.15.5"
+  }
+}

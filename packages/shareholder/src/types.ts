@@ -1,5 +1,7 @@
 import type {
   BusinessPartyId,
+  CanonicalCapitalAgreementStatus,
+  CapitalAgreementFundingPolicy,
   CapitalAgreementId,
   CapitalInstallmentId,
   CapitalReceiptIntentId,
@@ -40,10 +42,13 @@ export interface ShareholderProfile {
 export type AgreementKind = "CAPITAL_CONTRIBUTION" | "SHAREHOLDER_LOAN";
 
 /**
- * Contract vocabulary (`stage1-e0-v1`). The persisted vocabulary differs — see
- * `schema-divergence.ts` and finding F-1 of the Finance review.
+ * The canonical agreement vocabulary (`stage1-e0-v2`), which is the persisted one.
+ *
+ * Finding F-1 is resolved by adopting it rather than by translating `ELIGIBLE` into `APPROVED`.
+ * Whether a given status may fund an installment is a separate, recorded decision — see
+ * `CapitalAgreementFundingPolicy` and `schema-divergence.ts`.
  */
-export type ContractAgreementStatus = "DRAFT" | "APPROVED" | "SUSPENDED" | "CLOSED";
+export type ContractAgreementStatus = CanonicalCapitalAgreementStatus;
 
 /** Terms of a shareholder loan. Structure only — no posting or interest rule is defined here. */
 export interface ShareholderLoanTerms {
@@ -71,6 +76,11 @@ export interface CapitalAgreementRecord {
   readonly committedAmount: Money;
   readonly partialInstallmentsAllowed: boolean;
   readonly status: ContractAgreementStatus;
+  /**
+   * The funding decision in force for this agreement's legal entity, read from persisted state.
+   * `undefined` means no decision is recorded, and nothing is fundable.
+   */
+  readonly fundingPolicy?: CapitalAgreementFundingPolicy;
   /** Set only for `SHAREHOLDER_LOAN`; a capital contribution must not carry loan terms. */
   readonly loanTerms?: ShareholderLoanTerms;
   readonly version: number;

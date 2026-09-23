@@ -21,7 +21,7 @@ export const migrationCatalog = [
   },
   {
     id: "0002_e1_sandbox_integration",
-    checksumSha256: "30e34395d7d7d71586cf6783e4f7f71890702d933e746e36c4d9eaf3cac7720d",
+    checksumSha256: "a559c14d139570273693edf282304a3932ed94f1ba9fe963683bf7e548637204",
     relativePath:
       "infrastructure/database/migrations/0002_e1_sandbox_integration.sql",
   },

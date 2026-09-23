@@ -1,5 +1,7 @@
 import type {
+  CapitalAgreementFundingPolicy,
   CapitalAgreementId,
+  CorrelationId,
   CapitalInstallmentId,
   CapitalReceiptIntent,
   CapitalReceiptIntentId,
@@ -40,6 +42,16 @@ export interface ShareholderRepository {
     legalEntityId: LegalEntityId,
     agreementId: CapitalAgreementId
   ): Promise<CapitalAgreementRecord | undefined>;
+
+  /**
+   * The recorded decision on which canonical agreement statuses may fund an installment.
+   *
+   * Returns `undefined` when no decision is recorded, which makes every agreement unfundable.
+   * That is finding F-1 staying closed: the domain reads the decision, it never supplies one.
+   */
+  findFundingPolicy(
+    legalEntityId: LegalEntityId
+  ): Promise<CapitalAgreementFundingPolicy | undefined>;
 
   findRegistrationEvidence(
     legalEntityId: LegalEntityId,
@@ -83,6 +95,8 @@ export interface ShareholderRepository {
     readonly intent: CapitalReceiptIntent;
     readonly requestHash: string;
     readonly idempotencyKey: IdempotencyKey;
+    /** Travels with the source transaction, so a durable adapter never has to invent one. */
+    readonly correlationId: CorrelationId;
     readonly history: ContributionHistoryEntry;
   }): Promise<void>;
 

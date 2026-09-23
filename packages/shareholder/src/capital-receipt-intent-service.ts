@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
+import { checkAgreementMayFund } from "@abos/contracts";
 import type {
   CapitalReceiptIntent,
   CapitalReceiptIntentId,
@@ -96,6 +97,7 @@ export class CapitalReceiptIntentService {
       intent,
       requestHash,
       idempotencyKey: command.source.idempotencyKey,
+      correlationId: command.source.correlationId,
       history: history(intent, "PENDING", classify(assessment))
     });
     return intent;
@@ -227,10 +229,15 @@ export class CapitalReceiptIntentService {
       "CAPITAL_AGREEMENT_REQUIRED",
       "A shareholder loan cannot be received as a capital contribution"
     );
+    // F-1. The agreement is fundable only under a recorded decision. The domain does not decide
+    // what ELIGIBLE means for the business, and refuses rather than assuming.
+    const fundingPolicy = await this.repository.findFundingPolicy(command.legalEntityId);
+    const fundingViolation = checkAgreementMayFund(agreement.status, fundingPolicy);
     assertShareholder(
-      agreement.status === "APPROVED",
-      "CAPITAL_AGREEMENT_REQUIRED",
-      `Capital agreement is ${agreement.status} and cannot fund an installment`
+      fundingViolation === undefined,
+      fundingViolation?.code ?? "CAPITAL_AGREEMENT_REQUIRED",
+      fundingViolation?.message ??
+        `Capital agreement is ${agreement.status} and cannot fund an installment`
     );
     assertShareholder(
       agreement.denominationCurrency === command.amount.currency,
@@ -284,7 +291,8 @@ export class CapitalReceiptIntentService {
       agreement,
       installment,
       registration,
-      contributions
+      contributions,
+      ...(fundingPolicy === undefined ? {} : { fundingPolicy })
     });
     assertAmountIsAuthorized(assessment, command.amount, installment);
     return assessment;
@@ -301,12 +309,14 @@ export class CapitalReceiptIntentService {
       intent.agreementId
     );
     assertShareholder(agreement && installment, "NOT_FOUND", "Agreement or installment disappeared");
+    const fundingPolicy = await this.repository.findFundingPolicy(legalEntityId);
     return assessInstallmentEligibility({
       agreement,
       installment,
       registration,
       contributions: await this.repository.listContributions(legalEntityId, intent.agreementId),
-      excludeIntentId: intent.id
+      excludeIntentId: intent.id,
+      ...(fundingPolicy === undefined ? {} : { fundingPolicy })
     });
   }
 }

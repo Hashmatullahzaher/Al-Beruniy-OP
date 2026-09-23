@@ -1,4 +1,6 @@
+import { checkAgreementMayFund } from "@abos/contracts";
 import type {
+  CapitalAgreementFundingPolicy,
   CapitalInstallmentEligibility,
   Money,
   SupportedCurrency
@@ -94,6 +96,11 @@ export interface EligibilityInput {
   readonly contributions: readonly ContributionHistoryEntry[];
   /** Excluded from the consumed total, so an intent can be re-evaluated without self-blocking. */
   readonly excludeIntentId?: string;
+  /**
+   * The recorded decision on which canonical statuses may fund an installment - finding F-1.
+   * Read from persisted state by the caller. `undefined` means nothing is fundable.
+   */
+  readonly fundingPolicy?: CapitalAgreementFundingPolicy;
 }
 
 export interface EligibilityAssessment extends CapitalInstallmentEligibility {
@@ -147,10 +154,14 @@ export function assessInstallmentEligibility(input: EligibilityInput): Eligibili
   const remaining = committed.subtract(consumed);
   const remainingAmount = remaining.isNegative() ? Exact.parse("0") : remaining;
 
-  // The eligible amount for THIS installment is the lesser of its expected amount and what is left of
-  // the commitment. A closed, suspended or draft agreement is eligible for nothing.
+  // The eligible amount for THIS installment is the lesser of its expected amount and what is left
+  // of the commitment. Whether the agreement may fund anything at all is decided by the recorded
+  // funding policy, never by the status name - finding F-1. With no policy recorded, nothing is
+  // eligible, so the domain fails closed rather than guessing what ELIGIBLE means.
   const expected = Exact.parse(installment.expectedAmount.amount);
-  const fundable = agreement.status === "APPROVED";
+  const fundable =
+    checkAgreementMayFund(agreement.status, input.fundingPolicy ?? agreement.fundingPolicy) ===
+    undefined;
   const capped = expected.compare(remainingAmount) <= 0 ? expected : remainingAmount;
   const eligible = fundable ? capped : Exact.parse("0");
 
@@ -158,7 +169,7 @@ export function assessInstallmentEligibility(input: EligibilityInput): Eligibili
     installmentId: installment.id,
     agreementId: agreement.id,
     eligibleAmount: money(eligible, agreement.denominationCurrency),
-    agreementStatus: agreement.status,
+    canonicalAgreementStatus: agreement.status,
     ...(registration?.status === "VERIFIED" ? { registrationEvidence: registration.evidence } : {}),
     remainingEligibleAmount: money(remainingAmount, agreement.denominationCurrency),
     partialInstallmentsAllowed: agreement.partialInstallmentsAllowed

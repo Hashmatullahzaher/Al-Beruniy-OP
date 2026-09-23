@@ -22,6 +22,19 @@ export interface PostingCommit {
     readonly correlationId: CorrelationId;
   };
   readonly reversalOfJournalId?: JournalId;
+  /**
+   * Reversal provenance, required by a durable adapter.
+   *
+   * `abos.journal_reversal_links` demands a reason, an approver and REVERSAL_REASON evidence, and a
+   * deferred constraint refuses to let a reversal journal reach POSTED without the link. The
+   * in-memory adapter ignores this block; the PostgreSQL adapter cannot.
+   */
+  readonly reversal?: {
+    readonly originalJournalId: JournalId;
+    readonly reason: string;
+    readonly approvedByUserAccountId: PostedJournal["postedByUserAccountId"];
+    readonly evidenceReferenceId: string;
+  };
 }
 
 export interface StoredIdempotencyResult { readonly requestHash: string; readonly journal: PostedJournal; }

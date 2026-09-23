@@ -1,125 +1,94 @@
-import type { CapitalAgreementStatus } from "@abos/contracts";
+import { checkAgreementMayFund } from "@abos/contracts";
+import type {
+  CanonicalCapitalAgreementStatus,
+  CapitalAgreementFundingPolicy,
+  CapitalAgreementStatus
+} from "@abos/contracts";
 import { ShareholderDomainError } from "./errors.ts";
 
 /**
- * UNRESOLVED — finding F-1 of `docs/04-delivery/STAGE_01_E1_FINANCE_REVIEW_CLAUDE.md`.
+ * Finding F-1: how the divergence was resolved, and what is still open.
  *
- * The frozen contract (`stage1-e0-v1`) declares
+ * The divergence was that the frozen contract (`stage1-e0-v1`) declared
  *   CapitalAgreementStatus = "DRAFT" | "APPROVED" | "SUSPENDED" | "CLOSED"
  * while `abos.capital_agreements.status` stores
  *   'DRAFT' | 'PENDING_EVIDENCE' | 'ELIGIBLE' | 'SUSPENDED' | 'CLOSED'.
  *
- * `APPROVED` cannot be persisted; `PENDING_EVIDENCE` and `ELIGIBLE` cannot be expressed in the
- * contract. Whether `ELIGIBLE` *means* `APPROVED` is a policy-semantic question — it asserts that a
- * row marked eligible has cleared whatever approval the business requires — and the owner has
- * directed (issue #3, 2026-09-22) that it must not be resolved silently.
+ * Two questions were tangled together, and separating them is the resolution:
  *
- * Therefore this module **fails closed by default**. The mapping is applied only when the caller
- * supplies a `JointStatusDecision` recording an agreed, referenced decision by Codex and Claude.
- * Until that exists no adapter can produce a fundable agreement from persisted data, so the
- * shareholder domain refuses to create capital receipt intents against real rows. That is the
- * intended behaviour while E1 remains in progress.
+ *  1. *Which vocabulary is canonical?* A representation question with no accounting content.
+ *     Answered in `stage1-e0-v2`: the persisted vocabulary. No name gains a meaning it did not
+ *     already have, and nothing is renamed. `APPROVED` is deprecated rather than re-spelled.
+ *
+ *  2. *Which status permits funding an installment?* A business-policy question, still open. It is
+ *     answered only by a recorded `CapitalAgreementFundingPolicy`, persisted per legal entity in
+ *     `abos.capital_agreement_funding_policies`. With no decision recorded, nothing is fundable.
+ *
+ * So the mapping that the owner refused - `ELIGIBLE` silently meaning `APPROVED` - does not exist
+ * anywhere. It was not replaced by a different silent mapping; the question it was answering is now
+ * asked explicitly and fails closed until someone answers it.
  */
-export type PersistedAgreementStatus =
-  | "DRAFT"
-  | "PENDING_EVIDENCE"
-  | "ELIGIBLE"
-  | "SUSPENDED"
-  | "CLOSED";
+export type PersistedAgreementStatus = CanonicalCapitalAgreementStatus;
+
+/** The canonical vocabulary is the persisted one, so persisted values need no translation. */
+export const CANONICAL_STATUS_VOCABULARY = "stage1-e0-v2" as const;
 
 /**
- * A recorded joint decision on the canonical status vocabulary.
- * `decisionReference` must point at a durable artefact — an ADR, a versioned contract bump, or the
- * coordination issue comment that records agreement. It is never defaulted.
+ * True while the *business* half of F-1 is open: no client-approved funding decision exists.
+ *
+ * A sandbox decision (`decidedBy: "SANDBOX_SYNTHETIC"`) lets E1 run end to end without anyone
+ * claiming the client's Finance function has approved anything.
  */
-export interface JointStatusDecision {
-  readonly decisionReference: string;
-  /** The persisted status agreed to mean "this agreement may fund an installment". */
-  readonly canonicalFundableStatus: PersistedAgreementStatus;
-  /** The contract term agreed to be its equivalent. */
-  readonly contractEquivalent: CapitalAgreementStatus;
+export function isFundingDecisionOutstanding(
+  policy: CapitalAgreementFundingPolicy | undefined
+): boolean {
+  return policy === undefined || policy.decidedBy !== "CLIENT_FINANCE";
 }
 
-/** True while F-1 is open. Remove it, and the guards below, when the decision lands. */
-export const CANONICAL_STATUS_DECISION_PENDING = true;
-
 /**
- * Statuses whose names are identical in both vocabularies. Mapping these asserts nothing about
- * policy, so they need no decision.
+ * Whether an agreement may fund an installment, as a throwing assertion in this domain's error type.
+ * Delegates to the shared contract predicate so Finance and Shareholder cannot drift apart.
  */
-const IDENTICAL: ReadonlySet<PersistedAgreementStatus> = new Set(["DRAFT", "SUSPENDED", "CLOSED"]);
+export function assertAgreementMayFund(
+  status: CanonicalCapitalAgreementStatus,
+  policy: CapitalAgreementFundingPolicy | undefined
+): void {
+  const violation = checkAgreementMayFund(status, policy);
+  if (violation !== undefined) {
+    throw new ShareholderDomainError(violation.code, violation.message);
+  }
+}
 
 /**
- * Persisted → contract.
+ * Bridge for any remaining `stage1-e0-v1` consumer.
  *
- * Without a `JointStatusDecision` this throws for `ELIGIBLE` and `PENDING_EVIDENCE`, because both
- * would require inventing a policy meaning. It never guesses.
+ * Only the three identically-named values convert. `APPROVED` still throws, because giving it a
+ * canonical equivalent would be exactly the policy-semantic mapping that must not be made
+ * silently. A v1 consumer holding `APPROVED` must migrate to the canonical vocabulary.
  */
-export function toContractAgreementStatus(
-  persisted: PersistedAgreementStatus,
-  decision?: JointStatusDecision
+export function toCanonicalAgreementStatus(
+  legacy: CapitalAgreementStatus
+): CanonicalCapitalAgreementStatus {
+  if (legacy === "APPROVED") {
+    throw new ShareholderDomainError(
+      "POLICY_CONFIGURATION_PENDING",
+      "The stage1-e0-v1 status APPROVED has no canonical equivalent and is never inferred. " +
+        "Migrate the caller to CanonicalCapitalAgreementStatus and a recorded funding decision."
+    );
+  }
+  return legacy;
+}
+
+/** Canonical to v1, for a consumer that cannot yet be migrated. Same refusal in reverse. */
+export function toLegacyAgreementStatus(
+  canonical: CanonicalCapitalAgreementStatus
 ): CapitalAgreementStatus {
-  if (IDENTICAL.has(persisted)) {
-    return persisted as CapitalAgreementStatus;
-  }
-
-  if (decision === undefined) {
+  if (canonical === "PENDING_EVIDENCE" || canonical === "ELIGIBLE") {
     throw new ShareholderDomainError(
       "POLICY_CONFIGURATION_PENDING",
-      `Persisted agreement status ${persisted} has no agreed stage1-e0-v1 equivalent. ` +
-        "Finance review F-1 is open: Codex and Claude must jointly version the canonical status " +
-        "vocabulary. Supply a JointStatusDecision once that decision is recorded."
+      `The canonical status ${canonical} has no stage1-e0-v1 equivalent. Expressing it as APPROVED ` +
+        "would assert that the business approval requirement is met, which is not decided here."
     );
   }
-
-  assertDecisionIsUsable(decision);
-
-  if (persisted === decision.canonicalFundableStatus) {
-    return decision.contractEquivalent;
-  }
-
-  throw new ShareholderDomainError(
-    "POLICY_CONFIGURATION_PENDING",
-    `Persisted agreement status ${persisted} is outside the recorded decision ` +
-      `${decision.decisionReference}, which covers only ${decision.canonicalFundableStatus}`
-  );
-}
-
-/** Contract → persisted, for adapters writing rows. Subject to the same decision requirement. */
-export function toPersistedAgreementStatus(
-  status: CapitalAgreementStatus,
-  decision?: JointStatusDecision
-): PersistedAgreementStatus {
-  if (status !== "APPROVED") {
-    return status as PersistedAgreementStatus;
-  }
-  if (decision === undefined) {
-    throw new ShareholderDomainError(
-      "POLICY_CONFIGURATION_PENDING",
-      "Contract status APPROVED has no persistable equivalent until Finance review F-1 is decided"
-    );
-  }
-  assertDecisionIsUsable(decision);
-  if (decision.contractEquivalent !== "APPROVED") {
-    throw new ShareholderDomainError(
-      "POLICY_CONFIGURATION_PENDING",
-      `Recorded decision ${decision.decisionReference} does not map APPROVED`
-    );
-  }
-  return decision.canonicalFundableStatus;
-}
-
-function assertDecisionIsUsable(decision: JointStatusDecision): void {
-  if (decision.decisionReference.trim().length === 0) {
-    throw new ShareholderDomainError(
-      "POLICY_CONFIGURATION_PENDING",
-      "A JointStatusDecision must cite a durable decision reference"
-    );
-  }
-  if (IDENTICAL.has(decision.canonicalFundableStatus)) {
-    throw new ShareholderDomainError(
-      "POLICY_CONFIGURATION_PENDING",
-      `${decision.canonicalFundableStatus} is not a fundable status`
-    );
-  }
+  return canonical;
 }
