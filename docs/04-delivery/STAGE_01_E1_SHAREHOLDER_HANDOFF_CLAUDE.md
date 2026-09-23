@@ -153,10 +153,11 @@ I can write steps 1–4 and 6 as fixtures the moment the integration harness exi
 
 **Blockers (Codex):** F-1 and F-2 — until both land, the domain runs only on the in-memory adapter.
 
-**Not yet proven.** 32/32 unit tests exercise domain logic against an in-memory adapter. They do
-**not** prove persistent cross-domain behaviour. There are no PostgreSQL tests, because F-2 means the
-table my adapter needs does not exist. E1 remains in progress and synthetic only; the real
-PostgreSQL and cross-domain E2E tests are outstanding work, not a passed gate.
+**Superseded.** This section said there were no PostgreSQL tests, because F-2 meant the table the
+adapter needed did not exist. That table now exists (migration 0002) and there are 24 real
+PostgreSQL tests, including the first connected end-to-end checkpoint. What is still unproven is
+Treasury, which is stood in for, and a durable reversal, which is refused rather than stubbed. E1
+remains in progress and synthetic only.
 
 **Requires Finance Manager, not an engineer:**
 
