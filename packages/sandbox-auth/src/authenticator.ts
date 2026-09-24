@@ -1,6 +1,6 @@
 import { createHash, createHmac, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import type { SqlExecutor } from "@abos/database";
-import { sandboxGateFingerprint } from "@abos/contracts";
+import { sandboxGateFingerprint, TREASURY_PERMISSIONS } from "@abos/contracts";
 import type {
   CostCenterId,
   DepartmentId,
@@ -13,6 +13,7 @@ import type {
   ServerActorContext,
   SupportedCurrency,
   TransactionDimensions,
+  TreasuryPermission,
   UserAccountId
 } from "@abos/contracts";
 import type { SandboxAuthConfiguration } from "./configuration.ts";
@@ -147,7 +148,10 @@ export class SandboxAuthenticator {
       `User account is ${account.rows[0].status}`
     );
 
-    const grants = await this.loadPermissions(input.userAccountId, input.legalEntityId);
+    const grants = [
+      ...(await this.loadPermissions(input.userAccountId, input.legalEntityId)),
+      ...(await this.loadTreasuryPermissions(input.userAccountId, input.legalEntityId))
+    ];
     assertSandbox(
       grants.length > 0,
       "PERMISSION_DENIED",
@@ -223,11 +227,16 @@ export class SandboxAuthenticator {
     await this.resolveGate(session.legal_entity_id);
 
     const permissions = await this.loadPermissions(session.user_account_id, session.legal_entity_id);
+    const treasuryPermissions = await this.loadTreasuryPermissions(
+      session.user_account_id,
+      session.legal_entity_id
+    );
     const scopes = await this.loadScopes(session.user_account_id, session.legal_entity_id);
 
     return Object.freeze({
       userAccountId: session.user_account_id,
       permissions: Object.freeze(permissions),
+      treasuryPermissions: Object.freeze(treasuryPermissions),
       legalEntityIds: Object.freeze([session.legal_entity_id]),
       projectIds: Object.freeze(scopes.projectIds),
       departmentIds: Object.freeze(scopes.departmentIds),
@@ -236,6 +245,72 @@ export class SandboxAuthenticator {
       sessionId: session.id,
       expiresAt: iso(session.expires_at)
     }) satisfies ServerActorContext;
+  }
+
+  /**
+   * Re-read Treasury authority inside the transaction that performs a Treasury write.
+   *
+   * Session, user, sandbox gate and the specific grant are locked FOR SHARE, so a concurrent
+   * revocation is ordered against the write instead of racing it. The database triggers from
+   * migration 0006 check the grant again against the stored row; this adds the session and gate,
+   * which the database cannot see.
+   */
+  async revalidateTreasuryAuthority(
+    transaction: SqlExecutor,
+    input: {
+      readonly bearerToken: string;
+      readonly userAccountId: UserAccountId;
+      readonly sessionId: string;
+      readonly legalEntityId: LegalEntityId;
+      readonly permission: TreasuryPermission;
+    }
+  ): Promise<void> {
+    assertSandbox(
+      typeof input.bearerToken === "string" && input.bearerToken.length > 0,
+      "AUTHENTICATION_REQUIRED",
+      "A sandbox bearer token is required for a Treasury action"
+    );
+    const sessions = await transaction.query<SessionRow>(
+      `SELECT s.id, s.user_account_id, s.legal_entity_id, s.issued_at, s.expires_at,
+              s.revoked_at, u.status AS user_status
+         FROM abos.sandbox_sessions s
+         JOIN abos.user_accounts u ON u.id = s.user_account_id
+        WHERE s.token_sha256 = $1
+        FOR SHARE OF s, u`,
+      [this.digest(input.bearerToken)]
+    );
+    const session = sessions.rows[0];
+    assertSandbox(session !== undefined, "AUTHENTICATION_REQUIRED", "Unknown sandbox session");
+    assertSandbox(session.revoked_at === null, "AUTHENTICATION_REQUIRED", "Sandbox session was revoked");
+    assertSandbox(
+      new Date(iso(session.expires_at)).getTime() > this.now().getTime(),
+      "AUTHENTICATION_REQUIRED",
+      "Sandbox session expired"
+    );
+    assertSandbox(session.user_status === "ACTIVE", "AUTHENTICATION_REQUIRED", "User account is inactive");
+    assertSandbox(
+      session.id === input.sessionId && session.user_account_id === input.userAccountId,
+      "AUTHENTICATION_REQUIRED",
+      "Treasury actor does not match the current sandbox session"
+    );
+    assertSandbox(
+      session.legal_entity_id === input.legalEntityId,
+      "SCOPE_MISMATCH",
+      "Treasury actor is outside the legal-entity scope"
+    );
+    const gate = await transaction.query<{ readonly ok: boolean }>(
+      `SELECT (expires_at > clock_timestamp()) AS ok
+         FROM abos.sandbox_authorizations WHERE singleton FOR SHARE`
+    );
+    assertSandbox(gate.rows[0]?.ok === true, "POLICY_CONFIGURATION_PENDING", "Sandbox authorization is no longer current");
+    const grant = await transaction.query<{ readonly permission_code: string }>(
+      `SELECT permission_code FROM abos.user_permission_grants
+        WHERE user_account_id = $1 AND legal_entity_id = $2 AND permission_code = $3
+          AND revoked_at IS NULL
+        FOR SHARE`,
+      [input.userAccountId, input.legalEntityId, input.permission]
+    );
+    assertSandbox(grant.rows.length === 1, "PERMISSION_DENIED", `Current Treasury authority is missing ${input.permission}`);
   }
 
   /**
@@ -488,6 +563,23 @@ export class SandboxAuthenticator {
       .filter((code): code is FinancePermission => FINANCE_PERMISSIONS.has(code));
   }
 
+  private async loadTreasuryPermissions(
+    userAccountId: UserAccountId,
+    legalEntityId: LegalEntityId
+  ): Promise<TreasuryPermission[]> {
+    const result = await this.database.query<{ readonly permission_code: string }>(
+      `SELECT permission_code
+         FROM abos.user_permission_grants
+        WHERE user_account_id = $1 AND legal_entity_id = $2 AND revoked_at IS NULL
+        ORDER BY permission_code`,
+      [userAccountId, legalEntityId]
+    );
+    // Kept apart from Finance permissions: a Treasury grant never authorizes posting.
+    return result.rows
+      .map((row) => row.permission_code)
+      .filter((code): code is TreasuryPermission => TREASURY_CODES.has(code));
+  }
+
   private async loadScopes(
     userAccountId: UserAccountId,
     legalEntityId: LegalEntityId
@@ -517,6 +609,8 @@ export class SandboxAuthenticator {
     return createHmac("sha256", this.configuration.signingSecret).update(token).digest("hex");
   }
 }
+
+const TREASURY_CODES: ReadonlySet<string> = new Set<string>(TREASURY_PERMISSIONS);
 
 const FINANCE_PERMISSIONS: ReadonlySet<string> = new Set<FinancePermission>([
   "finance.posting-intent.approve",

@@ -5,6 +5,7 @@ import type {
   ProjectId,
   UserAccountId
 } from "./ids.ts";
+import type { TreasuryPermission } from "./treasury.ts";
 
 export type FinancePermission =
   | "finance.posting-intent.approve"
@@ -24,6 +25,11 @@ export interface ServerActorContext {
    * Corporate capital is COMPANY_LEVEL and carries no cost centre, so it is unaffected.
    */
   readonly costCenterIds?: readonly CostCenterId[];
+  /**
+   * `stage1-e1-treasury-v1`. Treasury authority, kept separate from `permissions` so a Treasury
+   * grant can never be read as a Finance one. Resolved from persisted grants only.
+   */
+  readonly treasuryPermissions?: readonly TreasuryPermission[];
   readonly authenticatedAt: string;
   readonly stepUpVerifiedAt?: string;
   /**

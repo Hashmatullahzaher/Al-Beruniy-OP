@@ -24,10 +24,11 @@ lines, subledgers, audit record, and outbox event. The function is `SECURITY DEF
 search path to `pg_catalog`, uses schema-qualified objects, exposes no dynamic SQL, and is not
 executable by `PUBLIC`.
 
-## Treasury integration interface
+## Integrated Treasury interface
 
-Claude's Treasury implementation must persist the canonical rows already consumed by the
-boundary; it must not call the function with money or actor values:
+Claude's Treasury implementation from `agent/claude/stage-1-e1-treasury` at `ef2f748` is integrated.
+The secure boundary consumes its canonical rows and never accepts money or actor values from a
+caller:
 
 - `cash_receipts`: same legal entity and installment as the source, same amount/currency and
   destination cash-location currency account, `VERIFIED`, with cashier, verifier, evidence, and a
@@ -39,9 +40,21 @@ boundary; it must not call the function with money or actor values:
 - Finance owns the approved `posting_intents` and independent `posting_approvals` rows. Treasury
   must not create journals, subledgers, Finance approvals, or posting authority.
 
-The temporary `recordSyntheticTreasuryReceipt` helper remains explicitly a test stand-in until
-Claude's retrievable Treasury branch is reviewed. A three-domain completion claim is prohibited
-until that replacement is integrated and the same PostgreSQL tests pass.
+The E1 integration fixtures now invoke the real Treasury service for safe activation, cashier
+assignment, receipt capture, physical counting, independent verification, and the persistent
+Finance handoff. The combined PostgreSQL suite then posts through the separate restricted Finance
+login.
+
+## Security review boundary
+
+Migration `0007` revokes all table and sequence access from `abos_e1_runtime`; its only financial
+write capability is EXECUTE on the secure posting function. This also neutralizes the broader read
+grants added by Treasury migration `0006`.
+
+Treasury's current web write adapter still uses its configured database connection for direct DML.
+Its service and triggers enforce synthetic workflow integrity, but it is not yet a least-privilege
+database credential boundary. Keep that API in the isolated development/test sandbox. A separate
+scoped Treasury command/read interface is required before any production-like deployment.
 
 ## Remaining policy gates
 

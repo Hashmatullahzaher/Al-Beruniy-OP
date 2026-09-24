@@ -4,9 +4,8 @@ import test, { after, before, describe } from "node:test";
 import pg from "pg";
 import type {
   CapitalAgreementId, CapitalInstallmentId, CashLocationCurrencyAccountId,
-  CashReceiptId, CorrelationId, EvidenceReference, IdempotencyKey,
-  LegalEntityId, PhysicalCashCountId, PostingIntentId, UserAccountId,
-  VerifiedTreasuryReceipt
+  CorrelationId, EvidenceReference, IdempotencyKey,
+  LegalEntityId, PostingIntentId, UserAccountId
 } from "@abos/contracts";
 import { asDecimalString } from "@abos/contracts";
 import type { SqlExecutor } from "@abos/database";
@@ -17,7 +16,7 @@ import { SandboxAuthenticator } from "@abos/sandbox-auth";
 import { CapitalReceiptIntentService } from "@abos/shareholder";
 import { databaseUrl, MISSING_DATABASE_MESSAGE, openHarness, resetSchema, type Harness } from "./harness.ts";
 import {
-  recordCapitalPostingIntent, recordSyntheticTreasuryReceipt,
+  handOffSyntheticReceipt, recordCapitalPostingIntent, recordSyntheticTreasuryReceipt,
   seedSyntheticWorld, type SyntheticWorld
 } from "./synthetic-world.ts";
 
@@ -180,20 +179,7 @@ async function prepare(harness: Harness): Promise<{
   const treasury = await recordSyntheticTreasuryReceipt(harness.executor, world, {
     capitalReceiptIntentId: intent.id, amount: world.installmentAmount
   });
-  const receipt: VerifiedTreasuryReceipt = {
-    id: treasury.cashReceiptId as CashReceiptId,
-    capitalReceiptIntentId: intent.id,
-    destinationType: "CASH_LOCATION",
-    destinationAccountId: world.cashAccountId as CashLocationCurrencyAccountId,
-    physicalCashCountId: treasury.physicalCashCountId as PhysicalCashCountId,
-    amount: { amount: asDecimalString(world.installmentAmount), currency: "USD" },
-    cashierUserAccountId: world.cashierId as UserAccountId,
-    evidence: [await evidence(harness, world.receiptEvidenceId)],
-    verifiedAt: "2026-09-22T07:15:00.000Z", status: "VERIFIED"
-  };
-  await service.markTreasuryVerified({
-    legalEntityId: world.legalEntityId as LegalEntityId, intentId: intent.id, receipt
-  });
+  await handOffSyntheticReceipt(harness.executor, world, treasury.cashReceiptId);
   const postingIntentId = await recordCapitalPostingIntent(harness.executor, world, {
     capitalReceiptIntentId: intent.id, cashReceiptId: treasury.cashReceiptId,
     amount: world.installmentAmount, idempotencyKey: `secure-post-${randomUUID()}`,

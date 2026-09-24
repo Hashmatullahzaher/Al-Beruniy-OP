@@ -50,7 +50,7 @@ export function AppShell({ children }: AppShellProps) {
 
         <nav className="navigation" aria-label="Primary navigation">
           {workspaceRoutes.map((route) => {
-            const active = pathname === route.path;
+            const active = pathname === route.path || (route.path !== "/" && pathname.startsWith(`${route.path}/`));
             return (
               <Link key={route.id} href={route.path} aria-current={active ? "page" : undefined} onClick={() => setMenuOpen(false)}>
                 <span className="nav-glyph" aria-hidden="true"><AppIcon name={route.id} size={18} /></span>

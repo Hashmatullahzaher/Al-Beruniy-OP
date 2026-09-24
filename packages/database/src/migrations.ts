@@ -41,6 +41,11 @@ export const migrationCatalog = [
     relativePath: "infrastructure/database/migrations/0005_e1_capital_provenance.sql",
   },
   {
+    id: "0006_e1_treasury",
+    checksumSha256: "1342a73cc424b7e8ac9212235127a7575dde71bb4f43945b198c035d70fbf23a",
+    relativePath: "infrastructure/database/migrations/0006_e1_treasury.sql",
+  },
+  {
     id: "0007_e1_secure_posting_boundary",
     checksumSha256: "0acbd2aecb4e9eed22641f802d811f1b7bdbf1418111e9010ff722729b162b3d",
     relativePath: "infrastructure/database/migrations/0007_e1_secure_posting_boundary.sql",

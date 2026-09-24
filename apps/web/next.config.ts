@@ -18,7 +18,18 @@ function resolveGitSha(): string {
 const nextConfig: NextConfig = {
   output: "standalone",
   poweredByHeader: false,
-  transpilePackages: ["@abos/contracts", "@abos/ui"],
+  transpilePackages: [
+    "@abos/contracts",
+    "@abos/ui",
+    "@abos/database",
+    "@abos/finance",
+    "@abos/persistence",
+    "@abos/sandbox-auth",
+    "@abos/shareholder",
+    "@abos/treasury"
+  ],
+  // The PostgreSQL driver runs on the server only and is loaded as a plain Node package.
+  serverExternalPackages: ["pg"],
   env: {
     NEXT_PUBLIC_APP_COMMIT_SHA: resolveGitSha()
   }
