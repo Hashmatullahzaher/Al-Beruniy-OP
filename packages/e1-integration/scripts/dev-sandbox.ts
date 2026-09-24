@@ -28,7 +28,12 @@ import { PostgresExecutor, PostgresShareholderRepository } from "@abos/persisten
 import { readSandboxConfiguration, SandboxAuthenticator } from "@abos/sandbox-auth";
 import { CapitalReceiptIntentService } from "@abos/shareholder";
 import { resetSchema } from "../src/harness.ts";
-import { addInstallment, seedSyntheticWorld } from "../src/synthetic-world.ts";
+import {
+  addInstallment,
+  bindSyntheticFinanceApprovalEvidence,
+  bindSyntheticTreasuryEvidence,
+  seedSyntheticWorld
+} from "../src/synthetic-world.ts";
 
 pg.types.setTypeParser(1700, (value: string) => value);
 
@@ -39,6 +44,7 @@ const PERSONAS: readonly (readonly [string, string])[] = [
   ["Synthetic Cash Counter", "counter - opening counts"],
   ["Synthetic Treasury Reconciler", "reconciler - opening reconciliation"],
   ["Synthetic Treasury Approver", "approver - approves openings, activates accounts"],
+  ["Synthetic Intent Creator", "Finance preparer - creates the posting intent"],
   ["Synthetic Finance Approver", "Finance approver - holds no Treasury permission (proves refusal)"]
 ];
 
@@ -72,7 +78,7 @@ async function main(): Promise<void> {
       const row = evidence.rows[0];
       if (row === undefined) throw new Error("seeded agreement evidence is missing");
       for (const installmentId of [world.installmentId, secondInstallment]) {
-        await shareholder.createCapitalReceiptIntent({
+        const intent = await shareholder.createCapitalReceiptIntent({
           legalEntityId: world.legalEntityId as LegalEntityId,
           shareholderPartyId: world.businessPartyId as never,
           agreementId: world.agreementId as CapitalAgreementId,
@@ -90,6 +96,8 @@ async function main(): Promise<void> {
             version: 1, sha256: row.sha256, completedAt: row.completed_at.toISOString()
           }]
         });
+        await bindSyntheticTreasuryEvidence(executor, world, intent.id);
+        await bindSyntheticFinanceApprovalEvidence(executor, world, intent.id);
       }
       process.stdout.write("Seeded a synthetic sandbox with two ELIGIBLE USD capital receipt intents.\n\n");
     }

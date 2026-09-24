@@ -613,6 +613,7 @@ export class SandboxAuthenticator {
 const TREASURY_CODES: ReadonlySet<string> = new Set<string>(TREASURY_PERMISSIONS);
 
 const FINANCE_PERMISSIONS: ReadonlySet<string> = new Set<FinancePermission>([
+  "finance.posting-intent.create",
   "finance.posting-intent.approve",
   "finance.journal.post",
   "finance.journal.reverse",

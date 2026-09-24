@@ -3,10 +3,11 @@ import { NextResponse } from "next/server";
 import pg from "pg";
 
 import type { LegalEntityId, ServerActorContext, TreasuryPermission, UserAccountId } from "@abos/contracts";
-import { PostgresExecutor, PostgresTreasuryRepository } from "@abos/persistence";
+import {
+  PostgresExecutor, RestrictedTreasuryGateway, RestrictedTreasuryRepository
+} from "@abos/persistence";
 import {
   readSandboxConfiguration,
-  SandboxAuthenticator,
   SandboxAuthError,
   type SandboxAuthConfiguration
 } from "@abos/sandbox-auth";
@@ -29,7 +30,7 @@ pg.types.setTypeParser(1700, (value: string) => value);
 interface TreasuryRuntime {
   readonly pool: pg.Pool;
   readonly executor: PostgresExecutor;
-  readonly authenticator: SandboxAuthenticator;
+  readonly gateway: RestrictedTreasuryGateway;
   readonly configuration: SandboxAuthConfiguration;
 }
 
@@ -44,9 +45,9 @@ const globalRuntime = globalThis as typeof globalThis & { __abosTreasuryRuntime?
 
 export function treasuryRuntime(): TreasuryRuntime {
   if (globalRuntime.__abosTreasuryRuntime !== undefined) return globalRuntime.__abosTreasuryRuntime;
-  const url = process.env.ABOS_DATABASE_URL;
+  const url = process.env.ABOS_TREASURY_DATABASE_URL;
   if (url === undefined || url.trim() === "") {
-    throw new TreasuryUnavailableError("The E1 Treasury sandbox is not configured on this server (ABOS_DATABASE_URL is unset).");
+    throw new TreasuryUnavailableError("The E1 Treasury sandbox requires ABOS_TREASURY_DATABASE_URL with the restricted Treasury credential.");
   }
   let configuration: SandboxAuthConfiguration;
   try {
@@ -56,7 +57,7 @@ export function treasuryRuntime(): TreasuryRuntime {
   }
   const pool = new pg.Pool({ connectionString: url, max: 6 });
   const executor = new PostgresExecutor(pool, { runtimeMarker: configuration.runtimeMarker });
-  const runtime = { pool, executor, configuration, authenticator: new SandboxAuthenticator(executor, configuration) };
+  const runtime = { pool, executor, configuration, gateway: new RestrictedTreasuryGateway(executor) };
   globalRuntime.__abosTreasuryRuntime = runtime;
   return runtime;
 }
@@ -67,7 +68,7 @@ export interface TreasuryRequestContext {
   readonly actor: TreasuryActor;
   readonly displayName: string;
   readonly service: TreasuryService;
-  readonly reader: PostgresTreasuryRepository;
+  readonly reader: RestrictedTreasuryRepository;
 }
 
 /** Authenticates the session cookie. Throws AUTHENTICATION_REQUIRED when there is none. */
@@ -77,23 +78,31 @@ export async function currentTreasury(): Promise<TreasuryRequestContext> {
   if (token === undefined || token.length === 0) {
     throw new SandboxAuthError("AUTHENTICATION_REQUIRED", "Sign in with a sandbox session token to use Treasury.");
   }
-  const context = await runtime.authenticator.authenticate(token);
-  const legalEntityId = context.legalEntityIds[0] as LegalEntityId;
+  const session = await runtime.gateway.context(token);
+  const legalEntityId = session.legalEntityId as LegalEntityId;
+  const treasuryPermissions = session.treasuryPermissions as readonly TreasuryPermission[];
+  const context: ServerActorContext = {
+    userAccountId: session.userAccountId as UserAccountId,
+    legalEntityIds: [legalEntityId], projectIds: [], departmentIds: [], costCenterIds: [],
+    permissions: [], treasuryPermissions, authenticatedAt: new Date().toISOString(),
+    sessionId: session.sessionId, expiresAt: session.expiresAt
+  };
   const actor: TreasuryActor = {
     userAccountId: context.userAccountId,
     legalEntityId,
-    treasuryPermissions: context.treasuryPermissions ?? [],
+    treasuryPermissions,
     sessionId: context.sessionId ?? ""
   };
-  const repository = new PostgresTreasuryRepository(runtime.executor, { authenticator: runtime.authenticator, bearerToken: token });
-  const names = await displayNames(runtime, [context.userAccountId]);
+  const repository = new RestrictedTreasuryRepository(
+    runtime.gateway, { bearerToken: token, legalEntityId }
+  );
   return {
     runtime,
     context,
     actor,
-    displayName: names.get(context.userAccountId) ?? "Unknown user",
+    displayName: session.displayName,
     service: new TreasuryService(repository),
-    reader: new PostgresTreasuryRepository(runtime.executor)
+    reader: repository
   };
 }
 
@@ -101,12 +110,12 @@ export function hasTreasuryPermission(actor: TreasuryActor, permission: Treasury
   return actor.treasuryPermissions.includes(permission);
 }
 
-export async function displayNames(runtime: TreasuryRuntime, ids: readonly string[]): Promise<Map<string, string>> {
+export async function displayNames(reader: RestrictedTreasuryRepository, entity: LegalEntityId, ids: readonly string[]): Promise<Map<string, string>> {
   const unique = [...new Set(ids.filter((id) => id.length > 0))];
   if (unique.length === 0) return new Map();
-  const result = await runtime.executor.query<{ readonly id: UserAccountId; readonly display_name: string }>(
-    "SELECT id, display_name FROM abos.user_accounts WHERE id = ANY($1::uuid[])", [unique]);
-  return new Map(result.rows.map((row) => [row.id, row.display_name]));
+  const rows = await reader.listUsers(entity);
+  return new Map(rows.filter((row) => unique.includes(String(row.id)))
+    .map((row) => [row.id as UserAccountId, String(row.display_name)]));
 }
 
 /**

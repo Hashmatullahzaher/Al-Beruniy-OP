@@ -210,8 +210,16 @@ export async function seedSyntheticWorld(
   }
 
   const grants: readonly (readonly [string, readonly string[]])[] = [
-    [world.intentCreatorId, ["shareholder.capital-intent.create"]],
-    [world.approverId, ["finance.posting-intent.approve", "finance.journal.post"]],
+    [world.intentCreatorId, [
+      "shareholder.capital-intent.create",
+      "finance.posting-intent.create",
+      "finance.report.operational.read"
+    ]],
+    [world.approverId, [
+      "finance.posting-intent.approve",
+      "finance.journal.post",
+      "finance.report.operational.read"
+    ]],
     // Treasury roles. The cashier receives and counts; the verifier confirms and hands off.
     [world.cashierId, ["treasury.read", "treasury.cash-receipt.record", "treasury.cash-count.record"]],
     [world.counterId, ["treasury.read", "treasury.cash-count.record"]],
@@ -439,6 +447,9 @@ export async function recordSyntheticTreasuryReceipt(
     readonly countedAmount?: string;
   }
 ): Promise<{ readonly cashReceiptId: string; readonly physicalCashCountId: string }> {
+  const boundEvidence = await bindSyntheticTreasuryEvidence(
+    database, world, input.capitalReceiptIntentId
+  );
   const cashier = await treasuryAs(database, world, world.cashierId);
   const verifier = await treasuryAs(database, world, world.countConfirmerId);
 
@@ -450,12 +461,90 @@ export async function recordSyntheticTreasuryReceipt(
   const physicalCashCountId = await cashier.service.countReceipt(cashier.actor, {
     receiptId: cashReceiptId,
     countedAmount: input.countedAmount ?? input.amount,
-    countEvidenceReferenceId: world.countEvidenceId,
-    receiptEvidenceReferenceId: world.receiptEvidenceId
+    countEvidenceReferenceId: boundEvidence.countEvidenceId,
+    receiptEvidenceReferenceId: boundEvidence.receiptEvidenceId
   });
   await cashier.service.submitForVerification(cashier.actor, cashReceiptId);
   await verifier.service.verifyReceipt(verifier.actor, cashReceiptId);
   return { cashReceiptId, physicalCashCountId };
+}
+
+/**
+ * Test-only evidence ingestion. Each capital intent receives distinct cloned evidence rows and
+ * immutable bindings before Treasury sees their identifiers. Runtime commands cannot create these.
+ */
+export async function bindSyntheticTreasuryEvidence(
+  database: SqlExecutor,
+  world: SyntheticWorld,
+  capitalReceiptIntentId: string
+): Promise<{ readonly countEvidenceId: string; readonly receiptEvidenceId: string }> {
+  const countEvidenceId = randomUUID();
+  const receiptEvidenceId = randomUUID();
+  for (const [sourceId, targetId, role] of [
+    [world.countEvidenceId, countEvidenceId, "PHYSICAL_CASH_COUNT"],
+    [world.receiptEvidenceId, receiptEvidenceId, "CASH_RECEIPT"]
+  ] as const) {
+    await database.query(
+      `INSERT INTO abos.evidence_references
+         (id, legal_entity_id, document_id, evidence_kind, evidence_version, sha256, completed_at)
+       SELECT $2, legal_entity_id, gen_random_uuid(), evidence_kind, evidence_version, sha256, completed_at
+         FROM abos.evidence_references WHERE id=$1`,
+      [sourceId, targetId]
+    );
+    await database.query(
+      `INSERT INTO abos.treasury_evidence_bindings
+         (evidence_reference_id, legal_entity_id, capital_receipt_intent_id,
+          evidence_role, bound_by_user_account_id)
+       VALUES ($1,$2,$3,$4,$5)`,
+      [targetId, world.legalEntityId, capitalReceiptIntentId, role, world.bootstrapUserId]
+    );
+  }
+  return { countEvidenceId, receiptEvidenceId };
+}
+
+/** Binds the world's original synthetic evidence rows for older raw-SQL regression fixtures. */
+export async function bindExistingSyntheticTreasuryEvidence(
+  database: SqlExecutor,
+  world: SyntheticWorld,
+  capitalReceiptIntentId: string
+): Promise<void> {
+  for (const [evidenceId, role] of [
+    [world.countEvidenceId, "PHYSICAL_CASH_COUNT"],
+    [world.receiptEvidenceId, "CASH_RECEIPT"]
+  ] as const) {
+    await database.query(
+      `INSERT INTO abos.treasury_evidence_bindings
+         (evidence_reference_id, legal_entity_id, capital_receipt_intent_id,
+          evidence_role, bound_by_user_account_id)
+       VALUES ($1,$2,$3,$4,$5)
+       ON CONFLICT (evidence_reference_id) DO NOTHING`,
+      [evidenceId, world.legalEntityId, capitalReceiptIntentId, role, world.bootstrapUserId]
+    );
+  }
+}
+
+/** Test-only evidence intake for the independent Finance approval step. */
+export async function bindSyntheticFinanceApprovalEvidence(
+  database: SqlExecutor,
+  world: SyntheticWorld,
+  capitalReceiptIntentId: string
+): Promise<string> {
+  const evidenceId = randomUUID();
+  await database.query(
+    `INSERT INTO abos.evidence_references
+       (id, legal_entity_id, document_id, evidence_kind, evidence_version, sha256, completed_at)
+     SELECT $2, legal_entity_id, gen_random_uuid(), evidence_kind, evidence_version, sha256, completed_at
+       FROM abos.evidence_references WHERE id=$1`,
+    [world.approvalEvidenceId, evidenceId]
+  );
+  await database.query(
+    `INSERT INTO abos.finance_approval_evidence_bindings
+       (evidence_reference_id, legal_entity_id, capital_receipt_intent_id,
+        bound_by_user_account_id)
+     VALUES ($1,$2,$3,$4)`,
+    [evidenceId, world.legalEntityId, capitalReceiptIntentId, world.bootstrapUserId]
+  );
+  return evidenceId;
 }
 
 /** Step 7: the independent verifier hands the verified receipt to Finance. */

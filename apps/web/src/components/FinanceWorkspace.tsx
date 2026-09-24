@@ -177,6 +177,12 @@ export function FinanceWorkspace() {
             </div>
             <Link className="treasury-button" href="/finance/treasury">{localized({ en: "Open Treasury", fa: "باز کردن خزانه" }, locale)}</Link>
           </div>
+        ) : activeTab === "accounting" ? (
+          <div className="treasury-entry">
+            <span aria-hidden="true"><AppIcon name="finance" size={26} /></span>
+            <div><p>E1 SYNTHETIC SANDBOX</p><h2>{localized({ en: "Treasury handoffs & posting", fa: "تحویل خزانه و ثبت مالی" }, locale)}</h2><span>{localized({ en: "Authorized Finance personas prepare, independently approve, securely post, and reconcile persisted Treasury handoffs.", fa: "اشخاص مجاز مالی تحویل‌های ثبت‌شده خزانه را آماده، مستقل تصویب، امن ثبت و تطبیق می‌کنند." }, locale)}</span></div>
+            <Link className="treasury-button" href="/finance/handoffs">{localized({ en: "Open Finance handoffs", fa: "باز کردن تحویل‌های مالی" }, locale)}</Link>
+          </div>
         ) : (
           <WorkspaceEmptyState icon={emptyCopy[activeTab as keyof typeof emptyCopy].icon} title={emptyCopy[activeTab as keyof typeof emptyCopy].title} description={emptyCopy[activeTab as keyof typeof emptyCopy].description} />
         )}

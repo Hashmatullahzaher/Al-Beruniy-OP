@@ -30,14 +30,14 @@ export async function POST(request: Request) {
   try {
     assertSameOrigin(request);
     const token = stringField(await readJson(request), "token").trim();
-    const context = await treasuryRuntime().authenticator.authenticate(token);
-    const expiresAt = context.expiresAt === undefined ? undefined : new Date(context.expiresAt);
+    const context = await treasuryRuntime().gateway.context(token);
+    const expiresAt = new Date(context.expiresAt);
     (await cookies()).set(SESSION_COOKIE, token, {
       httpOnly: true,
       sameSite: "strict",
       secure: process.env.NODE_ENV === "production",
       path: "/",
-      ...(expiresAt === undefined ? {} : { expires: expiresAt })
+      expires: expiresAt
     });
     return json({ ok: true, data: { userAccountId: context.userAccountId } });
   } catch (error) {
@@ -53,8 +53,7 @@ export async function DELETE(request: Request) {
     const token = store.get(SESSION_COOKIE)?.value;
     if (token !== undefined) {
       try {
-        const context = await treasuryRuntime().authenticator.authenticate(token);
-        if (context.sessionId !== undefined) await treasuryRuntime().authenticator.revokeSession(context.sessionId);
+        await treasuryRuntime().gateway.revokeOwnSession(token);
       } catch {
         // An expired or already revoked session still gets its cookie cleared.
       }

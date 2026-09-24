@@ -79,6 +79,7 @@ export interface EvidenceOption {
   readonly id: string;
   readonly kind: string;
   readonly label: string;
+  readonly capitalReceiptIntentId: string;
 }
 
 export interface TreasuryOverview {

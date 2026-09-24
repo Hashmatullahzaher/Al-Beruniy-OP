@@ -8,6 +8,7 @@ import type {
 import type { TreasuryPermission } from "./treasury.ts";
 
 export type FinancePermission =
+  | "finance.posting-intent.create"
   | "finance.posting-intent.approve"
   | "finance.journal.post"
   | "finance.journal.reverse"

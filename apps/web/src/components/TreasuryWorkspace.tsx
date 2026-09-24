@@ -472,9 +472,15 @@ function ReceiptDetail({ overview, trace, busy, act }: {
   const me = overview.actor.userAccountId;
   const perms = overview.actor.treasuryPermissions;
   const base = `/api/v1/treasury/receipts/${receipt.id}`;
+  const countEvidenceOptions = overview.evidence.physicalCount.filter(
+    (option) => option.capitalReceiptIntentId === receipt.sourceId
+  );
+  const receiptEvidenceOptions = overview.evidence.cashReceipt.filter(
+    (option) => option.capitalReceiptIntentId === receipt.sourceId
+  );
   const [countedAmount, setCountedAmount] = useState("");
-  const [countEvidence, setCountEvidence] = useState(overview.evidence.physicalCount[0]?.id ?? "");
-  const [receiptEvidence, setReceiptEvidence] = useState(overview.evidence.cashReceipt[0]?.id ?? "");
+  const [countEvidence, setCountEvidence] = useState(countEvidenceOptions[0]?.id ?? "");
+  const [receiptEvidence, setReceiptEvidence] = useState(receiptEvidenceOptions[0]?.id ?? "");
   const [voidReason, setVoidReason] = useState("");
 
   const iReceived = receipt.receivedByUserAccountId === me;
@@ -550,11 +556,11 @@ function ReceiptDetail({ overview, trace, busy, act }: {
               <input id="counted-amount" inputMode="decimal" dir="ltr" value={countedAmount} onChange={(event) => setCountedAmount(event.target.value)} placeholder={receipt.amount} required />
               <label htmlFor="count-evidence">{t({ en: "Count evidence", fa: "سند شمارش" })}</label>
               <select id="count-evidence" value={countEvidence} onChange={(event) => setCountEvidence(event.target.value)} required>
-                {overview.evidence.physicalCount.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
+                {countEvidenceOptions.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
               </select>
               <label htmlFor="receipt-evidence">{t({ en: "Receipt evidence", fa: "سند دریافت" })}</label>
               <select id="receipt-evidence" value={receiptEvidence} onChange={(event) => setReceiptEvidence(event.target.value)} required>
-                {overview.evidence.cashReceipt.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
+                {receiptEvidenceOptions.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
               </select>
               <p className="treasury-policy form-note">{t({ en: "Policy pending Finance Manager review: whether a count covers only the cash received or the whole safe. The sandbox requires the count to be at least the received amount.", fa: "سیاست در انتظار بررسی مدیر مالی: آیا شمارش فقط وجه دریافتی را پوشش می‌دهد یا کل صندوق را. محیط آزمایشی لازم می‌داند شمارش دست‌کم برابر مبلغ دریافتی باشد." })}</p>
               <button className="treasury-button" type="submit" disabled={busy || countedAmount.trim() === ""}>{t({ en: "Record physical count", fa: "ثبت شمارش فزیکی" })}</button>

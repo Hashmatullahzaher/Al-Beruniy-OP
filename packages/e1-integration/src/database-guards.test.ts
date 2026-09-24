@@ -3,7 +3,10 @@ import { randomUUID } from "node:crypto";
 import test, { after, before, describe } from "node:test";
 import pg from "pg";
 import { databaseUrl, MISSING_DATABASE_MESSAGE, openHarness, resetSchema, type Harness } from "./harness.ts";
-import { addInstallment, seedSyntheticWorld, type SyntheticWorld } from "./synthetic-world.ts";
+import {
+  addInstallment, bindExistingSyntheticTreasuryEvidence,
+  seedSyntheticWorld, type SyntheticWorld
+} from "./synthetic-world.ts";
 
 /**
  * Database-level proof of findings F-2 through F-5 and F-7.
@@ -412,6 +415,7 @@ if (databaseUrl() === undefined) {
       await resetSchema(harness.pool);
       const world = await seedSyntheticWorld(harness.executor);
       const intentId = await insertIntent(harness, world, world.installmentId, "25000.00");
+      await bindExistingSyntheticTreasuryEvidence(harness.executor, world, intentId);
 
       // The cashier receives 25,000 but records a count of only 24,999.99. Raw SQL under a named
       // actor: this proves the database's refusal, with no service in the way.

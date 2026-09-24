@@ -16,7 +16,7 @@ import { displayNames, type TreasuryRequestContext } from "@/server/treasury";
  * figure the rows do not contain.
  */
 export async function buildOverview(request: TreasuryRequestContext): Promise<TreasuryOverview> {
-  const { reader, actor, runtime, context } = request;
+  const { reader, actor, context } = request;
   const entity = actor.legalEntityId;
   const canRead = actor.treasuryPermissions.includes("treasury.read");
 
@@ -39,7 +39,7 @@ export async function buildOverview(request: TreasuryRequestContext): Promise<Tr
   const openings = new Map<string, Awaited<ReturnType<typeof reader.findOpening>>>();
   for (const account of accounts) openings.set(account.id, await reader.findOpening(entity, account.id));
 
-  const names = await displayNames(runtime, [
+  const names = await displayNames(reader, entity, [
     ...receipts.flatMap((receipt) => [receipt.receivedByUserAccountId, receipt.verifiedByUserAccountId ?? ""]),
     ...[...counts.values()].map((count) => count.countedBy),
     ...[...assignmentsByLocation.values()].flatMap((items) => items.map((item) => item.userAccountId)),
@@ -83,12 +83,12 @@ export async function buildOverview(request: TreasuryRequestContext): Promise<Tr
     receiptViews.push(receiptView(receipt, source, receiptStage(receipt, handoff, posted, finance?.decision ?? "NONE"), accountLabel, name, counts.get(receipt.id)?.countedBy));
   }
 
-  const evidence = await runtime.executor.query<{ readonly id: string; readonly evidence_kind: string; readonly document_id: string; readonly sha256: string }>(
-    `SELECT id, evidence_kind, document_id, sha256 FROM abos.evidence_references
-      WHERE legal_entity_id = $1 AND evidence_kind IN ('CASH_RECEIPT', 'PHYSICAL_CASH_COUNT')
-      ORDER BY evidence_kind, created_at`, [entity]);
-  const option = (row: { id: string; evidence_kind: string; document_id: string; sha256: string }): EvidenceOption => ({
+  const evidence = canRead
+    ? await reader.listEvidence(entity) as readonly { readonly id: string; readonly evidence_kind: string; readonly document_id: string; readonly sha256: string; readonly capital_receipt_intent_id: string }[]
+    : [];
+  const option = (row: { id: string; evidence_kind: string; document_id: string; sha256: string; capital_receipt_intent_id: string }): EvidenceOption => ({
     id: row.id, kind: row.evidence_kind,
+    capitalReceiptIntentId: row.capital_receipt_intent_id,
     label: `${row.evidence_kind.replaceAll("_", " ").toLowerCase()} · doc ${row.document_id.slice(0, 8)} · sha ${row.sha256.slice(0, 10)}`
   });
 
@@ -103,34 +103,34 @@ export async function buildOverview(request: TreasuryRequestContext): Promise<Tr
     sources: sourceViews,
     receipts: receiptViews,
     evidence: {
-      cashReceipt: evidence.rows.filter((row) => row.evidence_kind === "CASH_RECEIPT").map(option),
-      physicalCount: evidence.rows.filter((row) => row.evidence_kind === "PHYSICAL_CASH_COUNT").map(option)
+      cashReceipt: evidence.filter((row) => row.evidence_kind === "CASH_RECEIPT").map(option),
+      physicalCount: evidence.filter((row) => row.evidence_kind === "PHYSICAL_CASH_COUNT").map(option)
     }
   };
 }
 
 export async function buildTrace(request: TreasuryRequestContext, receiptId: string): Promise<ReceiptTraceView> {
-  const { service, actor, runtime, reader } = request;
+  const { service, actor, reader } = request;
   const trace = await service.trace(actor, receiptId as CashReceiptId);
   const accounts = await reader.listAccounts(actor.legalEntityId);
   const locations = await reader.listLocations(actor.legalEntityId);
   const locationName = new Map(locations.map((location) => [location.id, location.name]));
   const accountLabel = new Map(accounts.map((account) => [account.id, `${locationName.get(account.cashLocationId) ?? "Unknown safe"} · ${account.currency}`]));
-  const names = await displayNames(runtime, [
+  const names = await displayNames(reader, actor.legalEntityId, [
     trace.receipt.receivedByUserAccountId, trace.receipt.verifiedByUserAccountId ?? "",
     trace.count?.countedByUserAccountId ?? "", trace.count?.confirmedByUserAccountId ?? "",
     trace.handoff?.handedOffByUserAccountId ?? ""
   ]);
   const name = (id: string | undefined) => (id === undefined ? undefined : names.get(id) ?? "Unknown user");
   const evidenceIds = [trace.receipt.evidenceReferenceId, trace.count?.evidenceReferenceId].filter((id): id is string => id !== undefined);
-  const evidence = await runtime.executor.query<{ readonly id: string; readonly evidence_kind: string; readonly document_id: string; readonly sha256: string }>(
-    "SELECT id, evidence_kind, document_id, sha256 FROM abos.evidence_references WHERE id = ANY($1::uuid[])", [evidenceIds]);
+  const allEvidence = await reader.listEvidence(actor.legalEntityId) as readonly { readonly id: string; readonly evidence_kind: string; readonly document_id: string; readonly sha256: string }[];
+  const evidence = allEvidence.filter((row) => evidenceIds.includes(row.id));
   const label = (id: string | undefined) => {
-    const row = evidence.rows.find((item) => item.id === id);
+    const row = evidence.find((item) => item.id === id);
     return row === undefined ? undefined : `${row.evidence_kind} · document ${row.document_id} · sha256 ${row.sha256}`;
   };
   const stage = receiptStage(trace.receipt, trace.handoff, trace.postedJournalId, trace.finance.decision);
-  const financeNames = await displayNames(runtime, [trace.finance.decidedByUserAccountId ?? ""]);
+  const financeNames = await displayNames(reader, actor.legalEntityId, [trace.finance.decidedByUserAccountId ?? ""]);
   const receiptLabel = label(trace.receipt.evidenceReferenceId);
 
   return {

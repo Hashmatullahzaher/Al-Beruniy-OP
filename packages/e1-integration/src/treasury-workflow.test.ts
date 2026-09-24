@@ -21,6 +21,7 @@ import { receiptStage, TreasuryDomainError, TreasuryService } from "@abos/treasu
 import pg from "pg";
 import { databaseUrl, MISSING_DATABASE_MESSAGE, openHarness, resetSchema, type Harness } from "./harness.ts";
 import {
+  bindExistingSyntheticTreasuryEvidence,
   handOffSyntheticReceipt,
   recordCapitalPostingIntent,
   recordSyntheticTreasuryReceipt,
@@ -540,6 +541,7 @@ async function createIntent(harness: Harness, world: SyntheticWorld, installment
     },
     evidence: [evidence]
   });
+  await bindExistingSyntheticTreasuryEvidence(harness.executor, world, intent.id);
   return intent.id;
 }
 

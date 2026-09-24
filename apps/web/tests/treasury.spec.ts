@@ -31,7 +31,7 @@ test("@smoke Treasury has no default user, refuses a forged session and shows no
   if (api.status() === 401) {
     await page.getByLabel("Session token").fill("forged-token-that-was-never-issued");
     await page.getByRole("button", { name: "Sign in" }).click();
-    await expect(page.locator(".treasury-message.error")).toContainText("Unknown sandbox session");
+    await expect(page.locator(".treasury-message.error")).toContainText("sandbox session is invalid");
     await expect(page.locator(".treasury-identity")).toHaveCount(0);
   }
 });
@@ -124,7 +124,11 @@ test.describe("Treasury workflow against the dev sandbox", () => {
       return overview.data.receipts[0];
     });
     expect(receiptForFinance).toBeDefined();
-    const postingIntentId = await financeApproves(receiptForFinance?.sourceId ?? "", receiptForFinance?.id ?? "");
+    const postingIntentId = await financeApproves(
+      tokens["Synthetic Intent Creator"] ?? "",
+      tokens["Synthetic Finance Approver"] ?? "",
+      receiptForFinance?.id ?? ""
+    );
     await page.reload();
     await page.locator(".treasury-receipt-list button").first().click();
     await expect(page.locator(".treasury-receipt-detail header")).toContainText("Approved by Finance · not posted");
@@ -166,7 +170,7 @@ test.describe("Treasury workflow against the dev sandbox", () => {
   });
 });
 
-/** Owner connection to the dev sandbox, used only to act as Finance - never as Treasury. */
+/** Owner connection used only to read synthetic test fixture identifiers. */
 async function devDatabase<T>(work: (client: pg.Client) => Promise<T>): Promise<T> {
   const environment = readEnvironment();
   const client = new pg.Client({ connectionString: environment.ABOS_DATABASE_URL });
@@ -186,45 +190,61 @@ async function devDatabase<T>(work: (client: pg.Client) => Promise<T>): Promise<
 }
 
 /** Finance creates the posting intent and records an independent approval (Codex's domain). */
-async function financeApproves(sourceId: string, receiptId: string): Promise<string> {
-  return devDatabase(async (client) => {
-    const people = await client.query<{ display_name: string; id: string }>(
-      "SELECT display_name, id FROM abos.user_accounts WHERE display_name IN ('Synthetic Intent Creator', 'Synthetic Finance Approver')");
-    const byName = new Map(people.rows.map((row) => [row.display_name, row.id]));
-    const source = await client.query<{ legal_entity_id: string; amount: string }>(
-      "SELECT legal_entity_id, amount::text AS amount FROM abos.capital_receipt_intents WHERE id = $1", [sourceId]);
-    const row = source.rows[0];
-    if (row === undefined) throw new Error("source intent not found");
-    const evidence = await client.query<{ id: string }>(
-      "SELECT id FROM abos.evidence_references WHERE legal_entity_id = $1 AND evidence_kind = 'FINANCE_APPROVAL' LIMIT 1", [row.legal_entity_id]);
-    const postingIntentId = crypto.randomUUID();
-    await client.query(
-      `INSERT INTO abos.posting_intents
-         (id, legal_entity_id, source_type, source_id, treasury_cash_receipt_id, intent_kind,
-          original_amount, original_currency_code, base_amount, base_currency_code,
-          accounting_effective_date, correlation_id, idempotency_key, status,
-          created_by_user_account_id, capital_receipt_intent_id)
-       VALUES ($1, $2, 'SHAREHOLDER_CAPITAL_INSTALLMENT', $3, $4, 'SHAREHOLDER_CAPITAL_RECEIPT',
-               $5::numeric, 'USD', $5::numeric, 'USD', '2026-09-22', $6, $7, 'DRAFT', $8, $3)`,
-      [postingIntentId, row.legal_entity_id, sourceId, receiptId, row.amount, crypto.randomUUID(),
-       `pw-${crypto.randomUUID()}`, byName.get("Synthetic Intent Creator")]);
-    await client.query("UPDATE abos.posting_intents SET status = 'APPROVED' WHERE id = $1", [postingIntentId]);
-    await client.query(
-      `INSERT INTO abos.posting_approvals
-         (id, legal_entity_id, posting_intent_id, decision, approver_user_account_id, evidence_reference_id, approved_at)
-       VALUES ($1, $2, $3, 'APPROVED', $4, $5, clock_timestamp())`,
-      [crypto.randomUUID(), row.legal_entity_id, postingIntentId, byName.get("Synthetic Finance Approver"), evidence.rows[0]?.id]);
+async function financeApproves(
+  preparerToken: string,
+  approverToken: string,
+  receiptId: string
+): Promise<string> {
+  const source = await devDatabase(async (client) => {
+    const result = await client.query<{ handoff_id: string; accounting_period_id: string }>(
+      `SELECT handoff.id AS handoff_id, period.id AS accounting_period_id
+         FROM abos.treasury_finance_handoffs handoff
+         JOIN abos.accounting_periods period ON period.legal_entity_id=handoff.legal_entity_id
+        WHERE handoff.cash_receipt_id=$1 AND period.status='OPEN'
+        ORDER BY period.starts_on DESC LIMIT 1`, [receiptId]
+    );
+    if (result.rows[0] === undefined) throw new Error("Finance handoff context not found");
+    return result.rows[0];
+  });
+  return financeDatabase(async (client) => {
+    const prepared = await client.query<{ posting_intent_id: string }>(
+      "SELECT abos.finance_prepare_capital_posting($1,$2,$3,$4) AS posting_intent_id",
+      [preparerToken, source.handoff_id, source.accounting_period_id, `pw-${crypto.randomUUID()}`]
+    );
+    const postingIntentId = prepared.rows[0]?.posting_intent_id;
+    if (postingIntentId === undefined) throw new Error("Finance posting intent was not created");
+    await client.query("SELECT abos.finance_approve_capital_posting($1,$2)",
+      [approverToken, postingIntentId]);
     return postingIntentId;
   });
 }
 
 /** Finance posts through Codex's restricted SECURITY DEFINER function with its own token. */
 async function financePosts(financeToken: string, postingIntentId: string): Promise<void> {
-  await devDatabase(async (client) => {
+  const periodId = await devDatabase(async (client) => {
     const period = await client.query<{ id: string }>(
-      "SELECT id FROM abos.accounting_periods WHERE status = 'OPEN' ORDER BY starts_on DESC LIMIT 1");
-    await client.query("SELECT abos.post_synthetic_capital_receipt($1, $2, $3)", [financeToken, postingIntentId, period.rows[0]?.id]);
+      "SELECT id FROM abos.accounting_periods WHERE status='OPEN' ORDER BY starts_on DESC LIMIT 1");
+    if (period.rows[0]?.id === undefined) throw new Error("Open accounting period not found");
+    return period.rows[0].id;
   });
+  await financeDatabase(async (client) => {
+    await client.query("SELECT abos.post_synthetic_capital_receipt($1, $2, $3)",
+      [financeToken, postingIntentId, periodId]);
+  });
+}
+
+async function financeDatabase<T>(work: (client: pg.Client) => Promise<T>): Promise<T> {
+  const connectionString = process.env.ABOS_FINANCE_DATABASE_URL;
+  if (connectionString === undefined || connectionString.trim() === "") {
+    throw new Error("ABOS_FINANCE_DATABASE_URL is required for restricted Finance browser E2E");
+  }
+  const client = new pg.Client({ connectionString });
+  await client.connect();
+  try {
+    return await work(client);
+  } finally {
+    await client.end();
+  }
 }
 
 function readEnvironment(): Record<string, string> {

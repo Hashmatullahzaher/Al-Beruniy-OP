@@ -27,6 +27,7 @@ import { CapitalReceiptIntentService } from "@abos/shareholder";
 import { receiptStage, TreasuryDomainError } from "@abos/treasury";
 import { databaseUrl, MISSING_DATABASE_MESSAGE, openHarness, resetSchema, type Harness } from "./harness.ts";
 import {
+  bindExistingSyntheticTreasuryEvidence,
   recordCapitalPostingIntent,
   seedSyntheticWorld,
   SYNTHETIC_AUTH_CONFIGURATION,
@@ -41,9 +42,8 @@ import {
  * through Codex's restricted runtime login and `abos.post_synthetic_capital_receipt`, never through
  * an owner connection. Everything is synthetic.
  *
- * Three tests are marked `todo`. They state a control this reviewer expects and that the current
- * integration does not yet enforce. They run, and their result is reported, but a todo is not a
- * pass: see the Treasury review handoff, findings R-1, R-2 and R-3.
+ * The independent review's R-1, R-2 and R-3 regression cases remain executable here after the
+ * controlled Treasury and Finance migrations close them.
  */
 
 const MARKER = SYNTHETIC_AUTH_CONFIGURATION.runtimeMarker;
@@ -279,7 +279,7 @@ if (databaseUrl() === undefined) {
         /permission denied/i, "claiming an actor id gains nothing without table privileges");
     });
 
-    test("R-3: after an upgrade from 0001-0005+0007, the runtime role must still read no Treasury table", { todo: "blocked: 0006 re-grants SELECT when applied after 0007; needs a revoke in the next migration (Codex numbering)" }, async () => {
+    test("R-3: after an upgrade from 0001-0005+0007, the runtime role must still read no Treasury table", async () => {
       // Replays the real upgrade order on a scratch schema-less database: a database migrated at
       // Codex's d7b8360 has 0007 but not 0006, and the runner then applies 0006 last.
       const url = databaseUrl();
@@ -298,7 +298,8 @@ if (databaseUrl() === undefined) {
           const { resolve } = await import("node:path");
           const root = resolve(import.meta.dirname, "../../..");
           for (const id of ["0001_e0_finance_foundation", "0002_e1_sandbox_integration", "0003_e1_commitment_concurrency",
-            "0004_e1_runtime_role", "0005_e1_capital_provenance", "0007_e1_secure_posting_boundary", "0006_e1_treasury"]) {
+            "0004_e1_runtime_role", "0005_e1_capital_provenance", "0007_e1_secure_posting_boundary",
+            "0006_e1_treasury", "0008_e1_secure_treasury_boundary"]) {
             await client.query("BEGIN");
             await client.query(await readFile(resolve(root, `infrastructure/database/migrations/${id}.sql`), "utf8"));
             await client.query("COMMIT");
@@ -317,7 +318,7 @@ if (databaseUrl() === undefined) {
       }
     });
 
-    test("R-1: the Treasury verifier of a receipt should not also approve and post it", { todo: "blocked: Codex-owned posting guard (0001 validate_journal_posting, 0007) does not exclude the Treasury verifier" }, async () => {
+    test("R-1: the Treasury verifier of a receipt cannot approve the Finance posting", async () => {
       const { world, intentId, receiptId } = await verifiedAndHandedOff(harness);
       // The same person who confirmed the physical count and verified the receipt is also given
       // Finance authority, then approves and posts it.
@@ -326,15 +327,16 @@ if (databaseUrl() === undefined) {
           `INSERT INTO abos.user_permission_grants (user_account_id, legal_entity_id, permission_code, granted_by_user_account_id)
            VALUES ($1, $2, $3, $4)`, [world.countConfirmerId, world.legalEntityId, permission, world.bootstrapUserId]);
       }
-      const postingIntentId = await postingIntentApprovedBy(harness, world, intentId, receiptId, world.countConfirmerId);
-      const token = await sessionFor(harness, world, world.countConfirmerId);
-      await assert.rejects(() => asRestricted((db) => new RestrictedCapitalPostingGateway(db).post({
-        bearerToken: token, postingIntentId: postingIntentId as PostingIntentId,
-        accountingPeriodId: world.accountingPeriodId as never
-      })), /segregation of duties/, "custody verification and ledger posting must be separate people");
+      await assert.rejects(
+        () => postingIntentApprovedBy(
+          harness, world, intentId, receiptId, world.countConfirmerId
+        ),
+        /independent of intent preparation and Treasury custody/,
+        "custody verification and Finance approval must be separate people"
+      );
     });
 
-    test("R-2: one receipt evidence document should not evidence two receipts", { todo: "blocked: needs a Treasury evidence-uniqueness constraint in a new migration (coordinated with Codex)" }, async () => {
+    test("R-2: one bound receipt evidence reference cannot evidence another intent", async () => {
       await resetSchema(harness.pool);
       const world = await seedSyntheticWorld(harness.executor);
       const cashier = await treasuryAs(harness.executor, world, world.cashierId);
@@ -408,6 +410,7 @@ async function createIntent(harness: Harness, world: SyntheticWorld, installment
     },
     evidence: [await evidence(harness, world.agreementDocumentEvidenceId)]
   });
+  await bindExistingSyntheticTreasuryEvidence(harness.executor, world, intent.id);
   return intent.id;
 }
 

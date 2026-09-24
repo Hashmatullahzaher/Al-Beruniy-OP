@@ -101,7 +101,8 @@ if (databaseUrl() === undefined) {
       assert.equal(actor.userAccountId, world.approverId);
       assert.deepEqual([...actor.permissions].sort(), [
         "finance.journal.post",
-        "finance.posting-intent.approve"
+        "finance.posting-intent.approve",
+        "finance.report.operational.read"
       ]);
       assert.equal(actor.sessionId, session.sessionId);
 
