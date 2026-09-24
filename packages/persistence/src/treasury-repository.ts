@@ -22,6 +22,7 @@ import {
   type CashAccountRecord,
   type CashLocationRecord,
   type CashierAssignmentRecord,
+  type FinanceProgress,
   type PhysicalCashCountRecord,
   type ReceiptTrace,
   type TreasuryActor,
@@ -232,12 +233,44 @@ export class PostgresTreasuryRepository implements TreasuryRepository {
       actorUserAccountId: row.actor_user_account_id, actorDisplayName: row.display_name,
       occurredAt: iso(row.occurred_at)
     }));
+    const finance = await this.findFinanceProgress(legalEntityId, receipt.id);
     return {
-      receipt, source,
+      receipt, source, finance,
       ...(count === undefined ? {} : { count }),
       ...(handoff === undefined ? {} : { handoff }),
       ...(source.journalId === undefined || source.status !== "POSTED" ? {} : { postedJournalId: source.journalId }),
       events: eventRecords
+    };
+  }
+
+  /**
+   * Finance's progress on a receipt, read from Finance's own tables and never written by Treasury:
+   * the posting intent that names this receipt, and the latest decision on it.
+   */
+  async findFinanceProgress(legalEntityId: LegalEntityId, receiptId: CashReceiptId): Promise<FinanceProgress> {
+    const result = await this.database.query<{
+      readonly status: NonNullable<FinanceProgress["postingIntentStatus"]>;
+      readonly decision: "APPROVED" | "REJECTED" | null;
+      readonly approver_user_account_id: string | null;
+      readonly approved_at: Date | string | null;
+    }>(
+      `SELECT pi.status, pa.decision, pa.approver_user_account_id, pa.approved_at
+         FROM abos.posting_intents pi
+         LEFT JOIN LATERAL (
+           SELECT decision, approver_user_account_id, approved_at
+             FROM abos.posting_approvals
+            WHERE posting_intent_id = pi.id AND legal_entity_id = pi.legal_entity_id
+            ORDER BY approved_at DESC, created_at DESC
+            LIMIT 1) pa ON true
+        WHERE pi.legal_entity_id = $1 AND pi.treasury_cash_receipt_id = $2
+          AND pi.intent_kind = 'SHAREHOLDER_CAPITAL_RECEIPT'`, [legalEntityId, receiptId]);
+    const row = result.rows[0];
+    if (row === undefined) return { decision: "NONE" };
+    return {
+      postingIntentStatus: row.status,
+      decision: row.decision ?? "NONE",
+      ...(row.approver_user_account_id === null ? {} : { decidedByUserAccountId: row.approver_user_account_id }),
+      ...(row.approved_at === null ? {} : { decidedAt: iso(row.approved_at) })
     };
   }
 

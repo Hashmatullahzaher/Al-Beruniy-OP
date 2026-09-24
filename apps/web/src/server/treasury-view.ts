@@ -79,7 +79,8 @@ export async function buildOverview(request: TreasuryRequestContext): Promise<Tr
     const source = sourcesById.get(receipt.capitalReceiptIntentId);
     const handoff = await reader.findHandoff(entity, receipt.id as CashReceiptId);
     const posted = source?.status === "POSTED" ? source.journalId : undefined;
-    receiptViews.push(receiptView(receipt, source, receiptStage(receipt, handoff, posted), accountLabel, name, counts.get(receipt.id)?.countedBy));
+    const finance = handoff === undefined ? undefined : await reader.findFinanceProgress(entity, receipt.id as CashReceiptId);
+    receiptViews.push(receiptView(receipt, source, receiptStage(receipt, handoff, posted, finance?.decision ?? "NONE"), accountLabel, name, counts.get(receipt.id)?.countedBy));
   }
 
   const evidence = await runtime.executor.query<{ readonly id: string; readonly evidence_kind: string; readonly document_id: string; readonly sha256: string }>(
@@ -128,7 +129,8 @@ export async function buildTrace(request: TreasuryRequestContext, receiptId: str
     const row = evidence.rows.find((item) => item.id === id);
     return row === undefined ? undefined : `${row.evidence_kind} · document ${row.document_id} · sha256 ${row.sha256}`;
   };
-  const stage = receiptStage(trace.receipt, trace.handoff, trace.postedJournalId);
+  const stage = receiptStage(trace.receipt, trace.handoff, trace.postedJournalId, trace.finance.decision);
+  const financeNames = await displayNames(runtime, [trace.finance.decidedByUserAccountId ?? ""]);
   const receiptLabel = label(trace.receipt.evidenceReferenceId);
 
   return {
@@ -161,6 +163,12 @@ export async function buildTrace(request: TreasuryRequestContext, receiptId: str
     ...(trace.handoff === undefined ? {} : {
       handoff: { id: trace.handoff.id, handedOffBy: name(trace.handoff.handedOffByUserAccountId) ?? "", handedOffAt: trace.handoff.handedOffAt }
     }),
+    finance: {
+      ...(trace.finance.postingIntentStatus === undefined ? {} : { postingIntentStatus: trace.finance.postingIntentStatus }),
+      decision: trace.finance.decision,
+      ...(trace.finance.decidedByUserAccountId === undefined ? {} : { decidedBy: financeNames.get(trace.finance.decidedByUserAccountId) ?? "Unknown user" }),
+      ...(trace.finance.decidedAt === undefined ? {} : { decidedAt: trace.finance.decidedAt })
+    },
     ...(trace.postedJournalId === undefined ? {} : { postedJournalId: trace.postedJournalId }),
     events: trace.events.map((event) => ({
       id: event.id,
