@@ -105,6 +105,41 @@ if (databaseUrl() === undefined) {
         legalEntityId: prepared.world.legalEntityId as LegalEntityId
       });
       await ensureFinanceLogin(harness);
+      // Exercise both read functions through the actual restricted Finance login. A
+      // Treasury-only denial cannot catch a broken body in either SECURITY DEFINER function.
+      const workspace = await financeRestricted(async (db) => {
+        const result = await db.query<{ value: {
+          actor: { userAccountId: string; legalEntityId: string; permissions: string[] };
+          handoffs: { id: string; cash_receipt_id: string; capital_receipt_intent_id: string }[];
+          openPeriods: { id: string }[];
+        } }>("SELECT abos.finance_handoff_workspace($1) AS value", [approverSession.token]);
+        return result.rows[0]?.value;
+      });
+      assert.ok(workspace);
+      assert.equal(workspace.actor.userAccountId, prepared.world.approverId);
+      assert.equal(workspace.actor.legalEntityId, prepared.world.legalEntityId);
+      assert.ok(workspace.actor.permissions.includes("finance.report.operational.read"));
+      assert.deepEqual(workspace.handoffs.map(({ id, cash_receipt_id, capital_receipt_intent_id }) =>
+        ({ id, cash_receipt_id, capital_receipt_intent_id })),
+        [{ id: handoffId, cash_receipt_id: receiptId, capital_receipt_intent_id: prepared.intentId }]);
+      assert.ok(workspace.openPeriods.some(period => period.id === prepared.world.accountingPeriodId));
+
+      const trace = await financeRestricted(async (db) => {
+        const result = await db.query<{ value: {
+          handoff: { id: string }; receipt: { id: string }; source: { id: string };
+          physicalCount: { id: string }; reconciliation: { debits: string; credits: string; balanced: boolean };
+        } | null }>("SELECT abos.finance_handoff_trace($1,$2) AS value",
+          [approverSession.token, handoffId]);
+        return result.rows[0]?.value;
+      });
+      assert.ok(trace);
+      assert.equal(trace.handoff.id, handoffId);
+      assert.equal(trace.receipt.id, receiptId);
+      assert.equal(trace.source.id, prepared.intentId);
+      assert.equal(trace.physicalCount.id, countId);
+      assert.deepEqual(trace.reconciliation,
+        { debits: "0", credits: "0", balanced: true, subledgerEntries: 0 });
+
       const postingIntentId = await financeRestricted(async (db) => {
         const result = await db.query<{ posting_intent_id: string }>(
           "SELECT abos.finance_prepare_capital_posting($1,$2,$3,$4) AS posting_intent_id",

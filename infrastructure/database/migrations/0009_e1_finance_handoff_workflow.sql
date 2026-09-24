@@ -117,13 +117,13 @@ BEGIN
   actor := abos.finance_runtime_authorize(p_bearer_token, 'finance.report.operational.read');
   entity_id := pg_catalog.current_setting('abos.finance_legal_entity_id')::uuid;
 
-  SELECT pg_catalog.coalesce(pg_catalog.jsonb_agg(g.permission_code ORDER BY g.permission_code), '[]'::jsonb)
+  SELECT coalesce(pg_catalog.jsonb_agg(g.permission_code ORDER BY g.permission_code), '[]'::jsonb)
     INTO permissions
     FROM abos.user_permission_grants g
    WHERE g.user_account_id = actor AND g.legal_entity_id = entity_id
      AND g.permission_code LIKE 'finance.%' AND g.revoked_at IS NULL;
 
-  SELECT pg_catalog.coalesce(pg_catalog.jsonb_agg(pg_catalog.to_jsonb(row_data)
+  SELECT coalesce(pg_catalog.jsonb_agg(pg_catalog.to_jsonb(row_data)
            ORDER BY row_data.handed_off_at DESC), '[]'::jsonb)
     INTO handoffs
     FROM (
@@ -161,7 +161,7 @@ BEGIN
        WHERE h.legal_entity_id = entity_id
     ) row_data;
 
-  SELECT pg_catalog.coalesce(pg_catalog.jsonb_agg(pg_catalog.to_jsonb(row_data)
+  SELECT coalesce(pg_catalog.jsonb_agg(pg_catalog.to_jsonb(row_data)
            ORDER BY row_data.starts_on), '[]'::jsonb)
     INTO periods
     FROM (
@@ -222,10 +222,10 @@ BEGIN
       'approval', pg_catalog.to_jsonb(approval),
       'journal', pg_catalog.to_jsonb(journal),
       'reconciliation', pg_catalog.jsonb_build_object(
-        'debits', pg_catalog.coalesce(totals.debits, 0)::text,
-        'credits', pg_catalog.coalesce(totals.credits, 0)::text,
-        'balanced', pg_catalog.coalesce(totals.debits, 0) = pg_catalog.coalesce(totals.credits, 0),
-        'subledgerEntries', pg_catalog.coalesce(totals.subledgers, 0))
+        'debits', coalesce(totals.debits, 0)::text,
+        'credits', coalesce(totals.credits, 0)::text,
+        'balanced', coalesce(totals.debits, 0) = coalesce(totals.credits, 0),
+        'subledgerEntries', coalesce(totals.subledgers, 0))
     )
     INTO result
     FROM abos.treasury_finance_handoffs h

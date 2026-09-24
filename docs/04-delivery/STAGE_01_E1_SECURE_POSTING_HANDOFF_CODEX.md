@@ -67,6 +67,12 @@ independent approval commands to `abos_e1_runtime`. The application uses the sep
 browser accepts identifiers and an idempotency key only; amount, currency, source, cash account,
 ledger mapping, evidence, approval actor, and journal lines are derived from locked persisted rows.
 
+The unreleased `0009` migration was corrected in place after Claude found that its Finance
+workspace and trace functions qualified SQL `COALESCE` as `pg_catalog.coalesce`. Existing disposable
+E1 databases that recorded the prior `0009` checksum must be reset/reseeded; this checkpoint does
+not alter a deployed production migration. Positive restricted-login PostgreSQL and real-browser
+regressions now execute both Finance read functions.
+
 Treasury receipt/count evidence and Finance approval evidence are immutable and prebound to the
 capital receipt intent by a trusted synthetic fixture/intake path. Runtime functions cannot create
 or reassign those bindings. This closes same-entity evidence substitution while leaving the wider

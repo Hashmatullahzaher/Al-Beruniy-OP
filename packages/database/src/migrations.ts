@@ -57,7 +57,7 @@ export const migrationCatalog = [
   },
   {
     id: "0009_e1_finance_handoff_workflow",
-    checksumSha256: "77eea0de1982ff78df30ddd23734de201e2d78cf3da7abd6ddd2d52a14c3a52a",
+    checksumSha256: "424cdc47f2b494e642c2e413dfb1950286c01d110a2900abbdeb06e66909d87b",
     relativePath: "infrastructure/database/migrations/0009_e1_finance_handoff_workflow.sql",
   },
 ] as const satisfies readonly MigrationDefinition[];
