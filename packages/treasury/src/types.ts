@@ -161,7 +161,20 @@ export interface ReceiptTrace {
   readonly handoff?: TreasuryHandoffRecord;
   /** Present only once Finance has posted. Treasury reads it; it never writes it. */
   readonly postedJournalId?: string;
+  /**
+   * Finance's decision on this receipt, read-only. Treasury never writes Finance rows; it reads
+   * them so a person can tell "handed to Finance" from "approved" from "posted".
+   */
+  readonly finance: FinanceProgress;
   readonly events: readonly TreasuryEventRecord[];
+}
+
+/** What Finance has done with a handed-off receipt, as read from Finance's own rows. */
+export interface FinanceProgress {
+  readonly postingIntentStatus?: "DRAFT" | "PENDING_APPROVAL" | "APPROVED" | "REJECTED" | "POSTED" | "CANCELLED";
+  readonly decision: "NONE" | "APPROVED" | "REJECTED";
+  readonly decidedByUserAccountId?: string;
+  readonly decidedAt?: string;
 }
 
 /**
@@ -174,5 +187,7 @@ export type ReceiptStage =
   | "PENDING_VERIFICATION"
   | "VERIFIED"
   | "HANDED_TO_FINANCE"
+  | "APPROVED_BY_FINANCE"
+  | "REJECTED_BY_FINANCE"
   | "POSTED_BY_FINANCE"
   | "VOIDED";

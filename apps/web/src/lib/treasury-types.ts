@@ -12,6 +12,8 @@ export type ReceiptStageView =
   | "PENDING_VERIFICATION"
   | "VERIFIED"
   | "HANDED_TO_FINANCE"
+  | "APPROVED_BY_FINANCE"
+  | "REJECTED_BY_FINANCE"
   | "POSTED_BY_FINANCE"
   | "VOIDED";
 
@@ -126,6 +128,13 @@ export interface ReceiptTraceView {
   };
   readonly receiptEvidenceLabel?: string;
   readonly handoff?: { readonly id: string; readonly handedOffBy: string; readonly handedOffAt: string };
+  /** Finance's own state, read-only. Treasury never writes it. */
+  readonly finance: {
+    readonly postingIntentStatus?: string;
+    readonly decision: "NONE" | "APPROVED" | "REJECTED";
+    readonly decidedBy?: string;
+    readonly decidedAt?: string;
+  };
   readonly postedJournalId?: string;
   readonly events: readonly TraceEventView[];
 }

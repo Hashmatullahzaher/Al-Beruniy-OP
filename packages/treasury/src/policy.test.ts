@@ -159,6 +159,11 @@ test("the displayed stage never claims more than the stored rows record", () => 
   };
   assert.equal(receiptStage(verified, handoff, undefined), "HANDED_TO_FINANCE");
   assert.equal(receiptStage(verified, handoff, "journal-1"), "POSTED_BY_FINANCE");
+  // "Approved" and "posted" are distinct, and neither is claimed without a handoff.
+  assert.equal(receiptStage(verified, handoff, undefined, "APPROVED"), "APPROVED_BY_FINANCE");
+  assert.equal(receiptStage(verified, handoff, undefined, "REJECTED"), "REJECTED_BY_FINANCE");
+  assert.equal(receiptStage(verified, undefined, undefined, "APPROVED"), "VERIFIED");
+  assert.equal(receiptStage(verified, handoff, "journal-1", "APPROVED"), "POSTED_BY_FINANCE");
   // A journal id on an unverified receipt cannot promote it: posting requires verification first.
   assert.equal(receiptStage(receipt, undefined, "journal-1"), "PENDING_VERIFICATION");
   assert.equal(receiptStage({ ...receipt, status: "VOIDED" }, handoff, "journal-1"), "VOIDED");

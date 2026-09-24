@@ -23,7 +23,9 @@ const STAGE_COPY: Record<ReceiptStageView, Copy> = {
   COUNTED: { en: "Counted · not submitted", fa: "شمارش شد · ارسال نشده" },
   PENDING_VERIFICATION: { en: "Awaiting independent verification", fa: "در انتظار تایید مستقل" },
   VERIFIED: { en: "Verified · not handed to Finance", fa: "تایید شد · به مالی تحویل نشده" },
-  HANDED_TO_FINANCE: { en: "Handed to Finance · not posted", fa: "به مالی تحویل شد · ثبت نشده" },
+  HANDED_TO_FINANCE: { en: "Handed to Finance · not approved", fa: "به مالی تحویل شد · تصویب نشده" },
+  APPROVED_BY_FINANCE: { en: "Approved by Finance · not posted", fa: "توسط مالی تصویب شد · ثبت نشده" },
+  REJECTED_BY_FINANCE: { en: "Rejected by Finance", fa: "توسط مالی رد شد" },
   POSTED_BY_FINANCE: { en: "Posted by Finance", fa: "توسط مالی ثبت شد" },
   VOIDED: { en: "Voided", fa: "باطل شد" }
 };
@@ -139,6 +141,14 @@ export function TreasuryWorkspace() {
     const result = await call<Record<string, unknown>>(url, { method: "POST", body: JSON.stringify(body) });
     setBusy(false);
     if (!result.ok) {
+      if (result.error.code === "AUTHENTICATION_REQUIRED") {
+        // The server no longer recognises this session. Nothing was changed; say so plainly and
+        // return to sign-in rather than leaving records on screen that can no longer be acted on.
+        setOverview(null);
+        setState("signed-out");
+        setMessage({ kind: "error", text: t({ en: `Your sandbox session is no longer valid (${result.error.message}). Nothing was changed. Sign in again.`, fa: `جلسه آزمایشی شما دیگر معتبر نیست (${result.error.message}). هیچ تغییری انجام نشد. دوباره وارد شوید.` }) });
+        return false;
+      }
       setMessage({ kind: "error", text: `${result.error.code.replaceAll("_", " ")}: ${result.error.message}` });
       return false;
     }
@@ -407,7 +417,26 @@ function Receipts({ overview, selected, onSelect, trace, busy, act }: {
   if (overview.receipts.length === 0) {
     return <p className="treasury-empty">{t({ en: "No cash receipts yet. Open an eligible shareholder intent to record one.", fa: "هنوز دریافت نقدی نیست. برای ثبت، یک درخواست واجد شرایط سهامدار را باز کنید." })}</p>;
   }
+  const waiting: readonly { readonly stages: readonly ReceiptStageView[]; readonly label: Copy; readonly tone: string }[] = [
+    { stages: ["DRAFT", "COUNTED"], label: { en: "With the cashier", fa: "نزد صندوق‌دار" }, tone: "muted" },
+    { stages: ["PENDING_VERIFICATION"], label: { en: "Awaiting independent verification", fa: "در انتظار تایید مستقل" }, tone: "cyan" },
+    { stages: ["VERIFIED"], label: { en: "Verified · not yet with Finance", fa: "تاییدشده · هنوز نزد مالی نیست" }, tone: "ok" },
+    { stages: ["HANDED_TO_FINANCE"], label: { en: "With Finance · not approved", fa: "نزد مالی · تصویب نشده" }, tone: "gold" },
+    { stages: ["APPROVED_BY_FINANCE"], label: { en: "Approved · not posted", fa: "تصویب‌شده · ثبت نشده" }, tone: "gold" },
+    { stages: ["POSTED_BY_FINANCE"], label: { en: "Posted by Finance", fa: "ثبت‌شده توسط مالی" }, tone: "ok" }
+  ];
   return (
+    <div className="treasury-receipts-wrap">
+    <ul className="treasury-stage-summary" aria-label={t({ en: "Receipts by stage", fa: "رسیدها بر اساس مرحله" })}>
+      {waiting.map((group) => {
+        const count = overview.receipts.filter((receipt) => group.stages.includes(receipt.stage)).length;
+        return (
+          <li key={group.label.en} className={`tone-${group.tone}${count === 0 ? " empty" : ""}`}>
+            <strong>{count}</strong><span>{t(group.label)}</span>
+          </li>
+        );
+      })}
+    </ul>
     <div className="treasury-receipts">
       <ul className="treasury-receipt-list" aria-label={t({ en: "Cash receipts", fa: "دریافت‌های نقد" })}>
         {overview.receipts.map((receipt) => (
@@ -426,6 +455,7 @@ function Receipts({ overview, selected, onSelect, trace, busy, act }: {
         {selected !== null && trace === null ? <p className="treasury-empty">{t({ en: "Loading trace…", fa: "در حال بارگذاری ردیابی…" })}</p> : null}
         {trace !== null && trace.receipt.id === selected ? <ReceiptDetail overview={overview} trace={trace} busy={busy} act={act} /> : null}
       </div>
+    </div>
     </div>
   );
 }
@@ -450,7 +480,7 @@ function ReceiptDetail({ overview, trace, busy, act }: {
   const iReceived = receipt.receivedByUserAccountId === me;
   const iCounted = receipt.countedByUserAccountId === me;
   const blockedVerify = iReceived
-    ? t({ en: "You received this cash, so you cannot verify it.", fa: "شما این وجه را دریافت کرده‌اید، بنابراین نمی‌توانید آن را تایید کنید." })
+    ? t({ en: "Independent verification is still required. You received this cash, so you cannot verify it; a separately authorized Treasury verifier must.", fa: "تایید مستقل هنوز لازم است. شما این وجه را دریافت کرده‌اید، بنابراین نمی‌توانید آن را تایید کنید؛ یک تاییدکننده مجاز و جداگانه خزانه باید تایید کند." })
     : iCounted ? t({ en: "You counted this cash, so you cannot verify it.", fa: "شما این وجه را شمارش کرده‌اید، بنابراین نمی‌توانید آن را تایید کنید." })
     : !perms.includes("treasury.cash-receipt.verify") ? t({ en: "Requires treasury.cash-receipt.verify.", fa: "نیازمند مجوز treasury.cash-receipt.verify." }) : null;
 
@@ -463,6 +493,15 @@ function ReceiptDetail({ overview, trace, busy, act }: {
     { label: { en: "Physical count", fa: "شمارش فزیکی" }, value: trace.count ? `${formatAmount(trace.count.countedAmount, receipt.currency, locale)} · ${trace.count.countedBy}` : t({ en: "Not counted", fa: "شمارش نشده" }), done: trace.count !== undefined },
     { label: { en: "Independent verification", fa: "تایید مستقل" }, value: receipt.verifiedBy ?? t({ en: "Not verified", fa: "تایید نشده" }), done: receipt.verifiedBy !== undefined },
     { label: { en: "Handed to Finance", fa: "تحویل به مالی" }, value: trace.handoff ? `${trace.handoff.handedOffBy} · ${formatTime(trace.handoff.handedOffAt, locale)}` : t({ en: "Not handed off", fa: "تحویل نشده" }), done: trace.handoff !== undefined },
+    {
+      label: { en: "Finance approval", fa: "تصویب مالی" },
+      value: trace.finance.decision === "APPROVED"
+        ? `${t({ en: "Approved by", fa: "تصویب توسط" })} ${trace.finance.decidedBy ?? ""} · ${formatTime(trace.finance.decidedAt, locale)}`
+        : trace.finance.decision === "REJECTED"
+          ? `${t({ en: "Rejected by", fa: "رد توسط" })} ${trace.finance.decidedBy ?? ""} · ${formatTime(trace.finance.decidedAt, locale)}`
+          : t({ en: "Not approved", fa: "تصویب نشده" }),
+      done: trace.finance.decision === "APPROVED" || trace.postedJournalId !== undefined
+    },
     { label: { en: "Posted by Finance", fa: "ثبت توسط مالی" }, value: trace.postedJournalId ? `${t({ en: "Journal", fa: "ژورنال" })} ${trace.postedJournalId.slice(0, 8)}` : t({ en: "Not posted", fa: "ثبت نشده" }), done: trace.postedJournalId !== undefined }
   ];
 
@@ -517,6 +556,7 @@ function ReceiptDetail({ overview, trace, busy, act }: {
               <select id="receipt-evidence" value={receiptEvidence} onChange={(event) => setReceiptEvidence(event.target.value)} required>
                 {overview.evidence.cashReceipt.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
               </select>
+              <p className="treasury-policy form-note">{t({ en: "Policy pending Finance Manager review: whether a count covers only the cash received or the whole safe. The sandbox requires the count to be at least the received amount.", fa: "سیاست در انتظار بررسی مدیر مالی: آیا شمارش فقط وجه دریافتی را پوشش می‌دهد یا کل صندوق را. محیط آزمایشی لازم می‌داند شمارش دست‌کم برابر مبلغ دریافتی باشد." })}</p>
               <button className="treasury-button" type="submit" disabled={busy || countedAmount.trim() === ""}>{t({ en: "Record physical count", fa: "ثبت شمارش فزیکی" })}</button>
             </form>
           ) : <p className="treasury-muted">{t({ en: "The assigned cashier who received this cash records the count.", fa: "صندوق‌دار تعیین‌شده‌ای که وجه را دریافت کرده، شمارش را ثبت می‌کند." })}</p>
@@ -536,18 +576,28 @@ function ReceiptDetail({ overview, trace, busy, act }: {
 
         {receipt.stage === "VERIFIED" ? (
           perms.includes("treasury.handoff.create") ? (
+            <>
+            <p className="treasury-policy">{t({ en: "Policy pending Finance Manager review: whether the verifier may also hand a receipt to Finance.", fa: "سیاست در انتظار بررسی مدیر مالی: آیا تاییدکننده می‌تواند رسید را به مالی نیز تحویل دهد." })}</p>
             <button className="treasury-button gold" type="button" disabled={busy} onClick={() => void act(`${base}/handoff`, {}, { en: "Handed to Finance. Nothing has been posted: Finance must still approve and post it independently.", fa: "به مالی تحویل شد. هیچ چیزی ثبت نشده است: مالی باید به‌طور مستقل تصویب و ثبت کند." })}>{t({ en: "Hand verified receipt to Finance", fa: "تحویل رسید تاییدشده به مالی" })}</button>
+            </>
           ) : <p className="treasury-muted">{t({ en: "Requires treasury.handoff.create.", fa: "نیازمند مجوز treasury.handoff.create." })}</p>
         ) : null}
 
         {receipt.stage === "HANDED_TO_FINANCE" ? (
-          <p className="treasury-waiting">{t({ en: "With Finance. Approval and posting belong to Finance and are not performed from Treasury; this page will show the journal only after Finance posts it.", fa: "نزد مالی. تصویب و ثبت متعلق به مالی است و از خزانه انجام نمی‌شود؛ این صفحه ژورنال را فقط پس از ثبت توسط مالی نشان می‌دهد." })}</p>
+          <p className="treasury-waiting">{t({ en: "With Finance, not yet approved. Approval and posting belong to Finance and are not performed from Treasury; this page shows each only after Finance records it.", fa: "نزد مالی، هنوز تصویب نشده. تصویب و ثبت متعلق به مالی است و از خزانه انجام نمی‌شود؛ این صفحه هر کدام را فقط پس از ثبت توسط مالی نشان می‌دهد." })}</p>
+        ) : null}
+        {receipt.stage === "APPROVED_BY_FINANCE" ? (
+          <p className="treasury-waiting">{t({ en: "Approved by Finance, not yet posted. No journal exists for this receipt until Finance posts it.", fa: "توسط مالی تصویب شد، هنوز ثبت نشده. تا زمانی که مالی ثبت نکند، هیچ ژورنالی برای این رسید وجود ندارد." })}</p>
+        ) : null}
+        {receipt.stage === "REJECTED_BY_FINANCE" ? (
+          <p className="treasury-muted">{t({ en: "Finance rejected this receipt. Treasury's verified record stands; what happens next is a Finance decision.", fa: "مالی این رسید را رد کرد. سابقه تاییدشده خزانه باقی می‌ماند؛ گام بعدی تصمیم مالی است." })}</p>
         ) : null}
         {receipt.stage === "POSTED_BY_FINANCE" ? <p className="treasury-waiting">{t({ en: "Posted by Finance. Treasury's record is complete.", fa: "توسط مالی ثبت شد. سابقه خزانه کامل است." })}</p> : null}
         {receipt.stage === "VOIDED" ? <p className="treasury-muted">{t({ en: "Voided:", fa: "باطل شد:" })} {receipt.voidReason}</p> : null}
 
         {(receipt.stage === "DRAFT" || receipt.stage === "COUNTED" || receipt.stage === "PENDING_VERIFICATION") && (iReceived || perms.includes("treasury.cash-receipt.verify")) ? (
           <form className="treasury-void" onSubmit={(event) => { event.preventDefault(); void act(`${base}/void`, { reason: voidReason }, { en: "Receipt voided. The shareholder intent can take a new receipt.", fa: "رسید باطل شد. درخواست سهامدار می‌تواند رسید جدید بگیرد." }); }}>
+            <p className="treasury-policy">{t({ en: "Policy pending Finance Manager review: who may void a receipt. The sandbox allows the receiving cashier or a Treasury verifier.", fa: "سیاست در انتظار بررسی مدیر مالی: چه کسی می‌تواند رسید را باطل کند. محیط آزمایشی به صندوق‌دار دریافت‌کننده یا تاییدکننده خزانه اجازه می‌دهد." })}</p>
             <label htmlFor="void-reason">{t({ en: "Void with reason", fa: "ابطال با دلیل" })}</label>
             <input id="void-reason" value={voidReason} onChange={(event) => setVoidReason(event.target.value)} minLength={5} required />
             <button className="treasury-button danger" type="submit" disabled={busy || voidReason.trim().length < 5}>{t({ en: "Void", fa: "ابطال" })}</button>

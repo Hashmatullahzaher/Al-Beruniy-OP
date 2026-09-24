@@ -161,11 +161,16 @@ export function assertReceiptStatus(
 export function receiptStage(
   receipt: TreasuryReceipt,
   handoff: TreasuryHandoffRecord | undefined,
-  postedJournalId: string | undefined
+  postedJournalId: string | undefined,
+  financeDecision: "NONE" | "APPROVED" | "REJECTED" = "NONE"
 ): ReceiptStage {
   if (receipt.status === "VOIDED") return "VOIDED";
   if (receipt.status === "VERIFIED") {
     if (postedJournalId !== undefined) return "POSTED_BY_FINANCE";
+    // Approval is Finance's own recorded decision. It is shown only after a handoff exists,
+    // because Finance cannot act on a receipt Treasury has not released.
+    if (handoff !== undefined && financeDecision === "REJECTED") return "REJECTED_BY_FINANCE";
+    if (handoff !== undefined && financeDecision === "APPROVED") return "APPROVED_BY_FINANCE";
     if (handoff !== undefined) return "HANDED_TO_FINANCE";
     return "VERIFIED";
   }
