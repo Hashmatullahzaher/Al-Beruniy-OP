@@ -1575,3 +1575,45 @@ button.review-context { border: 0; border-inline-start: 1px solid rgba(102, 142,
   .calendar-periods tr { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 10px; padding: 8px 0; border-bottom: 1px solid rgba(60, 130, 176, .2); }
   .calendar-periods td { border: 0; padding: 2px 4px; }
 }
+/* WP-A: Chart of Accounts (V1). */
+.coa-list-tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 10px 10px 0; }
+.coa-list-tools .admin-search { flex: 1 1 200px; }
+.coa-empty { padding: 10px; }
+.coa-tree { max-height: 68vh; overflow-y: auto; }
+.coa-tree > button { margin-inline-start: calc(var(--coa-depth, 0) * 16px); }
+.coa-tree > button.inactive { opacity: .62; }
+.coa-code { display: inline-flex; align-items: center; min-width: 58px; padding: 3px 7px; border: 1px solid rgba(224, 180, 79, .45); border-radius: 5px; color: var(--abos-gold-300); font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 11px; direction: ltr; unicode-bidi: isolate; overflow-wrap: anywhere; }
+.coa-code.large { font-size: 13px; padding: 6px 10px; }
+.coa-badges { display: flex; flex-wrap: wrap; gap: 4px; justify-content: flex-end; }
+.coa-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.coa-form-grid .wide { grid-column: 1 / -1; }
+.coa-form select, .coa-reason input { height: 38px; min-height: 38px; padding: 0 8px; border: 1px solid rgba(73, 145, 192, .35); border-radius: 7px; background: rgba(3, 14, 25, .8); color: white; font: inherit; font-size: 12.5px; }
+.coa-form select:disabled { opacity: .6; }
+.coa-locked { display: flex; gap: 6px; align-items: flex-start; padding: 8px 10px; border-inline-start: 2px solid rgba(224, 180, 79, .6); background: rgba(122, 91, 28, .12); }
+.coa-warnings { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.coa-warnings li { display: grid; gap: 2px; padding: 8px 10px; border: 1px solid rgba(101, 203, 255, .3); border-radius: 7px; background: rgba(11, 44, 69, .45); }
+.coa-warnings li.likely { border-color: rgba(241, 207, 119, .6); background: rgba(122, 91, 28, .16); }
+.coa-warnings strong { font-size: 12px; overflow-wrap: anywhere; }
+.coa-warnings small { color: var(--abos-slate-300); font-size: 10.5px; }
+.coa-confirm { display: flex !important; gap: 8px; align-items: center; color: var(--abos-gold-300); font-size: 12px; }
+.coa-error { margin: 0; color: #ffb3ae; font-size: 12px; }
+.coa-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.coa-facts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 0; }
+.coa-facts div { padding: 8px 10px; border: 1px solid rgba(59, 128, 173, .2); border-radius: 7px; background: rgba(4, 18, 31, .5); }
+.coa-facts dt { color: var(--abos-slate-400); font-size: 10px; text-transform: uppercase; letter-spacing: .05em; }
+.coa-facts dd { margin: 2px 0 0; color: #d9e4eb; font-size: 12px; overflow-wrap: anywhere; }
+.coa-reason { display: grid; gap: 4px; max-width: 420px; }
+.coa-reason span { color: var(--abos-slate-300); font-size: 11px; font-weight: 650; }
+.coa-review { display: grid; gap: 10px; }
+.coa-review-card { display: grid; gap: 8px; padding: 14px; }
+.coa-review-card > header { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: center; }
+.coa-review-card > header strong, .coa-review-card > header small { display: block; overflow-wrap: anywhere; }
+.coa-review-card > header small { color: var(--abos-slate-400); font-size: 11px; }
+.coa-review-actions { max-width: 560px; }
+@media (max-width: 960px) { .coa-grid { grid-template-columns: 1fr; } .coa-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 520px) {
+  .coa-form-grid, .coa-facts { grid-template-columns: 1fr; }
+  .coa-tree > button { margin-inline-start: calc(var(--coa-depth, 0) * 8px); grid-template-columns: auto minmax(0, 1fr); }
+  .coa-tree > button .coa-badges { grid-column: 1 / -1; justify-content: flex-start; }
+  .coa-review-card > header { grid-template-columns: auto minmax(0, 1fr); }
+}
