@@ -30,6 +30,17 @@ approved. Updated at the Milestone A client preview (`docs/04-delivery/v1-client
 
 Out of V1: banks, Sales, Construction, Procurement, HR/Payroll, AI, Telegram.
 
-## Next eligible slice
+## Two-phase completion plan (owner authorization, 2026-09-25)
+
+Allocated by dependency and effort; details and agent contracts in `V1_PHASE1_CONTRACTS.md`.
+
+| Phase | Items | Notes |
+|---|---|---|
+| **1 — accounting foundation and connected operations** | #10 Chart of Accounts; #11 safes and Saraf accounts; #12 AFN custody on the USD foundation; #13 daily exchange rates with snapshots; #16 whole-safe count; #15 shareholder capital-request creation; #8 company configuration view | Parallel packages A, B, C plus lead; independent review before each integration |
+| **2 — remaining modules, hardening, acceptance** | #14 capital or loan; #17 reversals; #18 Excel import (layout pending); #19 GL views and reports; #20 trace names/decimals; AFN posting (FX policy pending); #6 identity hardening; #7 online deployment (approval pending); final acceptance | #18, AFN posting and #7 are blocked on owner/Finance Manager decisions |
+
+Classification at the start of Phase 1: done and verified #1–#5, #9; partial #11, #12; not implemented #10, #13–#20, #6; blocked by missing decisions #18 (layout), AFN posting (rounding/precision, gain/loss), period opening (authority); blocked by external approval #7 (hosting), #8 legal identifiers (owner data).
+
+## Previous note (superseded by the two-phase plan)
 
 **#10 User-managed Chart of Accounts** (then #11 safes and Saraf accounts as accounts). Dependencies met: the calendar (#9) and least-privilege Finance ownership (#5). The owner decision already fixes the policy shape: permitted users add accounts, the system warns on likely duplicates, and the Finance Manager gets a review list. Still needed from the Finance Manager before real use, but not blocking the build: the account classes and numbering convention to offer (the synthetic preview will use placeholder classes, clearly labelled).

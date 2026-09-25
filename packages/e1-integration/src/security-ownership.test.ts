@@ -127,6 +127,22 @@ if (databaseUrl() === undefined) {
       await refused("abos_e1_treasury_owner", "CREATE TEMPORARY TABLE shadow (id int)", /permission denied to create temporary tables/);
     });
 
+    test("catalogue-driven authorizers still refuse unknown, unavailable and cross-category permissions (0013)", async () => {
+      const token = "t".repeat(43);
+      for (const [role, call, message] of [
+        ["abos_e1_finance_owner", "SELECT abos.finance_runtime_authorize($1, 'finance.journal.reverse')", /unsupported Finance permission/],
+        ["abos_e1_finance_owner", "SELECT abos.finance_runtime_authorize($1, 'treasury.read')", /unsupported Finance permission/],
+        ["abos_e1_finance_owner", "SELECT abos.finance_runtime_authorize($1, 'finance.everything')", /unsupported Finance permission/],
+        ["abos_e1_treasury_owner", "SELECT abos.treasury_runtime_authorize($1, gen_random_uuid(), 'finance.journal.post')", /unsupported Treasury permission/],
+        ["abos_e1_treasury_owner", "SELECT abos.treasury_runtime_authorize($1, gen_random_uuid(), 'admin.users.manage')", /unsupported Treasury permission/],
+        ["abos_e1_finance_owner", "SELECT abos.finance_runtime_authorize($1, 'finance.report.operational.read')", /session is invalid/]
+      ] as const) {
+        await asRole(role, async (client) => {
+          await assert.rejects(() => client.query(call, [token]), message, call);
+        });
+      }
+    });
+
     test("runtimes can call only their entry points, never internal helpers, owners or tables", async () => {
       const token = "x".repeat(43);
       for (const [kind, call] of [
