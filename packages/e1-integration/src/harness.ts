@@ -54,7 +54,33 @@ export async function openHarness(runtimeMarker: string): Promise<Harness> {
  * The schema is dropped first, so every run starts from nothing and a test cannot pass because of
  * something an earlier run left behind.
  */
+/**
+ * Roles are cluster-wide. Migrations and test setup ALTER and GRANT them, so two suites resetting
+ * different databases on the same server at once collide ("tuple concurrently updated"). Schema
+ * resets therefore take an advisory lock in the server's `postgres` database, which every database
+ * on the server shares.
+ */
+export async function withClusterLock<T>(pool: pg.Pool, work: () => Promise<T>): Promise<T> {
+  const configured = (pool as unknown as { options: { connectionString?: string } }).options.connectionString ?? databaseUrl();
+  if (configured === undefined) throw new Error(MISSING_DATABASE_MESSAGE);
+  const url = new URL(configured);
+  url.pathname = "/postgres";
+  const client = new pg.Client({ connectionString: url.toString() });
+  await client.connect();
+  try {
+    await client.query("SELECT pg_advisory_lock(hashtextextended('abos-cluster-role-ddl', 0))");
+    return await work();
+  } finally {
+    await client.query("SELECT pg_advisory_unlock(hashtextextended('abos-cluster-role-ddl', 0))").catch(() => undefined);
+    await client.end();
+  }
+}
+
 export async function resetSchema(pool: pg.Pool): Promise<void> {
+  await withClusterLock(pool, () => resetSchemaUnlocked(pool));
+}
+
+async function resetSchemaUnlocked(pool: pg.Pool): Promise<void> {
   const client = await pool.connect();
   try {
     // A session-level advisory lock, so two suites resetting the same database serialize instead

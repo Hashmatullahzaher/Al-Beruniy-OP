@@ -41,12 +41,6 @@ async function signIn(page: Page, username: string, password: string | undefined
   await expect(page).toHaveURL(/\/dashboard/);
 }
 
-async function signOut(page: Page): Promise<void> {
-  await page.locator(".account-control > button").click();
-  await page.getByRole("menuitem", { name: "Sign out" }).click();
-  await expect(page).toHaveURL(/\/login/);
-}
-
 function seedPreview(): Record<string, string> {
   const environment: Record<string, string> = {};
   for (const line of readFileSync(resolve(__dirname, "../.env.local"), "utf8").split(/\r?\n/)) {
