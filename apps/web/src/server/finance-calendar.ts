@@ -1,3 +1,5 @@
+import { IdentityError } from "@abos/identity";
+
 import { financeHandoffRuntime, financeToken } from "@/server/finance-handoff";
 import { errorResponse, json } from "@/server/treasury";
 
@@ -52,8 +54,14 @@ export async function generateFiscalYear(fiscalYear: number): Promise<string> {
 
 /** Database refusals are reported as readable conflicts; a missing grant is a 403. */
 export function calendarErrorResponse(error: unknown) {
+  if (error instanceof IdentityError) {
+    return json({ ok: false, error: { code: error.code, message: error.message } }, error.code === "VALIDATION_FAILED" ? 415 : 400);
+  }
   const code = error !== null && typeof error === "object" && "code" in error ? String((error as { code: unknown }).code) : "";
   const message = error instanceof Error ? error.message : "";
+  if (code === "42501" && /session is invalid|authorization is not active|bearer credential/.test(message)) {
+    return json({ ok: false, error: { code: "AUTHENTICATION_REQUIRED", message: "Your session has ended. Sign in again." } }, 401);
+  }
   if (code === "42501" && /authority is missing/.test(message)) {
     return json({ ok: false, error: { code: "PERMISSION_DENIED", message: "You do not have permission to manage the financial calendar." } }, 403);
   }

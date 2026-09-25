@@ -72,7 +72,7 @@ export const migrationCatalog = [
   },
   {
     id: "0012_v1_financial_calendar",
-    checksumSha256: "5c19b57796b5a5d5e9599a0457e768cb62a580b4eb1802ce89b8221f9b841723",
+    checksumSha256: "3ae4c20a38111cc6fa3ebb5e7bab464b19fa1c15cef1c512bb7572251fbb8bac",
     relativePath: "infrastructure/database/migrations/0012_v1_financial_calendar.sql",
   },
 ] as const satisfies readonly MigrationDefinition[];

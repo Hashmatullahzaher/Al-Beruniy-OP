@@ -102,8 +102,8 @@ DECLARE
   march integer;
   i integer;
 BEGIN
-  IF p_year < 1300 OR p_year > 1600 THEN
-    RAISE EXCEPTION 'Solar Hijri year % is outside the supported range 1300-1600', p_year USING ERRCODE = 'data_exception';
+  IF p_year < 1300 OR p_year > 1500 THEN
+    RAISE EXCEPTION 'Solar Hijri year % is outside the supported range 1300-1500', p_year USING ERRCODE = 'data_exception';
   END IF;
   FOR i IN 2 .. array_length(breaks, 1) LOOP
     jm := breaks[i];
@@ -170,6 +170,8 @@ CREATE TABLE abos.financial_calendar_settings (
     CHECK (cardinality(reporting_calendars) BETWEEN 1 AND 2
            AND reporting_calendars <@ ARRAY['SOLAR_HIJRI', 'GREGORIAN']::text[]),
   version integer NOT NULL DEFAULT 1 CHECK (version > 0),
+  -- Set by the first fiscal-year generation; from then on the year structure is fixed.
+  structure_locked_at timestamptz,
   updated_by_user_account_id uuid NOT NULL REFERENCES abos.user_accounts(id),
   updated_at timestamptz NOT NULL DEFAULT clock_timestamp(),
   CHECK ((calendar_kind = 'CUSTOM') = (custom_start_month IS NOT NULL AND custom_start_day IS NOT NULL)),
@@ -205,7 +207,9 @@ CREATE UNIQUE INDEX accounting_periods_fiscal_year_sequence ON abos.accounting_p
 
 -- Two periods of one legal entity may never cover the same day, whoever inserts them.
 CREATE OR REPLACE FUNCTION abos.guard_accounting_period_overlap()
-RETURNS trigger LANGUAGE plpgsql AS $$
+RETURNS trigger LANGUAGE plpgsql
+SET search_path = pg_catalog, pg_temp
+AS $$
 BEGIN
   PERFORM pg_advisory_xact_lock(hashtextextended('abos-periods:' || NEW.legal_entity_id::text, 0));
   IF EXISTS (SELECT 1 FROM abos.accounting_periods p
@@ -220,6 +224,12 @@ $$;
 CREATE TRIGGER accounting_periods_no_overlap
 BEFORE INSERT ON abos.accounting_periods
 FOR EACH ROW EXECUTE FUNCTION abos.guard_accounting_period_overlap();
+
+-- The trigger gives a readable message; the constraint holds at every isolation level and on UPDATE.
+CREATE EXTENSION IF NOT EXISTS btree_gist;
+ALTER TABLE abos.accounting_periods
+  ADD CONSTRAINT accounting_periods_no_overlap
+  EXCLUDE USING gist (legal_entity_id WITH =, daterange(starts_on, ends_on, '[]') WITH &&);
 
 -- ---------------------------------------------------------------------------
 -- Restricted Finance entry points (owned by abos_e1_finance_owner, like every Finance definer).
@@ -290,18 +300,28 @@ DECLARE
 BEGIN
   actor := abos.finance_runtime_authorize(p_bearer_token, 'finance.calendar.manage');
   entity := current_setting('abos.finance_legal_entity_id')::uuid;
-  IF p_calendar_kind NOT IN ('SOLAR_HIJRI', 'GREGORIAN', 'CUSTOM') THEN
+  IF p_calendar_kind IS NULL OR p_calendar_kind NOT IN ('SOLAR_HIJRI', 'GREGORIAN', 'CUSTOM') THEN
     RAISE EXCEPTION 'unknown calendar kind' USING ERRCODE = 'check_violation';
+  END IF;
+  IF p_expected_version IS NULL THEN
+    RAISE EXCEPTION 'the expected settings version is required' USING ERRCODE = 'check_violation';
+  END IF;
+  -- Start month and day only mean something for a custom year.
+  IF p_calendar_kind <> 'CUSTOM' THEN
+    p_custom_start_month := NULL;
+    p_custom_start_day := NULL;
   END IF;
   SELECT * INTO current_row FROM abos.financial_calendar_settings WHERE legal_entity_id = entity FOR UPDATE;
   IF FOUND THEN
-    IF current_row.version <> p_expected_version THEN
+    IF current_row.version IS DISTINCT FROM p_expected_version THEN
       RAISE EXCEPTION 'the calendar settings were changed by someone else' USING ERRCODE = 'serialization_failure';
     END IF;
     structural_change := (current_row.calendar_kind, current_row.custom_start_month, current_row.custom_start_day)
       IS DISTINCT FROM (p_calendar_kind, p_custom_start_month::smallint, p_custom_start_day::smallint);
-    -- The year structure is fixed once a fiscal year has been generated from it.
-    IF structural_change AND EXISTS (SELECT 1 FROM abos.fiscal_years WHERE legal_entity_id = entity) THEN
+    -- The year structure is fixed once a fiscal year has been generated from it. Generation sets
+    -- structure_locked_at on this same row, so the two cannot interleave at any isolation level.
+    IF structural_change AND (current_row.structure_locked_at IS NOT NULL
+                              OR EXISTS (SELECT 1 FROM abos.fiscal_years WHERE legal_entity_id = entity)) THEN
       RAISE EXCEPTION 'the financial year structure cannot change after a fiscal year has been generated'
         USING ERRCODE = 'check_violation';
     END IF;
@@ -354,12 +374,13 @@ DECLARE
   sh_months_en text[] := ARRAY['Hamal', 'Sawr', 'Jawza', 'Saratan', 'Asad', 'Sunbula', 'Mizan', 'Aqrab', 'Qaws', 'Jadi', 'Dalw', 'Hut'];
   sh_months_fa text[] := ARRAY['حمل', 'ثور', 'جوزا', 'سرطان', 'اسد', 'سنبله', 'میزان', 'عقرب', 'قوس', 'جدی', 'دلو', 'حوت'];
   g_months_en text[] := ARRAY['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  current_sh integer;
   g_months_fa text[] := ARRAY['جنوری', 'فبروری', 'مارچ', 'اپریل', 'می', 'جون', 'جولای', 'اگست', 'سپتمبر', 'اکتوبر', 'نومبر', 'دسمبر'];
   n integer;
 BEGIN
   actor := abos.finance_runtime_authorize(p_bearer_token, 'finance.calendar.manage');
   entity := current_setting('abos.finance_legal_entity_id')::uuid;
-  SELECT * INTO settings FROM abos.financial_calendar_settings WHERE legal_entity_id = entity FOR SHARE;
+  SELECT * INTO settings FROM abos.financial_calendar_settings WHERE legal_entity_id = entity FOR UPDATE;
   IF NOT FOUND THEN
     RAISE EXCEPTION 'choose the financial calendar before generating a fiscal year' USING ERRCODE = 'check_violation';
   END IF;
@@ -369,17 +390,21 @@ BEGIN
     RETURN existing;
   END IF;
 
+  -- A fiscal year is fixed and append-only once generated, so only nearby years may be generated.
+  current_sh := extract(year FROM current_date)::integer - 621;
+  IF current_date < abos.solar_hijri_new_year(current_sh) THEN current_sh := current_sh - 1; END IF;
   IF settings.calendar_kind = 'SOLAR_HIJRI' THEN
-    IF p_fiscal_year < 1300 OR p_fiscal_year > 1599 THEN
-      RAISE EXCEPTION 'Solar Hijri fiscal year % is out of range', p_fiscal_year USING ERRCODE = 'check_violation';
+    IF p_fiscal_year < current_sh - 5 OR p_fiscal_year > current_sh + 5 OR p_fiscal_year > 1499 THEN
+      RAISE EXCEPTION 'Solar Hijri fiscal year % is out of range (within five years of the current year)', p_fiscal_year USING ERRCODE = 'check_violation';
     END IF;
     year_start := abos.solar_hijri_new_year(p_fiscal_year);
     year_end := abos.solar_hijri_new_year(p_fiscal_year + 1) - 1;
     label_en := 'FY ' || p_fiscal_year || ' SH';
     label_fa := 'سال مالی ' || abos.dari_digits(p_fiscal_year::text);
   ELSE
-    IF p_fiscal_year < 1900 OR p_fiscal_year > 2200 THEN
-      RAISE EXCEPTION 'fiscal year % is out of range', p_fiscal_year USING ERRCODE = 'check_violation';
+    IF p_fiscal_year < extract(year FROM current_date)::integer - 5 OR p_fiscal_year > extract(year FROM current_date)::integer + 5
+       OR p_fiscal_year > 2119 THEN
+      RAISE EXCEPTION 'fiscal year % is out of range (within five years of the current year)', p_fiscal_year USING ERRCODE = 'check_violation';
     END IF;
     IF settings.calendar_kind = 'GREGORIAN' THEN
       year_start := make_date(p_fiscal_year, 1, 1);
@@ -395,6 +420,9 @@ BEGIN
 
   INSERT INTO abos.fiscal_years (id, legal_entity_id, calendar_kind, fiscal_year, label_en, label_fa, starts_on, ends_on, generated_by_user_account_id)
   VALUES (year_id, entity, settings.calendar_kind, p_fiscal_year, label_en, label_fa, year_start, year_end, actor);
+  UPDATE abos.financial_calendar_settings
+     SET structure_locked_at = coalesce(structure_locked_at, clock_timestamp())
+   WHERE legal_entity_id = entity;
 
   FOR n IN 1 .. 12 LOOP
     IF settings.calendar_kind = 'SOLAR_HIJRI' THEN
@@ -412,9 +440,10 @@ BEGIN
         name_fa := name_fa || ' (از ' || abos.dari_digits(extract(day FROM period_start)::text) || ')';
       END IF;
     END IF;
+    -- status is not supplied (the owner cannot write it): every generated period is PENDING.
     INSERT INTO abos.accounting_periods
-      (id, legal_entity_id, period_name, starts_on, ends_on, status, fiscal_year_id, period_sequence, period_name_fa)
-    VALUES (gen_random_uuid(), entity, name_en, period_start, period_end, 'PENDING', year_id, n, name_fa);
+      (id, legal_entity_id, period_name, starts_on, ends_on, fiscal_year_id, period_sequence, period_name_fa)
+    VALUES (gen_random_uuid(), entity, name_en, period_start, period_end, year_id, n, name_fa);
   END LOOP;
 
   IF (SELECT max(ends_on) FROM abos.accounting_periods WHERE fiscal_year_id = year_id) <> year_end
@@ -435,10 +464,12 @@ $generate$;
 -- ---------------------------------------------------------------------------
 GRANT SELECT, INSERT ON abos.financial_calendar_settings TO abos_e1_finance_owner;
 GRANT UPDATE (calendar_kind, custom_start_month, custom_start_day, reporting_calendars, version,
-  updated_by_user_account_id, updated_at) ON abos.financial_calendar_settings TO abos_e1_finance_owner;
+  structure_locked_at, updated_by_user_account_id, updated_at) ON abos.financial_calendar_settings TO abos_e1_finance_owner;
 GRANT SELECT, INSERT ON abos.fiscal_years TO abos_e1_finance_owner;
-GRANT INSERT ON abos.accounting_periods TO abos_e1_finance_owner;
-GRANT SELECT ON abos.permission_catalogue TO abos_e1_finance_owner;
+-- Only these columns: status, opened_* and closed_* cannot be supplied, so the owner can never
+-- create an OPEN (postable) period.
+GRANT INSERT (id, legal_entity_id, period_name, starts_on, ends_on, fiscal_year_id, period_sequence, period_name_fa)
+  ON abos.accounting_periods TO abos_e1_finance_owner;
 
 ALTER FUNCTION abos.finance_calendar_view(text) OWNER TO abos_e1_finance_owner;
 ALTER FUNCTION abos.finance_calendar_configure(text, text, integer, integer, text[], integer) OWNER TO abos_e1_finance_owner;

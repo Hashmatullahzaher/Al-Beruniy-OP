@@ -93,6 +93,7 @@ if (databaseUrl() === undefined) {
       await assert.rejects(() => finance((db) => configure(db, manager, "GREGORIAN", null, null, ["GREGORIAN"], 1)), /cannot change after a fiscal year/);
       assert.equal(await finance((db) => configure(db, manager, "CUSTOM", 7, 1, ["GREGORIAN", "SOLAR_HIJRI"], 1)), 2);
       await assert.rejects(() => finance((db) => configure(db, manager, "CUSTOM", 7, 1, ["GREGORIAN"], 1)), /changed by someone else/);
+      await assert.rejects(() => finance((db) => db.query("SELECT abos.finance_calendar_configure($1, 'CUSTOM', 7, 1, ARRAY['GREGORIAN'], NULL)", [manager])), /expected settings version is required/);
 
       const second = await prepare(harness);
       await finance((db) => configure(db, second.manager, "GREGORIAN", null, null, ["GREGORIAN", "SOLAR_HIJRI"], 0));
@@ -127,6 +128,25 @@ if (databaseUrl() === undefined) {
       await assert.rejects(() => harness.executor.query(
         `INSERT INTO abos.accounting_periods (id, legal_entity_id, period_name, starts_on, ends_on) VALUES (gen_random_uuid(), $1, 'Overlap', '2027-06-15', '2027-07-15')`,
         [world.legalEntityId]), /overlaps an existing period/);
+      // The Finance owner can insert only pending periods: status and opened_* are not writable by it.
+      const client = await harness.pool.connect();
+      try {
+        await client.query("BEGIN");
+        await client.query("SET LOCAL ROLE abos_e1_finance_owner");
+        await assert.rejects(() => client.query(
+          `INSERT INTO abos.accounting_periods (id, legal_entity_id, period_name, starts_on, ends_on, status, opened_by_user_account_id, opened_at)
+           VALUES (gen_random_uuid(), $1, 'Sneaky', '2030-01-01', '2030-01-31', 'OPEN', $2, clock_timestamp())`,
+          [world.legalEntityId, world.bootstrapUserId]), /permission denied for table accounting_periods/);
+      } finally {
+        await client.query("ROLLBACK");
+        client.release();
+      }
+      // The overlap rule also holds as a constraint (any isolation level), not only as a trigger.
+      const constraint = await harness.executor.query<{ ok: boolean }>(
+        "SELECT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'accounting_periods_no_overlap' AND contype = 'x') AS ok");
+      assert.equal(constraint.rows[0]?.ok, true);
+      // Years far from today cannot be generated (they would be fixed and append-only).
+      await assert.rejects(() => finance((db) => generate(db, manager, 2040)), /out of range/);
       const audit = await harness.executor.query<{ action: string }>(
         "SELECT action FROM abos.audit_records WHERE entity_type IN ('FINANCIAL_CALENDAR', 'FISCAL_YEAR') ORDER BY occurred_at");
       assert.deepEqual(audit.rows.map((row) => row.action), ["FINANCIAL_CALENDAR_CONFIGURED", "FISCAL_YEAR_GENERATED"]);
