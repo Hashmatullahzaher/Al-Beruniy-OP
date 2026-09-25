@@ -41,9 +41,9 @@ test.describe("Finance handoff against the dev sandbox", () => {
     // These assertions require both finance_handoff_workspace and finance_handoff_trace
     // to execute successfully through the restricted role. The old qualified COALESCE
     // fails at this point with PostgreSQL 42883.
-    await expect(page.locator(".treasury-identity strong")).toContainText("Finance user");
+    await expect(page.locator(".treasury-identity strong")).toContainText("Finance preparer");
     const handoff = page.getByRole("button", { name: /RCPT-FINANCE-BROWSER-0001/ });
-    await expect(handoff).toContainText("USD 25000.00");
+    await expect(handoff).toContainText("USD 25,000.00");
     const traceResponse = page.waitForResponse(response =>
       response.url().includes("/api/v1/finance/handoffs/") && response.request().method() === "GET"
     );
@@ -51,9 +51,9 @@ test.describe("Finance handoff against the dev sandbox", () => {
     const response = await traceResponse;
     expect(response.ok(), await response.text()).toBe(true);
     await expect(page.locator(".finance-handoff-trace")).toContainText("RCPT-FINANCE-BROWSER-0001");
-    await expect(page.locator(".finance-handoff-trace")).toContainText("TREASURY_VERIFIED");
-    await expect(page.locator(".finance-handoff-trace")).toContainText("Journal NOT_POSTED");
-    await expect(page.getByRole("button", { name: "Prepare posting intent" })).toBeVisible();
+    await expect(page.locator(".finance-handoff-trace")).toContainText("Cash verified by Treasury");
+    await expect(page.locator(".finance-reconciliation")).toContainText("Not posted yet");
+    await expect(page.getByRole("button", { name: "Prepare journal for approval" })).toBeVisible();
   });
 });
 

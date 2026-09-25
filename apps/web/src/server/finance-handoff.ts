@@ -97,13 +97,13 @@ export async function financeTrace(token: string, handoffId: string): Promise<Fi
   return {
     id: raw.handoff.id, receiptId: raw.receipt.id, receiptReference: raw.receipt.receipt_reference,
     shareholder: raw.shareholder.displayName, agreementReference: raw.agreement.reference,
-    installmentSequence: raw.installment.sequenceNumber, amount: raw.source.amount,
+    installmentSequence: raw.installment.sequenceNumber, amount: decimalText(raw.source.amount),
     currency: raw.source.currency_code, receivingAccount: `${raw.safe.name} · ${raw.safe.currency}`,
     handedOffAt: raw.handoff.handed_off_at,
     stage: journal?.status === "POSTED" ? "POSTED" : posting?.status === "APPROVED" ? "APPROVED" : posting ? "PENDING_APPROVAL" : "HANDED_TO_FINANCE",
     agreementId: raw.agreement.id, installmentId: raw.installment.id, receivingSafe: raw.safe.name,
     physicalCount: {
-      amount: raw.physicalCount.counted_amount,
+      amount: decimalText(raw.physicalCount.counted_amount),
       countedBy: raw.physicalCount.counted_by_display_name ?? raw.physicalCount.counted_by_user_account_id,
       confirmedBy: raw.physicalCount.confirmed_by_display_name ?? raw.physicalCount.confirmed_by_user_account_id,
       evidence: String(raw.evidence.count ?? "Evidence unavailable")
@@ -118,6 +118,15 @@ export async function financeTrace(token: string, handoffId: string): Promise<Fi
   };
 }
 
+/**
+ * finance_handoff_trace serialises whole rows with to_jsonb, so numeric columns arrive as JSON
+ * numbers, not exact decimal text. Present them as text so the UI never does arithmetic on them.
+ * The exact fix belongs in the SQL (cast to text), which is flagged for Codex in the owner-demo handoff.
+ */
+function decimalText(value: string | number): string {
+  return typeof value === "number" ? String(value) : value;
+}
+
 interface RawWorkspace {
   readonly actor: { readonly userAccountId: string; readonly displayName?: string; readonly sessionExpiresAt?: string; readonly permissions: readonly string[] };
   readonly handoffs: readonly { readonly id: string; readonly cash_receipt_id: string; readonly receipt_reference: string; readonly shareholder_display_name?: string; readonly agreement_reference: string; readonly sequence_number: number; readonly amount: string; readonly currency_code: "USD"|"AFN"; readonly location_name: string; readonly handed_off_at: string; readonly posting_intent_id?: string; readonly posting_status?: string; readonly journal_id?: string; readonly journal_status?: string }[];
@@ -125,13 +134,13 @@ interface RawWorkspace {
 }
 interface RawTrace {
   readonly handoff: { readonly id: string; readonly handed_off_at: string; readonly handed_off_by_user_account_id: string; readonly handed_off_by_display_name?: string };
-  readonly source: { readonly amount: string; readonly currency_code: "USD"|"AFN"; readonly status: string };
+  readonly source: { readonly amount: string | number; readonly currency_code: "USD"|"AFN"; readonly status: string };
   readonly shareholder: { readonly displayName: string };
   readonly agreement: { readonly id: string; readonly reference: string };
   readonly installment: { readonly id: string; readonly sequenceNumber: number };
   readonly receipt: { readonly id: string; readonly receipt_reference: string; readonly status: string; readonly verified_by_user_account_id: string; readonly verifier_display_name?: string };
   readonly safe: { readonly name: string; readonly currency: string };
-  readonly physicalCount: { readonly counted_amount: string; readonly counted_by_user_account_id: string; readonly confirmed_by_user_account_id: string; readonly counted_by_display_name?: string; readonly confirmed_by_display_name?: string };
+  readonly physicalCount: { readonly counted_amount: string | number; readonly counted_by_user_account_id: string; readonly confirmed_by_user_account_id: string; readonly counted_by_display_name?: string; readonly confirmed_by_display_name?: string };
   readonly evidence: { readonly count?: string; readonly receipt?: string; readonly approval?: string };
   readonly postingIntent?: { readonly id: string; readonly status: string; readonly created_by_user_account_id: string; readonly created_by_display_name?: string; readonly accounting_effective_date: string };
   readonly approval?: { readonly id: string; readonly approver_user_account_id: string; readonly approver_display_name?: string; readonly approved_at: string };

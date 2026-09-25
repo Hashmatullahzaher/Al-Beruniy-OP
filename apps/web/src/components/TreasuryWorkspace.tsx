@@ -494,7 +494,7 @@ function ReceiptDetail({ overview, trace, busy, act }: {
     { label: { en: "Shareholder", fa: "سهامدار" }, value: trace.source.shareholder, done: true },
     { label: { en: "Agreement", fa: "قرارداد" }, value: trace.source.agreementReference, done: true },
     { label: { en: "Installment", fa: "قسط" }, value: `#${trace.source.installmentSequence} · ${formatAmount(trace.source.amount, trace.source.currency, locale)}`, done: true },
-    { label: { en: "Capital receipt intent", fa: "درخواست دریافت سرمایه" }, value: trace.source.status, done: true },
+    { label: { en: "Capital receipt intent", fa: "درخواست دریافت سرمایه" }, value: sourceStatusText(trace.source.status, t), done: true },
     { label: { en: "Cash received", fa: "دریافت نقد" }, value: `${receipt.receivedBy} · ${receipt.destinationLabel}`, done: true },
     { label: { en: "Physical count", fa: "شمارش فزیکی" }, value: trace.count ? `${formatAmount(trace.count.countedAmount, receipt.currency, locale)} · ${trace.count.countedBy}` : t({ en: "Not counted", fa: "شمارش نشده" }), done: trace.count !== undefined },
     { label: { en: "Independent verification", fa: "تایید مستقل" }, value: receipt.verifiedBy ?? t({ en: "Not verified", fa: "تایید نشده" }), done: receipt.verifiedBy !== undefined },
@@ -534,9 +534,9 @@ function ReceiptDetail({ overview, trace, busy, act }: {
         <h4>{t({ en: "Evidence", fa: "شواهد" })}</h4>
         <dl>
           <dt>{t({ en: "Receipt evidence", fa: "سند دریافت" })}</dt>
-          <dd dir="ltr">{trace.receiptEvidenceLabel ?? "—"}</dd>
+          <dd><EvidenceValue label={trace.receiptEvidenceLabel} t={t} /></dd>
           <dt>{t({ en: "Count evidence", fa: "سند شمارش" })}</dt>
-          <dd dir="ltr">{trace.count?.evidenceLabel ?? "—"}</dd>
+          <dd><EvidenceValue label={trace.count?.evidenceLabel} t={t} /></dd>
           <dt>{t({ en: "Count confirmed by", fa: "شمارش تاییدشده توسط" })}</dt>
           <dd>{trace.count?.confirmedBy ? `${trace.count.confirmedBy} · ${formatTime(trace.count.confirmedAt, locale)}` : "—"}</dd>
         </dl>
@@ -629,3 +629,19 @@ function ReceiptDetail({ overview, trace, busy, act }: {
 }
 
 export type { ReceiptView };
+
+function sourceStatusText(status: string, t: (copy: Copy) => string): string {
+  const copy = (SOURCE_STATUS_COPY as Readonly<Record<string, Copy | undefined>>)[status];
+  return copy ? t(copy) : status;
+}
+
+/** Evidence reads as on file or missing; the document id and hash stay available for audit, folded away. */
+function EvidenceValue({ label, t }: { readonly label: string | undefined; readonly t: (copy: Copy) => string }) {
+  if (label === undefined || label === "") return <>{t({ en: "Missing", fa: "موجود نیست" })}</>;
+  return (
+    <details className="treasury-evidence-detail">
+      <summary>{t({ en: "On file ✓", fa: "موجود است ✓" })}</summary>
+      <code dir="ltr">{label}</code>
+    </details>
+  );
+}

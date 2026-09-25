@@ -18,9 +18,9 @@ test("Finance preparer sees only the controlled prepare action", async ({ page }
   await page.route(`**/api/v1/finance/handoffs/${summary.id}`, route => route.fulfill({ json: { ok: true, data: trace } }));
   await page.goto("/finance/handoffs");
   await page.getByRole("button", { name: /DEMO-REC-001/ }).click();
-  await expect(page.getByRole("button", { name: "Prepare posting intent" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Independently approve" })).toHaveCount(0);
-  await expect(page.getByText("DEMO RECEIPT EVIDENCE")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Prepare journal for approval" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Approve (independent review)" })).toHaveCount(0);
+  await expect(page.locator(".finance-handoff-trace dl")).toContainText("On file ✓");
 });
 
 test("Finance approver sees approval for another persona's draft and no prepare action", async ({ page }) => {
@@ -29,6 +29,6 @@ test("Finance approver sees approval for another persona's draft and no prepare 
   await page.route(`**/api/v1/finance/handoffs/${summary.id}`, route => route.fulfill({ json: { ok: true, data: approvedTrace } }));
   await page.goto("/finance/handoffs");
   await page.getByRole("button", { name: /DEMO-REC-001/ }).click();
-  await expect(page.getByRole("button", { name: "Independently approve" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Prepare posting intent" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Approve (independent review)" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Prepare journal for approval" })).toHaveCount(0);
 });

@@ -109,7 +109,7 @@ test.describe("Treasury workflow against the dev sandbox", () => {
     // The trace preserves the source; Finance posting is shown as not done.
     const chain = page.locator(".treasury-chain");
     await expect(chain).toContainText("Synthetic Shareholder One");
-    await expect(chain).toContainText("TREASURY_VERIFIED");
+    await expect(chain).toContainText("Treasury verified");
     await expect(chain).toContainText("Not approved");
     await expect(chain).toContainText("Not posted");
     const history = page.locator(".treasury-history li strong");
