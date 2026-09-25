@@ -96,6 +96,17 @@ export interface AuditEntry {
   readonly summary: Readonly<Record<string, unknown>>;
 }
 
+export interface CompanyProfileView {
+  readonly legalEntity: { readonly id: string; readonly code: string; readonly name: string; readonly baseCurrency: string | null };
+  readonly profile: {
+    readonly legalName: string | null; readonly registrationNumber: string | null; readonly goLiveDate: string | null;
+    readonly version: number; readonly updatedAt: string | null; readonly updatedBy: string | null;
+  };
+  readonly currencies: readonly { readonly code: string; readonly name: string; readonly enabled: boolean }[];
+  readonly calendar: { readonly calendarKind: string; readonly reportingCalendars: readonly string[] } | null;
+  readonly canManage: boolean;
+}
+
 export interface CreateUserInput {
   readonly loginIdentifier: string;
   readonly displayName: string;
@@ -433,6 +444,54 @@ export class IdentityService {
       const actor = await this.actor(tx, token);
       assertIdentity(actor.permissions.has(ADMIN_USERS) || actor.permissions.has(ADMIN_ROLES), "PERMISSION_DENIED", "You do not have permission to review access changes.");
       return loadAudit(tx, actor.legalEntityId, null, Math.min(Math.max(limit, 1), 500));
+    });
+  }
+
+  // -------------------------------------------------------------------------------------------
+  // Company profile (#8). Legal name, registration number and go-live date are owner data: stored
+  // only when a Super Administrator enters them, shown as pending until then.
+  // -------------------------------------------------------------------------------------------
+
+  async companyProfile(token: string): Promise<CompanyProfileView> {
+    return this.database.transaction(async (tx) => {
+      const actor = await this.actor(tx, token);
+      return loadCompanyProfile(tx, actor);
+    });
+  }
+
+  async updateCompanyProfile(token: string, input: {
+    readonly legalName: string | null; readonly registrationNumber: string | null; readonly goLiveDate: string | null; readonly expectedVersion: number;
+  }): Promise<CompanyProfileView> {
+    const legalName = optionalText(input.legalName);
+    const registrationNumber = optionalText(input.registrationNumber);
+    const goLiveDate = optionalText(input.goLiveDate);
+    assertIdentity(legalName === null || (legalName.length >= 2 && legalName.length <= 200), "VALIDATION_FAILED", "Enter the legal name (2-200 characters) or leave it pending.", { field: "legalName" });
+    assertIdentity(registrationNumber === null || registrationNumber.length <= 100, "VALIDATION_FAILED", "The registration number is too long.", { field: "registrationNumber" });
+    assertIdentity(goLiveDate === null || (/^\d{4}-\d{2}-\d{2}$/.test(goLiveDate) && !Number.isNaN(Date.parse(goLiveDate))), "VALIDATION_FAILED", "Enter the go-live date as YYYY-MM-DD or leave it pending.", { field: "goLiveDate" });
+    return this.mutate(async (tx) => {
+      const actor = await this.admin(tx, token, "admin.company.manage");
+      const current = await tx.query<{ legal_name: string | null; registration_number: string | null; go_live_date: string | null; version: number }>(
+        "SELECT legal_name, registration_number, go_live_date::text AS go_live_date, version FROM abos.legal_entity_profiles WHERE legal_entity_id = $1 FOR UPDATE",
+        [actor.legalEntityId]);
+      const before = current.rows[0];
+      assertIdentity((before?.version ?? 0) === input.expectedVersion, "STALE_VERSION", "Someone else changed the company details. Reload and try again.");
+      if (before === undefined) {
+        await tx.query(
+          `INSERT INTO abos.legal_entity_profiles (legal_entity_id, legal_name, registration_number, go_live_date, updated_by_user_account_id)
+           VALUES ($1, $2, $3, $4::date, $5)`, [actor.legalEntityId, legalName, registrationNumber, goLiveDate, actor.userAccountId]);
+      } else {
+        await tx.query(
+          `UPDATE abos.legal_entity_profiles SET legal_name = $2, registration_number = $3, go_live_date = $4::date, version = version + 1,
+                  updated_by_user_account_id = $5, updated_at = clock_timestamp() WHERE legal_entity_id = $1`,
+          [actor.legalEntityId, legalName, registrationNumber, goLiveDate, actor.userAccountId]);
+      }
+      await tx.query(
+        `INSERT INTO abos.audit_records (id, actor_user_account_id, legal_entity_id, correlation_id, action, entity_type, entity_id, before_state, after_state, metadata)
+         VALUES ($1, $2, $3, $4, 'COMPANY_PROFILE_UPDATED', 'COMPANY_PROFILE', $3, $5, $6, $7)`,
+        [randomUUID(), actor.userAccountId, actor.legalEntityId, randomUUID(),
+          before === undefined ? null : JSON.stringify({ legalName: before.legal_name, registrationNumber: before.registration_number, goLiveDate: before.go_live_date }),
+          JSON.stringify({ legalName, registrationNumber, goLiveDate }), JSON.stringify({ source: "v1-company-profile" })]);
+      return loadCompanyProfile(tx, actor);
     });
   }
 
@@ -874,7 +933,7 @@ const INDEPENDENCE_PERMISSIONS = new Set([
 ]);
 
 function requireSuperAdminFor(actor: Actor, permissions: Iterable<string>): void {
-  const sensitive = [...permissions].some((code) => ADMIN_PERMISSIONS.has(code) || INDEPENDENCE_PERMISSIONS.has(code));
+  const sensitive = [...permissions].some((code) => ADMIN_PERMISSIONS.has(code) || code.startsWith("admin.") || INDEPENDENCE_PERMISSIONS.has(code));
   const isSuperAdmin = actor.permissions.has(ADMIN_USERS) && actor.permissions.has(ADMIN_ROLES);
   assertIdentity(!sensitive || isSuperAdmin, "SUPER_ADMIN_REQUIRED",
     "Only a Super Administrator can give, change or take away administration or approval access, or reset the password of someone who holds it.");
@@ -889,6 +948,33 @@ async function requireAvailablePermissions(tx: SqlExecutor, codes: readonly stri
   const available = new Set(found.rows.map((row) => row.permission_code));
   const unavailable = codes.filter((code) => !available.has(code));
   assertIdentity(unavailable.length === 0, "VALIDATION_FAILED", "Some selected permissions are not available in this version.", { unavailable });
+}
+
+async function loadCompanyProfile(tx: SqlExecutor, actor: Actor): Promise<CompanyProfileView> {
+  const row = (await tx.query<{
+    id: string; code: string; name: string; base_currency_code: string | null; legal_name: string | null; registration_number: string | null;
+    go_live_date: string | null; version: number | null; updated_at: Date | string | null; updated_by: string | null;
+    calendar_kind: string | null; reporting_calendars: string[] | null;
+  }>(
+    `SELECT e.id, e.code, e.name, e.base_currency_code, p.legal_name, p.registration_number, p.go_live_date::text AS go_live_date,
+            p.version, p.updated_at, u.display_name AS updated_by, c.calendar_kind, c.reporting_calendars
+       FROM abos.legal_entities e
+       LEFT JOIN abos.legal_entity_profiles p ON p.legal_entity_id = e.id
+       LEFT JOIN abos.user_accounts u ON u.id = p.updated_by_user_account_id
+       LEFT JOIN abos.financial_calendar_settings c ON c.legal_entity_id = e.id
+      WHERE e.id = $1`, [actor.legalEntityId])).rows[0];
+  assertIdentity(row !== undefined, "NOT_FOUND", "The company was not found.");
+  const currencies = await tx.query<{ code: string; name: string; enabled: boolean }>("SELECT code, name, enabled FROM abos.currencies ORDER BY code");
+  return {
+    legalEntity: { id: row.id, code: row.code, name: row.name, baseCurrency: row.base_currency_code },
+    profile: {
+      legalName: row.legal_name, registrationNumber: row.registration_number, goLiveDate: row.go_live_date,
+      version: row.version ?? 0, updatedAt: row.updated_at === null ? null : iso(row.updated_at), updatedBy: row.updated_by
+    },
+    currencies: currencies.rows,
+    calendar: row.calendar_kind === null ? null : { calendarKind: row.calendar_kind, reportingCalendars: row.reporting_calendars ?? [] },
+    canManage: actor.permissions.has("admin.company.manage")
+  };
 }
 
 async function loadCatalogue(tx: SqlExecutor): Promise<CatalogueEntry[]> {
@@ -1050,7 +1136,7 @@ async function loadAudit(tx: SqlExecutor, legalEntityId: string, userId: string 
        LEFT JOIN abos.user_accounts actor ON actor.id = a.actor_user_account_id
        LEFT JOIN abos.user_accounts target_user ON a.entity_type = 'USER_ACCOUNT' AND target_user.id = a.entity_id
        LEFT JOIN abos.access_roles target_role ON a.entity_type = 'ACCESS_ROLE' AND target_role.id = a.entity_id
-      WHERE a.legal_entity_id = $1 AND a.entity_type IN ('USER_ACCOUNT', 'ACCESS_ROLE')
+      WHERE a.legal_entity_id = $1 AND a.entity_type IN ('USER_ACCOUNT', 'ACCESS_ROLE', 'COMPANY_PROFILE')
         AND ($2::uuid IS NULL OR a.entity_id = $2::uuid)
       ORDER BY a.occurred_at DESC, a.id
       LIMIT $3`,

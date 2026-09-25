@@ -35,6 +35,8 @@ const previewRoutes: ReadonlyArray<{ readonly path: string; readonly icon: AppIc
   { path: "/finance/treasury", icon: "coins", en: "Treasury", fa: "خزانه", visible: (can) => can("treasury.read") },
   { path: "/finance/handoffs", icon: "finance", en: "Finance inbox", fa: "صندوق مالی", visible: (can) => can("finance.report.operational.read") },
   { path: "/finance/calendar", icon: "reports-analytics", en: "Financial calendar", fa: "تقویم مالی", visible: (can) => can("finance.calendar.manage") || can("finance.report.operational.read") },
+  // Lead (#8): company details are visible to every signed-in employee.
+  { path: "/admin/company", icon: "building", en: "Company", fa: "شرکت", visible: () => true },
   { path: "/admin/users", icon: "human-resources", en: "Users", fa: "کاربران", visible: (can) => can("admin.users.manage") },
   { path: "/admin/roles", icon: "shield", en: "Roles & permissions", fa: "نقش‌ها و صلاحیت‌ها", visible: (can) => can("admin.roles.manage") || can("admin.users.manage") }
 ];
