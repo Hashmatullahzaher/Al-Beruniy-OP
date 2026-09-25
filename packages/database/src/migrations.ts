@@ -80,6 +80,12 @@ export const migrationCatalog = [
     checksumSha256: "882c15d1640599f5c6195c606f8881623f4774cc9a4e7e7c8ef09a4afcf3ba45",
     relativePath: "infrastructure/database/migrations/0013_v1_phase1_contracts.sql",
   },
+  // WP-C (lead resolves merge order with 0014/0015).
+  {
+    id: "0016_v1_currency_rates",
+    checksumSha256: "35a9f511935dd2e3452556e80e3eccd2a778286489f3e1533ce038867ec0f298",
+    relativePath: "infrastructure/database/migrations/0016_v1_currency_rates.sql",
+  },
 ] as const satisfies readonly MigrationDefinition[];
 
 const migrationTableSql = `
