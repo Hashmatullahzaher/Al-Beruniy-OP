@@ -80,6 +80,12 @@ export const migrationCatalog = [
     checksumSha256: "882c15d1640599f5c6195c606f8881623f4774cc9a4e7e7c8ef09a4afcf3ba45",
     relativePath: "infrastructure/database/migrations/0013_v1_phase1_contracts.sql",
   },
+  // WP-B (V1 Phase 1): safes and Saraf accounts, whole-safe counts.
+  {
+    id: "0015_v1_safes_saraf",
+    checksumSha256: "23c2ff04bfb71d65a0713833810a5c39181c2d948ac225dd86239d5dda9ce84b",
+    relativePath: "infrastructure/database/migrations/0015_v1_safes_saraf.sql",
+  },
 ] as const satisfies readonly MigrationDefinition[];
 
 const migrationTableSql = `

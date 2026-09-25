@@ -14,6 +14,15 @@ export type RestrictedTreasuryOperation =
   | "COUNT_RECEIPT" | "SUBMIT_RECEIPT" | "VERIFY_RECEIPT"
   | "VOID_RECEIPT" | "HANDOFF_RECEIPT";
 
+/** Migration 0015 (WP-B): safes, Saraf accounts and whole-safe counts. */
+export type RestrictedSafesQuery =
+  | "CASH_LEDGER_CHOICES" | "SARAF_LEDGER_CHOICES" | "SARAF_PARTIES"
+  | "SARAF_ACCOUNTS" | "SAFE_COUNTS" | "COUNT_EVIDENCE";
+
+export type RestrictedSafesOperation =
+  | "CREATE_SARAF_ACCOUNT" | "ACTIVATE_SARAF_ACCOUNT" | "DEACTIVATE_SARAF_ACCOUNT"
+  | "RECORD_SAFE_COUNT" | "CONFIRM_SAFE_COUNT";
+
 export interface RestrictedTreasuryAuthority {
   readonly bearerToken: string;
   readonly legalEntityId: LegalEntityId;
@@ -85,6 +94,38 @@ export class RestrictedTreasuryGateway {
     );
     const value = result.rows[0]?.result;
     if (value === undefined) throw new Error("Secure Treasury command returned no result");
+    return value;
+  }
+
+  /** The 0015 safes/Saraf read entry point; authority is re-derived from the bearer credential. */
+  async safesQuery<Result = unknown>(
+    authority: RestrictedTreasuryAuthority,
+    query: RestrictedSafesQuery,
+    objectId?: string
+  ): Promise<Result> {
+    requireCredential(authority.bearerToken);
+    const result = await this.database.query<{ readonly result: Result }>(
+      "SELECT abos.treasury_safes_saraf_query($1, $2, $3, $4) AS result",
+      [authority.bearerToken, authority.legalEntityId, query, objectId ?? null]
+    );
+    const value = result.rows[0]?.result;
+    if (value === undefined) throw new Error("Secure Treasury safes query returned no result");
+    return value;
+  }
+
+  /** The 0015 safes/Saraf command entry point. */
+  async safesCommand(
+    authority: RestrictedTreasuryAuthority,
+    operation: RestrictedSafesOperation,
+    payload: Readonly<Record<string, unknown>>
+  ): Promise<{ readonly id: string; readonly operation: string }> {
+    requireCredential(authority.bearerToken);
+    const result = await this.database.query<{ readonly result: { readonly id: string; readonly operation: string } }>(
+      "SELECT abos.treasury_safes_saraf_command($1, $2, $3, $4::jsonb) AS result",
+      [authority.bearerToken, authority.legalEntityId, operation, JSON.stringify(payload)]
+    );
+    const value = result.rows[0]?.result;
+    if (value === undefined) throw new Error("Secure Treasury safes command returned no result");
     return value;
   }
 }
