@@ -60,6 +60,11 @@ export const migrationCatalog = [
     checksumSha256: "424cdc47f2b494e642c2e413dfb1950286c01d110a2900abbdeb06e66909d87b",
     relativePath: "infrastructure/database/migrations/0009_e1_finance_handoff_workflow.sql",
   },
+  {
+    id: "0010_v1_identity_admin",
+    checksumSha256: "d5abbdcff218d77db1bcd296339623b6430fa4ccb85cbd7a3797133251eae530",
+    relativePath: "infrastructure/database/migrations/0010_v1_identity_admin.sql",
+  },
 ] as const satisfies readonly MigrationDefinition[];
 
 const migrationTableSql = `

@@ -14,6 +14,7 @@
   "dependencies": {
     "@abos/contracts": "workspace:*",
     "@abos/database": "workspace:*",
+    "@abos/identity": "workspace:*",
     "@abos/persistence": "workspace:*",
     "@abos/sandbox-auth": "workspace:*",
     "@abos/treasury": "workspace:*",

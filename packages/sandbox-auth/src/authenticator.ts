@@ -148,12 +148,15 @@ export class SandboxAuthenticator {
       `User account is ${account.rows[0].status}`
     );
 
-    const grants = [
-      ...(await this.loadPermissions(input.userAccountId, input.legalEntityId)),
-      ...(await this.loadTreasuryPermissions(input.userAccountId, input.legalEntityId))
-    ];
+    // Any current grant counts, including administration: an administrator who holds no Treasury
+    // or Finance permission still needs a session, and still gets no Treasury or Finance authority.
+    const grants = await this.database.query<{ readonly permission_code: string }>(
+      `SELECT permission_code FROM abos.user_permission_grants
+        WHERE user_account_id = $1 AND legal_entity_id = $2 AND revoked_at IS NULL`,
+      [input.userAccountId, input.legalEntityId]
+    );
     assertSandbox(
-      grants.length > 0,
+      grants.rows.length > 0,
       "PERMISSION_DENIED",
       "User account holds no permission in this legal entity"
     );

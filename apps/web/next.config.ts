@@ -23,6 +23,7 @@ const nextConfig: NextConfig = {
     "@abos/ui",
     "@abos/database",
     "@abos/finance",
+    "@abos/identity",
     "@abos/persistence",
     "@abos/sandbox-auth",
     "@abos/shareholder",

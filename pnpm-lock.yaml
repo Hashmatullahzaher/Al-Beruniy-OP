@@ -41,6 +41,9 @@ importers:
       '@abos/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@abos/identity':
+        specifier: workspace:*
+        version: link:../../packages/identity
       '@abos/persistence':
         specifier: workspace:*
         version: link:../../packages/persistence
@@ -93,6 +96,9 @@ importers:
       '@abos/finance':
         specifier: workspace:*
         version: link:../finance
+      '@abos/identity':
+        specifier: workspace:*
+        version: link:../identity
       '@abos/persistence':
         specifier: workspace:*
         version: link:../persistence
@@ -118,6 +124,18 @@ importers:
       '@abos/contracts':
         specifier: workspace:*
         version: link:../contracts
+
+  packages/identity:
+    dependencies:
+      '@abos/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@abos/database':
+        specifier: workspace:*
+        version: link:../database
+      '@abos/sandbox-auth':
+        specifier: workspace:*
+        version: link:../sandbox-auth
 
   packages/persistence:
     dependencies:

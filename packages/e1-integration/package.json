@@ -17,6 +17,7 @@
     "@abos/contracts": "workspace:*",
     "@abos/database": "workspace:*",
     "@abos/finance": "workspace:*",
+    "@abos/identity": "workspace:*",
     "@abos/persistence": "workspace:*",
     "@abos/sandbox-auth": "workspace:*",
     "@abos/shareholder": "workspace:*",
