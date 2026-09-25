@@ -31,21 +31,23 @@ Prerequisites: Docker Desktop running, Node 24, pnpm, a checkout of this branch.
 
    ```sql
    -- psql -h 127.0.0.1 -p 55432 -U abos -d abos_e1_dev
-   CREATE ROLE abos_e1_treasury_demo_login LOGIN INHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION PASSWORD 'synthetic-treasury-demo-local-only';
-   CREATE ROLE abos_e1_finance_demo_login  LOGIN INHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION PASSWORD 'synthetic-finance-demo-local-only';
+   CREATE ROLE abos_e1_treasury_demo_login LOGIN INHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION PASSWORD '<choose-a-local-treasury-password>';
+   CREATE ROLE abos_e1_finance_demo_login  LOGIN INHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION PASSWORD '<choose-a-local-finance-password>';
    GRANT abos_e1_treasury_runtime TO abos_e1_treasury_demo_login;
    GRANT abos_e1_runtime          TO abos_e1_finance_demo_login;
    ```
 
 3. `apps/web/.env.local` (git-ignored, never commit):
 
+   Every `<…>` value must be generated locally for this sandbox and never reused on any server.
+
    ```
-   ABOS_DATABASE_URL=postgres://abos:abos_sandbox@127.0.0.1:55432/abos_e1_dev
-   ABOS_TREASURY_DATABASE_URL=postgres://abos_e1_treasury_demo_login:synthetic-treasury-demo-local-only@127.0.0.1:55432/abos_e1_dev
-   ABOS_FINANCE_DATABASE_URL=postgres://abos_e1_finance_demo_login:synthetic-finance-demo-local-only@127.0.0.1:55432/abos_e1_dev
+   ABOS_DATABASE_URL=postgres://abos:<local-admin-password>@127.0.0.1:55432/abos_e1_dev
+   ABOS_TREASURY_DATABASE_URL=postgres://abos_e1_treasury_demo_login:<local-treasury-password>@127.0.0.1:55432/abos_e1_dev
+   ABOS_FINANCE_DATABASE_URL=postgres://abos_e1_finance_demo_login:<local-finance-password>@127.0.0.1:55432/abos_e1_dev
    ABOS_ENVIRONMENT=development
-   ABOS_SANDBOX_RUNTIME_MARKER=dev-sandbox-marker-local-only
-   ABOS_SANDBOX_SIGNING_SECRET=dev-sandbox-signing-secret-local-only-000
+   ABOS_SANDBOX_RUNTIME_MARKER=<generate-a-local-marker>
+   ABOS_SANDBOX_SIGNING_SECRET=<generate-32+-random-chars>
    ABOS_SANDBOX_MAX_SESSION_SECONDS=3600
    ```
 

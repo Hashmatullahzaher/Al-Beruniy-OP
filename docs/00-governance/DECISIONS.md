@@ -24,3 +24,21 @@
 - Finance remains the sole future General Ledger posting authority. Shareholder and Treasury domains may prepare or verify source records but cannot write journals or mutate posted history.
 - All policy-dependent operations remain fail-closed until the Finance Manager decisions are recorded. Synthetic fixtures are isolated development/test data, not verified company records.
 
+
+## Owner decisions — V1 scope and policy — 2026-09-25
+
+Recorded by the builder (Claude Code) on `v1/integration` as instructed by the executive director; approved by the owner.
+
+- **Product direction.** ABOS is built for AL-BERUNIY first; the charter stands. Nothing company-specific is hard-coded: every policy is a per-company setting, so the product can later be offered to similar companies. Multi-customer hosting is a **future** direction only: the data model must stay compatible with it, but it is not built in V1.
+- **Hosting.** V1 runs on an online server, accessible from anywhere.
+- **Currency.** Base currency is USD; AFN is fully supported. The market/Saraf exchange rate is entered daily by a permitted user, and every transaction keeps an immutable snapshot of the rate it used.
+- **Financial year.** Configured per company: solar Hijri (starting 1 Hamal), Gregorian January–December, or a custom year. Reports are viewable in either calendar.
+- **Chart of accounts.** No fixed chart of accounts is shipped. A permitted user adds accounts instantly; the system warns on likely duplicates; the Finance Manager receives a review list of newly created accounts. Safes and Saraf accounts are accounts created the same way.
+- **Users and roles.** A super admin creates users and custom roles freely from a permission catalogue. Segregation of duties is enforced server-side and cannot be configured away: nobody approves their own transaction.
+- **Shareholder money.** Each shareholder transaction is classified as capital **or** loan, chosen per transaction.
+- **Cash count.** Both modes are supported and selectable: count only the money received, or count the whole safe.
+- **Reversal.** A Finance user requests a reversal and the Finance Manager approves it. Posted history stays immutable.
+- **V1 money locations.** Cash safes and Saraf accounts only. No banks in V1.
+- **Opening balances.** Imported from Excel; the owner will provide the layout.
+- **Pending — use labelled placeholders, never invent values:** legal name and registration number; go-live date; the Excel opening-balance layout.
+- **Out of V1:** banks, Sales, Construction, Procurement, HR/Payroll, AI, Telegram.

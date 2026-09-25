@@ -275,7 +275,7 @@ function SignIn({ onSignedIn, setMessage }: { readonly onSignedIn: () => Promise
       <p>{t({ en: "Paste a sandbox session token. There is no default user: each token belongs to one synthetic persona, and the server rebuilds that person's permissions from the database on every request.", fa: "توکن جلسه آزمایشی را وارد کنید. کاربر پیش‌فرض وجود ندارد: هر توکن متعلق به یک شخص مصنوعی است و سرور مجوزهای او را در هر درخواست از پایگاه داده بازسازی می‌کند." })}</p>
       <form onSubmit={(event) => void submit(event)}>
         <label htmlFor="treasury-token">{t({ en: "Session token", fa: "توکن جلسه" })}</label>
-        <input id="treasury-token" value={token} onChange={(event) => setToken(event.target.value)} autoComplete="off" spellCheck={false} dir="ltr" required />
+        <input id="treasury-token" type="password" value={token} onChange={(event) => setToken(event.target.value)} autoComplete="off" spellCheck={false} dir="ltr" required />
         <button className="treasury-button" type="submit" disabled={pending || token.trim().length === 0}>{pending ? t({ en: "Checking…", fa: "در حال بررسی…" }) : t({ en: "Sign in", fa: "ورود" })}</button>
       </form>
       <details>

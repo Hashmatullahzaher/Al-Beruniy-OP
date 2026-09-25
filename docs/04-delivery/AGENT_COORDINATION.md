@@ -3,6 +3,19 @@
 **Document ID:** ABOS-AGENT-001  
 **Purpose:** Allow Claude, Codex and Antigravity to build Release 1 from zero to production completion using the repository itself as the coordination system, without repeated section-by-section prompts.
 
+## Current team — V1 (owner decision, 2026-09-25)
+
+This section supersedes the role assignments elsewhere in this document until the owner changes it.
+
+| Role | Who | Responsibility |
+|---|---|---|
+| Approver | Owner | Approves scope, policy decisions and releases |
+| Executive director, architect and independent reviewer | Claude (chat) | Directs the work, owns architecture, independently reviews the builder's output |
+| Builder | Claude Code | Implements, tests and documents on assigned branches; pushes only what the director assigns |
+| Paused | Codex | No active assignment. Codex's earlier ownership of Finance, PostgreSQL security and final integration passes to this team |
+
+**Open V1 blocker, owned by this team (formerly Codex's):** the review of SECURITY DEFINER function ownership. The restricted Treasury and Finance functions (migrations 0008 and 0009) are owned by the migration identity. Production posting stays blocked until the ownership model is reviewed and changed, and that change is independently reviewed.
+
 ## 1. Operating Principle
 
 The agents are fully committed to the repository contract.

@@ -13,6 +13,10 @@ Telegram is a channel into the same AI Core. It requires ABOS identity binding a
 Handoffs identify exact Git SHA.
 
 
+## Current team — V1 (2026-09-25)
+
+Owner = approver. Claude (chat) = executive director, architect and independent reviewer. Claude Code = builder. Codex = paused. Earlier references in this file to Codex owning work, and to Claude/Codex/Antigravity reviewing one another, are superseded by this team; see `docs/04-delivery/AGENT_COORDINATION.md` (section *Current team — V1*). The SECURITY DEFINER function-ownership review, formerly Codex's, is an open V1 blocker owned by this team.
+
 ## Current staged execution gate — operational OS (2026-09-20)
 
 The owner has explicitly changed the operational-app build from unattended end-to-end execution to **one client-reviewed slice at a time**. Read `docs/04-delivery/PHASE_00_UI_KICKOFF.md` and issue #1 before claiming new operational implementation work. The *current authorized scope* is WP-0001 application foundation and a screenshot-faithful enterprise UX/UI shell in `apps/web`, with visual client sign-off required before Stage 1 shareholder/cash/GL business logic. The existing `apps/holographic-presentation` remains separate.

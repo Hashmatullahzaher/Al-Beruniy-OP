@@ -52,7 +52,7 @@ test("Projects and Sales remain usable at tablet width and in Dari RTL", async (
 
   await page.goto("/sales-crm");
   expect(await page.locator("html").evaluate((element) => element.scrollWidth > element.clientWidth)).toBeFalsy();
-  await page.getByRole("button", { name: "Switch to Dari" }).click();
+  await expect(page.getByRole("button", { name: "Switch to English" })).toBeVisible();
   await expect(page.getByRole("heading", { level: 1, name: "فروش و مشتریان" })).toBeVisible();
   await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
 });
@@ -102,7 +102,7 @@ test("Finance and Construction remain usable at tablet width and in Dari RTL", a
 
   await page.goto("/construction");
   expect(await page.locator("html").evaluate((element) => element.scrollWidth > element.clientWidth)).toBeFalsy();
-  await page.getByRole("button", { name: "Switch to Dari" }).click();
+  await expect(page.getByRole("button", { name: "Switch to English" })).toBeVisible();
   await expect(page.getByRole("heading", { level: 1, name: "ساخت‌وساز" })).toBeVisible();
   await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
 });
@@ -146,7 +146,7 @@ test("Procurement and Human Resources remain usable at tablet width and in Dari 
 
   await page.goto("/human-resources");
   expect(await page.locator("html").evaluate((element) => element.scrollWidth > element.clientWidth)).toBeFalsy();
-  await page.getByRole("button", { name: "Switch to Dari" }).click();
+  await expect(page.getByRole("button", { name: "Switch to English" })).toBeVisible();
   await expect(page.getByRole("heading", { level: 1, name: "منابع انسانی" })).toBeVisible();
   await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
 });
@@ -210,7 +210,7 @@ test("Reports and AI Insights remain usable at tablet width and in Dari RTL", as
 
   await page.goto("/ai-insights");
   expect(await page.locator("html").evaluate((element) => element.scrollWidth > element.clientWidth)).toBeFalsy();
-  await page.getByRole("button", { name: "Switch to Dari" }).click();
+  await expect(page.getByRole("button", { name: "Switch to English" })).toBeVisible();
   await expect(page.getByRole("heading", { level: 1, name: "بینش‌های هوش مصنوعی" })).toBeVisible();
   await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
 });
@@ -275,7 +275,7 @@ test("Documents and Settings remain usable at tablet width and in Dari RTL", asy
 
   await page.goto("/settings");
   expect(await page.locator("html").evaluate((element) => element.scrollWidth > element.clientWidth)).toBeFalsy();
-  await page.getByRole("button", { name: "Switch to Dari" }).click();
+  await expect(page.getByRole("button", { name: "Switch to English" })).toBeVisible();
   await expect(page.getByRole("heading", { level: 1, name: "تنظیمات" })).toBeVisible();
   await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
   await expect(page.locator("html")).toHaveAttribute("lang", "fa");
