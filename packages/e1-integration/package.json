@@ -17,6 +17,7 @@
   "dependencies": {
     "@abos/contracts": "workspace:*",
     "@abos/database": "workspace:*",
+    "@abos/calendar": "workspace:*",
     "@abos/finance": "workspace:*",
     "@abos/identity": "workspace:*",
     "@abos/persistence": "workspace:*",

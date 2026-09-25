@@ -35,6 +35,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@abos/calendar':
+        specifier: workspace:*
+        version: link:../../packages/calendar
       '@abos/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
@@ -89,6 +92,9 @@ importers:
 
   packages/e1-integration:
     dependencies:
+      '@abos/calendar':
+        specifier: workspace:*
+        version: link:../calendar
       '@abos/contracts':
         specifier: workspace:*
         version: link:../contracts

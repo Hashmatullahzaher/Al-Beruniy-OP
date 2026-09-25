@@ -1552,3 +1552,26 @@ button.review-context { border: 0; border-inline-start: 1px solid rgba(102, 142,
 .treasury-assign { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; }
 .treasury-assign label { color: #9fb2c3; font-size: 11px; }
 .treasury-assign select { min-height: 34px; padding: 0 8px; border: 1px solid rgba(73, 145, 192, .35); border-radius: 6px; background: rgba(3, 14, 25, .8); color: white; }
+
+/* Financial calendar (V1). */
+.calendar-grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 10px; align-items: start; }
+.calendar-settings, .calendar-generate, .calendar-year { padding: 14px; display: grid; gap: 10px; }
+.calendar-kinds { display: grid; gap: 6px; margin: 0; padding: 0; border: 0; }
+.calendar-kinds legend, .calendar-custom span { color: var(--abos-slate-300); font-size: 11px; font-weight: 650; }
+.calendar-kinds label { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px; align-items: start; padding: 9px 10px; border: 1px solid rgba(73, 145, 192, .28); border-radius: 7px; background: rgba(8, 30, 49, .5); cursor: pointer; }
+.calendar-kinds label.chosen { border-color: rgba(224, 180, 79, .55); background: rgba(122, 91, 28, .16); }
+.calendar-kinds strong, .calendar-kinds small { display: block; }
+.calendar-kinds small { color: var(--abos-slate-400); font-size: 11px; }
+.calendar-custom { display: flex; flex-wrap: wrap; gap: 10px; }
+.calendar-custom label { display: grid; gap: 4px; }
+.calendar-custom select, .calendar-custom input { min-height: 36px; padding: 0 8px; border: 1px solid rgba(73, 145, 192, .35); border-radius: 7px; background: rgba(3, 14, 25, .8); color: white; }
+.calendar-year .module-card-heading > span { color: var(--abos-slate-300); font-size: 11.5px; }
+.calendar-periods { width: 100%; border-collapse: collapse; font-size: 12px; }
+.calendar-periods th { padding: 7px 9px; color: var(--abos-gold-300); font-size: 10.5px; text-align: start; border-bottom: 1px solid rgba(224, 180, 79, .3); }
+.calendar-periods td { padding: 7px 9px; border-bottom: 1px solid rgba(60, 130, 176, .14); color: #d9e4eb; }
+@media (max-width: 960px) { .calendar-grid { grid-template-columns: 1fr; } }
+@media (max-width: 720px) {
+  .calendar-periods thead { display: none; }
+  .calendar-periods tr { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 10px; padding: 8px 0; border-bottom: 1px solid rgba(60, 130, 176, .2); }
+  .calendar-periods td { border: 0; padding: 2px 4px; }
+}

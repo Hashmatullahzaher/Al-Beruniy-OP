@@ -2,20 +2,20 @@
 
 The approved V1 scope (owner decisions of 2026-09-25, `docs/00-governance/DECISIONS.md`) with its actual
 status. "Done" means implemented and covered by automated tests; nothing here is done because it is
-approved. Updated at the Milestone A client preview (`docs/04-delivery/v1-client-preview/`).
+approved. Updated at the Milestone A client preview (`docs/04-delivery/v1-client-preview/`) and after the security checkpoint and financial calendar (2026-09-25).
 
 | # | Capability | Status | Depends on | Notes |
 |---|---|---|---|---|
 | 1 | Employee sign-in (username + password) | **Done (preview)** | — | scrypt hashes, forced first change, 72-hour temporary passwords, lockout, logout |
 | 2 | Super Admin: users, custom roles, permission catalogue, audit | **Done (preview)** | — | Server- and database-enforced; last Super Administrator protected |
 | 3 | Segregation of duties that cannot be configured away | **Done** (E1 engine) | — | Participation-based; multi-role users covered by tests |
-| 4 | Shareholder → Treasury → Finance → GL for USD capital | **Done (synthetic)** | #5 for real use | Production posting blocked by #5 |
-| 5 | SECURITY DEFINER ownership / effective-privilege redesign | **Open — release blocker** | — | Owned by the V1 team |
+| 4 | Shareholder → Treasury → Finance → GL for USD capital | **Done (synthetic)** | Real-posting gate | Now runs under least-privilege owners (#5) |
+| 5 | SECURITY DEFINER ownership / effective-privilege redesign | **Done** (0011, reviewed) | — | See `V1_SECURITY_DEFINER_OWNERSHIP.md`. Other production blockers for real posting remain (table ownership, sandbox gate, operations) |
 | 6 | Production identity hardening: MFA, out-of-band credential delivery, password reset, session refresh, attempt-log retention | Open | #2 | Required before real users |
 | 7 | Online server deployment | Open | #5, #6, deployment security review, owner approval | Preconditions: v1-client-preview §G |
 | 8 | Per-company settings; legal name and registration number | Open | Owner data (pending) | Placeholders only until provided |
-| 9 | Financial calendar per company (solar Hijri from 1 Hamal / Gregorian / custom); reports in either | Open | #8 | Period close authority still an open item |
-| 10 | Chart of Accounts created by permitted users; duplicate warnings; Finance Manager review list | Open | #8 | Safes and Saraf accounts are accounts |
+| 9 | Financial calendar per company (solar Hijri from 1 Hamal / Gregorian / custom); reports in either | **Done (preview)** (0012) | — | Settings, fiscal-year generation as 12 PENDING periods, dual-calendar display. Opening/closing periods awaits the Finance Manager's period-authority decision; generated years may not overlap existing ad-hoc periods |
+| 10 | Chart of Accounts created by permitted users; duplicate warnings; Finance Manager review list | Open (next) | #5, #9 | Safes and Saraf accounts are accounts; legal name (#8) is not required for it |
 | 11 | Safes created in the app; Saraf accounts | Partial | #10 | Cashier assignment to an existing safe is done |
 | 12 | USD base, full AFN support | Partial | #13 | AFN account exists, not activated; no AFN posting |
 | 13 | Daily market/Saraf rate with immutable snapshot per transaction | Open | #12 | Rate precision and rounding are open items |
@@ -29,3 +29,7 @@ approved. Updated at the Milestone A client preview (`docs/04-delivery/v1-client
 | 21 | Go-live date | Pending (owner) | — | — |
 
 Out of V1: banks, Sales, Construction, Procurement, HR/Payroll, AI, Telegram.
+
+## Next eligible slice
+
+**#10 User-managed Chart of Accounts** (then #11 safes and Saraf accounts as accounts). Dependencies met: the calendar (#9) and least-privilege Finance ownership (#5). The owner decision already fixes the policy shape: permitted users add accounts, the system warns on likely duplicates, and the Finance Manager gets a review list. Still needed from the Finance Manager before real use, but not blocking the build: the account classes and numbering convention to offer (the synthetic preview will use placeholder classes, clearly labelled).

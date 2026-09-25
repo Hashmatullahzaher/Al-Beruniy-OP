@@ -16,6 +16,8 @@ import pg from "pg";
  */
 
 test("@smoke Treasury has no default user, refuses a forged session and shows no figures unauthenticated", async ({ page, request }) => {
+  // The first request after a build compiles the sign-in routes; allow for that cold start.
+  test.setTimeout(90_000);
   const api = await request.get("/api/v1/treasury/overview");
   expect([401, 503]).toContain(api.status());
   const body = (await api.json()) as { ok: boolean; error: { code: string } };

@@ -12,6 +12,7 @@
     "clean": "node -e \"require('fs').rmSync('.next',{recursive:true,force:true})\""
   },
   "dependencies": {
+    "@abos/calendar": "workspace:*",
     "@abos/contracts": "workspace:*",
     "@abos/database": "workspace:*",
     "@abos/identity": "workspace:*",

@@ -70,6 +70,10 @@ export const PERMISSION_COPY: Readonly<Record<string, PermissionCopy>> = {
     label: { en: "View Finance inbox and journals", fa: "مشاهده صندوق مالی و ژورنال‌ها" },
     allows: { en: "See verified handoffs, their evidence, the posted journal and its reconciliation.", fa: "مشاهده تحویل‌های تاییدشده، اسناد، ژورنال ثبت‌شده و تطبیق آن." }
   },
+  "finance.calendar.manage": {
+    label: { en: "Manage financial calendar", fa: "مدیریت تقویم مالی" },
+    allows: { en: "Choose the company's financial year (Solar Hijri, Gregorian or custom) and generate its monthly accounting periods as pending.", fa: "انتخاب سال مالی شرکت (هجری شمسی، میلادی یا سفارشی) و ایجاد دوره‌های ماهانه حسابداری در حالت انتظار." }
+  },
   "finance.posting-intent.create": {
     label: { en: "Prepare journals", fa: "آماده‌سازی ژورنال" },
     allows: { en: "Prepare the journal for a verified handoff so it can be approved.", fa: "آماده‌سازی ژورنال برای تحویل تاییدشده تا تصویب شود." }

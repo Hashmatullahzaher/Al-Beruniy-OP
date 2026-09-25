@@ -8,7 +8,9 @@ Do not invent these. Resolve with stakeholders/official sources before dependent
 
 ## V1 blockers
 
-- SECURITY DEFINER function ownership review (migrations 0008 and 0009): the functions are owned by the migration identity; production posting stays blocked until this is reviewed and changed. Owner: the V1 team (formerly Codex). See `docs/04-delivery/AGENT_COORDINATION.md`.
+- ~~SECURITY DEFINER function ownership review~~ **Resolved 2026-09-25** by migration 0011 (least-privilege owners, independently reviewed); see `docs/04-delivery/V1_SECURITY_DEFINER_OWNERSHIP.md`. Still blocking real posting: tables owned by the superuser migration identity, the synthetic-only sandbox gate, and operational controls (backups, audit logging, alerts).
+- **Decision needed (Finance Manager): accounting-period authority.** Who may open, soft-close, close and reopen a period, and whether closing needs a second approver. Until decided, generated fiscal-year periods stay PENDING and no period can be opened in the application.
+- **Decision needed (Finance Manager): existing ad-hoc periods.** Whether a fiscal year may absorb a period created before the calendar (today it is refused as an overlap).
 
 - V1 identity (client preview, `feat/v1-identity-admin`): production hardening before real users. Out-of-band credential delivery and dual control for sensitive password resets (review C-02); multi-factor authentication for administrators and approvers; password reset flow; session refresh; retention for `login_attempts`; trusted-proxy configuration and edge rate limiting for sign-in. See `docs/04-delivery/v1-client-preview/README.md` §I and `docs/04-delivery/V1_DELIVERY_BACKLOG.md`.
 
