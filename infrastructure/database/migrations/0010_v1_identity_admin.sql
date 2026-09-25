@@ -102,6 +102,18 @@ CREATE TRIGGER login_attempts_no_update_or_delete
 BEFORE UPDATE OR DELETE ON abos.login_attempts
 FOR EACH ROW EXECUTE FUNCTION abos.prevent_audit_mutation();
 
+-- The time of an attempt is the database's, never the caller's.
+CREATE OR REPLACE FUNCTION abos.stamp_login_attempt()
+RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+  NEW.attempted_at := clock_timestamp();
+  RETURN NEW;
+END;
+$$;
+CREATE TRIGGER login_attempts_stamp
+BEFORE INSERT ON abos.login_attempts
+FOR EACH ROW EXECUTE FUNCTION abos.stamp_login_attempt();
+
 -- ---------------------------------------------------------------------------
 -- Custom roles and assignments.
 -- ---------------------------------------------------------------------------
@@ -348,7 +360,9 @@ FOR EACH ROW EXECUTE FUNCTION abos.guard_permission_grant();
 -- ---------------------------------------------------------------------------
 -- Session integrity. A new session must start now, last at most 60 minutes from now and belong to
 -- an ACTIVE account. When the identity runtime creates it, a successful sign-in for that person
--- must have been recorded in the last minute: the login service cannot quietly mint sessions.
+-- must have been recorded in the last minute. This catches application bugs; it does not stop a
+-- compromised identity credential, which can record attempts itself (review D-01). That credential
+-- must be protected like the password database it is.
 -- Existing rows are untouched, so the Treasury and Finance tests that age sessions still work.
 -- ---------------------------------------------------------------------------
 

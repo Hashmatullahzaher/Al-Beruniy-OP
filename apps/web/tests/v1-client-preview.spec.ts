@@ -54,11 +54,12 @@ test.describe("V1 client preview", () => {
     await create.getByLabel("Full name").fill("Synthetic Receipt Officer");
     await create.getByLabel("Job title").fill("Cash receipt officer");
     await create.locator(".admin-role-picker label", { hasText: "Cash Receipt Officer" }).locator("input").check();
+    // The one-time password is blurred in screenshots and the recording; the test still reads it.
+    await page.addStyleTag({ content: ".admin-secret-value { filter: blur(6px); }" });
     await create.getByRole("button", { name: "Create account" }).click();
     const temporary = (await page.locator(".admin-secret-value").textContent())?.trim() ?? "";
     expect(temporary.length).toBeGreaterThanOrEqual(16);
-    await page.addStyleTag({ content: ".admin-secret-value { filter: blur(6px); }" });
-    await shot(page, "04-user-created");
+    await shot(page, "04-user-created", ".admin-secret");
     await signOut(page);
 
     // The Treasury manager gives the new employee custody of the safe (a Treasury rule, not an admin one).
@@ -203,7 +204,8 @@ async function shot(page: Page, name: string, focus?: string): Promise<void> {
   await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
   if (focus) {
     const target = page.locator(focus).first();
-    if (await target.count() > 0) await target.evaluate((element) => element.scrollIntoView({ block: "start" }));
+    // Leave room for the sticky top bar.
+    if (await target.count() > 0) await target.evaluate((element) => { element.scrollIntoView({ block: "start" }); window.scrollBy(0, -96); });
   }
   await page.screenshot({ path: resolve(SHOTS, `${name}.png`) });
 }

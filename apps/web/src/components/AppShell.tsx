@@ -97,7 +97,8 @@ export function AppShell({ children }: AppShellProps) {
         {signedIn ? <p className="navigation-heading muted">{fa ? "طرح‌های نمایشی · خارج از V1" : "Design previews · not in V1"}</p> : null}
         <nav className="navigation" aria-label="Primary navigation">
           {workspaceRoutes.map((route) => {
-            const active = pathname === route.path || (route.path !== "/" && pathname.startsWith(`${route.path}/`));
+            const inPreview = signedIn && previewRoutes.some((preview) => pathname === preview.path || pathname.startsWith(`${preview.path}/`));
+            const active = !inPreview && (pathname === route.path || (route.path !== "/" && pathname.startsWith(`${route.path}/`)));
             return (
               <Link key={route.id} href={route.path} aria-current={active ? "page" : undefined} onClick={() => setMenuOpen(false)}>
                 <span className="nav-glyph" aria-hidden="true"><AppIcon name={route.id} size={18} /></span>

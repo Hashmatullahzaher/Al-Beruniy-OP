@@ -67,12 +67,15 @@ export async function clearSessionCookie(): Promise<void> {
 }
 
 /**
- * The client address used only as a throttling key. Behind a reverse proxy the proxy must set
- * X-Forwarded-For; the first address is the one the proxy saw.
+ * The client address, used only as a throttling key. X-Forwarded-For is client-controlled unless a
+ * trusted reverse proxy overwrites it, so it is believed only when ABOS_TRUST_PROXY=1. Otherwise
+ * there is no trustworthy address and per-client throttling is skipped (per-account lockout still
+ * applies); a shared placeholder key would let one attacker lock everybody out.
  */
-export function clientAddress(request: Request): string {
-  const forwarded = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
-  return forwarded || request.headers.get("x-real-ip")?.trim() || "unknown-client";
+export function clientAddress(request: Request): string | null {
+  if (process.env.ABOS_TRUST_PROXY !== "1") return null;
+  const forwarded = request.headers.get("x-forwarded-for")?.split(",").at(-1)?.trim();
+  return forwarded && forwarded.length > 0 ? forwarded : null;
 }
 
 /** Mutations must be same-origin JSON. */
@@ -107,7 +110,8 @@ export function identityErrorResponse(error: unknown) {
     return json({ ok: false, error: { code: error.code, message: error.message, details: error.details } }, STATUS[error.code]);
   }
   if (error instanceof TreasuryUnavailableError) {
-    return json({ ok: false, error: { code: "SERVICE_UNAVAILABLE", message: error.message } }, 503);
+    console.error("Identity service unavailable:", error.message);
+    return json({ ok: false, error: { code: "SERVICE_UNAVAILABLE", message: "Sign-in is temporarily unavailable. Try again later." } }, 503);
   }
   if (error !== null && typeof error === "object" && "code" in error && (error as { code: unknown }).code === "PERMISSION_DENIED") {
     return json({ ok: false, error: { code: "PERMISSION_DENIED", message: (error as unknown as Error).message } }, 403);

@@ -10,6 +10,8 @@ Do not invent these. Resolve with stakeholders/official sources before dependent
 
 - SECURITY DEFINER function ownership review (migrations 0008 and 0009): the functions are owned by the migration identity; production posting stays blocked until this is reviewed and changed. Owner: the V1 team (formerly Codex). See `docs/04-delivery/AGENT_COORDINATION.md`.
 
+- V1 identity (client preview, `feat/v1-identity-admin`): production hardening before real users. Out-of-band credential delivery and dual control for sensitive password resets (review C-02); multi-factor authentication for administrators and approvers; password reset flow; session refresh; retention for `login_attempts`; trusted-proxy configuration and edge rate limiting for sign-in. See `docs/04-delivery/v1-client-preview/README.md` §I and `docs/04-delivery/V1_DELIVERY_BACKLOG.md`.
+
 ## Multi-Currency Open Items
 Resolve before F2 currency masters, F3 Finance Kernel, or any dependent operational transaction implementation:
 - base accounting currency for each company/legal entity — **[Resolved 2026-09-25]** USD

@@ -206,7 +206,7 @@ export function TreasuryWorkspace() {
           <section className="treasury-identity" aria-label={t({ en: "Signed-in sandbox identity", fa: "هویت واردشده" })}>
             <span className="treasury-avatar" aria-hidden="true">{overview.actor.displayName.split(" ").map((part) => part[0]).slice(-2).join("")}</span>
             <div>
-              <small>{t({ en: "Acting as (synthetic persona)", fa: "در نقش (شخص مصنوعی)" })}</small>
+              <small>{t({ en: "Signed in as", fa: "وارد شده به عنوان" })}</small>
               <strong>{overview.actor.displayName}</strong>
               <span>{t({ en: "Session expires", fa: "پایان جلسه" })} {formatTime(overview.actor.sessionExpiresAt, locale)}</span>
             </div>

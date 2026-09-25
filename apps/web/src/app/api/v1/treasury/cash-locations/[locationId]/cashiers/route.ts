@@ -1,7 +1,8 @@
 import type { CashLocationId, UserAccountId } from "@abos/contracts";
 import { SandboxAuthError } from "@abos/sandbox-auth";
 
-import { assertSameOrigin, currentTreasury, errorResponse, hasTreasuryPermission, json, readJson, stringField } from "@/server/treasury";
+import { assertMutation } from "@/server/identity";
+import { currentTreasury, errorResponse, hasTreasuryPermission, json, readJson, stringField } from "@/server/treasury";
 
 export const dynamic = "force-dynamic";
 
@@ -26,7 +27,7 @@ export async function GET() {
 /** Assigns a cashier to the safe through the existing Treasury service and restricted database command. */
 export async function POST(request: Request, { params }: Context) {
   try {
-    assertSameOrigin(request);
+    assertMutation(request);
     const body = await readJson(request);
     const treasury = await currentTreasury();
     const assignmentId = await treasury.service.assignCashier(treasury.actor, {

@@ -165,7 +165,7 @@ export class IdentityService {
   // Sign-in
   // -------------------------------------------------------------------------------------------
 
-  async login(input: { readonly loginIdentifier: string; readonly password: string; readonly clientAddress: string }): Promise<LoginResult> {
+  async login(input: { readonly loginIdentifier: string; readonly password: string; readonly clientAddress: string | null }): Promise<LoginResult> {
     const outcome = await this.checkCredentials(input, { allowPasswordChange: false });
     if (outcome.kind === "error") throw outcome.error;
     return this.openSession(outcome.userAccountId, outcome.legalEntityId);
@@ -173,7 +173,7 @@ export class IdentityService {
 
   /** Used for a required first change and for a voluntary change; either way, all old sessions end. */
   async changePassword(input: {
-    readonly loginIdentifier: string; readonly currentPassword: string; readonly newPassword: string; readonly clientAddress: string;
+    readonly loginIdentifier: string; readonly currentPassword: string; readonly newPassword: string; readonly clientAddress: string | null;
   }): Promise<LoginResult> {
     const login = normalizeLogin(input.loginIdentifier);
     const problems = passwordProblems(input.newPassword, login);
@@ -227,13 +227,13 @@ export class IdentityService {
    * locked account and an unknown username get exactly the same answer.
    */
   private async checkCredentials(
-    input: { readonly loginIdentifier: string; readonly password: string; readonly clientAddress: string },
+    input: { readonly loginIdentifier: string; readonly password: string; readonly clientAddress: string | null },
     options: { readonly allowPasswordChange: boolean }
   ): Promise<LoginOutcome> {
     const login = normalizeLogin(input.loginIdentifier);
     const invalid = new IdentityError("INVALID_CREDENTIALS",
       `The username or password is not correct, or the account is locked for ${LOCKOUT_MINUTES} minutes after repeated attempts.`);
-    const clientKey = this.key(`client:${input.clientAddress}`);
+    const clientKey = this.key(`client:${input.clientAddress ?? "unverified"}`);
     const record = (userId: string | null, succeeded: boolean) =>
       this.database.transaction((tx) => this.recordAttempt(tx, login, input.clientAddress, userId, succeeded));
 
@@ -241,7 +241,8 @@ export class IdentityService {
       return { kind: "error", error: invalid };
     }
 
-    const clientFailures = await this.database.query<{ readonly failures: string }>(
+    // Per-client throttling only with a trustworthy address; per-account lockout always applies.
+    const clientFailures = input.clientAddress === null ? { rows: [{ failures: "0" }] } : await this.database.query<{ readonly failures: string }>(
       `SELECT count(*)::text AS failures FROM abos.login_attempts
         WHERE client_key = $1 AND NOT succeeded AND attempted_at > clock_timestamp() - make_interval(mins => $2::int)`,
       [clientKey, LOCKOUT_MINUTES]
@@ -273,24 +274,24 @@ export class IdentityService {
       await record(null, false);
       return { kind: "error", error: invalid };
     }
+    // Counted as a failure before the (slow) check, so a burst of parallel guesses is all counted;
+    // a success recorded afterwards starts a new window.
+    await record(account.id, false);
     if (Number(account.recent_failures) >= MAX_FAILED_ATTEMPTS) {
       await verifyPassword(input.password, await decoyPasswordHash());
-      await record(account.id, false);
       return { kind: "error", error: invalid };
     }
     if (!(await verifyPassword(input.password, account.password_hash))) {
-      await record(account.id, false);
       return { kind: "error", error: invalid };
     }
     if (account.status !== "ACTIVE") {
-      await record(account.id, false);
       return { kind: "error", error: new IdentityError("ACCOUNT_INACTIVE", "This account is suspended. Contact your administrator.") };
     }
     if (account.temporary_expired) {
-      await record(account.id, false);
       return { kind: "error", error: new IdentityError("TEMPORARY_PASSWORD_EXPIRED", "This temporary password has expired. Ask your administrator for a new one.") };
     }
     if (account.must_change_password && !options.allowPasswordChange) {
+      await record(account.id, true);
       return { kind: "error", error: new IdentityError("PASSWORD_CHANGE_REQUIRED", "Choose a new password before you continue.") };
     }
     const entity = await this.database.query<{ readonly legal_entity_id: string }>(
@@ -303,7 +304,6 @@ export class IdentityService {
     );
     const legalEntityId = entity.rows[0]?.legal_entity_id;
     if (legalEntityId === undefined) {
-      await record(account.id, false);
       return { kind: "error", error: new IdentityError("NO_ACCESS_ASSIGNED", "Your account has no access assigned yet. Contact your administrator.") };
     }
     // A required first change records its success only once the new password is stored.
@@ -311,11 +311,11 @@ export class IdentityService {
     return { kind: "ok", userAccountId: account.id, legalEntityId, verifiedHash: account.password_hash };
   }
 
-  private async recordAttempt(tx: SqlExecutor, login: string, clientAddress: string, userId: string | null, succeeded: boolean): Promise<void> {
+  private async recordAttempt(tx: SqlExecutor, login: string, clientAddress: string | null, userId: string | null, succeeded: boolean): Promise<void> {
     await tx.query(
       `INSERT INTO abos.login_attempts (id, login_key, client_key, user_account_id, succeeded)
        VALUES ($1, $2, $3, $4, $5)`,
-      [randomUUID(), this.key(`login:${login}`), this.key(`client:${clientAddress}`), userId, succeeded]
+      [randomUUID(), this.key(`login:${login}`), this.key(`client:${clientAddress ?? "unverified"}`), userId, succeeded]
     );
   }
 
@@ -385,11 +385,17 @@ export class IdentityService {
     );
     const session = sessions.rows[0];
     assertIdentity(session !== undefined && session.live && session.status === "ACTIVE", "AUTHENTICATION_REQUIRED", "Your session has ended. Sign in again.");
-    try {
-      await this.authenticator.resolveGate(session.legal_entity_id as LegalEntityId);
-    } catch {
-      throw new IdentityError("AUTHENTICATION_REQUIRED", "The preview environment is not currently authorized. Sign in again later.");
-    }
+    // The sandbox gate is checked on this same connection and transaction. Borrowing a second pooled
+    // connection here deadlocked the pool when enough requests held a transaction at once.
+    const gate = await tx.query<{ readonly ok: boolean }>(
+      `SELECT (a.environment IN ('development', 'test') AND a.configuration_state = 'SYNTHETIC_TEST_ONLY'
+               AND NOT a.real_posting_enabled AND a.expires_at > clock_timestamp()
+               AND a.runtime_marker = current_setting('abos.runtime_marker', true)
+               AND EXISTS (SELECT 1 FROM abos.sandbox_legal_entity_scopes s WHERE s.legal_entity_id = $1)) AS ok
+         FROM abos.sandbox_authorizations a WHERE a.singleton`,
+      [session.legal_entity_id]
+    );
+    assertIdentity(gate.rows[0]?.ok === true, "AUTHENTICATION_REQUIRED", "The preview environment is not currently authorized. Sign in again later.");
     const grants = await tx.query<{ readonly permission_code: string }>(
       `SELECT permission_code FROM abos.user_permission_grants
         WHERE user_account_id = $1 AND legal_entity_id = $2 AND revoked_at IS NULL
@@ -605,13 +611,15 @@ export class IdentityService {
   }
 
   async resetPassword(token: string, userId: string): Promise<{ readonly user: UserDetail; readonly temporaryPassword: string }> {
+    // Hashed before any transaction or row lock; the rules for the username are applied below.
+    const temporaryPassword = generateTemporaryPassword();
+    const hash = await hashPassword(temporaryPassword);
     return this.mutate(async (tx) => {
       const actor = await this.admin(tx, token, ADMIN_USERS);
       assertIdentity(userId !== actor.userAccountId, "SELF_CHANGE_FORBIDDEN", "Use “Change my password” for your own account.");
       const target = await requireUser(tx, actor, userId);
       requireSuperAdminFor(actor, await activeGrants(tx, userId, actor.legalEntityId));
-      const temporaryPassword = temporaryPasswordFor(target.login_identifier);
-      const hash = await hashPassword(temporaryPassword);
+      assertIdentity(passwordProblems(temporaryPassword, target.login_identifier).length === 0, "VALIDATION_FAILED", "Please try again.");
       await tx.query(
         `INSERT INTO abos.user_credentials (user_account_id, password_hash, must_change_password, password_set_by_user_account_id)
          VALUES ($1, $2, true, $3)

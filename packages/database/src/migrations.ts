@@ -62,7 +62,7 @@ export const migrationCatalog = [
   },
   {
     id: "0010_v1_identity_admin",
-    checksumSha256: "eb768b16bc7a831dba010be007034b521d3752bcc5eac4c7e73a2cfdd530bcdf",
+    checksumSha256: "d3e798a0b3799a68c15f5bdb47792fe4d9e440989170b540dff17edd5d44a619",
     relativePath: "infrastructure/database/migrations/0010_v1_identity_admin.sql",
   },
 ] as const satisfies readonly MigrationDefinition[];

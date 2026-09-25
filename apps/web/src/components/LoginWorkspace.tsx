@@ -29,8 +29,20 @@ async function post(url: string, body: unknown): Promise<{ ok: true } | { ok: fa
   }
 }
 
+/**
+ * Only a same-origin path is accepted. Backslashes and control characters are refused because the
+ * URL parser can turn "/\evil" or "/<tab>/evil" into another host.
+ */
 function safeNext(value: string | null): string {
-  return value !== null && value.startsWith("/") && !value.startsWith("//") && !value.startsWith("/login") ? value : "/dashboard";
+  if (value === null || !value.startsWith("/") || value.startsWith("//") || value.includes("\\")
+    || [...value].some((character) => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127)) return "/dashboard";
+  try {
+    const url = new URL(value, window.location.origin);
+    if (url.origin !== window.location.origin || url.pathname.startsWith("/login")) return "/dashboard";
+    return `${url.pathname}${url.search}${url.hash}`;
+  } catch {
+    return "/dashboard";
+  }
 }
 
 export function LoginWorkspace() {
@@ -40,7 +52,7 @@ export function LoginWorkspace() {
   const router = useRouter();
   const params = useSearchParams();
   const session = useSession();
-  const next = safeNext(params.get("next"));
+  const nextParameter = params.get("next");
   const voluntaryChange = params.get("change") === "1";
 
   const [mode, setMode] = useState<"sign-in" | "change">(voluntaryChange ? "change" : "sign-in");
@@ -62,7 +74,7 @@ export function LoginWorkspace() {
 
   const finish = async () => {
     await session.refresh();
-    router.replace(next);
+    router.replace(safeNext(nextParameter));
   };
 
   const signIn = async (event: FormEvent) => {

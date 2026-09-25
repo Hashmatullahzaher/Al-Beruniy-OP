@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { AppIcon } from "@/components/AppIcon";
 import { useLocale } from "@/components/LocaleProvider";
+import { useSession } from "@/components/SessionProvider";
 import { SignInPrompt } from "@/components/SignInPrompt";
 import { StageZeroPageHeader, localized } from "@/components/StageZeroWorkspace";
 import type { FinanceApiResponse, FinanceHandoffTraceView, FinanceHandoffWorkspaceView, FinanceWorkflowStage } from "@/lib/finance-handoff-types";
@@ -83,6 +84,7 @@ export function FinanceHandoffWorkspace() {
   const [state, setState] = useState<"loading" | "signed-out" | "ready" | "error">("loading");
   const [message, setMessage] = useState<{ readonly tone: "ok" | "error"; readonly text: string | Copy } | null>(null);
   const [busy, setBusy] = useState(false);
+  const session = useSession();
 
   const applyWorkspace = useCallback((result: FinanceApiResponse<FinanceHandoffWorkspaceView>) => {
     if (result.ok) { setWorkspace(result.data); setState("ready"); }
@@ -121,12 +123,12 @@ export function FinanceHandoffWorkspace() {
     <section className="finance-boundary-banner"><span><AppIcon name="shield" size={22}/></span><div><p>{t({ en: "SYNTHETIC SANDBOX DATA ONLY", fa: "فقط داده‌های آزمایشی مصنوعی" })}</p><strong>{t({ en: "No real money or company records. Each step is performed by a separate person and checked by the database.", fa: "هیچ پول یا سوابق واقعی شرکت وجود ندارد. هر گام توسط شخص جداگانه انجام و توسط دیتابیس کنترل می‌شود." })}</strong></div><em>E1 · NOT PRODUCTION</em></section>
     {message ? <div className={`treasury-message ${message.tone === "ok" ? "success" : "error"}`} role="status"><AppIcon name={message.tone === "ok" ? "shield" : "alert"} size={16}/><span>{typeof message.text === "string" ? message.text : t(message.text)}</span><button onClick={() => setMessage(null)} aria-label={t({ en: "Dismiss", fa: "بستن" })}>×</button></div> : null}
     {state === "loading" ? <div className="treasury-card treasury-placeholder">{t({ en: "Loading the Finance inbox…", fa: "در حال بارگذاری صندوق مالی…" })}</div> : null}
-    {state === "signed-out" ? <SignInPrompt area={{ en: "the Finance inbox", fa: "صندوق مالی" }}><FinanceSignIn onDone={async () => { setMessage(null); await load(); }} t={t}/></SignInPrompt> : null}
+    {state === "signed-out" ? <SignInPrompt area={{ en: "the Finance inbox", fa: "صندوق مالی" }}><FinanceSignIn onDone={async () => { setMessage(null); await load(); await session.refresh(); }} t={t}/></SignInPrompt> : null}
     {state === "error" && message ? <div className="treasury-card treasury-placeholder">{typeof message.text === "string" ? message.text : t(message.text)}</div> : null}
     {state === "ready" && workspace ? <>
       <section className="treasury-identity">
-        <span className="treasury-avatar" aria-hidden="true">{workspace.actor.displayName.split(" ").map(x => x[0]).slice(-2).join("")}</span>
-        <div><small>{t({ en: "Signed in as (synthetic test person)", fa: "وارد شده به عنوان (شخص آزمایشی مصنوعی)" })}</small><strong>{actorTitle(workspace.actor, t)}</strong></div>
+        <span className="treasury-avatar" aria-hidden="true">{signedInName(workspace.actor, session.user, t).split(" ").map(x => x[0]).slice(-2).join("")}</span>
+        <div><small>{t({ en: "Signed in as", fa: "وارد شده به عنوان" })}</small><strong>{signedInName(workspace.actor, session.user, t)}</strong></div>
         <span className="finance-permissions">{workspace.actor.permissions.length === 0 ? t({ en: "No Finance permissions", fa: "بدون صلاحیت مالی" }) : workspace.actor.permissions.map(permission => <em key={permission} className="treasury-chip">{PERMISSION_COPY[permission] ? t(PERMISSION_COPY[permission]) : permission}</em>)}</span>
         <button type="button" className="treasury-button quiet" onClick={() => void signOut()}>{t({ en: "Sign out", fa: "خروج" })}</button>
       </section>
@@ -234,6 +236,11 @@ function personLabeller(actorId: string, t: Translate): ((value: string) => stri
     return t({ en: `Person ${LETTERS.en[index] ?? index + 1}`, fa: `شخص ${LETTERS.fa[index] ?? index + 1}` });
   };
   return Object.assign(label, { anonymous: () => anonymous });
+}
+
+/** The signed-in person's own name from the session when it is the same person, else a role title. */
+function signedInName(actor: FinanceHandoffWorkspaceView["actor"], user: { readonly userAccountId: string; readonly displayName: string } | null, t: Translate): string {
+  return user !== null && user.userAccountId === actor.userAccountId ? user.displayName : actorTitle(actor, t);
 }
 
 /** The signed-in Finance person, named when the database provides a name, otherwise by role. */

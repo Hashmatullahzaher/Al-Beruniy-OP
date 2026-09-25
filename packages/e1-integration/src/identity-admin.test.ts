@@ -276,10 +276,13 @@ if (databaseUrl() === undefined) {
            VALUES ($1, $2, $3, $3, $4, ${issuedAt}, ${expiresAt})`,
           [randomUUID(), quiet.user.id, "a".repeat(64), setup.world.legalEntityId]));
         await assert.rejects(() => mint("'2030-01-01T00:00:00Z'", "'2030-01-01T00:59:00Z'"), /start now and last at most 60 minutes/);
-        await harness.executor.query(
-          "INSERT INTO abos.login_attempts (id, login_key, client_key, user_account_id, succeeded, attempted_at) VALUES ($1, $2, $2, $3, true, clock_timestamp() - interval '5 minutes')",
-          [randomUUID(), "b".repeat(64), quiet.user.id]);
         await assert.rejects(() => mint("clock_timestamp()", "clock_timestamp() + interval '30 minutes'"), /after a recorded successful sign-in/);
+        // Attempt times are the database's own: a forged future (or past) time is overwritten.
+        const forged = await harness.executor.query<{ late: boolean }>(
+          `INSERT INTO abos.login_attempts (id, login_key, client_key, user_account_id, succeeded, attempted_at)
+           VALUES ($1, $2, $2, $3, false, '2099-01-01T00:00:00Z') RETURNING attempted_at > clock_timestamp() + interval '1 minute' AS late`,
+          [randomUUID(), "b".repeat(64), quiet.user.id]);
+        assert.equal(forged.rows[0]?.late, false);
 
         // C-04: the identity runtime can neither forge Treasury/Finance audit nor read it.
         await assert.rejects(() => restricted("identity", (db) => db.query(
@@ -321,6 +324,20 @@ if (databaseUrl() === undefined) {
         await harness.executor.query("UPDATE abos.user_credentials SET password_set_at = clock_timestamp() - interval '73 hours' WHERE user_account_id = $1", [late.user.id]);
         await rejectsIdentity("TEMPORARY_PASSWORD_EXPIRED", () => setup.identity.login({ loginIdentifier: "late.starter", password: late.temporaryPassword, clientAddress: CLIENT }));
       } finally { await setup.close(); }
+    });
+
+    test("concurrent administration requests cannot exhaust a small connection pool", async () => {
+      const setup = await prepare(harness);
+      const pool = new pg.Pool({ connectionString: loginUrl("identity"), max: 2 });
+      try {
+        const executor = new PostgresExecutor(pool, { runtimeMarker: MARKER });
+        const small = new IdentityService(executor, new SandboxAuthenticator(executor, SYNTHETIC_AUTH_CONFIGURATION), { attemptKeySecret: ATTEMPT_SECRET });
+        const work = Promise.all(Array.from({ length: 10 }, (_, index) => index % 2 === 0
+          ? small.listUsers(setup.adminToken) : small.currentUser(setup.adminToken)));
+        const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error("pool deadlock: requests did not finish")), 20_000));
+        const results = await Promise.race([work, timeout]) as unknown[];
+        assert.equal(results.length, 10);
+      } finally { await pool.end(); await setup.close(); }
     });
 
     test("an employee holding Cashier and Finance Approver roles still cannot approve cash they recorded", async () => {

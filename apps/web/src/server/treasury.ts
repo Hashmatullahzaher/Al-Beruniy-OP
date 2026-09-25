@@ -125,9 +125,14 @@ export async function displayNames(reader: RestrictedTreasuryRepository, entity:
 export function assertSameOrigin(request: Request): void {
   const origin = request.headers.get("origin");
   const host = request.headers.get("host");
-  if (origin !== null && host !== null && new URL(origin).host !== host) {
-    throw new SandboxAuthError("PERMISSION_DENIED", "Cross-origin Treasury requests are refused.");
+  if (origin === null || host === null) return;
+  let originHost: string;
+  try {
+    originHost = new URL(origin).host;
+  } catch {
+    throw new SandboxAuthError("PERMISSION_DENIED", "Cross-origin requests are refused.");
   }
+  if (originHost !== host) throw new SandboxAuthError("PERMISSION_DENIED", "Cross-origin Treasury requests are refused.");
 }
 
 export async function readJson(request: Request): Promise<Record<string, unknown>> {
