@@ -65,8 +65,16 @@ if (databaseUrl() === undefined) {
         assert.deepEqual(fn.config, ["search_path=pg_catalog, pg_temp"], `${fn.signature} pins its search path`);
         assert.equal(fn.public_execute, false, `${fn.signature} is not executable by PUBLIC`);
       }
-      const treasury = rows.rows.filter((fn) => fn.name.startsWith("treasury_")).map((fn) => fn.owner);
-      assert.ok(treasury.length >= 5 && treasury.every((owner) => owner === "abos_e1_treasury_owner"));
+      const expectedOwner: Record<string, string> = {
+        treasury_runtime_authorize: "abos_e1_treasury_owner", treasury_secure_context: "abos_e1_treasury_owner",
+        treasury_secure_query: "abos_e1_treasury_owner", treasury_secure_command: "abos_e1_treasury_owner",
+        treasury_revoke_own_session: "abos_e1_treasury_owner",
+        finance_runtime_authorize: "abos_e1_finance_owner", finance_handoff_workspace: "abos_e1_finance_owner",
+        finance_handoff_trace: "abos_e1_finance_owner", finance_prepare_capital_posting: "abos_e1_finance_owner",
+        finance_approve_capital_posting: "abos_e1_finance_owner", post_synthetic_capital_receipt: "abos_e1_finance_owner",
+        require_posted_reversal_link: "abos_e1_finance_owner"
+      };
+      assert.deepEqual(Object.fromEntries(rows.rows.map((fn) => [fn.name, fn.owner])), expectedOwner);
     });
 
     test("owners own no table, hold no destructive privilege, and cannot write outside their remit", async () => {
@@ -97,27 +105,25 @@ if (databaseUrl() === undefined) {
       assert.deepEqual(memberships.rows, [], "nobody can SET ROLE to an owner, and owners inherit nothing");
     });
 
-    test("an owner may lock but not change grants, sessions or accounts, and cannot disable triggers", async () => {
+    test("lock-only tables have two layers: column privileges and a trigger that refuses any change", async () => {
       const world = await seedSyntheticWorld(harness.executor);
-      await asRole("abos_e1_finance_owner", async (client) => {
-        await assert.rejects(() => client.query("UPDATE abos.user_permission_grants SET granted_at = granted_at WHERE user_account_id = $1", [world.approverId]),
-          /may lock but not change user_permission_grants/);
-      });
-      await asRole("abos_e1_treasury_owner", async (client) => {
-        await assert.rejects(() => client.query("UPDATE abos.user_permission_grants SET revoked_at = NULL"), /may lock but not change/);
-      });
-      await asRole("abos_e1_finance_owner", async (client) => {
-        await assert.rejects(() => client.query("UPDATE abos.user_accounts SET status = 'ACTIVE'"), /may lock but not change user_accounts/);
-      });
-      await asRole("abos_e1_finance_owner", async (client) => {
-        await assert.rejects(() => client.query("ALTER TABLE abos.journals DISABLE TRIGGER ALL"), /must be owner/);
-      });
-      await asRole("abos_e1_finance_owner", async (client) => {
-        await assert.rejects(() => client.query("DELETE FROM abos.journals"), /permission denied/);
-      });
-      await asRole("abos_e1_treasury_owner", async (client) => {
-        await assert.rejects(() => client.query("SELECT * FROM abos.user_credentials"), /permission denied/);
-      });
+      // Layer 1: only the key column is granted, so a real change is refused by privilege (42501).
+      await refused("abos_e1_finance_owner", "UPDATE abos.user_permission_grants SET granted_at = granted_at", /permission denied for table user_permission_grants/);
+      await refused("abos_e1_treasury_owner", "UPDATE abos.user_permission_grants SET revoked_at = NULL", /permission denied for table user_permission_grants/);
+      await refused("abos_e1_finance_owner", "UPDATE abos.user_accounts SET status = 'ACTIVE'", /permission denied for table user_accounts/);
+      await refused("abos_e1_finance_owner", "UPDATE abos.cash_receipts SET status = 'VOIDED'", /permission denied for table cash_receipts/);
+      await refused("abos_e1_treasury_owner", "UPDATE abos.sandbox_sessions SET expires_at = expires_at", /permission denied for table sandbox_sessions/);
+      // Layer 2: even the granted key column cannot be written; the trigger refuses it.
+      await refused("abos_e1_finance_owner", `UPDATE abos.user_permission_grants SET user_account_id = user_account_id WHERE user_account_id = '${world.approverId}'`,
+        /abos_e1_finance_owner may lock but not change user_permission_grants/);
+      await refused("abos_e1_treasury_owner", "UPDATE abos.user_accounts SET id = id", /abos_e1_treasury_owner may lock but not change user_accounts/);
+      await refused("abos_e1_finance_owner", `INSERT INTO abos.posting_approvals (id) VALUES (gen_random_uuid())
+        ON CONFLICT (id) DO UPDATE SET decision = 'APPROVED'`, /permission denied|null value|violates/);
+      // No destructive or structural power.
+      await refused("abos_e1_finance_owner", "ALTER TABLE abos.journals DISABLE TRIGGER ALL", /must be owner of table journals/);
+      await refused("abos_e1_finance_owner", "DELETE FROM abos.journals", /permission denied for table journals/);
+      await refused("abos_e1_treasury_owner", "SELECT * FROM abos.user_credentials", /permission denied for table user_credentials/);
+      await refused("abos_e1_treasury_owner", "CREATE TEMPORARY TABLE shadow (id int)", /permission denied to create temporary tables/);
     });
 
     test("runtimes can call only their entry points, never internal helpers, owners or tables", async () => {
@@ -128,14 +134,20 @@ if (databaseUrl() === undefined) {
         ["finance", "SELECT abos.treasury_secure_context($1)"],
         ["treasury", "SELECT abos.finance_handoff_workspace($1)"],
         ["identity", "SELECT abos.finance_handoff_workspace($1)"],
-        ["treasury", "SELECT abos.user_holds_permission(gen_random_uuid(), gen_random_uuid(), 'treasury.read')"]
+        ["treasury", "SELECT abos.user_holds_permission(gen_random_uuid(), gen_random_uuid(), 'treasury.read')"],
+        ["treasury", "SELECT abos.treasury_actor()"],
+        ["finance", "SELECT abos.is_assigned_cashier(gen_random_uuid(), gen_random_uuid())"],
+        ["identity", "SELECT abos.assert_sandbox_mutation_authorized(gen_random_uuid())"],
+        ["finance", "SELECT abos.check_super_admin_remains(gen_random_uuid())"],
+        ["identity", "SELECT abos.require_treasury_permission(gen_random_uuid(), gen_random_uuid(), 'treasury.read', 'x')"]
       ] as const) {
         await assert.rejects(() => restricted(kind, (db) => db.query(call, call.includes("$1") ? [token] : [])),
-          /permission denied/, `${kind}: ${call}`);
+          (error: unknown) => (error as { code?: string }).code === "42501" && /permission denied for function/.test(String(error)), `${kind}: ${call}`);
       }
       for (const kind of ["finance", "treasury", "identity"] as const) {
         await assert.rejects(() => restricted(kind, (db) => db.query("SET ROLE abos_e1_finance_owner")), /permission denied/);
-        await assert.rejects(() => restricted(kind, (db) => db.query("INSERT INTO abos.journals (id) VALUES (gen_random_uuid())")), /permission denied/);
+        await assert.rejects(() => restricted(kind, (db) => db.query("INSERT INTO abos.journals (id) VALUES (gen_random_uuid())")), /permission denied for table journals/);
+        await assert.rejects(() => restricted(kind, (db) => db.query("CREATE TEMPORARY TABLE shadow (id int)")), /permission denied to create temporary tables/);
       }
     });
 
@@ -196,6 +208,18 @@ async function restricted<T>(kind: keyof typeof LOGINS, operation: (db: SqlExecu
   } finally {
     await pool.end();
   }
+}
+
+/** The statement, run as the owner role, is refused with SQLSTATE 42501 and the given message. */
+async function refused(role: string, sql: string, message: RegExp): Promise<void> {
+  await asRole(role, async (client) => {
+    await assert.rejects(() => client.query(sql), (error: unknown) => {
+      const code = (error as { code?: string }).code;
+      assert.ok(message.test(String(error)), `${role}: ${sql} -> ${String(error)}`);
+      assert.ok(code === "42501" || /null value|violates/.test(String(error)), `${role}: ${sql} -> SQLSTATE ${code}`);
+      return true;
+    });
+  });
 }
 
 /** Runs as an owner role (via the test superuser) inside a transaction that is always rolled back. */

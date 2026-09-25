@@ -67,7 +67,7 @@ export const migrationCatalog = [
   },
   {
     id: "0011_v1_definer_least_privilege",
-    checksumSha256: "861cb7a28c5423db914add20ae53790deb67fc75196d24efdbd8b704a2c5cce5",
+    checksumSha256: "897125905855c7c6b868392f09f5a8b8926d89fa735603314b477cff12c7a1bc",
     relativePath: "infrastructure/database/migrations/0011_v1_definer_least_privilege.sql",
   },
 ] as const satisfies readonly MigrationDefinition[];
