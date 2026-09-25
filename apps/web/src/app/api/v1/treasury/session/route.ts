@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 
+import { developerTokenSignInEnabled } from "@/server/identity";
 import { assertSameOrigin, currentTreasury, errorResponse, json, readJson, SESSION_COOKIE, stringField, treasuryRuntime } from "@/server/treasury";
 
 export const dynamic = "force-dynamic";
@@ -23,10 +24,14 @@ export async function GET() {
 }
 
 /**
- * Exchanges a sandbox session token for an httpOnly cookie. The token must already be valid: it
- * is authenticated here before the cookie is set, so an invalid token never becomes a session.
+ * Developer-only: exchanges a pre-issued sandbox session token for an httpOnly cookie. Employees
+ * sign in with a username and password at /login instead. This path answers 404 unless
+ * ABOS_ALLOW_DEV_TOKEN_SIGNIN=1 outside production, so it is never offered in a preview.
  */
 export async function POST(request: Request) {
+  if (!developerTokenSignInEnabled()) {
+    return json({ ok: false, error: { code: "NOT_FOUND", message: "Developer token sign-in is disabled. Sign in with your username and password." } }, 404);
+  }
   try {
     assertSameOrigin(request);
     const token = stringField(await readJson(request), "token").trim();

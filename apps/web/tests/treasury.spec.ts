@@ -25,10 +25,18 @@ test("@smoke Treasury has no default user, refuses a forged session and shows no
   await page.goto("/finance/treasury");
   await expect(page.getByRole("heading", { level: 1, name: "Treasury" })).toBeVisible();
   await expect(page.getByText("SYNTHETIC SANDBOX DATA ONLY")).toBeVisible();
-  await expect(page.locator(".treasury-signin, .treasury-placeholder").first()).toBeVisible();
+  await expect(page.locator(".sign-in-prompt, .treasury-placeholder").first()).toBeVisible();
   await expect(page.locator("main")).not.toContainText(/USD\s[\d,]+\.\d\d/);
 
-  if (api.status() === 401) {
+  // Developer tokens are for automated tests and local development only; without them the paste
+  // endpoint must not exist at all.
+  const methods = (await (await request.get("/api/v1/auth/methods")).json()) as { data: { developerTokens: boolean } };
+  if (!methods.data.developerTokens) {
+    expect((await request.post("/api/v1/treasury/session", { data: { token: "x".repeat(43) } })).status()).toBe(404);
+    await expect(page.getByRole("link", { name: "Employee sign-in" }).first()).toBeVisible();
+  }
+
+  if (api.status() === 401 && methods.data.developerTokens) {
     await page.getByLabel("Session token").fill("forged-token-that-was-never-issued");
     await page.getByRole("button", { name: "Sign in" }).click();
     await expect(page.locator(".treasury-message.error")).toContainText("sandbox session is invalid");

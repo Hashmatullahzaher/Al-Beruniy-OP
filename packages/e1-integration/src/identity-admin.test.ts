@@ -247,17 +247,79 @@ if (databaseUrl() === undefined) {
       } finally { await setup.close(); }
     });
 
-    test("repeated wrong passwords lock the account; unknown usernames give the same answer", async () => {
+    test("repeated wrong passwords lock the account, and a locked account answers exactly like an unknown one", async () => {
       const setup = await prepare(harness);
       try {
         const person = await employee(setup, "locked.person", ["treasury.read"]);
         for (let attempt = 0; attempt < 5; attempt += 1) {
           await rejectsIdentity("INVALID_CREDENTIALS", () => setup.identity.login({ loginIdentifier: "locked.person", password: "wrong password here", clientAddress: "198.51.100.7" }));
         }
-        await rejectsIdentity("THROTTLED", () => setup.identity.login({ loginIdentifier: "locked.person", password: person.password, clientAddress: "198.51.100.7" }));
+        // Locked: even the right password gets the same answer as a wrong one or an unknown username.
+        await rejectsIdentity("INVALID_CREDENTIALS", () => setup.identity.login({ loginIdentifier: "locked.person", password: person.password, clientAddress: "198.51.100.7" }));
         await rejectsIdentity("INVALID_CREDENTIALS", () => setup.identity.login({ loginIdentifier: "nobody.here", password: "whatever password", clientAddress: "198.51.100.8" }));
         const attempts = await harness.executor.query<{ login_key: string }>("SELECT login_key FROM abos.login_attempts");
         assert.ok(attempts.rows.every((row) => !row.login_key.includes("locked")));
+      } finally { await setup.close(); }
+    });
+
+    test("independent review findings stay closed (sessions, audit scope, takeover, cross-entity, grant integrity, expiry)", async () => {
+      const setup = await prepare(harness);
+      try {
+        const approver = await employee(setup, "fin.approver", ["finance.report.operational.read", "finance.posting-intent.approve"]);
+        // C-01: the identity runtime cannot mint a session without a recorded successful sign-in,
+        // and no new session may start in the future or last longer than an hour.
+        // Someone who has an account and access but has not signed in.
+        const quietRole = await setup.identity.createRole(setup.adminToken, { name: "Quiet Approver", description: "", permissions: ["finance.report.operational.read", "finance.posting-intent.approve"] });
+        const quiet = await setup.identity.createUser(setup.adminToken, { loginIdentifier: "quiet.approver", displayName: "Quiet Approver", status: "ACTIVE", roleIds: [quietRole.id] });
+        const mint = (issuedAt: string, expiresAt: string) => restricted("identity", (db) => db.query(
+          `INSERT INTO abos.sandbox_sessions (id, user_account_id, token_sha256, runtime_token_sha256, legal_entity_id, issued_at, expires_at)
+           VALUES ($1, $2, $3, $3, $4, ${issuedAt}, ${expiresAt})`,
+          [randomUUID(), quiet.user.id, "a".repeat(64), setup.world.legalEntityId]));
+        await assert.rejects(() => mint("'2030-01-01T00:00:00Z'", "'2030-01-01T00:59:00Z'"), /start now and last at most 60 minutes/);
+        await harness.executor.query(
+          "INSERT INTO abos.login_attempts (id, login_key, client_key, user_account_id, succeeded, attempted_at) VALUES ($1, $2, $2, $3, true, clock_timestamp() - interval '5 minutes')",
+          [randomUUID(), "b".repeat(64), quiet.user.id]);
+        await assert.rejects(() => mint("clock_timestamp()", "clock_timestamp() + interval '30 minutes'"), /after a recorded successful sign-in/);
+
+        // C-04: the identity runtime can neither forge Treasury/Finance audit nor read it.
+        await assert.rejects(() => restricted("identity", (db) => db.query(
+          `INSERT INTO abos.audit_records (id, legal_entity_id, correlation_id, action, entity_type) VALUES ($1, $2, $1, 'JOURNAL_POSTED', 'JOURNAL')`,
+          [randomUUID(), setup.world.legalEntityId])), /only record access-administration events/);
+        await assert.rejects(() => restricted("identity", (db) => db.query("SELECT count(*) FROM abos.audit_records")), /permission denied/);
+        await assert.rejects(() => restricted("identity", (db) => db.query("SELECT count(*) FROM abos.posting_intents")), /permission denied/);
+
+        // C-02 interim: a user administrator cannot reset an approver's password or hand out approval access.
+        const userAdminRole = await setup.identity.createRole(setup.adminToken, { name: "People Administrator", description: "", permissions: ["admin.users.manage"] });
+        const userAdmin = await employeeWithRole(setup, "people.admin", userAdminRole.id);
+        await rejectsIdentity("SUPER_ADMIN_REQUIRED", () => setup.identity.resetPassword(userAdmin.token, approver.id));
+        await rejectsIdentity("SUPER_ADMIN_REQUIRED", () => setup.identity.revokeSessions(userAdmin.token, approver.id));
+        await rejectsIdentity("SUPER_ADMIN_REQUIRED", () => setup.identity.updateProfile(userAdmin.token, setup.adminId, { displayName: "Renamed Admin" }));
+        const approverRole = (await setup.identity.listRoles(setup.adminToken)).find((role) => role.permissions.includes("finance.posting-intent.approve"));
+        assert.ok(approverRole);
+        await rejectsIdentity("SUPER_ADMIN_REQUIRED", () => setup.identity.createUser(userAdmin.token, {
+          loginIdentifier: "puppet.approver", displayName: "Puppet Approver", status: "ACTIVE", roleIds: [approverRole.id] }));
+        // ...but can still run ordinary accounts.
+        const reader = await setup.identity.createRole(setup.adminToken, { name: "Reader", description: "", permissions: ["treasury.read"] });
+        const ordinary = await setup.identity.createUser(userAdmin.token, { loginIdentifier: "ordinary.reader", displayName: "Ordinary Reader", status: "ACTIVE", roleIds: [reader.id] });
+        assert.equal(ordinary.user.permissions.join(","), "treasury.read");
+
+        // C-08: in the database, administration access can only be granted by a current super administrator.
+        await assert.rejects(() => restricted("identity", (db) => db.query(
+          `INSERT INTO abos.user_permission_grants (user_account_id, legal_entity_id, permission_code, granted_by_user_account_id)
+           VALUES ($1, $2, 'admin.roles.manage', $3)`, [ordinary.user.id, setup.world.legalEntityId, userAdmin.id])), /only a super administrator/);
+
+        // C-03: an account that also has access in another legal entity cannot be managed from this one.
+        const other = await otherEntity(harness, setup.world);
+        await harness.executor.query(
+          `INSERT INTO abos.user_permission_grants (user_account_id, legal_entity_id, permission_code, granted_by_user_account_id)
+           VALUES ($1, $2, 'treasury.read', $3)`, [ordinary.user.id, other.entityId, setup.world.bootstrapUserId]);
+        await rejectsIdentity("NOT_FOUND", () => setup.identity.resetPassword(setup.adminToken, ordinary.user.id));
+        await rejectsIdentity("NOT_FOUND", () => setup.identity.setStatus(setup.adminToken, ordinary.user.id, "DISABLED"));
+
+        // Temporary passwords expire after 72 hours.
+        const late = await setup.identity.createUser(setup.adminToken, { loginIdentifier: "late.starter", displayName: "Late Starter", status: "ACTIVE", roleIds: [reader.id] });
+        await harness.executor.query("UPDATE abos.user_credentials SET password_set_at = clock_timestamp() - interval '73 hours' WHERE user_account_id = $1", [late.user.id]);
+        await rejectsIdentity("TEMPORARY_PASSWORD_EXPIRED", () => setup.identity.login({ loginIdentifier: "late.starter", password: late.temporaryPassword, clientAddress: CLIENT }));
       } finally { await setup.close(); }
     });
 
@@ -378,7 +440,7 @@ async function restricted<T>(kind: keyof typeof LOGINS, operation: (db: SqlExecu
   }
 }
 
-async function otherEntity(harness: Harness, world: SyntheticWorld): Promise<{ userId: string; roleId: string }> {
+async function otherEntity(harness: Harness, world: SyntheticWorld): Promise<{ userId: string; roleId: string; entityId: string }> {
   const companyId = randomUUID(); const entityId = randomUUID(); const userId = randomUUID(); const roleId = randomUUID();
   await harness.executor.query("INSERT INTO abos.companies (id, code, name, status) VALUES ($1, $2, 'Other Synthetic Holding', 'ACTIVE')", [companyId, `OSH-${companyId.slice(0, 8)}`]);
   await harness.executor.query("INSERT INTO abos.legal_entities (id, company_id, code, name) VALUES ($1, $2, $3, 'Other Synthetic Entity')", [entityId, companyId, `OSE-${entityId.slice(0, 8)}`]);
@@ -388,7 +450,7 @@ async function otherEntity(harness: Harness, world: SyntheticWorld): Promise<{ u
   await harness.executor.query(
     "INSERT INTO abos.access_roles (id, legal_entity_id, role_name, created_by_user_account_id) VALUES ($1, $2, 'Other Entity Role', $3)",
     [roleId, entityId, world.bootstrapUserId]);
-  return { userId, roleId };
+  return { userId, roleId, entityId };
 }
 
 interface Flow { readonly intentId: string; readonly countEvidenceId: string; readonly receiptEvidenceId: string }

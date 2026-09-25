@@ -41,6 +41,7 @@ export async function bootstrapSuperAdmin(owner: SqlExecutor, input: {
           AND roles_grant.legal_entity_id = users_grant.legal_entity_id
           AND roles_grant.permission_code = $3 AND roles_grant.revoked_at IS NULL
          JOIN abos.user_accounts account ON account.id = users_grant.user_account_id AND account.status = 'ACTIVE'
+         JOIN abos.user_credentials credential ON credential.user_account_id = account.id
         WHERE users_grant.legal_entity_id = $1 AND users_grant.permission_code = $2 AND users_grant.revoked_at IS NULL`,
       [input.legalEntityId, ADMIN_USERS, ADMIN_ROLES]
     );
@@ -52,10 +53,16 @@ export async function bootstrapSuperAdmin(owner: SqlExecutor, input: {
     );
     assertIdentity(system.rows.length === 1, "VALIDATION_FAILED", "The bootstrap system account must exist and must not be able to sign in.");
 
-    let role = (await tx.query<{ readonly id: string }>(
-      "SELECT id FROM abos.access_roles WHERE legal_entity_id = $1 AND lower(role_name) = lower($2)",
+    const existingRole = (await tx.query<{ readonly id: string; readonly status: string; readonly permissions: string[] }>(
+      `SELECT r.id, r.status,
+              coalesce((SELECT jsonb_agg(rp.permission_code ORDER BY rp.permission_code) FROM abos.access_role_permissions rp WHERE rp.role_id = r.id), '[]'::jsonb) AS permissions
+         FROM abos.access_roles r WHERE r.legal_entity_id = $1 AND lower(r.role_name) = lower($2)`,
       [input.legalEntityId, SUPER_ADMIN_ROLE_NAME]
-    )).rows[0]?.id;
+    )).rows[0];
+    // A reused role must be exactly the Super Administrator role: active, with both administration permissions and nothing else.
+    assertIdentity(existingRole === undefined || (existingRole.status === "ACTIVE" && existingRole.permissions.join(",") === [ADMIN_ROLES, ADMIN_USERS].sort().join(",")),
+      "VALIDATION_FAILED", `A role named "${SUPER_ADMIN_ROLE_NAME}" exists but is not the standard active Super Administrator role.`);
+    let role = existingRole?.id;
     if (role === undefined) {
       role = randomUUID();
       await tx.query(

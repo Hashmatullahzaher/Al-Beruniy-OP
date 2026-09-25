@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { AppIcon } from "@/components/AppIcon";
 import { useLocale } from "@/components/LocaleProvider";
+import { SignInPrompt } from "@/components/SignInPrompt";
 import { StageZeroPageHeader, localized } from "@/components/StageZeroWorkspace";
 import type { FinanceApiResponse, FinanceHandoffTraceView, FinanceHandoffWorkspaceView, FinanceWorkflowStage } from "@/lib/finance-handoff-types";
 
@@ -120,7 +121,7 @@ export function FinanceHandoffWorkspace() {
     <section className="finance-boundary-banner"><span><AppIcon name="shield" size={22}/></span><div><p>{t({ en: "SYNTHETIC SANDBOX DATA ONLY", fa: "فقط داده‌های آزمایشی مصنوعی" })}</p><strong>{t({ en: "No real money or company records. Each step is performed by a separate person and checked by the database.", fa: "هیچ پول یا سوابق واقعی شرکت وجود ندارد. هر گام توسط شخص جداگانه انجام و توسط دیتابیس کنترل می‌شود." })}</strong></div><em>E1 · NOT PRODUCTION</em></section>
     {message ? <div className={`treasury-message ${message.tone === "ok" ? "success" : "error"}`} role="status"><AppIcon name={message.tone === "ok" ? "shield" : "alert"} size={16}/><span>{typeof message.text === "string" ? message.text : t(message.text)}</span><button onClick={() => setMessage(null)} aria-label={t({ en: "Dismiss", fa: "بستن" })}>×</button></div> : null}
     {state === "loading" ? <div className="treasury-card treasury-placeholder">{t({ en: "Loading the Finance inbox…", fa: "در حال بارگذاری صندوق مالی…" })}</div> : null}
-    {state === "signed-out" ? <FinanceSignIn onDone={async () => { setMessage(null); await load(); }} t={t}/> : null}
+    {state === "signed-out" ? <SignInPrompt area={{ en: "the Finance inbox", fa: "صندوق مالی" }}><FinanceSignIn onDone={async () => { setMessage(null); await load(); }} t={t}/></SignInPrompt> : null}
     {state === "error" && message ? <div className="treasury-card treasury-placeholder">{typeof message.text === "string" ? message.text : t(message.text)}</div> : null}
     {state === "ready" && workspace ? <>
       <section className="treasury-identity">
@@ -201,7 +202,7 @@ function FinanceSignIn({ onDone, t }: { readonly onDone: () => Promise<void>; re
   const [token, setToken] = useState(""); const [error, setError] = useState("");
   const submit = async (event: FormEvent) => { event.preventDefault(); const result = await call("/api/v1/treasury/session", { method: "POST", body: JSON.stringify({ token }) }); if (result.ok) await onDone(); else setError(result.error.message); };
   return <form className="treasury-card treasury-signin" onSubmit={event => void submit(event)}><AppIcon name="shield" size={24}/>
-    <div><h2>{t({ en: "Finance sign-in (development sandbox)", fa: "ورود مالی (محیط آزمایشی توسعه)" })}</h2>
+    <div><h2>{t({ en: "Developer token", fa: "توکن توسعه‌دهنده" })}</h2>
       <p>{t({ en: "Paste the test token of a synthetic Finance person. Test tokens exist only for this development sandbox; they are not how employees will sign in to the real system.", fa: "توکن آزمایشی یک شخص مصنوعی مالی را وارد کنید. توکن‌های آزمایشی فقط برای این محیط توسعه هستند و روش ورود کارمندان به سیستم واقعی نیستند." })}</p></div>
     <label><span>{t({ en: "Sandbox token", fa: "توکن آزمایشی" })}</span><input type="password" value={token} onChange={event => setToken(event.target.value)} required minLength={32} autoComplete="off"/></label>
     <button className="treasury-button" type="submit">{t({ en: "Sign in", fa: "ورود" })}</button>{error ? <p role="alert">{error}</p> : null}</form>;

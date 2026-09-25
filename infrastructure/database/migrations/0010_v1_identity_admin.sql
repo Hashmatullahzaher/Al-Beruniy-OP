@@ -7,7 +7,9 @@
 -- already check, and every segregation-of-duties rule they enforce still applies per transaction.
 --
 -- No SECURITY DEFINER function is added. The identity runtime role receives explicit table
--- privileges on identity tables only, and none on Treasury, Finance or ledger tables.
+-- privileges on identity tables only, and none on Treasury, Finance or ledger tables. It reads the
+-- sandbox gate (including its runtime marker) because session issuance must check it; it reads audit
+-- only through the access_audit_records view, and triggers confine what it may write.
 
 -- ---------------------------------------------------------------------------
 -- Controlled permission catalogue (version 1).
@@ -81,12 +83,11 @@ CREATE TABLE abos.user_credentials (
   password_hash text NOT NULL CHECK (password_hash ~ '^scrypt\$[0-9]+\$[0-9]+\$[0-9]+\$[A-Za-z0-9_-]{22,}\$[A-Za-z0-9_-]{43,}$'),
   must_change_password boolean NOT NULL,
   password_set_at timestamptz NOT NULL DEFAULT clock_timestamp(),
-  password_set_by_user_account_id uuid NOT NULL REFERENCES abos.user_accounts(id),
-  failed_attempts integer NOT NULL DEFAULT 0 CHECK (failed_attempts >= 0),
-  locked_until timestamptz
+  password_set_by_user_account_id uuid NOT NULL REFERENCES abos.user_accounts(id)
 );
 
--- Sign-in attempts for throttling and review. Identifiers are stored only as keyed digests.
+-- Sign-in attempts: the source of truth for lockout (a window count, so it decays) and for review.
+-- Identifiers and client addresses are stored only as keyed digests.
 CREATE TABLE abos.login_attempts (
   id uuid PRIMARY KEY,
   login_key text NOT NULL CHECK (login_key ~ '^[0-9a-f]{64}$'),
@@ -232,18 +233,19 @@ $$;
 
 -- ---------------------------------------------------------------------------
 -- The last usable super administrator of a legal entity cannot be removed.
--- A super administrator holds both administration permissions, is ACTIVE and can sign in.
--- Checked at commit, so a transaction may hand over administration before removing itself.
+-- A super administrator holds both administration permissions, is ACTIVE and has a credential.
+-- Checked at commit, per affected legal entity, under a per-entity advisory lock so two concurrent
+-- transactions cannot each remove a different one of the last two (write skew).
 -- ---------------------------------------------------------------------------
 
-CREATE OR REPLACE FUNCTION abos.assert_super_admin_remains()
-RETURNS trigger LANGUAGE plpgsql AS $$
+CREATE OR REPLACE FUNCTION abos.check_super_admin_remains(p_legal_entity_id uuid)
+RETURNS void LANGUAGE plpgsql AS $$
 BEGIN
-  IF EXISTS (
-    SELECT 1
-      FROM (SELECT DISTINCT legal_entity_id FROM abos.user_permission_grants
-             WHERE permission_code = 'admin.users.manage') entity
-     WHERE NOT EXISTS (
+  IF p_legal_entity_id IS NULL THEN RETURN; END IF;
+  PERFORM pg_advisory_xact_lock(hashtextextended('abos-super-admin:' || p_legal_entity_id::text, 0));
+  IF EXISTS (SELECT 1 FROM abos.user_permission_grants
+              WHERE legal_entity_id = p_legal_entity_id AND permission_code = 'admin.users.manage')
+     AND NOT EXISTS (
        SELECT 1
          FROM abos.user_permission_grants users_grant
          JOIN abos.user_permission_grants roles_grant
@@ -253,13 +255,36 @@ BEGIN
           AND roles_grant.revoked_at IS NULL
          JOIN abos.user_accounts account ON account.id = users_grant.user_account_id AND account.status = 'ACTIVE'
          JOIN abos.user_credentials credential ON credential.user_account_id = account.id
-        WHERE users_grant.legal_entity_id = entity.legal_entity_id
+        WHERE users_grant.legal_entity_id = p_legal_entity_id
           AND users_grant.permission_code = 'admin.users.manage'
-          AND users_grant.revoked_at IS NULL)
-  ) THEN
+          AND users_grant.revoked_at IS NULL) THEN
     RAISE EXCEPTION 'the last active super administrator cannot be removed or suspended'
       USING ERRCODE = 'check_violation';
   END IF;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION abos.assert_super_admin_remains()
+RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE
+  affected_user uuid;
+  entity uuid;
+BEGIN
+  IF TG_TABLE_NAME = 'user_permission_grants' THEN
+    PERFORM abos.check_super_admin_remains(OLD.legal_entity_id);
+    RETURN NULL;
+  END IF;
+  IF TG_TABLE_NAME = 'user_accounts' THEN
+    affected_user := OLD.id;
+  ELSE
+    affected_user := OLD.user_account_id;
+  END IF;
+  FOR entity IN
+    SELECT DISTINCT legal_entity_id FROM abos.user_permission_grants
+     WHERE user_account_id = affected_user AND permission_code LIKE 'admin.%'
+  LOOP
+    PERFORM abos.check_super_admin_remains(entity);
+  END LOOP;
   RETURN NULL;
 END;
 $$;
@@ -275,9 +300,112 @@ DEFERRABLE INITIALLY DEFERRED
 FOR EACH ROW EXECUTE FUNCTION abos.assert_super_admin_remains();
 
 CREATE CONSTRAINT TRIGGER super_admin_remains_after_credential_change
-AFTER DELETE ON abos.user_credentials
+AFTER UPDATE OR DELETE ON abos.user_credentials
 DEFERRABLE INITIALLY DEFERRED
 FOR EACH ROW EXECUTE FUNCTION abos.assert_super_admin_remains();
+
+-- ---------------------------------------------------------------------------
+-- Grant integrity, whoever writes the row.
+--  * The identity runtime can only newly grant or revive permissions that are ACTIVE in the
+--    catalogue. (Operator-provisioned test grants of domain-level capabilities are unaffected.)
+--  * Administration permissions can only be granted by a current super administrator of that
+--    legal entity, or by a system account that has no credential and so can never sign in.
+-- ---------------------------------------------------------------------------
+
+CREATE OR REPLACE FUNCTION abos.guard_permission_grant()
+RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE
+  is_identity_runtime boolean;
+BEGIN
+  IF NEW.revoked_at IS NOT NULL THEN RETURN NEW; END IF;
+  IF TG_OP = 'UPDATE' AND OLD.revoked_at IS NULL THEN RETURN NEW; END IF;
+  SELECT NOT r.rolsuper AND pg_has_role(current_user, 'abos_v1_identity_runtime', 'MEMBER')
+    INTO is_identity_runtime FROM pg_roles r WHERE r.rolname = current_user;
+  IF coalesce(is_identity_runtime, false) AND NOT EXISTS (SELECT 1 FROM abos.permission_catalogue c
+                  WHERE c.permission_code = NEW.permission_code AND c.availability = 'ACTIVE') THEN
+    RAISE EXCEPTION 'permission % is not available and cannot be granted', NEW.permission_code
+      USING ERRCODE = 'check_violation';
+  END IF;
+  IF NEW.permission_code LIKE 'admin.%'
+     AND EXISTS (SELECT 1 FROM abos.user_credentials c WHERE c.user_account_id = NEW.granted_by_user_account_id)
+     AND NOT (
+       EXISTS (SELECT 1 FROM abos.user_permission_grants g
+                WHERE g.user_account_id = NEW.granted_by_user_account_id AND g.legal_entity_id = NEW.legal_entity_id
+                  AND g.permission_code = 'admin.users.manage' AND g.revoked_at IS NULL)
+       AND EXISTS (SELECT 1 FROM abos.user_permission_grants g
+                    WHERE g.user_account_id = NEW.granted_by_user_account_id AND g.legal_entity_id = NEW.legal_entity_id
+                      AND g.permission_code = 'admin.roles.manage' AND g.revoked_at IS NULL)) THEN
+    RAISE EXCEPTION 'only a super administrator can grant administration access'
+      USING ERRCODE = 'check_violation';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+CREATE TRIGGER user_permission_grants_integrity
+BEFORE INSERT OR UPDATE ON abos.user_permission_grants
+FOR EACH ROW EXECUTE FUNCTION abos.guard_permission_grant();
+
+-- ---------------------------------------------------------------------------
+-- Session integrity. A new session must start now, last at most 60 minutes from now and belong to
+-- an ACTIVE account. When the identity runtime creates it, a successful sign-in for that person
+-- must have been recorded in the last minute: the login service cannot quietly mint sessions.
+-- Existing rows are untouched, so the Treasury and Finance tests that age sessions still work.
+-- ---------------------------------------------------------------------------
+
+CREATE OR REPLACE FUNCTION abos.guard_session_insert()
+RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE
+  is_identity_runtime boolean;
+BEGIN
+  -- With the start pinned to now, 0002's CHECK (expires_at <= issued_at + 60 minutes) bounds the end.
+  IF NEW.issued_at < clock_timestamp() - interval '1 minute' OR NEW.issued_at > clock_timestamp() + interval '1 minute' THEN
+    RAISE EXCEPTION 'a new session must start now and last at most 60 minutes' USING ERRCODE = 'check_violation';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM abos.user_accounts u WHERE u.id = NEW.user_account_id AND u.status = 'ACTIVE') THEN
+    RAISE EXCEPTION 'a session can only be issued to an active account' USING ERRCODE = 'check_violation';
+  END IF;
+  SELECT NOT r.rolsuper AND pg_has_role(current_user, 'abos_v1_identity_runtime', 'MEMBER')
+    INTO is_identity_runtime FROM pg_roles r WHERE r.rolname = current_user;
+  IF coalesce(is_identity_runtime, false) AND NOT EXISTS (
+       SELECT 1 FROM abos.login_attempts a
+        WHERE a.user_account_id = NEW.user_account_id AND a.succeeded
+          AND a.attempted_at > clock_timestamp() - interval '1 minute') THEN
+    RAISE EXCEPTION 'the identity service can only open a session after a recorded successful sign-in'
+      USING ERRCODE = 'check_violation';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+CREATE TRIGGER sandbox_sessions_insert_guard
+BEFORE INSERT ON abos.sandbox_sessions
+FOR EACH ROW EXECUTE FUNCTION abos.guard_session_insert();
+
+-- ---------------------------------------------------------------------------
+-- Audit integrity for the identity runtime: it may only write and read access-administration
+-- records, never Treasury or Finance ones.
+-- ---------------------------------------------------------------------------
+
+CREATE OR REPLACE FUNCTION abos.guard_identity_audit_insert()
+RETURNS trigger LANGUAGE plpgsql AS $$
+DECLARE
+  is_identity_runtime boolean;
+BEGIN
+  SELECT NOT r.rolsuper AND pg_has_role(current_user, 'abos_v1_identity_runtime', 'MEMBER')
+    INTO is_identity_runtime FROM pg_roles r WHERE r.rolname = current_user;
+  IF coalesce(is_identity_runtime, false) AND NEW.entity_type NOT IN ('USER_ACCOUNT', 'ACCESS_ROLE') THEN
+    RAISE EXCEPTION 'the identity service may only record access-administration events' USING ERRCODE = 'insufficient_privilege';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+CREATE TRIGGER audit_records_identity_scope
+BEFORE INSERT ON abos.audit_records
+FOR EACH ROW EXECUTE FUNCTION abos.guard_identity_audit_insert();
+
+CREATE VIEW abos.access_audit_records WITH (security_barrier) AS
+  SELECT id, occurred_at, actor_user_account_id, legal_entity_id, action, entity_type, entity_id, before_state, after_state
+    FROM abos.audit_records
+   WHERE entity_type IN ('USER_ACCOUNT', 'ACCESS_ROLE');
 
 -- ---------------------------------------------------------------------------
 -- Identity runtime role: identity tables only. No Treasury, Finance or ledger access.
@@ -313,7 +441,8 @@ GRANT UPDATE (revoked_at, granted_by_user_account_id, granted_at)
   ON abos.user_permission_grants TO abos_v1_identity_runtime;
 GRANT SELECT, INSERT ON abos.sandbox_sessions TO abos_v1_identity_runtime;
 GRANT UPDATE (revoked_at) ON abos.sandbox_sessions TO abos_v1_identity_runtime;
-GRANT SELECT, INSERT ON abos.audit_records TO abos_v1_identity_runtime;
+GRANT INSERT ON abos.audit_records TO abos_v1_identity_runtime;
+GRANT SELECT ON abos.access_audit_records TO abos_v1_identity_runtime;
 
 REVOKE ALL ON FUNCTION abos.role_derived_permissions(uuid, uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION abos.role_derived_permissions(uuid, uuid) TO abos_v1_identity_runtime;

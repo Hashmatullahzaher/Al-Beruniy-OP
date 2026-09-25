@@ -27,6 +27,8 @@ const LOGIN_PATTERN = /^[a-z0-9][a-z0-9._-]{2,63}$/;
 export const MAX_FAILED_ATTEMPTS = 5;
 export const LOCKOUT_MINUTES = 15;
 export const CLIENT_FAILURE_LIMIT = 30;
+export const TEMPORARY_PASSWORD_HOURS = 72;
+const MAX_PASSWORD_INPUT = 1024;
 
 export type AccountStatus = "ACTIVE" | "DISABLED" | "INVITED" | "REVOKED";
 
@@ -142,7 +144,7 @@ interface IdentityServiceOptions {
 }
 
 type LoginOutcome =
-  | { readonly kind: "ok"; readonly userAccountId: string; readonly legalEntityId: string }
+  | { readonly kind: "ok"; readonly userAccountId: string; readonly legalEntityId: string; readonly verifiedHash: string }
   | { readonly kind: "error"; readonly error: IdentityError };
 
 export class IdentityService {
@@ -173,29 +175,32 @@ export class IdentityService {
   async changePassword(input: {
     readonly loginIdentifier: string; readonly currentPassword: string; readonly newPassword: string; readonly clientAddress: string;
   }): Promise<LoginResult> {
+    const login = normalizeLogin(input.loginIdentifier);
+    const problems = passwordProblems(input.newPassword, login);
+    assertIdentity(problems.length === 0, "VALIDATION_FAILED", "The new password does not meet the password rules.", { problems });
+    assertIdentity(input.newPassword !== input.currentPassword, "VALIDATION_FAILED", "The new password must be different from the current one.", { problems: ["SAME_AS_CURRENT"] });
     const outcome = await this.checkCredentials(
       { loginIdentifier: input.loginIdentifier, password: input.currentPassword, clientAddress: input.clientAddress },
       { allowPasswordChange: true }
     );
     if (outcome.kind === "error") throw outcome.error;
-    const login = normalizeLogin(input.loginIdentifier);
-    const problems = passwordProblems(input.newPassword, login);
-    assertIdentity(problems.length === 0, "VALIDATION_FAILED", "The new password does not meet the password rules.", { problems });
-    assertIdentity(input.newPassword !== input.currentPassword, "VALIDATION_FAILED", "The new password must be different from the current one.", { problems: ["SAME_AS_CURRENT"] });
     const hash = await hashPassword(input.newPassword);
     await this.database.transaction(async (tx) => {
-      await tx.query(
+      // Compare-and-set: if an administrator reset the password after it was checked, nothing is written.
+      const updated = await tx.query(
         `UPDATE abos.user_credentials
             SET password_hash = $2, must_change_password = false, password_set_at = clock_timestamp(),
-                password_set_by_user_account_id = $1, failed_attempts = 0, locked_until = NULL
-          WHERE user_account_id = $1`,
-        [outcome.userAccountId, hash]
+                password_set_by_user_account_id = $1
+          WHERE user_account_id = $1 AND password_hash = $3`,
+        [outcome.userAccountId, hash, outcome.verifiedHash]
       );
+      assertIdentity(updated.rowCount === 1, "AUTHENTICATION_REQUIRED", "Your password was changed elsewhere. Sign in again.");
       const revoked = await revokeAllSessions(tx, outcome.userAccountId);
       await writeAudit(tx, {
         actor: outcome.userAccountId, legalEntityId: outcome.legalEntityId, action: "PASSWORD_CHANGED",
         entityType: "USER_ACCOUNT", entityId: outcome.userAccountId, after: { sessionsRevoked: revoked }
       });
+      await this.recordAttempt(tx, login, input.clientAddress, outcome.userAccountId, true);
     });
     return this.openSession(outcome.userAccountId, outcome.legalEntityId);
   }
@@ -216,94 +221,102 @@ export class IdentityService {
     });
   }
 
+  /**
+   * The password is checked outside any transaction, so a slow hash never holds a connection or a
+   * row lock. Lockout is a count of recent failures in login_attempts, so it decays by itself. A
+   * locked account and an unknown username get exactly the same answer.
+   */
   private async checkCredentials(
     input: { readonly loginIdentifier: string; readonly password: string; readonly clientAddress: string },
     options: { readonly allowPasswordChange: boolean }
   ): Promise<LoginOutcome> {
     const login = normalizeLogin(input.loginIdentifier);
-    const loginKey = this.key(`login:${login}`);
+    const invalid = new IdentityError("INVALID_CREDENTIALS",
+      `The username or password is not correct, or the account is locked for ${LOCKOUT_MINUTES} minutes after repeated attempts.`);
     const clientKey = this.key(`client:${input.clientAddress}`);
-    const invalid = new IdentityError("INVALID_CREDENTIALS", "The username or password is not correct.");
+    const record = (userId: string | null, succeeded: boolean) =>
+      this.database.transaction((tx) => this.recordAttempt(tx, login, input.clientAddress, userId, succeeded));
 
-    return this.database.transaction(async (tx): Promise<LoginOutcome> => {
-      const clientFailures = await tx.query<{ readonly failures: string }>(
-        `SELECT count(*)::text AS failures FROM abos.login_attempts
-          WHERE client_key = $1 AND NOT succeeded AND attempted_at > clock_timestamp() - make_interval(mins => $2::int)`,
-        [clientKey, LOCKOUT_MINUTES]
-      );
-      if (Number(clientFailures.rows[0]?.failures ?? "0") >= CLIENT_FAILURE_LIMIT) {
-        await decoyPasswordHash().then((decoy) => verifyPassword(input.password, decoy));
-        return { kind: "error", error: throttled() };
-      }
+    if (typeof input.password !== "string" || input.password.length === 0 || input.password.length > MAX_PASSWORD_INPUT || login.length === 0 || login.length > 64) {
+      return { kind: "error", error: invalid };
+    }
 
-      const found = await tx.query<{
-        readonly id: string; readonly status: AccountStatus; readonly primary_legal_entity_id: string | null;
-        readonly password_hash: string; readonly must_change_password: boolean;
-        readonly failed_attempts: number; readonly locked: boolean;
-      }>(
-        `SELECT u.id, u.status, u.primary_legal_entity_id, c.password_hash, c.must_change_password,
-                c.failed_attempts, (c.locked_until IS NOT NULL AND c.locked_until > clock_timestamp()) AS locked
-           FROM abos.user_accounts u
-           JOIN abos.user_credentials c ON c.user_account_id = u.id
-          WHERE lower(u.login_identifier) = $1
-          FOR UPDATE OF c`,
-        [login]
-      );
-      const account = found.rows[0];
-      const record = (succeeded: boolean, userId: string | null) => tx.query(
-        `INSERT INTO abos.login_attempts (id, login_key, client_key, user_account_id, succeeded)
-         VALUES ($1, $2, $3, $4, $5)`,
-        [randomUUID(), loginKey, clientKey, userId, succeeded]
-      );
+    const clientFailures = await this.database.query<{ readonly failures: string }>(
+      `SELECT count(*)::text AS failures FROM abos.login_attempts
+        WHERE client_key = $1 AND NOT succeeded AND attempted_at > clock_timestamp() - make_interval(mins => $2::int)`,
+      [clientKey, LOCKOUT_MINUTES]
+    );
+    if (Number(clientFailures.rows[0]?.failures ?? "0") >= CLIENT_FAILURE_LIMIT) {
+      return { kind: "error", error: throttled() };
+    }
 
-      if (account === undefined) {
-        await verifyPassword(input.password, await decoyPasswordHash());
-        await record(false, null);
-        return { kind: "error", error: invalid };
-      }
-      if (account.locked) {
-        await verifyPassword(input.password, await decoyPasswordHash());
-        await record(false, account.id);
-        return { kind: "error", error: throttled() };
-      }
-      if (!(await verifyPassword(input.password, account.password_hash))) {
-        const failures = account.failed_attempts + 1;
-        await tx.query(
-          `UPDATE abos.user_credentials
-              SET failed_attempts = CASE WHEN $2::int >= $3::int THEN 0 ELSE $2::int END,
-                  locked_until = CASE WHEN $2::int >= $3::int THEN clock_timestamp() + make_interval(mins => $4::int) ELSE locked_until END
-            WHERE user_account_id = $1`,
-          [account.id, failures, MAX_FAILED_ATTEMPTS, LOCKOUT_MINUTES]
-        );
-        await record(false, account.id);
-        return { kind: "error", error: invalid };
-      }
+    const found = await this.database.query<{
+      readonly id: string; readonly status: AccountStatus; readonly primary_legal_entity_id: string | null;
+      readonly password_hash: string; readonly must_change_password: boolean; readonly temporary_expired: boolean;
+      readonly recent_failures: string;
+    }>(
+      `SELECT u.id, u.status, u.primary_legal_entity_id, c.password_hash, c.must_change_password,
+              (c.must_change_password AND c.password_set_at < clock_timestamp() - make_interval(hours => $2::int)) AS temporary_expired,
+              (SELECT count(*)::text FROM abos.login_attempts a
+                WHERE a.user_account_id = u.id AND NOT a.succeeded
+                  AND a.attempted_at > greatest(clock_timestamp() - make_interval(mins => $3::int), c.password_set_at,
+                        coalesce((SELECT max(s.attempted_at) FROM abos.login_attempts s WHERE s.user_account_id = u.id AND s.succeeded), '-infinity'))
+              ) AS recent_failures
+         FROM abos.user_accounts u
+         JOIN abos.user_credentials c ON c.user_account_id = u.id
+        WHERE lower(u.login_identifier) = $1`,
+      [login, TEMPORARY_PASSWORD_HOURS, LOCKOUT_MINUTES]
+    );
+    const account = found.rows[0];
+    if (account === undefined) {
+      await verifyPassword(input.password, await decoyPasswordHash());
+      await record(null, false);
+      return { kind: "error", error: invalid };
+    }
+    if (Number(account.recent_failures) >= MAX_FAILED_ATTEMPTS) {
+      await verifyPassword(input.password, await decoyPasswordHash());
+      await record(account.id, false);
+      return { kind: "error", error: invalid };
+    }
+    if (!(await verifyPassword(input.password, account.password_hash))) {
+      await record(account.id, false);
+      return { kind: "error", error: invalid };
+    }
+    if (account.status !== "ACTIVE") {
+      await record(account.id, false);
+      return { kind: "error", error: new IdentityError("ACCOUNT_INACTIVE", "This account is suspended. Contact your administrator.") };
+    }
+    if (account.temporary_expired) {
+      await record(account.id, false);
+      return { kind: "error", error: new IdentityError("TEMPORARY_PASSWORD_EXPIRED", "This temporary password has expired. Ask your administrator for a new one.") };
+    }
+    if (account.must_change_password && !options.allowPasswordChange) {
+      return { kind: "error", error: new IdentityError("PASSWORD_CHANGE_REQUIRED", "Choose a new password before you continue.") };
+    }
+    const entity = await this.database.query<{ readonly legal_entity_id: string }>(
+      `SELECT legal_entity_id FROM abos.user_permission_grants
+        WHERE user_account_id = $1 AND revoked_at IS NULL
+        GROUP BY legal_entity_id
+        ORDER BY (legal_entity_id = $2) DESC, legal_entity_id
+        LIMIT 1`,
+      [account.id, account.primary_legal_entity_id]
+    );
+    const legalEntityId = entity.rows[0]?.legal_entity_id;
+    if (legalEntityId === undefined) {
+      await record(account.id, false);
+      return { kind: "error", error: new IdentityError("NO_ACCESS_ASSIGNED", "Your account has no access assigned yet. Contact your administrator.") };
+    }
+    // A required first change records its success only once the new password is stored.
+    if (!account.must_change_password) await record(account.id, true);
+    return { kind: "ok", userAccountId: account.id, legalEntityId, verifiedHash: account.password_hash };
+  }
 
-      await tx.query("UPDATE abos.user_credentials SET failed_attempts = 0, locked_until = NULL WHERE user_account_id = $1", [account.id]);
-      if (account.status !== "ACTIVE") {
-        await record(false, account.id);
-        return { kind: "error", error: new IdentityError("ACCOUNT_INACTIVE", "This account is suspended. Contact your administrator.") };
-      }
-      if (account.must_change_password && !options.allowPasswordChange) {
-        await record(false, account.id);
-        return { kind: "error", error: new IdentityError("PASSWORD_CHANGE_REQUIRED", "Choose a new password before you continue.") };
-      }
-      const entity = await tx.query<{ readonly legal_entity_id: string }>(
-        `SELECT legal_entity_id FROM abos.user_permission_grants
-          WHERE user_account_id = $1 AND revoked_at IS NULL
-          GROUP BY legal_entity_id
-          ORDER BY (legal_entity_id = $2) DESC, legal_entity_id
-          LIMIT 1`,
-        [account.id, account.primary_legal_entity_id]
-      );
-      const legalEntityId = entity.rows[0]?.legal_entity_id;
-      if (legalEntityId === undefined) {
-        await record(false, account.id);
-        return { kind: "error", error: new IdentityError("NO_ACCESS_ASSIGNED", "Your account has no access assigned yet. Contact your administrator.") };
-      }
-      await record(true, account.id);
-      return { kind: "ok", userAccountId: account.id, legalEntityId };
-    });
+  private async recordAttempt(tx: SqlExecutor, login: string, clientAddress: string, userId: string | null, succeeded: boolean): Promise<void> {
+    await tx.query(
+      `INSERT INTO abos.login_attempts (id, login_key, client_key, user_account_id, succeeded)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [randomUUID(), this.key(`login:${login}`), this.key(`client:${clientAddress}`), userId, succeeded]
+    );
   }
 
   private async openSession(userAccountId: string, legalEntityId: string): Promise<LoginResult> {
@@ -493,6 +506,7 @@ export class IdentityService {
     return this.mutate(async (tx) => {
       const actor = await this.admin(tx, token, ADMIN_USERS);
       const before = await requireUser(tx, actor, userId);
+      requireSuperAdminFor(actor, await activeGrants(tx, userId, actor.legalEntityId));
       await tx.query(
         `UPDATE abos.user_accounts SET display_name = $2, job_title = $3, contact_email = $4, contact_phone = $5, updated_at = clock_timestamp()
           WHERE id = $1`,
@@ -577,11 +591,14 @@ export class IdentityService {
           entityType: "USER_ACCOUNT", entityId: userId, after: { roleId: role.id, roleName: role.name }
         });
       }
+      const beforeGrants = await activeGrants(tx, userId, actor.legalEntityId);
       await syncGrants(tx, actor, userId);
+      const afterGrants = await activeGrants(tx, userId, actor.legalEntityId);
       const revoked = await revokeAllSessions(tx, userId);
       await writeAudit(tx, {
-        actor: actor.userAccountId, legalEntityId: actor.legalEntityId, action: "SESSIONS_REVOKED",
-        entityType: "USER_ACCOUNT", entityId: userId, after: { reason: "ROLES_CHANGED", sessionsRevoked: revoked }
+        actor: actor.userAccountId, legalEntityId: actor.legalEntityId, action: "USER_PERMISSIONS_CHANGED",
+        entityType: "USER_ACCOUNT", entityId: userId,
+        before: { permissions: beforeGrants }, after: { permissions: afterGrants, reason: "ROLES_CHANGED", sessionsRevoked: revoked }
       });
       return this.detail(tx, actor, userId);
     });
@@ -600,7 +617,7 @@ export class IdentityService {
          VALUES ($1, $2, true, $3)
          ON CONFLICT (user_account_id) DO UPDATE
             SET password_hash = EXCLUDED.password_hash, must_change_password = true, password_set_at = clock_timestamp(),
-                password_set_by_user_account_id = EXCLUDED.password_set_by_user_account_id, failed_attempts = 0, locked_until = NULL`,
+                password_set_by_user_account_id = EXCLUDED.password_set_by_user_account_id`,
         [userId, hash, actor.userAccountId]
       );
       const revoked = await revokeAllSessions(tx, userId);
@@ -616,6 +633,7 @@ export class IdentityService {
     return this.mutate(async (tx) => {
       const actor = await this.admin(tx, token, ADMIN_USERS);
       await requireUser(tx, actor, userId);
+      if (userId !== actor.userAccountId) requireSuperAdminFor(actor, await activeGrants(tx, userId, actor.legalEntityId));
       const revoked = await revokeAllSessions(tx, userId);
       await writeAudit(tx, {
         actor: actor.userAccountId, legalEntityId: actor.legalEntityId, action: "SESSIONS_REVOKED",
@@ -837,11 +855,21 @@ function validateRole(input: RoleInput): { name: string; description: string; pe
   return { name, description, permissions: [...new Set(input.permissions)].sort() };
 }
 
+/**
+ * Administration access, and access that carries an independence rule (verify, approve, post,
+ * safe-account approval), can only be given, taken away or have its password reset by a Super
+ * Administrator. A user administrator therefore cannot take over an approver's account.
+ */
+const INDEPENDENCE_PERMISSIONS = new Set([
+  "treasury.cash-account.reconcile", "treasury.cash-account.approve", "treasury.cash-receipt.verify",
+  "finance.posting-intent.approve", "finance.journal.post", "finance.journal.reverse"
+]);
+
 function requireSuperAdminFor(actor: Actor, permissions: Iterable<string>): void {
-  const touchesAdministration = [...permissions].some((code) => ADMIN_PERMISSIONS.has(code));
+  const sensitive = [...permissions].some((code) => ADMIN_PERMISSIONS.has(code) || INDEPENDENCE_PERMISSIONS.has(code));
   const isSuperAdmin = actor.permissions.has(ADMIN_USERS) && actor.permissions.has(ADMIN_ROLES);
-  assertIdentity(!touchesAdministration || isSuperAdmin, "SUPER_ADMIN_REQUIRED",
-    "Only a Super Administrator can give, change or take away administration access.");
+  assertIdentity(!sensitive || isSuperAdmin, "SUPER_ADMIN_REQUIRED",
+    "Only a Super Administrator can give, change or take away administration or approval access, or reset the password of someone who holds it.");
 }
 
 async function requireAvailablePermissions(tx: SqlExecutor, codes: readonly string[]): Promise<void> {
@@ -907,10 +935,17 @@ async function requireUser(tx: SqlExecutor, actor: Actor, userId: string): Promi
   return row;
 }
 
+/**
+ * An employee account is administered only in its primary legal entity. Password, status and
+ * sessions are global to the account, so an account that also holds access in another legal entity
+ * is refused here and must be managed with authority over both.
+ */
 function memberOfEntity(alias: string, entityParameter: string): string {
   return `(${alias}.primary_legal_entity_id = ${entityParameter}
-    OR EXISTS (SELECT 1 FROM abos.user_permission_grants mg WHERE mg.user_account_id = ${alias}.id AND mg.legal_entity_id = ${entityParameter})
-    OR EXISTS (SELECT 1 FROM abos.user_role_assignments ma WHERE ma.user_account_id = ${alias}.id AND ma.legal_entity_id = ${entityParameter}))`;
+    AND NOT EXISTS (SELECT 1 FROM abos.user_permission_grants og WHERE og.user_account_id = ${alias}.id
+                     AND og.legal_entity_id <> ${entityParameter} AND og.revoked_at IS NULL)
+    AND NOT EXISTS (SELECT 1 FROM abos.user_role_assignments oa WHERE oa.user_account_id = ${alias}.id
+                     AND oa.legal_entity_id <> ${entityParameter} AND oa.revoked_at IS NULL))`;
 }
 
 async function loadUsers(tx: SqlExecutor, actor: Actor, userId: string | null): Promise<UserSummary[]> {
@@ -956,16 +991,18 @@ interface RoleRow { readonly id: string; readonly name: string; readonly status:
 async function loadRolesById(tx: SqlExecutor, legalEntityId: string, ids: readonly string[]): Promise<RoleRow[]> {
   if (ids.length === 0) return [];
   assertIdentity(ids.every((id) => /^[0-9a-f-]{36}$/i.test(id)), "NOT_FOUND", "One of the selected roles does not exist.");
-  const rows = await tx.query<RoleRow>(
-    `SELECT r.id, r.role_name AS name, r.status,
-            coalesce((SELECT jsonb_agg(rp.permission_code ORDER BY rp.permission_code) FROM abos.access_role_permissions rp
-                       WHERE rp.role_id = r.id), '[]'::jsonb) AS permissions
-       FROM abos.access_roles r
-      WHERE r.legal_entity_id = $1 AND r.id = ANY($2::uuid[])
-      FOR SHARE OF r`,
+  // Lock first. A concurrent role edit holds the role row FOR UPDATE until it commits; the
+  // permissions are read afterwards, in a new statement, so they are the committed ones.
+  const locked = await tx.query<{ readonly id: string; readonly name: string; readonly status: "ACTIVE" | "INACTIVE" }>(
+    `SELECT r.id, r.role_name AS name, r.status FROM abos.access_roles r
+      WHERE r.legal_entity_id = $1 AND r.id = ANY($2::uuid[]) FOR SHARE OF r`,
     [legalEntityId, ids]
   );
-  return rows.rows.map((row) => ({ ...row }));
+  const permissions = await tx.query<{ readonly role_id: string; readonly permission_code: string }>(
+    "SELECT role_id, permission_code FROM abos.access_role_permissions WHERE role_id = ANY($1::uuid[]) ORDER BY permission_code",
+    [locked.rows.map((row) => row.id)]
+  );
+  return locked.rows.map((row) => ({ ...row, permissions: permissions.rows.filter((item) => item.role_id === row.id).map((item) => item.permission_code) }));
 }
 
 async function loadRoleViews(tx: SqlExecutor, actor: Actor, roleId: string | null): Promise<RoleView[]> {
@@ -1001,7 +1038,7 @@ async function loadAudit(tx: SqlExecutor, legalEntityId: string, userId: string 
   }>(
     `SELECT a.id, a.occurred_at, a.action, a.entity_type, actor.display_name AS actor_name,
             coalesce(target_user.display_name, target_role.role_name) AS target_name, a.before_state, a.after_state
-       FROM abos.audit_records a
+       FROM abos.access_audit_records a
        LEFT JOIN abos.user_accounts actor ON actor.id = a.actor_user_account_id
        LEFT JOIN abos.user_accounts target_user ON a.entity_type = 'USER_ACCOUNT' AND target_user.id = a.entity_id
        LEFT JOIN abos.access_roles target_role ON a.entity_type = 'ACCESS_ROLE' AND target_role.id = a.entity_id
@@ -1044,6 +1081,9 @@ function translateDatabaseError(error: unknown): unknown {
     return new IdentityError("SELF_CHANGE_FORBIDDEN", "Nobody can give access to themselves. Another administrator must do it.");
   }
   if (code === "23505") return new IdentityError("DUPLICATE", "That name is already in use.");
+  if (code === "23514" && /only a super administrator can grant administration/.test(message)) {
+    return new IdentityError("SUPER_ADMIN_REQUIRED", "Only a Super Administrator can give administration access.");
+  }
   if (code === "23514" && /not available/.test(message)) {
     return new IdentityError("VALIDATION_FAILED", "Some selected permissions are not available in this version.");
   }

@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 
 import { AppShell } from "@/components/AppShell";
 import { LocaleProvider } from "@/components/LocaleProvider";
+import { SessionProvider } from "@/components/SessionProvider";
 import { publicEnvironment } from "@/lib/env";
 
 import "./globals.css";
@@ -24,7 +25,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
     <html lang="en" dir="ltr">
-      <body><LocaleProvider><AppShell>{children}</AppShell></LocaleProvider></body>
+      <body><LocaleProvider><SessionProvider><AppShell>{children}</AppShell></SessionProvider></LocaleProvider></body>
     </html>
   );
 }
