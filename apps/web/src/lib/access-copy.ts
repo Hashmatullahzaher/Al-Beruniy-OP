@@ -91,6 +91,12 @@ export const PERMISSION_COPY: Readonly<Record<string, PermissionCopy>> = {
   "finance.journal.reverse": {
     label: { en: "Reverse posted journals", fa: "برگشت ژورنال‌های ثبت‌شده" },
     allows: { en: "Request a reversal of a posted journal (planned for full V1).", fa: "درخواست برگشت ژورنال ثبت‌شده (برای نسخه کامل V1 برنامه‌ریزی شده)." }
+  },
+  // WP-B (catalogue version 3): Saraf accounts.
+  "treasury.saraf-account.manage": {
+    label: { en: "Manage Saraf accounts", fa: "مدیریت حساب‌های صراف" },
+    allows: { en: "Create a Saraf account by linking a Saraf to a Saraf control account from the Chart of Accounts in USD or AFN, and activate or deactivate Saraf accounts. Account set-up only: no Saraf transactions or transfers.", fa: "ایجاد حساب صراف با وصل کردن یک صراف به حساب کنترل صراف از جدول حساب‌ها به دالر یا افغانی، و فعال یا غیرفعال کردن حساب‌های صراف. فقط ایجاد حساب: بدون معامله یا انتقال صراف." },
+    independence: { en: "Whoever created a Saraf account cannot activate it.", fa: "کسی که حساب صراف را ایجاد کرده نمی‌تواند آن را فعال کند." }
   }
 };
 

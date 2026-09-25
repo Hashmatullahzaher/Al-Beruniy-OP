@@ -6,10 +6,10 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { AppIcon } from "@/components/AppIcon";
 import { useLocale } from "@/components/LocaleProvider";
 import { SignInPrompt } from "@/components/SignInPrompt";
+import { TreasurySafesPanel } from "@/components/TreasurySafes";
 import { StageZeroPageHeader, WorkspaceTabs, localized } from "@/components/StageZeroWorkspace";
 import type {
   ApiResponse,
-  CashAccountView,
   ReceiptStageView,
   ReceiptTraceView,
   ReceiptView,
@@ -29,14 +29,6 @@ const STAGE_COPY: Record<ReceiptStageView, Copy> = {
   REJECTED_BY_FINANCE: { en: "Rejected by Finance", fa: "توسط مالی رد شد" },
   POSTED_BY_FINANCE: { en: "Posted by Finance", fa: "توسط مالی ثبت شد" },
   VOIDED: { en: "Voided", fa: "باطل شد" }
-};
-
-const ACCOUNT_STATUS_COPY: Record<CashAccountView["status"], Copy> = {
-  DRAFT: { en: "Draft · not reconciled", fa: "پیش‌نویس · تطبیق نشده" },
-  RECONCILED: { en: "Reconciled · awaiting approval", fa: "تطبیق شد · در انتظار تصویب" },
-  APPROVED: { en: "Approved · not active", fa: "تصویب شد · فعال نیست" },
-  ACTIVE: { en: "Active", fa: "فعال" },
-  BLOCKED: { en: "Blocked", fa: "مسدود" }
 };
 
 const SOURCE_STATUS_COPY: Record<SourceView["status"], Copy> = {
@@ -236,7 +228,7 @@ export function TreasuryWorkspace() {
                   onChange={setActiveTab}
                 />
               </div>
-              {activeTab === "safes" ? <Safes overview={overview} busy={busy} act={act} canManage={overview.actor.treasuryPermissions.includes("treasury.cash-location.manage")} /> : null}
+              {activeTab === "safes" ? <TreasurySafesPanel busy={busy} act={act} onOpenReceipts={() => setActiveTab("receipts")} /> : null}
               {activeTab === "intents" ? <Intents overview={overview} busy={busy} act={act} onOpened={(id) => { setActiveTab("receipts"); selectReceipt(id); }} /> : null}
               {activeTab === "receipts" ? (
                 <Receipts overview={overview} selected={selectedReceipt} onSelect={selectReceipt} trace={trace} busy={busy} act={act} />
@@ -294,82 +286,6 @@ function Unavailable() {
       <AppIcon name="alert" size={22} />
       <p>{localized({ en: "The Treasury sandbox is not configured on this server, so nothing is shown. This is deliberate: without a sandbox database the interface does not fall back to demo figures.", fa: "محیط آزمایشی خزانه روی این سرور پیکربندی نشده است، بنابراین چیزی نمایش داده نمی‌شود. این عمدی است: بدون پایگاه داده آزمایشی، رابط به ارقام نمایشی بازنمی‌گردد." }, locale)}</p>
     </section>
-  );
-}
-
-function Safes({ overview, busy, act, canManage }: {
-  readonly overview: TreasuryOverview;
-  readonly busy: boolean;
-  readonly act: (url: string, body: Record<string, unknown>, success: Copy) => Promise<boolean>;
-  readonly canManage: boolean;
-}) {
-  const { locale } = useLocale();
-  const t = (copy: Copy) => localized(copy, locale);
-  const [candidates, setCandidates] = useState<readonly { readonly userAccountId: string; readonly displayName: string }[]>([]);
-  const [chosen, setChosen] = useState<Record<string, string>>({});
-  const firstLocation = overview.locations[0]?.id;
-  useEffect(() => {
-    let current = true;
-    if (canManage && firstLocation) {
-      void call<readonly { userAccountId: string; displayName: string }[]>(`/api/v1/treasury/cash-locations/${firstLocation}/cashiers`)
-        .then((result) => { if (current && result.ok) setCandidates(result.data); });
-    }
-    return () => { current = false; };
-  }, [canManage, firstLocation]);
-  if (overview.locations.length === 0) {
-    return <p className="treasury-empty">{t({ en: "No cash locations exist in this sandbox.", fa: "هیچ محل نگهداری نقد در این محیط وجود ندارد." })}</p>;
-  }
-  return (
-    <div className="treasury-safes">
-      {overview.locations.map((location) => (
-        <article key={location.id} className="treasury-safe">
-          <header>
-            <span aria-hidden="true"><AppIcon name="building" size={20} /></span>
-            <div>
-              <small>{t({ en: "Office safe", fa: "صندوق دفتر" })}</small>
-              <h3>{location.name}</h3>
-            </div>
-            <span className={`treasury-chip ${location.status === "ACTIVE" ? "ok" : "muted"}`}>{location.status}</span>
-          </header>
-          <div className="treasury-accounts">
-            {location.accounts.map((account) => (
-              <div key={account.id} className={`treasury-account ${account.status === "ACTIVE" ? "active" : ""}`}>
-                <strong>{account.currency}</strong>
-                <span className={`treasury-chip ${account.status === "ACTIVE" ? "ok" : account.status === "BLOCKED" ? "danger" : "muted"}`}>{t(ACCOUNT_STATUS_COPY[account.status])}</span>
-                <dl>
-                  <dt>{t({ en: "Opening position", fa: "موقعیت افتتاحیه" })}</dt>
-                  <dd>{account.openingStatus === "NOT_RECONCILED" ? t({ en: "Not counted or reconciled", fa: "شمارش یا تطبیق نشده" }) : `${account.openingStatus} · ${t({ en: "counted", fa: "شمارش‌شده" })} ${formatAmount(account.openingCountedAmount ?? "0", account.currency, locale)}`}</dd>
-                  <dt>{t({ en: "Activated by", fa: "فعال‌شده توسط" })}</dt>
-                  <dd>{account.activatedBy ?? "—"}</dd>
-                </dl>
-              </div>
-            ))}
-          </div>
-          <footer>
-            <small>{t({ en: "Assigned cashiers", fa: "صندوق‌داران تعیین‌شده" })}</small>
-            <span>{location.cashiers.length === 0 ? t({ en: "None", fa: "هیچ" }) : location.cashiers.map((cashier) => cashier.displayName).join(", ")}</span>
-          </footer>
-          {canManage ? (
-            <form className="treasury-inline-form treasury-assign" onSubmit={(event) => {
-              event.preventDefault();
-              const userAccountId = chosen[location.id] ?? "";
-              if (!userAccountId) return;
-              void act(`/api/v1/treasury/cash-locations/${location.id}/cashiers`, { userAccountId },
-                { en: "Cashier assigned to this safe. They can now record cash received into it.", fa: "صندوق‌دار به این صندوق تعیین شد. اکنون می‌تواند نقد دریافتی را در آن ثبت کند." });
-            }}>
-              <label htmlFor={`assign-${location.id}`}>{t({ en: "Give custody of this safe to", fa: "سپردن این صندوق به" })}</label>
-              <select id={`assign-${location.id}`} value={chosen[location.id] ?? ""} onChange={(event) => setChosen((current) => ({ ...current, [location.id]: event.target.value }))}>
-                <option value="">{t({ en: "Choose a person…", fa: "یک شخص را انتخاب کنید…" })}</option>
-                {candidates.filter((person) => !location.cashiers.some((cashier) => cashier.userAccountId === person.userAccountId))
-                  .map((person) => <option key={person.userAccountId} value={person.userAccountId}>{person.displayName}</option>)}
-              </select>
-              <button className="treasury-button" type="submit" disabled={busy || !chosen[location.id]}>{t({ en: "Assign as cashier", fa: "تعیین به عنوان صندوق‌دار" })}</button>
-            </form>
-          ) : null}
-          <p className="treasury-note">{t({ en: "No balance is shown. Treasury keeps counts and receipts, not a balance; a figure here would be invented.", fa: "مانده نمایش داده نمی‌شود. خزانه شمارش‌ها و دریافت‌ها را نگه می‌دارد، نه مانده را؛ هر رقمی در اینجا ساختگی می‌بود." })}</p>
-        </article>
-      ))}
-    </div>
   );
 }
 
