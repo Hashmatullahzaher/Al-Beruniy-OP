@@ -14,7 +14,7 @@
     "typecheck": "turbo run typecheck",
     "build": "turbo run build",
     "test": "pnpm test:unit && pnpm test:smoke",
-    "test:unit": "pnpm --filter @abos/contracts test && pnpm --filter @abos/database test && pnpm --filter @abos/finance test && pnpm --filter @abos/shareholder test && pnpm --filter @abos/treasury test && pnpm --filter @abos/sandbox-auth test && pnpm --filter @abos/identity test && pnpm --filter @abos/persistence test",
+    "test:unit": "pnpm --filter @abos/contracts test && pnpm --filter @abos/calendar test && pnpm --filter @abos/database test && pnpm --filter @abos/finance test && pnpm --filter @abos/shareholder test && pnpm --filter @abos/treasury test && pnpm --filter @abos/sandbox-auth test && pnpm --filter @abos/identity test && pnpm --filter @abos/persistence test",
     "test:database": "pnpm --filter @abos/database test",
     "test:integration": "pnpm --filter @abos/e1-integration test",
     "test:smoke": "pnpm --filter @abos/web test:smoke",

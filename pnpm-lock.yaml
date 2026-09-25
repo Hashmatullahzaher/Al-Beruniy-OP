@@ -73,6 +73,8 @@ importers:
         specifier: 8.15.5
         version: 8.15.5
 
+  packages/calendar: {}
+
   packages/contracts:
     dependencies:
       zod:
