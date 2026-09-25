@@ -35,6 +35,9 @@ const previewRoutes: ReadonlyArray<{ readonly path: string; readonly icon: AppIc
   { path: "/finance/treasury", icon: "coins", en: "Treasury", fa: "خزانه", visible: (can) => can("treasury.read") },
   { path: "/finance/handoffs", icon: "finance", en: "Finance inbox", fa: "صندوق مالی", visible: (can) => can("finance.report.operational.read") },
   { path: "/finance/calendar", icon: "reports-analytics", en: "Financial calendar", fa: "تقویم مالی", visible: (can) => can("finance.calendar.manage") || can("finance.report.operational.read") },
+  // WP-C: exchange rates and shareholder capital requests.
+  { path: "/finance/exchange-rates", icon: "coins", en: "Exchange rates", fa: "نرخ اسعار", visible: (can) => can("finance.exchange-rate.record") || can("finance.report.operational.read") },
+  { path: "/shareholders", icon: "finance", en: "Shareholder capital", fa: "سرمایه سهامداران", visible: (can) => can("shareholder.capital-request.create") || can("shareholder.read") },
   { path: "/admin/users", icon: "human-resources", en: "Users", fa: "کاربران", visible: (can) => can("admin.users.manage") },
   { path: "/admin/roles", icon: "shield", en: "Roles & permissions", fa: "نقش‌ها و صلاحیت‌ها", visible: (can) => can("admin.roles.manage") || can("admin.users.manage") }
 ];

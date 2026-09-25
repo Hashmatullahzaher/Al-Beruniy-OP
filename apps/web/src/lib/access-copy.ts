@@ -91,6 +91,19 @@ export const PERMISSION_COPY: Readonly<Record<string, PermissionCopy>> = {
   "finance.journal.reverse": {
     label: { en: "Reverse posted journals", fa: "برگشت ژورنال‌های ثبت‌شده" },
     allows: { en: "Request a reversal of a posted journal (planned for full V1).", fa: "درخواست برگشت ژورنال ثبت‌شده (برای نسخه کامل V1 برنامه‌ریزی شده)." }
+  },
+  // WP-C (catalogue version 3).
+  "finance.exchange-rate.record": {
+    label: { en: "Record daily exchange rates", fa: "ثبت نرخ روزانه اسعار" },
+    allows: { en: "Record the day's USD–AFN market or Saraf rate exactly as quoted, and correct a rate with a reason. Corrections never change rates already used by a transaction.", fa: "ثبت نرخ روز دالر–افغانی بازار یا صراف دقیقاً همان‌طور که اعلام شده، و اصلاح نرخ با ذکر دلیل. اصلاح هرگز نرخی را که در معامله‌ای استفاده شده تغییر نمی‌دهد." }
+  },
+  "shareholder.capital-request.create": {
+    label: { en: "Open capital requests from installments", fa: "باز کردن درخواست سرمایه از اقساط" },
+    allows: { en: "Open a capital request from an eligible agreement installment, in its own currency (USD or AFN), for Treasury to receive.", fa: "باز کردن درخواست سرمایه از قسط واجد شرایط قرارداد، به واحد پول خود آن (دالر یا افغانی)، تا خزانه دریافت کند." }
+  },
+  "shareholder.read": {
+    label: { en: "View shareholder agreements", fa: "مشاهده قراردادهای سهامداران" },
+    allows: { en: "See capital agreements, installments and capital requests, with totals kept per currency.", fa: "مشاهده قراردادهای سرمایه، اقساط و درخواست‌های سرمایه، با جمع‌ها به تفکیک واحد پول." }
   }
 };
 
