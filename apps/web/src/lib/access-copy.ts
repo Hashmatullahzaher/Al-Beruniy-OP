@@ -74,6 +74,16 @@ export const PERMISSION_COPY: Readonly<Record<string, PermissionCopy>> = {
     label: { en: "Manage financial calendar", fa: "مدیریت تقویم مالی" },
     allows: { en: "Choose the company's financial year (Solar Hijri, Gregorian or custom) and generate its monthly accounting periods as pending.", fa: "انتخاب سال مالی شرکت (هجری شمسی، میلادی یا سفارشی) و ایجاد دوره‌های ماهانه حسابداری در حالت انتظار." }
   },
+  // WP-A: Chart of Accounts (0014).
+  "finance.ledger-account.manage": {
+    label: { en: "Manage the Chart of Accounts", fa: "مدیریت جدول حساب‌ها" },
+    allows: { en: "Add accounts (usable at once), edit them, and deactivate or reactivate them. Safe and Saraf accounts are added the same way. Accounts in use keep their code, type, currency and control type.", fa: "افزودن حساب (فوراً قابل استفاده)، ویرایش، و غیرفعال یا فعال کردن دوباره آن‌ها. حساب‌های صندوق و صراف نیز به همین شکل افزوده می‌شوند. حساب‌های در حال استفاده کد، نوع، واحد پول و نوع کنترل خود را حفظ می‌کنند." }
+  },
+  "finance.ledger-account.review": {
+    label: { en: "Review new accounts", fa: "بازبینی حساب‌های جدید" },
+    allows: { en: "Work through the Finance Manager's review list: mark new or changed accounts as reviewed, or flag them for correction.", fa: "رسیدگی به فهرست بازبینی مدیر مالی: علامت‌گذاری حساب‌های جدید یا تغییر یافته به عنوان بازبینی‌شده یا نیازمند اصلاح." },
+    independence: { en: "Refused for whoever created or last changed that account.", fa: "برای کسی که آن حساب را ایجاد یا آخرین بار تغییر داده رد می‌شود." }
+  },
   "finance.posting-intent.create": {
     label: { en: "Prepare journals", fa: "آماده‌سازی ژورنال" },
     allows: { en: "Prepare the journal for a verified handoff so it can be approved.", fa: "آماده‌سازی ژورنال برای تحویل تاییدشده تا تصویب شود." }
