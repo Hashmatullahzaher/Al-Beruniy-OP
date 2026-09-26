@@ -1671,3 +1671,38 @@ button.review-context { border: 0; border-inline-start: 1px solid rgba(102, 142,
   .wpb-actions .treasury-button { flex: 1 1 100%; }
   .saraf-account dl, .safe-count dl { grid-template-columns: 1fr; }
 }
+
+/* WP-C: exchange rates and shareholder capital requests */
+.rates-grid { display: grid; grid-template-columns: minmax(260px, 340px) minmax(0, 1fr); gap: 14px; align-items: start; }
+.rates-entry, .rates-list, .shareholder-agreement { padding: 14px; }
+.rates-input { font-variant-numeric: tabular-nums; letter-spacing: .02em; }
+.rates-preview, .shareholder-snapshot { color: var(--abos-gold-300); font-variant-numeric: tabular-nums; }
+.rates-table, .shareholder-installments { width: 100%; border-collapse: collapse; font-size: 12px; }
+.rates-table th, .shareholder-installments th { padding: 7px 9px; color: var(--abos-gold-300); font-size: 10.5px; text-align: start; border-bottom: 1px solid rgba(224, 180, 79, .3); }
+.rates-table td, .shareholder-installments td { padding: 8px 9px; border-bottom: 1px solid rgba(60, 130, 176, .14); color: #d9e4eb; vertical-align: top; }
+.rates-table tr.superseded td { opacity: .62; }
+.rates-value { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rates-used { display: block; margin-top: 3px; color: #9fb4c3; font-size: 10.5px; }
+.rates-correction { min-width: 220px; }
+.rates-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.shareholder-totals { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+.shareholder-total { padding: 14px; display: grid; gap: 4px; }
+.shareholder-total p { margin: 0; color: var(--abos-gold-300); font-size: 11px; letter-spacing: .08em; }
+.shareholder-total strong { font-size: 20px; font-variant-numeric: tabular-nums; }
+.shareholder-total small { color: #9fb4c3; }
+.shareholder-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 10px; }
+.shareholder-request, .shareholder-blockers { display: grid; gap: 3px; }
+.shareholder-request small, .shareholder-blockers small { color: #9fb4c3; font-size: 10.5px; }
+.shareholder-request .treasury-chip { justify-self: start; }
+.shareholder-form { margin-top: 12px; padding: 12px; border: 1px solid rgba(224, 180, 79, .35); border-radius: 7px; background: rgba(3, 17, 29, .6); }
+.shareholder-rates { display: grid; gap: 6px; border: 1px solid rgba(60, 130, 176, .3); border-radius: 6px; padding: 8px 10px; }
+.shareholder-rates label { display: flex; gap: 8px; align-items: center; }
+.shareholder-rate-missing { color: #f3c77a; }
+@media (max-width: 960px) { .rates-grid { grid-template-columns: 1fr; } }
+@media (max-width: 720px) {
+  .rates-table thead, .shareholder-installments thead { display: none; }
+  .rates-table tr, .shareholder-installments tr { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; padding: 8px 0; border-bottom: 1px solid rgba(60, 130, 176, .2); }
+  .rates-table td, .shareholder-installments td { border: 0; padding: 2px 4px; }
+  .rates-table td[data-label]::before, .shareholder-installments td[data-label]::before { content: attr(data-label); display: block; color: var(--abos-gold-300); font-size: 10px; }
+  .rates-value { white-space: normal; }
+}

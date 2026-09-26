@@ -26,7 +26,7 @@ import {
  */
 
 const MARKER = SYNTHETIC_AUTH_CONFIGURATION.runtimeMarker;
-const OWNERS = ["abos_e1_treasury_owner", "abos_e1_finance_owner"] as const;
+const OWNERS = ["abos_e1_treasury_owner", "abos_e1_finance_owner", "abos_e1_shareholder_owner"] as const;
 const LOGINS = {
   finance: { name: "abos_e1_finance_runtime_test_login", password: "synthetic-finance-runtime-only-2026", role: "abos_e1_runtime" },
   treasury: { name: "abos_e1_treasury_runtime_test_login", password: "synthetic-treasury-runtime-only-2026", role: "abos_e1_treasury_runtime" },
@@ -55,7 +55,7 @@ if (databaseUrl() === undefined) {
                 p.proconfig AS config, has_function_privilege('public', p.oid, 'EXECUTE') AS public_execute
            FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace JOIN pg_roles r ON r.oid = p.proowner
           WHERE n.nspname = 'abos' AND p.prosecdef ORDER BY 1`);
-      assert.equal(rows.rows.length, 23, "every restricted entry point is accounted for (12 E1 + 3 calendar + 6 chart of accounts + 2 WP-B safes/Saraf)");
+      assert.equal(rows.rows.length, 29, "every restricted entry point is accounted for (12 E1 + 3 calendar + 6 chart of accounts + 2 WP-B safes/Saraf + 6 WP-C)");
       for (const fn of rows.rows) {
         assert.ok((OWNERS as readonly string[]).includes(fn.owner), `${fn.signature} is owned by ${fn.owner}`);
         assert.equal(fn.superuser, false, fn.signature);
@@ -79,7 +79,11 @@ if (databaseUrl() === undefined) {
         finance_ledger_account_create: "abos_e1_finance_owner", finance_ledger_account_update: "abos_e1_finance_owner",
         finance_ledger_account_set_status: "abos_e1_finance_owner", finance_ledger_account_review: "abos_e1_finance_owner",
         // WP-B (0015): safes, Saraf accounts and whole-safe counts.
-        treasury_safes_saraf_query: "abos_e1_treasury_owner", treasury_safes_saraf_command: "abos_e1_treasury_owner"
+        treasury_safes_saraf_query: "abos_e1_treasury_owner", treasury_safes_saraf_command: "abos_e1_treasury_owner",
+        // WP-C (0016): exchange rates are Finance; shareholder capital requests have their own least-privilege owner.
+        finance_exchange_rates_view: "abos_e1_finance_owner", finance_record_exchange_rate: "abos_e1_finance_owner",
+        finance_correct_exchange_rate: "abos_e1_finance_owner", shareholder_runtime_authorize: "abos_e1_shareholder_owner",
+        shareholder_capital_workspace: "abos_e1_shareholder_owner", shareholder_create_capital_request: "abos_e1_shareholder_owner"
       };
       assert.deepEqual(Object.fromEntries(rows.rows.map((fn) => [fn.name, fn.owner])), expectedOwner);
     });
@@ -101,6 +105,10 @@ if (databaseUrl() === undefined) {
       }
       for (const custody of ["cash_receipts", "physical_cash_counts", "cash_locations", "treasury_finance_handoffs"]) {
         assert.equal(await can("abos_e1_finance_owner", custody, "INSERT"), false, `Finance cannot insert ${custody}`);
+      }
+      for (const table of ["journals", "journal_lines", "posting_intents", "posting_approvals", "cash_receipts", "physical_cash_counts",
+        "cash_locations", "treasury_finance_handoffs", "exchange_rates", "capital_agreements", "capital_installments"]) {
+        assert.equal(await can("abos_e1_shareholder_owner", table, "INSERT"), false, `Shareholder owner cannot insert ${table}`);
       }
       for (const identity of ["user_credentials", "access_roles", "user_role_assignments", "login_attempts"]) {
         for (const owner of OWNERS) assert.equal(await can(owner, identity, "SELECT"), false, `${owner} cannot read ${identity}`);
