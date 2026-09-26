@@ -85,7 +85,7 @@ test.describe("V1 client preview", () => {
 
     // 7. Only the permitted workspace is offered...
     const previewNav = page.getByRole("navigation", { name: "V1 preview" });
-    await expect(previewNav.getByRole("link")).toHaveText(["My dashboard", "Treasury"]);
+    await expect(previewNav.getByRole("link")).toHaveText(["My dashboard", "Treasury", "Company"]);
     await shot(page, "06-employee-dashboard");
     // ...and the server refuses everything else, whatever the interface shows.
     const refusals = await page.evaluate(async () => ({
