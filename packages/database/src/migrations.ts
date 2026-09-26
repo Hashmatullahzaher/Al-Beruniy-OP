@@ -97,6 +97,12 @@ export const migrationCatalog = [
     checksumSha256: "35a9f511935dd2e3452556e80e3eccd2a778286489f3e1533ce038867ec0f298",
     relativePath: "infrastructure/database/migrations/0016_v1_currency_rates.sql",
   },
+  // Lead (#8): company profile.
+  {
+    id: "0017_v1_company_profile",
+    checksumSha256: "68edc2a10ce160088c45c1ae4ca589cf0ebefac1157223947cdeb6dc276a7a30",
+    relativePath: "infrastructure/database/migrations/0017_v1_company_profile.sql",
+  },
 ] as const satisfies readonly MigrationDefinition[];
 
 const migrationTableSql = `

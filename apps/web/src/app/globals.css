@@ -1706,3 +1706,13 @@ button.review-context { border: 0; border-inline-start: 1px solid rgba(102, 142,
   .rates-table td[data-label]::before, .shareholder-installments td[data-label]::before { content: attr(data-label); display: block; color: var(--abos-gold-300); font-size: 10px; }
   .rates-value { white-space: normal; }
 }
+
+/* Lead (#8): company configuration. */
+.company-grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 10px; align-items: start; }
+.company-card { padding: 14px; display: grid; gap: 10px; }
+.company-facts { display: grid; gap: 1px; margin: 0; background: rgba(64, 135, 180, .14); }
+.company-facts > div { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 10px; padding: 9px 10px; background: #071d30; align-items: center; }
+.company-facts dt { color: #7891a3; font-size: 11px; }
+.company-facts dd { margin: 0; display: flex; flex-wrap: wrap; gap: 6px; color: #d6e1e8; font-size: 13px; }
+@media (max-width: 960px) { .company-grid { grid-template-columns: 1fr; } }
+@media (max-width: 520px) { .company-facts > div { grid-template-columns: 1fr; gap: 2px; } }

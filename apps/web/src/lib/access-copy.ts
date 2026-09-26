@@ -27,6 +27,10 @@ export const PERMISSION_COPY: Readonly<Record<string, PermissionCopy>> = {
     label: { en: "Manage roles and permissions", fa: "مدیریت نقش‌ها و صلاحیت‌ها" },
     allows: { en: "Create and change custom roles and choose which permissions each role gives.", fa: "ایجاد و تغییر نقش‌های سفارشی و انتخاب صلاحیت‌های هر نقش." }
   },
+  "admin.company.manage": {
+    label: { en: "Manage company details", fa: "مدیریت مشخصات شرکت" },
+    allows: { en: "Enter or correct the company's legal name, registration number and go-live date.", fa: "وارد کردن یا اصلاح نام حقوقی، شماره ثبت و تاریخ آغاز کار شرکت." }
+  },
   "shareholder.capital-intent.create": {
     label: { en: "Create shareholder capital requests", fa: "ایجاد درخواست سرمایه سهامدار" },
     allows: { en: "Open a shareholder capital receipt request from an agreement installment.", fa: "باز کردن درخواست دریافت سرمایه از قسط قرارداد." }
@@ -150,6 +154,7 @@ export const AUDIT_ACTION_COPY: Readonly<Record<string, Copy>> = {
   ROLE_UPDATED: { en: "Role changed", fa: "نقش تغییر کرد" },
   ROLE_DEACTIVATED: { en: "Role deactivated", fa: "نقش غیرفعال شد" },
   ROLE_REACTIVATED: { en: "Role reactivated", fa: "نقش دوباره فعال شد" },
+  COMPANY_PROFILE_UPDATED: { en: "Company details changed", fa: "مشخصات شرکت تغییر کرد" },
   USER_PERMISSIONS_CHANGED: { en: "Access changed through a role", fa: "دسترسی از طریق نقش تغییر کرد" }
 };
 
