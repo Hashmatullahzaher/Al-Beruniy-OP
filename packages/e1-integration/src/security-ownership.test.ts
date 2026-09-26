@@ -55,7 +55,7 @@ if (databaseUrl() === undefined) {
                 p.proconfig AS config, has_function_privilege('public', p.oid, 'EXECUTE') AS public_execute
            FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace JOIN pg_roles r ON r.oid = p.proowner
           WHERE n.nspname = 'abos' AND p.prosecdef ORDER BY 1`);
-      assert.equal(rows.rows.length, 21, "every restricted entry point is accounted for (12 E1 + 3 calendar + 6 chart of accounts)");
+      assert.equal(rows.rows.length, 23, "every restricted entry point is accounted for (12 E1 + 3 calendar + 6 chart of accounts + 2 WP-B safes/Saraf)");
       for (const fn of rows.rows) {
         assert.ok((OWNERS as readonly string[]).includes(fn.owner), `${fn.signature} is owned by ${fn.owner}`);
         assert.equal(fn.superuser, false, fn.signature);
@@ -77,7 +77,9 @@ if (databaseUrl() === undefined) {
         // WP-A: chart of accounts (0014)
         finance_ledger_accounts_view: "abos_e1_finance_owner", finance_ledger_account_check: "abos_e1_finance_owner",
         finance_ledger_account_create: "abos_e1_finance_owner", finance_ledger_account_update: "abos_e1_finance_owner",
-        finance_ledger_account_set_status: "abos_e1_finance_owner", finance_ledger_account_review: "abos_e1_finance_owner"
+        finance_ledger_account_set_status: "abos_e1_finance_owner", finance_ledger_account_review: "abos_e1_finance_owner",
+        // WP-B (0015): safes, Saraf accounts and whole-safe counts.
+        treasury_safes_saraf_query: "abos_e1_treasury_owner", treasury_safes_saraf_command: "abos_e1_treasury_owner"
       };
       assert.deepEqual(Object.fromEntries(rows.rows.map((fn) => [fn.name, fn.owner])), expectedOwner);
     });
@@ -160,7 +162,10 @@ if (databaseUrl() === undefined) {
         ["finance", "SELECT abos.is_assigned_cashier(gen_random_uuid(), gen_random_uuid())"],
         ["identity", "SELECT abos.assert_sandbox_mutation_authorized(gen_random_uuid())"],
         ["finance", "SELECT abos.check_super_admin_remains(gen_random_uuid())"],
-        ["identity", "SELECT abos.require_treasury_permission(gen_random_uuid(), gen_random_uuid(), 'treasury.read', 'x')"]
+        ["identity", "SELECT abos.require_treasury_permission(gen_random_uuid(), gen_random_uuid(), 'treasury.read', 'x')"],
+        // WP-B (0015): the safes/Saraf entry points belong to the Treasury runtime only.
+        ["finance", "SELECT abos.treasury_safes_saraf_query($1, gen_random_uuid(), 'SARAF_ACCOUNTS')"],
+        ["identity", "SELECT abos.treasury_safes_saraf_command($1, gen_random_uuid(), 'RECORD_SAFE_COUNT', '{}'::jsonb)"]
       ] as const) {
         await assert.rejects(() => restricted(kind, (db) => db.query(call, call.includes("$1") ? [token] : [])),
           (error: unknown) => (error as { code?: string }).code === "42501" && /permission denied for function/.test(String(error)), `${kind}: ${call}`);

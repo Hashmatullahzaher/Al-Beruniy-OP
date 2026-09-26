@@ -6,3 +6,4 @@ export * from "./secure-capital-posting.ts";
 export * from "./treasury-repository.ts";
 export * from "./restricted-treasury-gateway.ts";
 export * from "./restricted-treasury-repository.ts";
+export * from "./restricted-treasury-safes-repository.ts";

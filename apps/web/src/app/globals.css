@@ -1617,3 +1617,57 @@ button.review-context { border: 0; border-inline-start: 1px solid rgba(102, 142,
   .coa-tree > button .coa-badges { grid-column: 1 / -1; justify-content: flex-start; }
   .coa-review-card > header { grid-template-columns: auto minmax(0, 1fr); }
 }
+
+/* WP-B: safes, Saraf accounts and whole-safe counts (Treasury · Safes & accounts tab). */
+.wpb-safes { display: grid; gap: 4px; }
+.wpb-switch { display: flex; flex-wrap: wrap; gap: 6px; padding: 12px 12px 0; }
+.wpb-switch button { min-height: 34px; display: inline-flex; align-items: center; gap: 8px; padding: 0 12px; border: 1px solid rgba(73, 145, 192, .3); border-radius: 999px; background: transparent; color: #b9c9d6; font-size: 11.5px; font-weight: 650; cursor: pointer; }
+.wpb-switch button span { min-width: 20px; padding: 1px 6px; border-radius: 999px; background: rgba(40, 167, 243, .14); color: var(--abos-cyan-300); font-size: 10px; text-align: center; }
+.wpb-switch button.selected { border-color: rgba(241, 207, 119, .6); background: linear-gradient(180deg, rgba(224, 180, 79, .22), rgba(140, 104, 31, .25)); color: var(--abos-gold-300); }
+.wpb-card { display: grid; gap: 10px; padding: 12px; border: 1px solid rgba(241, 207, 119, .28); border-radius: 7px; background: rgba(12, 24, 38, .7); }
+.wpb-card h3 { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--abos-gold-300); font-size: 12.5px; letter-spacing: .04em; }
+.wpb-card p { margin: 0; color: #cdd9e3; font-size: 11.5px; line-height: 1.55; }
+.wpb-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; align-items: end; }
+.wpb-form h3, .wpb-form .treasury-note { grid-column: 1 / -1; }
+.wpb-form label { display: grid; gap: 4px; min-width: 0; }
+.wpb-form label > span { color: #9fb2c3; font-size: 10.5px; }
+.wpb-form .treasury-button { justify-self: start; }
+.wpb-inline { padding: 10px 0 0; border-top: 1px dashed rgba(73, 145, 192, .25); grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+.wpb-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.wpb-actions > .wpb-form { flex: 1 1 100%; }
+.wpb-wait { display: flex; align-items: center; gap: 6px; margin: 0; color: #9fb2c3; font-size: 10.5px; line-height: 1.45; }
+.wpb-wait svg { flex: none; color: var(--abos-gold-300); }
+.wpb-intro { margin: 0; padding: 12px 12px 0; color: #9fb2c3; font-size: 11.5px; line-height: 1.55; }
+.wpb-saraf, .wpb-counts { display: grid; gap: 12px; padding: 12px; }
+.wpb-saraf .wpb-intro { padding: 0; }
+.saraf-accounts, .safe-counts { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; margin: 0; padding: 0; list-style: none; }
+.saraf-account, .safe-count { display: grid; gap: 8px; padding: 12px; border: 1px solid rgba(73, 145, 192, .25); border-radius: 7px; background: rgba(4, 18, 31, .55); }
+.saraf-account.status-active { border-color: rgba(75, 221, 162, .35); }
+.saraf-account.status-inactive { opacity: .75; }
+.saraf-account header, .safe-count header { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.saraf-account header strong { flex: 1 1 auto; font-size: 13px; }
+.wpb-currency { padding: 2px 7px; border-radius: 5px; background: rgba(40, 167, 243, .14); color: var(--abos-cyan-300); font-size: 10.5px; font-weight: 700; letter-spacing: .06em; }
+.saraf-account dl, .safe-count dl { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 10px; margin: 0; font-size: 10.5px; }
+.saraf-account dt, .safe-count dt { color: #7f95a8; }
+.saraf-account dd, .safe-count dd { margin: 0; color: #cdd9e3; overflow-wrap: anywhere; }
+.safe-count header > div { display: grid; flex: 1 1 auto; gap: 2px; }
+.safe-count header small { color: #7f95a8; font-size: 10px; }
+.safe-count header strong { font-size: 16px; }
+.safe-count.different { border-color: rgba(241, 207, 119, .45); }
+.safe-count dd small { display: block; margin-top: 2px; color: #8ea3b5; font-size: 10px; }
+.wpb-even { color: #9ef0cb !important; }
+.wpb-different { color: var(--abos-gold-300) !important; font-weight: 700; }
+.wpb-mode { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px; margin: 0; padding: 0; border: 0; }
+.wpb-mode legend { margin-bottom: 6px; color: #9fb2c3; font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; }
+.wpb-mode label { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid rgba(73, 145, 192, .3); border-radius: 7px; cursor: pointer; }
+.wpb-mode label.selected { border-color: rgba(241, 207, 119, .6); background: rgba(224, 180, 79, .08); }
+.wpb-mode input { min-height: auto; margin-top: 2px; accent-color: var(--abos-gold-300); }
+.wpb-mode span { display: grid; gap: 2px; }
+.wpb-mode strong { font-size: 12px; }
+.wpb-mode small { color: #9fb2c3; font-size: 10.5px; }
+@media (max-width: 520px) {
+  .wpb-form, .wpb-inline { grid-template-columns: 1fr; }
+  .saraf-accounts, .safe-counts { grid-template-columns: 1fr; }
+  .wpb-actions .treasury-button { flex: 1 1 100%; }
+  .saraf-account dl, .safe-count dl { grid-template-columns: 1fr; }
+}
