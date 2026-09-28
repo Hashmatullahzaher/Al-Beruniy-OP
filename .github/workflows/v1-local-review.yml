@@ -1,0 +1,78 @@
+name: V1 localhost review
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - "codex/v1-local-review"
+  pull_request:
+    paths:
+      - "packages/e1-integration/**"
+      - "infrastructure/local-review/**"
+      - "docs/05-operations/V1_LOCALHOST_RUNBOOK.md"
+      - "docs/04-delivery/V1_LOCAL_REVIEW_TARGET.md"
+      - "package.json"
+
+jobs:
+  validate-local-review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.8.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test:unit
+      - run: pnpm build
+
+      - name: Bootstrap a clean localhost V1 database
+        run: |
+          pnpm --filter @abos/e1-integration exec node --experimental-strip-types scripts/local-review.ts setup \
+            --company-code=CI-ABOS \
+            --company-name="CI Local Review Company" \
+            --entity-code=CI-ENTITY \
+            --entity-name="CI Local Review Entity" \
+            --admin-login=ci.superadmin \
+            --admin-name="CI Super Administrator"
+
+      - name: Verify local-review data boundary
+        shell: bash
+        run: |
+          pnpm v1:local:status
+          set -a
+          source .env.local-review.local
+          set +a
+          docker exec abos-v1-local-review-pg psql -U abos_local_operator -d abos_v1_local_review -v ON_ERROR_STOP=1 -Atc "
+            SELECT CASE WHEN
+              (SELECT count(*) FROM abos.companies) = 1
+              AND (SELECT count(*) FROM abos.legal_entities) = 1
+              AND (SELECT count(*) FROM abos.user_accounts) = 2
+              AND (SELECT count(*) FROM abos.business_parties) = 0
+              AND (SELECT count(*) FROM abos.ledger_accounts) = 0
+              AND (SELECT count(*) FROM abos.cash_locations) = 0
+            THEN 'clean' ELSE 'unexpected-data' END;
+          " | grep -qx clean
+
+      - name: Run the real PostgreSQL integration suite in a separate database
+        shell: bash
+        run: |
+          set -a
+          source .env.local-review.local
+          set +a
+          docker exec abos-v1-local-review-pg createdb -U abos_local_operator abos_e1_ci
+          export ABOS_TEST_DATABASE_URL="postgresql://abos_local_operator:${ABOS_LOCAL_POSTGRES_PASSWORD}@127.0.0.1:55432/abos_e1_ci"
+          pnpm test:integration
+
+      - name: Prove the guarded empty reset
+        run: |
+          pnpm --filter @abos/e1-integration exec node --experimental-strip-types scripts/local-review.ts reset --confirm=RESET-LOCAL-V1
+          pnpm v1:local:status
