@@ -19,6 +19,10 @@
     "test:integration": "pnpm --filter @abos/e1-integration test",
     "test:smoke": "pnpm --filter @abos/web test:smoke",
     "test:e2e": "pnpm --filter @abos/web test:e2e",
+    "v1:local:setup": "pnpm --filter @abos/e1-integration local:setup",
+    "v1:local:status": "pnpm --filter @abos/e1-integration local:status",
+    "v1:local:reset": "pnpm --filter @abos/e1-integration local:reset",
+    "v1:local:start": "pnpm --filter @abos/web exec next dev --hostname 127.0.0.1 --port 3200",
     "clean": "turbo run clean"
   },
   "devDependencies": {

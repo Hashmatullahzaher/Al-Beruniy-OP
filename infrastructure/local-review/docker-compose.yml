@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: abos-v1-local-review-pg
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: abos_local_operator
+      POSTGRES_PASSWORD: ${ABOS_LOCAL_POSTGRES_PASSWORD}
+      POSTGRES_DB: abos_v1_local_review
+    ports:
+      - "127.0.0.1:55432:5432"
+    volumes:
+      - abos_v1_local_review_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U abos_local_operator -d abos_v1_local_review"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  abos_v1_local_review_data:
