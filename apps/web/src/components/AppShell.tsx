@@ -41,6 +41,8 @@ const previewRoutes: ReadonlyArray<{ readonly path: string; readonly icon: AppIc
   // WP-C: exchange rates and shareholder capital requests.
   { path: "/finance/exchange-rates", icon: "coins", en: "Exchange rates", fa: "نرخ اسعار", visible: (can) => can("finance.exchange-rate.record") || can("finance.report.operational.read") },
   { path: "/shareholders", icon: "finance", en: "Shareholder capital", fa: "سرمایه سهامداران", visible: (can) => can("shareholder.capital-request.create") || can("shareholder.read") },
+  // WP #17: journal reversals (request -> Finance Manager decision; posting awaits policy).
+  { path: "/finance/reversals", icon: "finance", en: "Journal reversals", fa: "برگشت ژورنال‌ها", visible: (can) => can("finance.reversal.request") || can("finance.reversal.approve") || can("finance.report.operational.read") },
   // Lead (#8): company details are visible to every signed-in employee.
   { path: "/admin/company", icon: "building", en: "Company", fa: "شرکت", visible: () => true },
   { path: "/admin/users", icon: "human-resources", en: "Users", fa: "کاربران", visible: (can) => can("admin.users.manage") },

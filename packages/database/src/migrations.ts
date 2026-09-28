@@ -125,6 +125,12 @@ export const migrationCatalog = [
     checksumSha256: "e6fadd3bc0775beb8845534c9ae3dded946e39440aa0fe38ba195063231119c5",
     relativePath: "infrastructure/database/migrations/0022_v1_identity_actor_context_fix.sql",
   },
+  // WP #17: controlled reversal requests (request -> Finance Manager decision; posting fail-closed).
+  {
+    id: "0023_v1_reversal_requests",
+    checksumSha256: "b56e026ee8612c921cf2a4815a75bcdfda43a72932e824e4da363ad1bd570242",
+    relativePath: "infrastructure/database/migrations/0023_v1_reversal_requests.sql",
+  },
 ] as const satisfies readonly MigrationDefinition[];
 
 const migrationTableSql = `

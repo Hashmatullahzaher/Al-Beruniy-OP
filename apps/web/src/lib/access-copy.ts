@@ -124,6 +124,17 @@ export const PERMISSION_COPY: Readonly<Record<string, PermissionCopy>> = {
   "shareholder.read": {
     label: { en: "View shareholder agreements", fa: "مشاهده قراردادهای سهامداران" },
     allows: { en: "See capital agreements, installments and capital requests, with totals kept per currency.", fa: "مشاهده قراردادهای سرمایه، اقساط و درخواست‌های سرمایه، با جمع‌ها به تفکیک واحد پول." }
+  },
+  // WP #17 (catalogue version 4): journal reversals. Posting an approved reversal awaits policy.
+  "finance.reversal.request": {
+    label: { en: "Request journal reversals", fa: "درخواست برگشت ژورنال" },
+    allows: { en: "Ask for a posted journal to be reversed, with a written reason, and withdraw your own request while it waits. The posted journal itself never changes.", fa: "درخواست برگشت یک ژورنال ثبت‌شده با ذکر دلیل نوشته‌شده، و پس گرفتن درخواست خود تا زمانی که منتظر است. خود ژورنال ثبت‌شده هرگز تغییر نمی‌کند." },
+    independence: { en: "Refused for whoever prepared, approved or posted that journal (a cautious rule until the Finance Manager decides).", fa: "برای کسی که آن ژورنال را آماده، تایید یا ثبت کرده رد می‌شود (قاعدهٔ محتاطانه تا تصمیم مدیر مالی)." }
+  },
+  "finance.reversal.approve": {
+    label: { en: "Approve journal reversals", fa: "تایید برگشت ژورنال" },
+    allows: { en: "Approve or reject (with a note) a requested reversal. Approval records the decision only: posting the reversal waits for the Finance Manager's posting policy.", fa: "تایید یا رد (با یادداشت) برگشت درخواست‌شده. تایید فقط تصمیم را ثبت می‌کند: ثبت برگشت منتظر پالیسی ثبت مدیر مالی است." },
+    independence: { en: "Never by the person who requested it, nor by whoever prepared, approved or posted the journal.", fa: "هرگز توسط درخواست‌کننده، و نه توسط کسی که ژورنال را آماده، تایید یا ثبت کرده است." }
   }
 };
 
