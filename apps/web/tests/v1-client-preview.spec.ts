@@ -84,7 +84,7 @@ test.describe("V1 client preview", () => {
     await expect(page.getByRole("heading", { level: 1, name: /Welcome, Synthetic Receipt Officer/ })).toBeVisible();
 
     // 7. Only the permitted workspace is offered...
-    const previewNav = page.getByRole("navigation", { name: "V1 preview" });
+    const previewNav = page.getByRole("navigation", { name: "V1 operations" });
     await expect(previewNav.getByRole("link")).toHaveText(["My dashboard", "Treasury", "Company"]);
     await shot(page, "06-employee-dashboard");
     // ...and the server refuses everything else, whatever the interface shows.

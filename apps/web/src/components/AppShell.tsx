@@ -29,8 +29,8 @@ const faLabels: Record<string, string> = {
   settings: "تنظیمات"
 };
 
-/** V1 client-preview workspaces. Each is shown only to people whose permissions it serves. */
-const previewRoutes: ReadonlyArray<{ readonly path: string; readonly icon: AppIconName; readonly en: string; readonly fa: string; readonly visible: (can: (permission: string) => boolean) => boolean }> = [
+/** Operational workspaces. Visibility helps the user; the server and database still authorize. */
+const operationalRoutes: ReadonlyArray<{ readonly path: string; readonly icon: AppIconName; readonly en: string; readonly fa: string; readonly visible: (can: (permission: string) => boolean) => boolean }> = [
   { path: "/dashboard", icon: "overview", en: "My dashboard", fa: "داشبورد من", visible: () => true },
   { path: "/finance/treasury", icon: "coins", en: "Treasury", fa: "خزانه", visible: (can) => can("treasury.read") },
   { path: "/finance/handoffs", icon: "finance", en: "Finance inbox", fa: "صندوق مالی", visible: (can) => can("finance.report.operational.read") },
@@ -45,6 +45,7 @@ const previewRoutes: ReadonlyArray<{ readonly path: string; readonly icon: AppIc
   { path: "/finance/reversals", icon: "finance", en: "Journal reversals", fa: "برگشت ژورنال‌ها", visible: (can) => can("finance.reversal.request") || can("finance.reversal.approve") || can("finance.report.operational.read") },
   // Lead (#8): company details are visible to every signed-in employee.
   { path: "/admin/company", icon: "building", en: "Company", fa: "شرکت", visible: () => true },
+  { path: "/admin/finance-workflows", icon: "shield", en: "Workflow approvals", fa: "تأیید جریان‌ها", visible: (can) => can("admin.finance-workflow.manage") },
   { path: "/admin/users", icon: "human-resources", en: "Users", fa: "کاربران", visible: (can) => can("admin.users.manage") },
   { path: "/admin/roles", icon: "shield", en: "Roles & permissions", fa: "نقش‌ها و صلاحیت‌ها", visible: (can) => can("admin.roles.manage") || can("admin.users.manage") }
 ];
@@ -59,9 +60,16 @@ export function AppShell({ children }: AppShellProps) {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const { locale, toggleLocale } = useLocale();
   const shortSha = publicEnvironment.gitSha === "unknown" ? "unknown" : publicEnvironment.gitSha.slice(0, 12);
-  const searchResults = query.trim() ? workspaceRoutes.filter((route) => route.label.toLowerCase().includes(query.trim().toLowerCase())) : [];
   const signedIn = session.status === "signed-in" && session.user !== null;
   const fa = locale === "fa";
+  const visibleRoutes = signedIn ? operationalRoutes.filter((route) => route.visible(session.can)) : [];
+  const normalizedQuery = query.trim().toLowerCase();
+  const operationalSearchResults = normalizedQuery
+    ? visibleRoutes.filter((route) => `${route.en} ${route.fa}`.toLowerCase().includes(normalizedQuery))
+    : [];
+  const demoSearchResults = normalizedQuery && !signedIn
+    ? workspaceRoutes.filter((route) => route.label.toLowerCase().includes(normalizedQuery))
+    : [];
 
   if (pathname === "/login") {
     return <main id="main-content" className="login-main" tabIndex={-1}>{children}</main>;
@@ -85,9 +93,9 @@ export function AppShell({ children }: AppShellProps) {
         </Link>
 
         {signedIn ? (
-          <nav className="navigation preview-navigation" aria-label={fa ? "پیش‌نمایش V1" : "V1 preview"}>
-            <p className="navigation-heading">{fa ? "پیش‌نمایش V1" : "V1 preview"}</p>
-            {previewRoutes.filter((route) => route.visible(session.can)).map((route) => {
+          <nav className="navigation preview-navigation" aria-label={fa ? "عملیات V1" : "V1 operations"}>
+            <p className="navigation-heading">{fa ? "عملیات V1" : "V1 operations"}</p>
+            {visibleRoutes.map((route) => {
               const active = pathname === route.path || pathname.startsWith(`${route.path}/`);
               return (
                 <Link key={route.path} href={route.path} aria-current={active ? "page" : undefined} onClick={() => setMenuOpen(false)}>
@@ -98,34 +106,29 @@ export function AppShell({ children }: AppShellProps) {
             })}
           </nav>
         ) : (
-          <div className="navigation preview-navigation">
+          <nav className="navigation" aria-label="Primary navigation">
+            {workspaceRoutes.map((route) => {
+              const active = pathname === route.path || (route.path !== "/" && pathname.startsWith(`${route.path}/`));
+              return (
+                <Link key={route.id} href={route.path} aria-current={active ? "page" : undefined} onClick={() => setMenuOpen(false)}>
+                  <span className="nav-glyph" aria-hidden="true"><AppIcon name={route.id} size={18} /></span>
+                  <span>{fa ? faLabels[route.id] : route.label}</span>
+                </Link>
+              );
+            })}
             <Link href="/login" className="sign-in-link" onClick={() => setMenuOpen(false)}>
               <span className="nav-glyph" aria-hidden="true"><AppIcon name="key" size={18} /></span>
               <span>{fa ? "ورود کارمندان" : "Employee sign-in"}</span>
             </Link>
-          </div>
+          </nav>
         )}
-        {signedIn ? <p className="navigation-heading muted">{fa ? "طرح‌های نمایشی · خارج از V1" : "Design previews · not in V1"}</p> : null}
-        <nav className="navigation" aria-label="Primary navigation">
-          {workspaceRoutes.map((route) => {
-            const inPreview = signedIn && previewRoutes.some((preview) => pathname === preview.path || pathname.startsWith(`${preview.path}/`));
-            const active = !inPreview && (pathname === route.path || (route.path !== "/" && pathname.startsWith(`${route.path}/`)));
-            return (
-              <Link key={route.id} href={route.path} aria-current={active ? "page" : undefined} onClick={() => setMenuOpen(false)}>
-                <span className="nav-glyph" aria-hidden="true"><AppIcon name={route.id} size={18} /></span>
-                <span>{locale === "fa" ? faLabels[route.id] : route.label}</span>
-              </Link>
-            );
-          })}
-        </nav>
-
         <div className="sidebar-quote"><q>{locale === "fa" ? "ساختن فردای بهتر" : "Building Better Tomorrows"}</q><span /><small>AL-BERUNIY<br />DEVELOPMENTS</small></div>
         <div className="sidebar-boundary">
           <span className="boundary-dot" aria-hidden="true" />
           {signedIn
-            ? <span><strong>{fa ? "پیش‌نمایش مشتری V1" : "V1 client preview"}</strong><small>{fa ? "فقط داده مصنوعی" : "Synthetic data only"}</small></span>
+            ? <span><strong>{fa ? "عملیات V1" : "V1 operations"}</strong><small>{fa ? "دسترسی کنترل‌شده" : "Controlled access"}</small></span>
             : <span><strong>{fa ? "مرحله صفر" : "Stage 0"}</strong><small>{fa ? "بازبینی رابط کاربری" : "Interface review"}</small></span>}
-          <span className="shell-badge">{signedIn ? "PREVIEW" : "DEMO"}</span>
+          <span className="shell-badge">{signedIn ? "V1" : "DEMO"}</span>
         </div>
       </aside>
 
@@ -144,9 +147,11 @@ export function AppShell({ children }: AppShellProps) {
             <label className="sr-only" htmlFor="workspace-search">Search workspaces</label>
             <AppIcon name="search" size={18} />
             <input id="workspace-search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={locale === "fa" ? "جستجوی پروژه‌ها، واحدها، گزارش‌ها..." : "Search projects, units, clients, reports..."} autoComplete="off" />
-            {searchResults.length > 0 ? (
+            {operationalSearchResults.length > 0 || demoSearchResults.length > 0 ? (
               <div className="search-results" role="navigation" aria-label="Workspace search results">
-                {searchResults.map((route) => <Link href={route.path} key={route.id} onClick={() => setQuery("")}><AppIcon name={route.id} size={16} /><span>{route.label}</span></Link>)}
+                {signedIn
+                  ? operationalSearchResults.map((route) => <Link href={route.path} key={route.path} onClick={() => setQuery("")}><AppIcon name={route.icon} size={16} /><span>{fa ? route.fa : route.en}</span></Link>)
+                  : demoSearchResults.map((route) => <Link href={route.path} key={route.id} onClick={() => setQuery("")}><AppIcon name={route.id} size={16} /><span>{fa ? faLabels[route.id] : route.label}</span></Link>)}
               </div>
             ) : null}
           </div>
@@ -194,7 +199,7 @@ export function AppShell({ children }: AppShellProps) {
           <span>{publicEnvironment.environment}</span>
           <span>Build {shortSha}</span>
           <span>{signedIn
-            ? (fa ? "پیش‌نمایش مصنوعی · ثبت واقعی مالی غیرفعال است" : "Synthetic preview · real financial posting disabled")
+            ? (fa ? "پیکربندی عملیاتی · ثبت مالی هنوز غیرفعال است" : "Operational configuration · financial posting remains disabled")
             : (fa ? "هیچ سرویس عملیاتی متصل نیست" : "No operational services connected")}</span>
         </footer>
       </div>

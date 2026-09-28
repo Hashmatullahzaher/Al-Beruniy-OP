@@ -1715,6 +1715,30 @@ button.review-context { border: 0; border-inline-start: 1px solid rgba(102, 142,
 .company-facts dt { color: #7891a3; font-size: 11px; }
 .company-facts dd { margin: 0; display: flex; flex-wrap: wrap; gap: 6px; color: #d6e1e8; font-size: 13px; }
 @media (max-width: 960px) { .company-grid { grid-template-columns: 1fr; } }
+
+/* V1 operational Finance workflow policy. */
+.policy-boundary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; margin-bottom: 10px; background: rgba(73, 145, 192, .24); }
+.policy-boundary > div { padding: 13px 15px; background: rgba(5, 23, 38, .96); }
+.policy-boundary strong { color: var(--abos-gold-300); font-size: 12px; }
+.policy-boundary p { margin: 4px 0 0; color: var(--abos-slate-300); font-size: 11.5px; line-height: 1.55; }
+.policy-boundary > p { grid-column: 1 / -1; margin: 0; padding: 10px 15px; background: rgba(6, 27, 44, .98); color: #a9bece; }
+.policy-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.policy-card { padding: 14px; }
+.policy-card > header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding-bottom: 12px; border-bottom: 1px solid rgba(73, 145, 192, .22); }
+.policy-card > header p { margin: 0 0 3px; color: var(--abos-cyan-300); font-size: 9px; font-weight: 750; letter-spacing: .18em; }
+.policy-card > header h2 { margin: 0; font-size: 15px; }
+.policy-card .admin-form { margin-top: 12px; }
+.policy-toggle { display: grid !important; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 9px !important; padding: 9px 10px; border: 1px solid rgba(73, 145, 192, .28); border-radius: 7px; background: rgba(8, 30, 49, .5); cursor: pointer; }
+.policy-toggle input { width: 18px; min-height: 18px; margin: 0; accent-color: var(--abos-gold-400); }
+.policy-card .admin-form > small { color: var(--abos-slate-400); font-size: 10.5px; line-height: 1.5; }
+.policy-card > footer { display: flex; flex-wrap: wrap; gap: 7px 12px; margin-top: 12px; padding-top: 10px; border-top: 1px solid rgba(73, 145, 192, .2); color: var(--abos-slate-400); font-size: 10px; }
+.policy-history { margin-top: 10px; color: var(--abos-slate-300); font-size: 10.5px; }
+.policy-history summary { cursor: pointer; color: var(--abos-cyan-300); font-weight: 650; }
+.policy-history ol { display: grid; gap: 6px; margin: 8px 0 0; padding-inline-start: 22px; }
+.policy-history li { display: grid; grid-template-columns: auto auto minmax(0, 1fr); gap: 5px 9px; align-items: baseline; }
+.policy-history li small { grid-column: 1 / -1; color: var(--abos-slate-400); }
+@media (max-width: 960px) { .policy-grid { grid-template-columns: 1fr; } }
+@media (max-width: 640px) { .policy-boundary { grid-template-columns: 1fr; } .policy-boundary > p { grid-column: 1; } }
 @media (max-width: 520px) { .company-facts > div { grid-template-columns: 1fr; gap: 2px; } }
 
 /* WP #17 reversals: request -> Finance Manager decision; posting awaits the Finance Manager's policy. */

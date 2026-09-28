@@ -14,7 +14,7 @@ test.describe("V1 company configuration", () => {
     test.setTimeout(180_000);
     const accounts = seedPreview();
     await signIn(page, "demo.cashier", accounts["demo.cashier"]);
-    await expect(page.getByRole("navigation", { name: "V1 preview" }).getByRole("link", { name: "Company" })).toBeVisible();
+    await expect(page.getByRole("navigation", { name: "V1 operations" }).getByRole("link", { name: "Company" })).toBeVisible();
     await page.goto("/admin/company");
     const legal = page.locator(".company-card").first();
     await expect(legal.getByText("Pending from owner")).toHaveCount(3);

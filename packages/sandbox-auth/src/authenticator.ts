@@ -5,6 +5,8 @@ import type {
   CostCenterId,
   DepartmentId,
   FinancePermission,
+  FinanceWorkflowPolicyWorkspace,
+  FinanceWorkflowType,
   LegalEntityId,
   ProjectId,
   SandboxAuthorization,
@@ -228,6 +230,43 @@ export class SandboxAuthenticator {
       createHash("sha256").update(token).digest("hex"), this.digest(token)
     ]);
     return result.rows[0]?.value ?? null;
+  }
+
+  /** Read legal-entity workflow policy through the narrow configuration-owner boundary. */
+  async financeWorkflowPolicies(
+    executor: SqlExecutor,
+    token: string
+  ): Promise<FinanceWorkflowPolicyWorkspace> {
+    const result = await executor.query<{ readonly value: FinanceWorkflowPolicyWorkspace }>(
+      "SELECT abos.finance_workflow_policy_workspace($1,$2,$3) AS value",
+      [this.identityDatabaseProof(),
+       createHash("sha256").update(token).digest("hex"), this.digest(token)]
+    );
+    const value = result.rows[0]?.value;
+    assertSandbox(value !== undefined, "POLICY_CONFIGURATION_PENDING", "Workflow policy configuration is unavailable");
+    return value;
+  }
+
+  /** Append one policy version; actor, entity and permission are resolved inside PostgreSQL. */
+  async setFinanceWorkflowPolicy(
+    executor: SqlExecutor,
+    token: string,
+    input: {
+      readonly workflowType: FinanceWorkflowType;
+      readonly approvalRequired: boolean;
+      readonly expectedVersion: number;
+      readonly changeReason: string;
+    }
+  ): Promise<FinanceWorkflowPolicyWorkspace> {
+    const result = await executor.query<{ readonly value: FinanceWorkflowPolicyWorkspace }>(
+      "SELECT abos.finance_workflow_policy_set($1,$2,$3,$4,$5,$6,$7) AS value",
+      [this.identityDatabaseProof(),
+       createHash("sha256").update(token).digest("hex"), this.digest(token),
+       input.workflowType, input.approvalRequired, input.expectedVersion, input.changeReason]
+    );
+    const value = result.rows[0]?.value;
+    assertSandbox(value !== undefined, "POLICY_CONFIGURATION_PENDING", "Workflow policy update returned no result");
+    return value;
   }
 
   /** Acquire a finite, owner-held identity row lock without granting table UPDATE to the runtime. */

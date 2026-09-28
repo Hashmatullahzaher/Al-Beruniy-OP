@@ -1,6 +1,13 @@
 import { createHash, createHmac, randomUUID } from "node:crypto";
 
-import type { LegalEntityId, UserAccountId } from "@abos/contracts";
+import {
+  financeWorkflowPolicyUpdateSchema,
+  financeWorkflowTypeSchema,
+  type FinanceWorkflowPolicyWorkspace,
+  type FinanceWorkflowType,
+  type LegalEntityId,
+  type UserAccountId
+} from "@abos/contracts";
 import type { SqlExecutor } from "@abos/database";
 import { SandboxAuthError, type SandboxAuthenticator } from "@abos/sandbox-auth";
 
@@ -494,6 +501,35 @@ export class IdentityService {
       });
       return loadCompanyProfile(tx, actor);
     });
+  }
+
+  // -------------------------------------------------------------------------------------------
+  // Finance workflow policy. This is administrative configuration, never Finance authority.
+  // Actor, legal entity and permission are resolved again in the narrow PostgreSQL boundary.
+  // -------------------------------------------------------------------------------------------
+
+  async financeWorkflowPolicies(token: string): Promise<FinanceWorkflowPolicyWorkspace> {
+    return this.mutate((tx) => this.authenticator.financeWorkflowPolicies(tx, token));
+  }
+
+  async setFinanceWorkflowPolicy(token: string, input: {
+    readonly workflowType: string;
+    readonly approvalRequired: unknown;
+    readonly expectedVersion: unknown;
+    readonly changeReason: unknown;
+  }): Promise<FinanceWorkflowPolicyWorkspace> {
+    const workflow = financeWorkflowTypeSchema.safeParse(input.workflowType);
+    const update = financeWorkflowPolicyUpdateSchema.safeParse({
+      approvalRequired: input.approvalRequired,
+      expectedVersion: input.expectedVersion,
+      changeReason: input.changeReason
+    });
+    assertIdentity(workflow.success, "VALIDATION_FAILED", "Choose a supported finance workflow.", { field: "workflowType" });
+    assertIdentity(update.success, "VALIDATION_FAILED", "Choose On or Off, use the current version, and enter a 5–500 character reason.");
+    return this.mutate((tx) => this.authenticator.setFinanceWorkflowPolicy(tx, token, {
+      workflowType: workflow.data as FinanceWorkflowType,
+      ...update.data
+    }));
   }
 
   // -------------------------------------------------------------------------------------------
@@ -1181,6 +1217,18 @@ function translateDatabaseError(error: unknown): unknown {
   if (error instanceof IdentityError) return error;
   const code = error !== null && typeof error === "object" && "code" in error ? String((error as { code: unknown }).code) : "";
   const message = error instanceof Error ? error.message : "";
+  if (code === "42501" && /sign in with an active account/.test(message)) {
+    return new IdentityError("AUTHENTICATION_REQUIRED", "Your session has ended. Sign in again.");
+  }
+  if (code === "42501" && /current authority is missing/.test(message)) {
+    return new IdentityError("PERMISSION_DENIED", "You do not have permission to manage finance workflows.");
+  }
+  if (code === "23514" && /workflow policy changed/.test(message)) {
+    return new IdentityError("STALE_VERSION", "Someone else changed this workflow. Reload it and try again.");
+  }
+  if (code === "22023" && /workflow|approval flag/.test(message)) {
+    return new IdentityError("VALIDATION_FAILED", "The workflow policy change is not valid.");
+  }
   if (code === "23514" && /last active super administrator/.test(message)) {
     return new IdentityError("LAST_SUPER_ADMIN", "This would leave the company without an active Super Administrator. Appoint another one first.");
   }

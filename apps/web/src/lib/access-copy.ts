@@ -31,6 +31,10 @@ export const PERMISSION_COPY: Readonly<Record<string, PermissionCopy>> = {
     label: { en: "Manage company details", fa: "مدیریت مشخصات شرکت" },
     allows: { en: "Enter or correct the company's legal name, registration number and go-live date.", fa: "وارد کردن یا اصلاح نام حقوقی، شماره ثبت و تاریخ آغاز کار شرکت." }
   },
+  "admin.finance-workflow.manage": {
+    label: { en: "Manage Finance workflow approvals", fa: "مدیریت تأیید جریان‌های مالی" },
+    allows: { en: "Choose which transaction types require an independent approval for this company. This does not give permission to enter or post financial transactions.", fa: "انتخاب نوع معامله‌هایی که برای این شرکت به تأیید مستقل نیاز دارند. این صلاحیت اجازهٔ وارد کردن یا ثبت معامله مالی را نمی‌دهد." }
+  },
   "shareholder.capital-intent.create": {
     label: { en: "Create shareholder capital requests", fa: "ایجاد درخواست سرمایه سهامدار" },
     allows: { en: "Open a shareholder capital receipt request from an agreement installment.", fa: "باز کردن درخواست دریافت سرمایه از قسط قرارداد." }

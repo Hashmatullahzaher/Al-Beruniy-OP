@@ -15,3 +15,4 @@ export * from "./money.ts";
 export * from "./security.ts";
 export * from "./shareholder-capital.ts";
 export * from "./treasury.ts";
+export * from "./workflow-policy.ts";

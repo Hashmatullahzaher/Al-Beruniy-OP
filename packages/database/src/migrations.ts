@@ -137,6 +137,18 @@ export const migrationCatalog = [
     checksumSha256: "c740480479adedffcf45a3ed0f0f9fccb67ba7bd8270634f557e9eb2f069c43c",
     relativePath: "infrastructure/database/migrations/0024_v1_general_ledger_activity.sql",
   },
+  // Operational Finance foundation: append-only, per-entity approval policy configuration.
+  {
+    id: "0025_v1_workflow_approval_policy",
+    checksumSha256: "1a11e91aaf06bb20c53b8fa2bd9c03d51ea22383f5abedf34cf4468f31486426",
+    relativePath: "infrastructure/database/migrations/0025_v1_workflow_approval_policy.sql",
+  },
+  // Least privilege: the policy owner may read only account identifiers and display names.
+  {
+    id: "0026_v1_workflow_policy_owner_read_scope",
+    checksumSha256: "f3a8080fdd92c163d667058016c0d705fdb35cb4496c254acd05e6ee999710f0",
+    relativePath: "infrastructure/database/migrations/0026_v1_workflow_policy_owner_read_scope.sql",
+  },
 ] as const satisfies readonly MigrationDefinition[];
 
 const migrationTableSql = `
