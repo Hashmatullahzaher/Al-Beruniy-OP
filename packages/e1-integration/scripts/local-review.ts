@@ -136,16 +136,29 @@ function connectionUrl(user: string, password: string): string {
   return url.toString();
 }
 
-async function waitForPostgres(): Promise<void> {
-  for (let attempt = 0; attempt < 40; attempt += 1) {
+async function waitForPostgres(secrets: Secrets): Promise<void> {
+  for (let attempt = 0; attempt < 60; attempt += 1) {
     try {
       run("docker", composeArgs("exec", "-T", "postgres", "pg_isready", "-U", OPERATOR, "-d", DATABASE_NAME), true);
-      return;
+
+      const client = new pg.Client({
+        connectionString: connectionUrl(OPERATOR, secrets.ABOS_LOCAL_POSTGRES_PASSWORD),
+        connectionTimeoutMillis: 1000
+      });
+      try {
+        await client.connect();
+        await client.query("SELECT 1");
+        return;
+      } finally {
+        await client.end().catch(() => undefined);
+      }
     } catch {
       await new Promise((resolveDelay) => setTimeout(resolveDelay, 1000));
     }
   }
-  throw new Error("Local PostgreSQL did not become ready within 40 seconds");
+  throw new Error(
+    "Local PostgreSQL container became healthy but 127.0.0.1:55432 did not accept host connections within 60 seconds"
+  );
 }
 
 async function applyCatalog(pool: pg.Pool, marker: string): Promise<void> {
@@ -243,7 +256,7 @@ async function setup(): Promise<void> {
   run("docker", ["version"], true);
   const secrets = await loadOrCreateSecrets();
   run("docker", composeArgs("up", "-d", "postgres"));
-  await waitForPostgres();
+  await waitForPostgres(secrets);
 
   const pool = new pg.Pool({
     connectionString: connectionUrl(OPERATOR, secrets.ABOS_LOCAL_POSTGRES_PASSWORD),
@@ -332,7 +345,7 @@ async function reset(): Promise<void> {
   }
   const secrets = await loadOrCreateSecrets();
   run("docker", composeArgs("up", "-d", "postgres"));
-  await waitForPostgres();
+  await waitForPostgres(secrets);
   const pool = new pg.Pool({
     connectionString: connectionUrl(OPERATOR, secrets.ABOS_LOCAL_POSTGRES_PASSWORD),
     max: 4
@@ -350,7 +363,7 @@ async function reset(): Promise<void> {
 async function status(): Promise<void> {
   const secrets = await loadOrCreateSecrets();
   run("docker", composeArgs("up", "-d", "postgres"));
-  await waitForPostgres();
+  await waitForPostgres(secrets);
   const pool = new pg.Pool({
     connectionString: connectionUrl(OPERATOR, secrets.ABOS_LOCAL_POSTGRES_PASSWORD),
     max: 2
