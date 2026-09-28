@@ -56,7 +56,7 @@ if (databaseUrl() === undefined) {
                 p.proconfig AS config, has_function_privilege('public', p.oid, 'EXECUTE') AS public_execute
            FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace JOIN pg_roles r ON r.oid = p.proowner
           WHERE n.nspname = 'abos' AND p.prosecdef ORDER BY 1`);
-      assert.equal(rows.rows.length, 38, "every restricted entry point, including GL, identity and reversal requests, is accounted for");
+      assert.equal(rows.rows.length, 40, "every restricted entry point, including GL, GL activity, identity and reversal requests, is accounted for");
       for (const fn of rows.rows) {
         assert.ok((FUNCTION_OWNERS as readonly string[]).includes(fn.owner), `${fn.signature} is owned by ${fn.owner}`);
         assert.equal(fn.superuser, false, fn.signature);
@@ -86,6 +86,8 @@ if (databaseUrl() === undefined) {
         finance_correct_exchange_rate: "abos_e1_finance_owner", shareholder_runtime_authorize: "abos_e1_shareholder_owner",
         shareholder_capital_workspace: "abos_e1_shareholder_owner", shareholder_create_capital_request: "abos_e1_shareholder_owner",
         finance_general_ledger: "abos_e1_finance_owner",
+        // WP #19 GL activity (0024): per-account posted activity and keyset paging.
+        finance_general_ledger_activity: "abos_e1_finance_owner", finance_general_ledger_page: "abos_e1_finance_owner",
         identity_issue_session_context: "abos_v1_identity_owner", identity_actor_context: "abos_v1_identity_owner",
         identity_runtime_lock: "abos_v1_identity_owner", identity_runtime_command: "abos_v1_identity_owner",
         // WP #17 (0023): reversal requests (request -> Finance Manager decision; posting fail-closed).
