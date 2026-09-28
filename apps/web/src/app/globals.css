@@ -1716,3 +1716,31 @@ button.review-context { border: 0; border-inline-start: 1px solid rgba(102, 142,
 .company-facts dd { margin: 0; display: flex; flex-wrap: wrap; gap: 6px; color: #d6e1e8; font-size: 13px; }
 @media (max-width: 960px) { .company-grid { grid-template-columns: 1fr; } }
 @media (max-width: 520px) { .company-facts > div { grid-template-columns: 1fr; gap: 2px; } }
+
+/* WP #19 GL activity: per-account posted activity (not a balance) and Load more paging. */
+.gl-activity { min-width: 0; }
+.gl-activity-basis { margin: 12px 14px 0; padding: 8px 10px; border: 1px solid rgba(224, 180, 79, .32); border-radius: 6px; background: rgba(71, 53, 19, .18); color: #ecd28c; font-size: 11.5px; font-weight: 650; line-height: 1.5; }
+.gl-activity-empty { padding: 14px; }
+.gl-activity-group { min-width: 0; display: grid; gap: 8px; margin: 12px 14px 0; }
+.gl-activity-group h3 { margin: 0; color: var(--abos-gold-300); font-size: 12.5px; overflow-wrap: anywhere; }
+.gl-activity-rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 1px; background: rgba(64, 135, 180, .14); border-radius: 6px; overflow: hidden; }
+.gl-activity-row { min-width: 0; display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 2.4fr); gap: 6px 12px; align-items: center; padding: 9px 10px; background: #071d30; }
+.gl-activity-account { min-width: 0; display: grid; gap: 2px; }
+.gl-activity-account strong { color: #e4edf3; font-size: 12.5px; overflow-wrap: anywhere; }
+.gl-activity-account span { color: #b8c8d4; font-size: 11.5px; overflow-wrap: anywhere; }
+.gl-activity-account small { color: #7f96a8; font-size: 10.5px; }
+.gl-activity-amounts { min-width: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr)); gap: 6px 10px; }
+.gl-activity-amounts > div { min-width: 0; }
+.gl-activity-amounts dt { color: #7f96a8; font-size: 10.5px; }
+.gl-activity-amounts dd { margin: 0; color: #d9e4eb; font-size: 12px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; text-align: start; }
+.gl-activity-original { grid-column: 1 / -1; overflow-wrap: anywhere; }
+.gl-activity-total { padding: 8px 10px; border: 1px solid rgba(60, 130, 176, .22); border-radius: 6px; }
+.gl-activity-total dd { color: var(--abos-gold-300); font-weight: 700; }
+.gl-activity-foot { padding: 10px 14px 0; }
+.gl-activity > :last-child { margin-bottom: 14px; }
+.gl-activity-more { display: grid; justify-items: start; gap: 8px; margin-top: 12px; }
+.gl-activity-more .treasury-message { justify-self: stretch; }
+@media (max-width: 720px) {
+  .gl-activity-row { grid-template-columns: minmax(0, 1fr); }
+  .gl-activity-more .treasury-button { justify-self: stretch; }
+}

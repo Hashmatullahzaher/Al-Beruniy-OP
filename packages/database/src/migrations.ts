@@ -125,6 +125,12 @@ export const migrationCatalog = [
     checksumSha256: "e6fadd3bc0775beb8845534c9ae3dded946e39440aa0fe38ba195063231119c5",
     relativePath: "infrastructure/database/migrations/0022_v1_identity_actor_context_fix.sql",
   },
+  // WP #19 (GL activity): per-account posted activity and keyset paging of GL lines.
+  {
+    id: "0024_v1_general_ledger_activity",
+    checksumSha256: "c740480479adedffcf45a3ed0f0f9fccb67ba7bd8270634f557e9eb2f069c43c",
+    relativePath: "infrastructure/database/migrations/0024_v1_general_ledger_activity.sql",
+  },
 ] as const satisfies readonly MigrationDefinition[];
 
 const migrationTableSql = `
