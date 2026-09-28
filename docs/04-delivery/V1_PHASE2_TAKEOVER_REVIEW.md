@@ -119,3 +119,20 @@ Claude-run, on PostgreSQL 17 (Docker `postgres:17-alpine`), Node 22, Chromium fr
 The counts differ from Codex's because the per-file counts group subtests differently; no test was removed.
 Environment note: Playwright 1.63 expects a newer headless shell than the container has, so the browser runs used a
 local, uncommitted config wrapper that points `launchOptions.executablePath` at the installed Chromium.
+
+## 7. Phase 2 continuation (after the checkpoint integration)
+
+Integrated into `v1/integration` at `f0bb718` first (checkpoint + IDN-1, IDN-2, FIN-1). Then, built in parallel in
+isolated worktrees and reviewed by the lead before merging:
+
+| Package | Migration | Result of lead review |
+|---|---|---|
+| #17 reversal requests (Agent A) | 0023 (`b56e026e…`) | Accepted. Definers follow 0011; SoD in a trigger for every writer; approval posts nothing; `POSTING_POLICY_PENDING` |
+| #19 GL activity summary and keyset paging (Agent C) | 0024 (`c7404804…`) | Accepted. Shared visibility helper is `SECURITY INVOKER`, owner-only, identical to the 0020 predicate; cursor is a position only |
+| Lead: identity drift (IDN-3, Medium) | — | The service's Super-Administrator-only list missed `finance.ledger-account.review`, `treasury.saraf-account.manage` (Phase 1) and the reversal permissions, so a non-super user administrator could grant them. Fixed; a test now fails if the list drifts from `permission_catalogue.independence_enforced` |
+| Lead: merge fix | — | A closing brace of the #17 CSS media block was lost resolving the #17/#19 CSS conflict; restored |
+
+Claude-run on the combined tree: lint pass; typecheck 12/12; unit 133/133; PostgreSQL integration **137/137**;
+build 11/11; browser **45 passed, 0 skipped, 0 failed** (all gated journeys, fresh dev server); smoke 5/5.
+One intermediate browser failure was a dev-server hot-reload artifact (two `IdentityError` class instances after
+editing the identity service under a running server); it passed on a fresh server and in the full rerun.
