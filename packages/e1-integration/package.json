@@ -12,7 +12,10 @@
     "clean": "node -e \"require('fs').rmSync('tsconfig.tsbuildinfo',{force:true})\"",
     "sandbox:seed": "node --experimental-strip-types scripts/dev-sandbox.ts seed",
     "sandbox:sessions": "node --experimental-strip-types scripts/dev-sandbox.ts sessions",
-    "preview:seed": "node --experimental-strip-types scripts/preview-seed.ts"
+    "preview:seed": "node --experimental-strip-types scripts/preview-seed.ts",
+    "local:setup": "node --experimental-strip-types scripts/local-review.ts setup",
+    "local:status": "node --experimental-strip-types scripts/local-review.ts status",
+    "local:reset": "node --experimental-strip-types scripts/local-review.ts reset"
   },
   "dependencies": {
     "@abos/contracts": "workspace:*",
