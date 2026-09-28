@@ -5,7 +5,7 @@ import pg from "pg";
 import type { SqlExecutor } from "@abos/database";
 import { bootstrapSuperAdmin, hashPassword, IdentityError, IdentityService } from "@abos/identity";
 import { PostgresExecutor } from "@abos/persistence";
-import { SandboxAuthenticator } from "@abos/sandbox-auth";
+import { identityDatabaseProof, SandboxAuthenticator } from "@abos/sandbox-auth";
 import { databaseUrl, MISSING_DATABASE_MESSAGE, openHarness, resetSchema } from "./harness.ts";
 import { seedSyntheticWorld, SYNTHETIC_AUTH_CONFIGURATION } from "./synthetic-world.ts";
 
@@ -64,6 +64,19 @@ if (databaseUrl() === undefined) {
 
       await identity.logout(surviving.value.token);
       await assertIdentityDenied(() => identity.refreshSession(surviving.value.token, CLIENT));
+
+      // An operator-seeded persona with no password (0022): its session resolves as before 0021,
+      // but it cannot be rotated, because rotation requires a current credential.
+      const credentials = await harness.executor.query<{ count: string }>(
+        "SELECT count(*)::text AS count FROM abos.user_credentials WHERE user_account_id = $1",
+        [world.intentCreatorId]
+      );
+      assert.equal(credentials.rows[0]?.count, "0");
+      const persona = await new SandboxAuthenticator(harness.executor, SYNTHETIC_AUTH_CONFIGURATION).issueSession({
+        userAccountId: world.intentCreatorId as never, legalEntityId: world.legalEntityId as never
+      });
+      assert.equal((await identity.currentUser(persona.token)).userAccountId, world.intentCreatorId);
+      await assertIdentityDenied(() => identity.refreshSession(persona.token, CLIENT));
     } finally {
       await pool?.end();
       await harness.close();
@@ -141,6 +154,23 @@ if (databaseUrl() === undefined) {
             (error: unknown) => (error as { code?: string }).code === "42501" && /proof is invalid/i.test(String(error))
           );
         }
+      });
+      await t.test("the raw signing secret is not a database proof; only its domain-separated derivative is", async () => {
+        const payload = JSON.stringify({ userAccountId: admin.userAccountId });
+        await assert.rejects(
+          () => db.query("SELECT abos.identity_runtime_command($1,'REVOKE_USER_SESSIONS',$2::jsonb)",
+            [SYNTHETIC_AUTH_CONFIGURATION.signingSecret, payload]),
+          (error: unknown) => (error as { code?: string }).code === "42501" && /proof is invalid/i.test(String(error))
+        );
+        const accepted = await db.query<{ readonly value: { readonly affected: number } }>(
+          "SELECT abos.identity_runtime_command($1,'REVOKE_USER_SESSIONS',$2::jsonb) AS value",
+          [identityDatabaseProof(SYNTHETIC_AUTH_CONFIGURATION.signingSecret), payload]
+        );
+        assert.equal(typeof accepted.rows[0]?.value.affected, "number");
+        const stored = await harness.executor.query<{ readonly digest: string }>(
+          "SELECT signing_secret_sha256 AS digest FROM abos.identity_runtime_configuration");
+        assert.notEqual(stored.rows[0]?.digest,
+          createHash("sha256").update(SYNTHETIC_AUTH_CONFIGURATION.signingSecret, "utf8").digest("hex"));
       });
       await t.test("owner and function privileges are narrow", async () => {
         const checks = await harness.executor.query<{

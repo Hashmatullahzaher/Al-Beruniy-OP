@@ -145,7 +145,7 @@ export class SandboxAuthenticator {
         readonly credentialCurrent: boolean;
       };
     }>("SELECT abos.identity_issue_session_context($1,$2,$3,$4) AS value", [
-      this.configuration.signingSecret, input.userAccountId, input.legalEntityId,
+      this.identityDatabaseProof(), input.userAccountId, input.legalEntityId,
       input.expectedPasswordHash ?? null
     ]);
     const account = context.rows[0]?.value;
@@ -224,7 +224,7 @@ export class SandboxAuthenticator {
       readonly live: boolean; readonly status: string; readonly loginIdentifier: string;
       readonly mustChangePassword: boolean; readonly permissions: readonly string[];
     } | null }>("SELECT abos.identity_actor_context($1,$2,$3) AS value", [
-      this.configuration.signingSecret,
+      this.identityDatabaseProof(),
       createHash("sha256").update(token).digest("hex"), this.digest(token)
     ]);
     return result.rows[0]?.value ?? null;
@@ -238,7 +238,7 @@ export class SandboxAuthenticator {
   ): Promise<number> {
     const result = await executor.query<{ readonly affected: number }>(
       "SELECT abos.identity_runtime_lock($1,$2,$3::jsonb) AS affected",
-      [this.configuration.signingSecret, operation, JSON.stringify(payload)]
+      [this.identityDatabaseProof(), operation, JSON.stringify(payload)]
     );
     return result.rows[0]?.affected ?? 0;
   }
@@ -535,7 +535,7 @@ export class SandboxAuthenticator {
   ): Promise<{ readonly affected: number }> {
     const result = await executor.query<{ readonly value: { readonly affected: number } }>(
       "SELECT abos.identity_runtime_command($1, $2, $3::jsonb) AS value",
-      [this.configuration.signingSecret, operation, JSON.stringify(payload)]
+      [this.identityDatabaseProof(), operation, JSON.stringify(payload)]
     );
     return result.rows[0]?.value ?? { affected: 0 };
   }
@@ -674,9 +674,29 @@ export class SandboxAuthenticator {
     };
   }
 
+  /**
+   * The proof the identity database functions accept. It is derived from, but is not, the signing
+   * secret: the raw key also signs gates and peppers token digests, and it never leaves the process.
+   */
+  private identityDatabaseProof(): string {
+    return identityDatabaseProof(this.configuration.signingSecret);
+  }
+
   private digest(token: string): string {
     return createHmac("sha256", this.configuration.signingSecret).update(token).digest("hex");
   }
+}
+
+const IDENTITY_DATABASE_PROOF_CONTEXT = "abos-identity-database-proof-v1";
+
+/** Domain-separated proof sent to the identity SECURITY DEFINER functions instead of the raw secret. */
+export function identityDatabaseProof(signingSecret: string): string {
+  return createHmac("sha256", signingSecret).update(IDENTITY_DATABASE_PROOF_CONTEXT).digest("hex");
+}
+
+/** The SHA-256 digest an owner connection provisions in `abos.identity_runtime_configuration`. */
+export function identityDatabaseProofDigest(signingSecret: string): string {
+  return createHash("sha256").update(identityDatabaseProof(signingSecret), "utf8").digest("hex");
 }
 
 const TREASURY_CODES: ReadonlySet<string> = new Set<string>(TREASURY_PERMISSIONS);

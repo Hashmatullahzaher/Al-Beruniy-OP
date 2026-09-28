@@ -105,14 +105,18 @@ export async function financeTrace(token: string, handoffId: string): Promise<Fi
     physicalCount: {
       amount: decimalText(raw.physicalCount.counted_amount),
       countedBy: raw.physicalCount.counted_by_display_name ?? raw.physicalCount.counted_by_user_account_id,
+      countedById: raw.physicalCount.counted_by_user_account_id,
       confirmedBy: raw.physicalCount.confirmed_by_display_name ?? raw.physicalCount.confirmed_by_user_account_id,
+      confirmedById: raw.physicalCount.confirmed_by_user_account_id,
       evidence: String(raw.evidence.count ?? "Evidence unavailable")
     },
     receiptEvidence: String(raw.evidence.receipt ?? "Evidence unavailable"),
     verifier: raw.receipt.verifier_display_name ?? raw.receipt.verified_by_user_account_id,
+    verifierId: raw.receipt.verified_by_user_account_id,
     handedOffBy: raw.handoff.handed_off_by_display_name ?? raw.handoff.handed_off_by_user_account_id,
-    ...(posting ? { postingIntent: { id: posting.id, status: posting.status, createdBy: posting.created_by_display_name ?? posting.created_by_user_account_id, accountingEffectiveDate: posting.accounting_effective_date } } : {}),
-    ...(approval ? { approval: { id: approval.id, approver: approval.approver_display_name ?? approval.approver_user_account_id, approvedAt: approval.approved_at, evidence: String(raw.evidence.approval ?? "Evidence unavailable") } } : {}),
+    handedOffById: raw.handoff.handed_off_by_user_account_id,
+    ...(posting ? { postingIntent: { id: posting.id, status: posting.status, createdBy: posting.created_by_display_name ?? posting.created_by_user_account_id, createdById: posting.created_by_user_account_id, accountingEffectiveDate: posting.accounting_effective_date } } : {}),
+    ...(approval ? { approval: { id: approval.id, approver: approval.approver_display_name ?? approval.approver_user_account_id, approverId: approval.approver_user_account_id, approvedAt: approval.approved_at, evidence: String(raw.evidence.approval ?? "Evidence unavailable") } } : {}),
     ...(journal ? { journal: { id: journal.id, reference: journal.journal_reference, status: journal.status, debit: raw.reconciliation.debits, credit: raw.reconciliation.credits, postedAt: journal.posted_at ?? "" } } : {}),
     reconciliation: { sourceStatus: raw.source.status, receiptStatus: raw.receipt.status, journalStatus: journal?.status ?? "NOT_POSTED" }
   };

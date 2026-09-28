@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import type {
   CapitalReceiptIntentId,
   CashLocationCurrencyAccountId,
@@ -8,7 +8,7 @@ import type {
 } from "@abos/contracts";
 import type { SqlExecutor } from "@abos/database";
 import { PostgresTreasuryRepository } from "@abos/persistence";
-import { SandboxAuthenticator, type SandboxAuthConfiguration } from "@abos/sandbox-auth";
+import { identityDatabaseProofDigest, SandboxAuthenticator, type SandboxAuthConfiguration } from "@abos/sandbox-auth";
 import { TreasuryService, type TreasuryActor } from "@abos/treasury";
 
 /**
@@ -166,7 +166,7 @@ export async function seedSyntheticWorld(
      ON CONFLICT (singleton) DO UPDATE
        SET signing_secret_sha256 = EXCLUDED.signing_secret_sha256,
            configured_at = clock_timestamp()`,
-    [createHash("sha256").update(authConfiguration.signingSecret, "utf8").digest("hex")]
+    [identityDatabaseProofDigest(authConfiguration.signingSecret)]
   );
 
   await q(

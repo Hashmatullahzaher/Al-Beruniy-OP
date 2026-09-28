@@ -40,12 +40,14 @@ export interface FinanceHandoffTraceView extends FinanceHandoffSummary {
   readonly agreementId: string;
   readonly installmentId: string;
   readonly receivingSafe: string;
-  readonly physicalCount: { readonly amount: string; readonly countedBy: string; readonly confirmedBy: string; readonly evidence: string };
+  readonly physicalCount: { readonly amount: string; readonly countedBy: string; readonly countedById: string; readonly confirmedBy: string; readonly confirmedById: string; readonly evidence: string };
   readonly receiptEvidence: string;
   readonly verifier: string;
+  readonly verifierId: string;
   readonly handedOffBy: string;
-  readonly postingIntent?: { readonly id: string; readonly status: string; readonly createdBy: string; readonly accountingEffectiveDate: string };
-  readonly approval?: { readonly id: string; readonly approver: string; readonly approvedAt: string; readonly evidence: string };
+  readonly handedOffById: string;
+  readonly postingIntent?: { readonly id: string; readonly status: string; readonly createdBy: string; readonly createdById: string; readonly accountingEffectiveDate: string };
+  readonly approval?: { readonly id: string; readonly approver: string; readonly approverId: string; readonly approvedAt: string; readonly evidence: string };
   readonly journal?: { readonly id: string; readonly reference: string; readonly status: string; readonly debit: string; readonly credit: string; readonly postedAt: string };
   readonly reconciliation: { readonly sourceStatus: string; readonly receiptStatus: string; readonly journalStatus: string };
 }

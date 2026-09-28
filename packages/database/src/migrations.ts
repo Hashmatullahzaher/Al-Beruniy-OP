@@ -118,6 +118,13 @@ export const migrationCatalog = [
     checksumSha256: "6c81a199c890e7086aa7328e5cb971b9a138a35145934c9dc6456916e96df4be",
     relativePath: "infrastructure/database/migrations/0021_v1_identity_privilege_boundary.sql",
   },
+  // 0018 was never created and is permanently retired: a late 0018 would run in a different order
+  // on existing and new databases. See docs/04-delivery/V1_PHASE2_TAKEOVER_REVIEW.md section 4.
+  {
+    id: "0022_v1_identity_actor_context_fix",
+    checksumSha256: "e6fadd3bc0775beb8845534c9ae3dded946e39440aa0fe38ba195063231119c5",
+    relativePath: "infrastructure/database/migrations/0022_v1_identity_actor_context_fix.sql",
+  },
 ] as const satisfies readonly MigrationDefinition[];
 
 const migrationTableSql = `

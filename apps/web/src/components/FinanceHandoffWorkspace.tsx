@@ -150,9 +150,9 @@ function Trace({ trace, actorId, permissions, period, busy, onAction, t }: { rea
     [{ en: "Capital agreement", fa: "قرارداد سرمایه" }, `${trace.agreementReference} · ${t({ en: "installment", fa: "قسط" })} ${trace.installmentSequence}`],
     [{ en: "Received into", fa: "دریافت شده در" }, trace.receivingAccount],
     [{ en: "Physically counted", fa: "شمارش فزیکی" }, `${trace.currency} ${formatAmount(trace.physicalCount.amount)}`],
-    [{ en: "Counted by / confirmed by", fa: "شمرده توسط / تایید توسط" }, `${person(trace.physicalCount.countedBy)} / ${person(trace.physicalCount.confirmedBy)}`],
-    [{ en: "Verified by (Treasury)", fa: "تایید توسط (خزانه)" }, person(trace.verifier)],
-    [{ en: "Handed to Finance by", fa: "تحویل به مالی توسط" }, person(trace.handedOffBy)],
+    [{ en: "Counted by / confirmed by", fa: "شمرده توسط / تایید توسط" }, `${person(trace.physicalCount.countedBy, trace.physicalCount.countedById)} / ${person(trace.physicalCount.confirmedBy, trace.physicalCount.confirmedById)}`],
+    [{ en: "Verified by (Treasury)", fa: "تایید توسط (خزانه)" }, person(trace.verifier, trace.verifierId)],
+    [{ en: "Handed to Finance by", fa: "تحویل به مالی توسط" }, person(trace.handedOffBy, trace.handedOffById)],
     [{ en: "Receipt evidence", fa: "سند رسید" }, evidenceText(trace.receiptEvidence, t)],
     [{ en: "Count evidence", fa: "سند شمارش" }, evidenceText(trace.physicalCount.evidence, t)]
   ];
@@ -173,8 +173,8 @@ function Trace({ trace, actorId, permissions, period, busy, onAction, t }: { rea
     {person.anonymous() ? <p className="finance-names-note">{t({ en: "People are shown as Person A, B, C… so you can see that different people did each step. The Finance database does not return names yet.", fa: "اشخاص به صورت شخص الف، ب، ج… نشان داده می‌شوند تا ببینید هر گام را شخص متفاوتی انجام داده است. دیتابیس مالی هنوز نام‌ها را برنمی‌گرداند." })}</p> : null}
     <dl>{rows.map(([key, value]) => <div key={key.en}><dt>{t(key)}</dt><dd>{value}</dd></div>)}</dl>
     {trace.postingIntent || trace.approval || trace.journal ? <ul className="finance-records">
-      {trace.postingIntent ? <li><strong>{t({ en: "Prepared", fa: "آماده شد" })}</strong><span>{person(trace.postingIntent.createdBy)} · {t({ en: "accounting date", fa: "تاریخ حسابداری" })} {trace.postingIntent.accountingEffectiveDate}</span></li> : null}
-      {trace.approval ? <li><strong>{t({ en: "Approved", fa: "تصویب شد" })}</strong><span>{person(trace.approval.approver)} · {formatTime(trace.approval.approvedAt)}</span></li> : null}
+      {trace.postingIntent ? <li><strong>{t({ en: "Prepared", fa: "آماده شد" })}</strong><span>{person(trace.postingIntent.createdBy, trace.postingIntent.createdById)} · {t({ en: "accounting date", fa: "تاریخ حسابداری" })} {trace.postingIntent.accountingEffectiveDate}</span></li> : null}
+      {trace.approval ? <li><strong>{t({ en: "Approved", fa: "تصویب شد" })}</strong><span>{person(trace.approval.approver, trace.approval.approverId)} · {formatTime(trace.approval.approvedAt)}</span></li> : null}
       {trace.journal ? <li><strong>{t({ en: "Posted journal", fa: "ژورنال ثبت‌شده" })}</strong><span>{trace.journal.reference} · {formatTime(trace.journal.postedAt)}</span></li> : null}
     </ul> : null}
     {trace.journal ? <div className="finance-journal">
@@ -220,14 +220,15 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const LETTERS = { en: ["A", "B", "C", "D", "E", "F", "G"], fa: ["الف", "ب", "ج", "د", "ه", "و", "ز"] };
 
 /**
- * The Finance functions return user account ids where names are expected. An id means nothing to
- * an employee, but whether two steps were done by the same person does, so ids become stable
- * "Person A/B/C" labels within one receipt, and the signed-in user becomes "you".
+ * The trace returns recorded actors' names (0019) and their ids. The signed-in user becomes "you"
+ * by id. Where only an id is available it becomes a stable "Person A/B/C" label within one
+ * receipt, because whether two steps were done by the same person matters to an employee.
  */
-function personLabeller(actorId: string, t: Translate): ((value: string) => string) & { readonly anonymous: () => boolean } {
+function personLabeller(actorId: string, t: Translate): ((value: string, id?: string) => string) & { readonly anonymous: () => boolean } {
   const seen = new Map<string, number>();
   let anonymous = false;
-  const label = (value: string): string => {
+  const label = (value: string, id?: string): string => {
+    if (id !== undefined && id === actorId) return t({ en: "You", fa: "شما" });
     if (!UUID.test(value)) return value;
     anonymous = true;
     if (value === actorId) return t({ en: "You", fa: "شما" });
