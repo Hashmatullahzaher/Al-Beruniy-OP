@@ -103,6 +103,21 @@ export const migrationCatalog = [
     checksumSha256: "68edc2a10ce160088c45c1ae4ca589cf0ebefac1157223947cdeb6dc276a7a30",
     relativePath: "infrastructure/database/migrations/0017_v1_company_profile.sql",
   },
+  {
+    id: "0019_v1_finance_trace_precision",
+    checksumSha256: "2520527f85f09c3dffb18e6986af188776037dd641f86db1f40c19960d29078a",
+    relativePath: "infrastructure/database/migrations/0019_v1_finance_trace_precision.sql",
+  },
+  {
+    id: "0020_v1_general_ledger_read",
+    checksumSha256: "99c773e2613aaccf7b1bfcaca2f9cda28dc63d7488b54bcd6ea5d6b04485fd07",
+    relativePath: "infrastructure/database/migrations/0020_v1_general_ledger_read.sql",
+  },
+  {
+    id: "0021_v1_identity_privilege_boundary",
+    checksumSha256: "6c81a199c890e7086aa7328e5cb971b9a138a35145934c9dc6456916e96df4be",
+    relativePath: "infrastructure/database/migrations/0021_v1_identity_privilege_boundary.sql",
+  },
 ] as const satisfies readonly MigrationDefinition[];
 
 const migrationTableSql = `

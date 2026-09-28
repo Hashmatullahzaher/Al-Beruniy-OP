@@ -179,7 +179,7 @@ export class IdentityService {
   async login(input: { readonly loginIdentifier: string; readonly password: string; readonly clientAddress: string | null }): Promise<LoginResult> {
     const outcome = await this.checkCredentials(input, { allowPasswordChange: false });
     if (outcome.kind === "error") throw outcome.error;
-    return this.openSession(outcome.userAccountId, outcome.legalEntityId);
+    return this.openSession(outcome.userAccountId, outcome.legalEntityId, outcome.verifiedHash);
   }
 
   /** Used for a required first change and for a voluntary change; either way, all old sessions end. */
@@ -198,31 +198,47 @@ export class IdentityService {
     const hash = await hashPassword(input.newPassword);
     await this.database.transaction(async (tx) => {
       // Compare-and-set: if an administrator reset the password after it was checked, nothing is written.
-      const updated = await tx.query(
-        `UPDATE abos.user_credentials
-            SET password_hash = $2, must_change_password = false, password_set_at = clock_timestamp(),
-                password_set_by_user_account_id = $1
-          WHERE user_account_id = $1 AND password_hash = $3`,
-        [outcome.userAccountId, hash, outcome.verifiedHash]
-      );
-      assertIdentity(updated.rowCount === 1, "AUTHENTICATION_REQUIRED", "Your password was changed elsewhere. Sign in again.");
-      const revoked = await revokeAllSessions(tx, outcome.userAccountId);
-      await writeAudit(tx, {
+      const updated = await this.command(tx, "CHANGE_PASSWORD", {
+        userAccountId: outcome.userAccountId, newPasswordHash: hash,
+        expectedPasswordHash: outcome.verifiedHash
+      });
+      assertIdentity(updated.affected === 1, "AUTHENTICATION_REQUIRED", "Your password was changed elsewhere. Sign in again.");
+      const revoked = await revokeAllSessions(tx, this.authenticator, outcome.userAccountId);
+      await writeAudit(tx, this.authenticator, {
         actor: outcome.userAccountId, legalEntityId: outcome.legalEntityId, action: "PASSWORD_CHANGED",
         entityType: "USER_ACCOUNT", entityId: outcome.userAccountId, after: { sessionsRevoked: revoked }
       });
       await this.recordAttempt(tx, login, input.clientAddress, outcome.userAccountId, true);
     });
-    return this.openSession(outcome.userAccountId, outcome.legalEntityId);
+    return this.openSession(outcome.userAccountId, outcome.legalEntityId, hash);
   }
 
   async logout(token: string): Promise<void> {
     if (typeof token !== "string" || token.length < 32) return;
-    await this.database.query(
-      `UPDATE abos.sandbox_sessions SET revoked_at = clock_timestamp()
-        WHERE runtime_token_sha256 = $1 AND revoked_at IS NULL`,
-      [sha256(token)]
-    );
+    await this.command(this.database, "REVOKE_SESSION_TOKEN", { runtimeTokenSha256: sha256(token) });
+  }
+
+  /** Rotate one live session. The old token is revoked in the same transaction that stores the new one. */
+  async refreshSession(token: string, clientAddress: string | null): Promise<LoginResult> {
+    // Retained in the public boundary for future session telemetry; rotation authority comes only
+    // from the opaque token and database state.
+    void clientAddress;
+    assertIdentity(typeof token === "string" && token.length >= 32, "AUTHENTICATION_REQUIRED", "Sign in to continue.");
+    let issued;
+    try {
+      issued = await this.database.transaction(async (tx) => {
+        // The SECURITY DEFINER command owns the row locks and performs validation, insertion and
+        // revocation atomically. The restricted runtime credential never receives direct write
+        // privileges on the session or credential tables.
+        return this.authenticator.rotateSession(tx, token);
+      });
+    } catch (error) {
+      if (error instanceof SandboxAuthError) {
+        throw new IdentityError("AUTHENTICATION_REQUIRED", "Your session has ended. Sign in again.");
+      }
+      throw error;
+    }
+    return { token: issued.token, expiresAt: issued.expiresAt, user: await this.currentUser(issued.token) };
   }
 
   async currentUser(token: string): Promise<SessionUser> {
@@ -323,19 +339,21 @@ export class IdentityService {
   }
 
   private async recordAttempt(tx: SqlExecutor, login: string, clientAddress: string | null, userId: string | null, succeeded: boolean): Promise<void> {
-    await tx.query(
-      `INSERT INTO abos.login_attempts (id, login_key, client_key, user_account_id, succeeded)
-       VALUES ($1, $2, $3, $4, $5)`,
-      [randomUUID(), this.key(`login:${login}`), this.key(`client:${clientAddress ?? "unverified"}`), userId, succeeded]
-    );
+    await this.command(tx, "RECORD_ATTEMPT", {
+      id: randomUUID(), loginKey: this.key(`login:${login}`),
+      clientKey: this.key(`client:${clientAddress ?? "unverified"}`),
+      userAccountId: userId, succeeded
+    });
   }
 
-  private async openSession(userAccountId: string, legalEntityId: string): Promise<LoginResult> {
+  private async openSession(userAccountId: string, legalEntityId: string, expectedPasswordHash: string): Promise<LoginResult> {
     let issued;
     try {
-      issued = await this.authenticator.issueSession({
-        userAccountId: userAccountId as UserAccountId, legalEntityId: legalEntityId as LegalEntityId
-      });
+      issued = await this.database.transaction((tx) => this.authenticator.issueSession({
+        userAccountId: userAccountId as UserAccountId,
+        legalEntityId: legalEntityId as LegalEntityId,
+        expectedPasswordHash
+      }, tx));
     } catch (error) {
       if (error instanceof SandboxAuthError && error.code === "PERMISSION_DENIED") {
         throw new IdentityError("NO_ACCESS_ASSIGNED", "Your account has no access assigned yet. Contact your administrator.");
@@ -382,20 +400,12 @@ export class IdentityService {
    */
   private async actor(tx: SqlExecutor, token: string): Promise<Actor> {
     assertIdentity(typeof token === "string" && token.length >= 32, "AUTHENTICATION_REQUIRED", "Sign in to continue.");
-    const sessions = await tx.query<{
-      readonly id: string; readonly user_account_id: string; readonly legal_entity_id: string;
-      readonly live: boolean; readonly status: AccountStatus;
-    }>(
-      `SELECT s.id, s.user_account_id, s.legal_entity_id,
-              (s.revoked_at IS NULL AND s.expires_at > clock_timestamp()) AS live, u.status
-         FROM abos.sandbox_sessions s
-         JOIN abos.user_accounts u ON u.id = s.user_account_id
-        WHERE s.runtime_token_sha256 = $1
-        FOR SHARE OF s, u`,
-      [sha256(token)]
+    const session = await this.authenticator.identityActorContext(tx, token);
+    assertIdentity(
+      session !== null && session.live && session.status === "ACTIVE" && !session.mustChangePassword,
+      "AUTHENTICATION_REQUIRED",
+      "Your session has ended. Sign in again."
     );
-    const session = sessions.rows[0];
-    assertIdentity(session !== undefined && session.live && session.status === "ACTIVE", "AUTHENTICATION_REQUIRED", "Your session has ended. Sign in again.");
     // The sandbox gate is checked on this same connection and transaction. Borrowing a second pooled
     // connection here deadlocked the pool when enough requests held a transaction at once.
     const gate = await tx.query<{ readonly ok: boolean }>(
@@ -404,20 +414,14 @@ export class IdentityService {
                AND a.runtime_marker = current_setting('abos.runtime_marker', true)
                AND EXISTS (SELECT 1 FROM abos.sandbox_legal_entity_scopes s WHERE s.legal_entity_id = $1)) AS ok
          FROM abos.sandbox_authorizations a WHERE a.singleton`,
-      [session.legal_entity_id]
+      [session.legalEntityId]
     );
     assertIdentity(gate.rows[0]?.ok === true, "AUTHENTICATION_REQUIRED", "The preview environment is not currently authorized. Sign in again later.");
-    const grants = await tx.query<{ readonly permission_code: string }>(
-      `SELECT permission_code FROM abos.user_permission_grants
-        WHERE user_account_id = $1 AND legal_entity_id = $2 AND revoked_at IS NULL
-        FOR SHARE`,
-      [session.user_account_id, session.legal_entity_id]
-    );
     return {
-      userAccountId: session.user_account_id,
-      legalEntityId: session.legal_entity_id,
+      userAccountId: session.userAccountId,
+      legalEntityId: session.legalEntityId,
       sessionId: session.id,
-      permissions: new Set(grants.rows.map((row) => row.permission_code))
+      permissions: new Set(session.permissions)
     };
   }
 
@@ -470,27 +474,24 @@ export class IdentityService {
     assertIdentity(goLiveDate === null || (/^\d{4}-\d{2}-\d{2}$/.test(goLiveDate) && !Number.isNaN(Date.parse(goLiveDate))), "VALIDATION_FAILED", "Enter the go-live date as YYYY-MM-DD or leave it pending.", { field: "goLiveDate" });
     return this.mutate(async (tx) => {
       const actor = await this.admin(tx, token, "admin.company.manage");
+      await this.authenticator.identityLock(tx, "LEGAL_ENTITY_PROFILE", { legalEntityId: actor.legalEntityId });
       const current = await tx.query<{ legal_name: string | null; registration_number: string | null; go_live_date: string | null; version: number }>(
-        "SELECT legal_name, registration_number, go_live_date::text AS go_live_date, version FROM abos.legal_entity_profiles WHERE legal_entity_id = $1 FOR UPDATE",
+        "SELECT legal_name, registration_number, go_live_date::text AS go_live_date, version FROM abos.legal_entity_profiles WHERE legal_entity_id = $1",
         [actor.legalEntityId]);
       const before = current.rows[0];
       assertIdentity((before?.version ?? 0) === input.expectedVersion, "STALE_VERSION", "Someone else changed the company details. Reload and try again.");
-      if (before === undefined) {
-        await tx.query(
-          `INSERT INTO abos.legal_entity_profiles (legal_entity_id, legal_name, registration_number, go_live_date, updated_by_user_account_id)
-           VALUES ($1, $2, $3, $4::date, $5)`, [actor.legalEntityId, legalName, registrationNumber, goLiveDate, actor.userAccountId]);
-      } else {
-        await tx.query(
-          `UPDATE abos.legal_entity_profiles SET legal_name = $2, registration_number = $3, go_live_date = $4::date, version = version + 1,
-                  updated_by_user_account_id = $5, updated_at = clock_timestamp() WHERE legal_entity_id = $1`,
-          [actor.legalEntityId, legalName, registrationNumber, goLiveDate, actor.userAccountId]);
-      }
-      await tx.query(
-        `INSERT INTO abos.audit_records (id, actor_user_account_id, legal_entity_id, correlation_id, action, entity_type, entity_id, before_state, after_state, metadata)
-         VALUES ($1, $2, $3, $4, 'COMPANY_PROFILE_UPDATED', 'COMPANY_PROFILE', $3, $5, $6, $7)`,
-        [randomUUID(), actor.userAccountId, actor.legalEntityId, randomUUID(),
-          before === undefined ? null : JSON.stringify({ legalName: before.legal_name, registrationNumber: before.registration_number, goLiveDate: before.go_live_date }),
-          JSON.stringify({ legalName, registrationNumber, goLiveDate }), JSON.stringify({ source: "v1-company-profile" })]);
+      await this.command(tx, "UPSERT_COMPANY_PROFILE", {
+        legalEntityId: actor.legalEntityId, legalName, registrationNumber, goLiveDate,
+        updatedByUserAccountId: actor.userAccountId
+      });
+      await this.command(tx, "WRITE_AUDIT", {
+        id: randomUUID(), actorUserAccountId: actor.userAccountId,
+        legalEntityId: actor.legalEntityId, correlationId: randomUUID(),
+        action: "COMPANY_PROFILE_UPDATED", entityType: "COMPANY_PROFILE",
+        entityId: actor.legalEntityId,
+        before: before === undefined ? null : { legalName: before.legal_name, registrationNumber: before.registration_number, goLiveDate: before.go_live_date },
+        after: { legalName, registrationNumber, goLiveDate }, metadata: { source: "v1-company-profile" }
+      });
       return loadCompanyProfile(tx, actor);
     });
   }
@@ -523,7 +524,7 @@ export class IdentityService {
 
     return this.mutate(async (tx) => {
       const actor = await this.admin(tx, token, ADMIN_USERS);
-      const roles = await loadRolesById(tx, actor.legalEntityId, input.roleIds);
+      const roles = await loadRolesById(tx, this.authenticator, actor.legalEntityId, input.roleIds);
       assertIdentity(roles.length === new Set(input.roleIds).size, "NOT_FOUND", "One of the selected roles does not exist.");
       for (const role of roles) {
         assertIdentity(role.status === "ACTIVE", "VALIDATION_FAILED", `The role “${role.name}” is inactive.`);
@@ -533,35 +534,31 @@ export class IdentityService {
       assertIdentity(duplicate.rows.length === 0, "DUPLICATE", "That username is already in use.", { field: "loginIdentifier" });
 
       const userId = randomUUID();
-      await tx.query(
-        `INSERT INTO abos.user_accounts
-           (id, login_identifier, display_name, status, job_title, contact_email, contact_phone,
-            primary_legal_entity_id, created_by_user_account_id, disabled_at, updated_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, CASE WHEN $4 = 'DISABLED' THEN clock_timestamp() END, clock_timestamp())`,
-        [userId, login, profile.displayName, input.status, profile.jobTitle, profile.contactEmail, profile.contactPhone, actor.legalEntityId, actor.userAccountId]
-      );
-      await tx.query(
-        `INSERT INTO abos.user_credentials (user_account_id, password_hash, must_change_password, password_set_by_user_account_id)
-         VALUES ($1, $2, true, $3)`,
-        [userId, hash, actor.userAccountId]
-      );
-      await writeAudit(tx, {
+      await this.command(tx, "CREATE_USER", {
+        id: userId, loginIdentifier: login, displayName: profile.displayName, status: input.status,
+        jobTitle: profile.jobTitle, contactEmail: profile.contactEmail, contactPhone: profile.contactPhone,
+        legalEntityId: actor.legalEntityId, createdByUserAccountId: actor.userAccountId
+      });
+      await this.command(tx, "UPSERT_CREDENTIAL", {
+        userAccountId: userId, passwordHash: hash, mustChangePassword: true,
+        setByUserAccountId: actor.userAccountId
+      });
+      await writeAudit(tx, this.authenticator, {
         actor: actor.userAccountId, legalEntityId: actor.legalEntityId, action: "USER_CREATED",
         entityType: "USER_ACCOUNT", entityId: userId,
         after: { loginIdentifier: login, ...profile, status: input.status, mustChangePassword: true }
       });
       for (const role of roles) {
-        await tx.query(
-          `INSERT INTO abos.user_role_assignments (id, user_account_id, role_id, legal_entity_id, assigned_by_user_account_id)
-           VALUES ($1, $2, $3, $4, $5)`,
-          [randomUUID(), userId, role.id, actor.legalEntityId, actor.userAccountId]
-        );
-        await writeAudit(tx, {
+        await this.command(tx, "ASSIGN_ROLE", {
+          id: randomUUID(), userAccountId: userId, roleId: role.id,
+          legalEntityId: actor.legalEntityId, assignedByUserAccountId: actor.userAccountId
+        });
+        await writeAudit(tx, this.authenticator, {
           actor: actor.userAccountId, legalEntityId: actor.legalEntityId, action: "ROLE_ASSIGNED",
           entityType: "USER_ACCOUNT", entityId: userId, after: { roleId: role.id, roleName: role.name }
         });
       }
-      await syncGrants(tx, actor, userId);
+      await syncGrants(tx, this.authenticator, actor, userId);
       return { user: await this.detail(tx, actor, userId), temporaryPassword };
     });
   }
@@ -570,14 +567,13 @@ export class IdentityService {
     const profile = validateProfile(input);
     return this.mutate(async (tx) => {
       const actor = await this.admin(tx, token, ADMIN_USERS);
-      const before = await requireUser(tx, actor, userId);
+      const before = await requireUser(tx, this.authenticator, actor, userId);
       requireSuperAdminFor(actor, await activeGrants(tx, userId, actor.legalEntityId));
-      await tx.query(
-        `UPDATE abos.user_accounts SET display_name = $2, job_title = $3, contact_email = $4, contact_phone = $5, updated_at = clock_timestamp()
-          WHERE id = $1`,
-        [userId, profile.displayName, profile.jobTitle, profile.contactEmail, profile.contactPhone]
-      );
-      await writeAudit(tx, {
+      await this.command(tx, "UPDATE_USER_PROFILE", {
+        userAccountId: userId, displayName: profile.displayName, jobTitle: profile.jobTitle,
+        contactEmail: profile.contactEmail, contactPhone: profile.contactPhone
+      });
+      await writeAudit(tx, this.authenticator, {
         actor: actor.userAccountId, legalEntityId: actor.legalEntityId, action: "USER_PROFILE_UPDATED",
         entityType: "USER_ACCOUNT", entityId: userId,
         before: { displayName: before.display_name, jobTitle: before.job_title, contactEmail: before.contact_email, contactPhone: before.contact_phone },
@@ -592,19 +588,14 @@ export class IdentityService {
     return this.mutate(async (tx) => {
       const actor = await this.admin(tx, token, ADMIN_USERS);
       assertIdentity(userId !== actor.userAccountId, "SELF_CHANGE_FORBIDDEN", "You cannot change the status of your own account. Another administrator must do it.");
-      const before = await requireUser(tx, actor, userId);
+      const before = await requireUser(tx, this.authenticator, actor, userId);
       assertIdentity(before.status === "ACTIVE" || before.status === "DISABLED", "VALIDATION_FAILED", "This account cannot be changed.");
       const targetPermissions = await activeGrants(tx, userId, actor.legalEntityId);
       requireSuperAdminFor(actor, targetPermissions);
       if (before.status === status) return this.detail(tx, actor, userId);
-      await tx.query(
-        `UPDATE abos.user_accounts
-            SET status = $2, disabled_at = CASE WHEN $2 = 'DISABLED' THEN clock_timestamp() END, updated_at = clock_timestamp()
-          WHERE id = $1`,
-        [userId, status]
-      );
-      const revoked = status === "DISABLED" ? await revokeAllSessions(tx, userId) : 0;
-      await writeAudit(tx, {
+      await this.command(tx, "SET_USER_STATUS", { userAccountId: userId, status });
+      const revoked = status === "DISABLED" ? await revokeAllSessions(tx, this.authenticator, userId) : 0;
+      await writeAudit(tx, this.authenticator, {
         actor: actor.userAccountId, legalEntityId: actor.legalEntityId,
         action: status === "DISABLED" ? "USER_SUSPENDED" : "USER_ACTIVATED",
         entityType: "USER_ACCOUNT", entityId: userId, before: { status: before.status }, after: { status, sessionsRevoked: revoked }
@@ -617,50 +608,51 @@ export class IdentityService {
     return this.mutate(async (tx) => {
       const actor = await this.admin(tx, token, ADMIN_USERS);
       assertIdentity(userId !== actor.userAccountId, "SELF_CHANGE_FORBIDDEN", "You cannot change your own roles. Another administrator must do it.");
-      await requireUser(tx, actor, userId);
+      await requireUser(tx, this.authenticator, actor, userId);
       const wanted = new Set(roleIds);
-      const roles = await loadRolesById(tx, actor.legalEntityId, [...wanted]);
+      const roles = await loadRolesById(tx, this.authenticator, actor.legalEntityId, [...wanted]);
       assertIdentity(roles.length === wanted.size, "NOT_FOUND", "One of the selected roles does not exist.");
+      await this.authenticator.identityLock(tx, "USER_ASSIGNMENTS", {
+        userAccountId: userId, legalEntityId: actor.legalEntityId
+      });
       const current = await tx.query<{ readonly id: string; readonly role_id: string }>(
         `SELECT id, role_id FROM abos.user_role_assignments
-          WHERE user_account_id = $1 AND legal_entity_id = $2 AND revoked_at IS NULL FOR UPDATE`,
+          WHERE user_account_id = $1 AND legal_entity_id = $2 AND revoked_at IS NULL`,
         [userId, actor.legalEntityId]
       );
       const currentRoleIds = new Set(current.rows.map((row) => row.role_id));
       const added = roles.filter((role) => !currentRoleIds.has(role.id));
       const removed = current.rows.filter((row) => !wanted.has(row.role_id));
-      const removedRoles = await loadRolesById(tx, actor.legalEntityId, removed.map((row) => row.role_id));
+      const removedRoles = await loadRolesById(tx, this.authenticator, actor.legalEntityId, removed.map((row) => row.role_id));
       for (const role of [...added, ...removedRoles]) requireSuperAdminFor(actor, role.permissions);
       for (const role of added) assertIdentity(role.status === "ACTIVE", "VALIDATION_FAILED", `The role “${role.name}” is inactive.`);
       if (added.length === 0 && removed.length === 0) return this.detail(tx, actor, userId);
 
       for (const row of removed) {
-        await tx.query(
-          "UPDATE abos.user_role_assignments SET revoked_at = clock_timestamp(), revoked_by_user_account_id = $2 WHERE id = $1",
-          [row.id, actor.userAccountId]
-        );
+        await this.command(tx, "REVOKE_ROLE", {
+          assignmentId: row.id, revokedByUserAccountId: actor.userAccountId
+        });
         const role = removedRoles.find((item) => item.id === row.role_id);
-        await writeAudit(tx, {
+        await writeAudit(tx, this.authenticator, {
           actor: actor.userAccountId, legalEntityId: actor.legalEntityId, action: "ROLE_REMOVED",
           entityType: "USER_ACCOUNT", entityId: userId, before: { roleId: row.role_id, roleName: role?.name ?? null }
         });
       }
       for (const role of added) {
-        await tx.query(
-          `INSERT INTO abos.user_role_assignments (id, user_account_id, role_id, legal_entity_id, assigned_by_user_account_id)
-           VALUES ($1, $2, $3, $4, $5)`,
-          [randomUUID(), userId, role.id, actor.legalEntityId, actor.userAccountId]
-        );
-        await writeAudit(tx, {
+        await this.command(tx, "ASSIGN_ROLE", {
+          id: randomUUID(), userAccountId: userId, roleId: role.id,
+          legalEntityId: actor.legalEntityId, assignedByUserAccountId: actor.userAccountId
+        });
+        await writeAudit(tx, this.authenticator, {
           actor: actor.userAccountId, legalEntityId: actor.legalEntityId, action: "ROLE_ASSIGNED",
           entityType: "USER_ACCOUNT", entityId: userId, after: { roleId: role.id, roleName: role.name }
         });
       }
       const beforeGrants = await activeGrants(tx, userId, actor.legalEntityId);
-      await syncGrants(tx, actor, userId);
+      await syncGrants(tx, this.authenticator, actor, userId);
       const afterGrants = await activeGrants(tx, userId, actor.legalEntityId);
-      const revoked = await revokeAllSessions(tx, userId);
-      await writeAudit(tx, {
+      const revoked = await revokeAllSessions(tx, this.authenticator, userId);
+      await writeAudit(tx, this.authenticator, {
         actor: actor.userAccountId, legalEntityId: actor.legalEntityId, action: "USER_PERMISSIONS_CHANGED",
         entityType: "USER_ACCOUNT", entityId: userId,
         before: { permissions: beforeGrants }, after: { permissions: afterGrants, reason: "ROLES_CHANGED", sessionsRevoked: revoked }
@@ -676,19 +668,15 @@ export class IdentityService {
     return this.mutate(async (tx) => {
       const actor = await this.admin(tx, token, ADMIN_USERS);
       assertIdentity(userId !== actor.userAccountId, "SELF_CHANGE_FORBIDDEN", "Use “Change my password” for your own account.");
-      const target = await requireUser(tx, actor, userId);
+      const target = await requireUser(tx, this.authenticator, actor, userId);
       requireSuperAdminFor(actor, await activeGrants(tx, userId, actor.legalEntityId));
       assertIdentity(passwordProblems(temporaryPassword, target.login_identifier).length === 0, "VALIDATION_FAILED", "Please try again.");
-      await tx.query(
-        `INSERT INTO abos.user_credentials (user_account_id, password_hash, must_change_password, password_set_by_user_account_id)
-         VALUES ($1, $2, true, $3)
-         ON CONFLICT (user_account_id) DO UPDATE
-            SET password_hash = EXCLUDED.password_hash, must_change_password = true, password_set_at = clock_timestamp(),
-                password_set_by_user_account_id = EXCLUDED.password_set_by_user_account_id`,
-        [userId, hash, actor.userAccountId]
-      );
-      const revoked = await revokeAllSessions(tx, userId);
-      await writeAudit(tx, {
+      await this.command(tx, "UPSERT_CREDENTIAL", {
+        userAccountId: userId, passwordHash: hash, mustChangePassword: true,
+        setByUserAccountId: actor.userAccountId
+      });
+      const revoked = await revokeAllSessions(tx, this.authenticator, userId);
+      await writeAudit(tx, this.authenticator, {
         actor: actor.userAccountId, legalEntityId: actor.legalEntityId, action: "PASSWORD_RESET",
         entityType: "USER_ACCOUNT", entityId: userId, after: { mustChangePassword: true, sessionsRevoked: revoked }
       });
@@ -699,10 +687,10 @@ export class IdentityService {
   async revokeSessions(token: string, userId: string): Promise<UserDetail> {
     return this.mutate(async (tx) => {
       const actor = await this.admin(tx, token, ADMIN_USERS);
-      await requireUser(tx, actor, userId);
+      await requireUser(tx, this.authenticator, actor, userId);
       if (userId !== actor.userAccountId) requireSuperAdminFor(actor, await activeGrants(tx, userId, actor.legalEntityId));
-      const revoked = await revokeAllSessions(tx, userId);
-      await writeAudit(tx, {
+      const revoked = await revokeAllSessions(tx, this.authenticator, userId);
+      await writeAudit(tx, this.authenticator, {
         actor: actor.userAccountId, legalEntityId: actor.legalEntityId, action: "SESSIONS_REVOKED",
         entityType: "USER_ACCOUNT", entityId: userId, after: { reason: "ADMINISTRATOR_REQUEST", sessionsRevoked: revoked }
       });
@@ -761,18 +749,16 @@ export class IdentityService {
       );
       assertIdentity(duplicate.rows.length === 0, "DUPLICATE", "A role with that name already exists.", { field: "name" });
       const roleId = randomUUID();
-      await tx.query(
-        `INSERT INTO abos.access_roles (id, legal_entity_id, role_name, description, created_by_user_account_id)
-         VALUES ($1, $2, $3, $4, $5)`,
-        [roleId, actor.legalEntityId, role.name, role.description, actor.userAccountId]
-      );
+      await this.command(tx, "CREATE_ROLE", {
+        id: roleId, legalEntityId: actor.legalEntityId, name: role.name,
+        description: role.description, createdByUserAccountId: actor.userAccountId
+      });
       for (const code of role.permissions) {
-        await tx.query(
-          "INSERT INTO abos.access_role_permissions (role_id, permission_code, added_by_user_account_id) VALUES ($1, $2, $3)",
-          [roleId, code, actor.userAccountId]
-        );
+        await this.command(tx, "ADD_ROLE_PERMISSION", {
+          roleId, permissionCode: code, addedByUserAccountId: actor.userAccountId
+        });
       }
-      await writeAudit(tx, {
+      await writeAudit(tx, this.authenticator, {
         actor: actor.userAccountId, legalEntityId: actor.legalEntityId, action: "ROLE_CREATED",
         entityType: "ACCESS_ROLE", entityId: roleId, after: { name: role.name, description: role.description, permissions: role.permissions }
       });
@@ -787,8 +773,11 @@ export class IdentityService {
     assertIdentity(input.status === "ACTIVE" || input.status === "INACTIVE", "VALIDATION_FAILED", "Choose Active or Inactive.");
     return this.mutate(async (tx) => {
       const actor = await this.admin(tx, token, ADMIN_ROLES);
+      await this.authenticator.identityLock(tx, "ACCESS_ROLE", {
+        roleId, legalEntityId: actor.legalEntityId
+      });
       const existing = await tx.query<{ readonly role_name: string; readonly description: string; readonly status: "ACTIVE" | "INACTIVE"; readonly version: number }>(
-        "SELECT role_name, description, status, version FROM abos.access_roles WHERE id = $1 AND legal_entity_id = $2 FOR UPDATE",
+        "SELECT role_name, description, status, version FROM abos.access_roles WHERE id = $1 AND legal_entity_id = $2",
         [roleId, actor.legalEntityId]
       );
       const before = existing.rows[0];
@@ -816,17 +805,17 @@ export class IdentityService {
         assertIdentity(duplicate.rows.length === 0, "DUPLICATE", "A role with that name already exists.", { field: "name" });
       }
 
-      await tx.query(
-        `UPDATE abos.access_roles SET role_name = $2, description = $3, status = $4, version = version + 1,
-                updated_by_user_account_id = $5, updated_at = clock_timestamp()
-          WHERE id = $1`,
-        [roleId, role.name, role.description, input.status, actor.userAccountId]
-      );
-      for (const code of removed) await tx.query("DELETE FROM abos.access_role_permissions WHERE role_id = $1 AND permission_code = $2", [roleId, code]);
+      await this.command(tx, "UPDATE_ROLE", {
+        roleId, name: role.name, description: role.description, status: input.status,
+        updatedByUserAccountId: actor.userAccountId
+      });
+      for (const code of removed) await this.command(tx, "REMOVE_ROLE_PERMISSION", { roleId, permissionCode: code });
       for (const code of added) {
-        await tx.query("INSERT INTO abos.access_role_permissions (role_id, permission_code, added_by_user_account_id) VALUES ($1, $2, $3)", [roleId, code, actor.userAccountId]);
+        await this.command(tx, "ADD_ROLE_PERMISSION", {
+          roleId, permissionCode: code, addedByUserAccountId: actor.userAccountId
+        });
       }
-      await writeAudit(tx, {
+      await writeAudit(tx, this.authenticator, {
         actor: actor.userAccountId, legalEntityId: actor.legalEntityId,
         action: before.status !== input.status ? (input.status === "INACTIVE" ? "ROLE_DEACTIVATED" : "ROLE_REACTIVATED") : "ROLE_UPDATED",
         entityType: "ACCESS_ROLE", entityId: roleId,
@@ -836,10 +825,10 @@ export class IdentityService {
       if (accessChanged) {
         for (const holder of holders) {
           const beforeGrants = await activeGrants(tx, holder, actor.legalEntityId);
-          await syncGrants(tx, actor, holder);
+          await syncGrants(tx, this.authenticator, actor, holder);
           const afterGrants = await activeGrants(tx, holder, actor.legalEntityId);
-          const revoked = await revokeAllSessions(tx, holder);
-          await writeAudit(tx, {
+          const revoked = await revokeAllSessions(tx, this.authenticator, holder);
+          await writeAudit(tx, this.authenticator, {
             actor: actor.userAccountId, legalEntityId: actor.legalEntityId, action: "USER_PERMISSIONS_CHANGED",
             entityType: "USER_ACCOUNT", entityId: holder,
             before: { permissions: beforeGrants }, after: { permissions: afterGrants, viaRoleId: roleId, sessionsRevoked: revoked }
@@ -853,6 +842,14 @@ export class IdentityService {
   }
 
   // -------------------------------------------------------------------------------------------
+
+  private command(
+    executor: SqlExecutor,
+    operation: string,
+    payload: Readonly<Record<string, unknown>>
+  ): Promise<{ readonly affected: number }> {
+    return this.authenticator.identityCommand(executor, operation, payload);
+  }
 
   /** Runs a mutation and turns the database's own refusals into readable errors. */
   private async mutate<Result>(operation: (tx: SqlExecutor) => Promise<Result>): Promise<Result> {
@@ -997,16 +994,25 @@ async function activeGrants(tx: SqlExecutor, userId: string, legalEntityId: stri
   return rows.rows.map((row) => row.permission_code);
 }
 
-async function syncGrants(tx: SqlExecutor, actor: Actor, userId: string): Promise<void> {
-  await tx.query("SELECT abos.sync_role_grants($1, $2, $3)", [userId, actor.legalEntityId, actor.userAccountId]);
+async function syncGrants(
+  tx: SqlExecutor,
+  authenticator: SandboxAuthenticator,
+  actor: Actor,
+  userId: string
+): Promise<void> {
+  await authenticator.identityCommand(tx, "SYNC_GRANTS", {
+    userAccountId: userId, legalEntityId: actor.legalEntityId,
+    actorUserAccountId: actor.userAccountId
+  });
 }
 
-async function revokeAllSessions(tx: SqlExecutor, userId: string): Promise<number> {
-  const result = await tx.query(
-    "UPDATE abos.sandbox_sessions SET revoked_at = clock_timestamp() WHERE user_account_id = $1 AND revoked_at IS NULL AND expires_at > clock_timestamp()",
-    [userId]
-  );
-  return result.rowCount;
+async function revokeAllSessions(
+  tx: SqlExecutor,
+  authenticator: SandboxAuthenticator,
+  userId: string
+): Promise<number> {
+  const result = await authenticator.identityCommand(tx, "REVOKE_USER_SESSIONS", { userAccountId: userId });
+  return result.affected;
 }
 
 interface UserRow {
@@ -1015,13 +1021,17 @@ interface UserRow {
 }
 
 /** A target account must belong to the actor's legal entity. */
-async function requireUser(tx: SqlExecutor, actor: Actor, userId: string): Promise<UserRow> {
+async function requireUser(
+  tx: SqlExecutor, authenticator: SandboxAuthenticator, actor: Actor, userId: string
+): Promise<UserRow> {
   assertIdentity(/^[0-9a-f-]{36}$/i.test(userId), "NOT_FOUND", "That employee account does not exist in your company.");
+  await authenticator.identityLock(tx, "USER_ACCOUNT", {
+    userAccountId: userId, legalEntityId: actor.legalEntityId
+  });
   const rows = await tx.query<UserRow>(
     `SELECT u.id, u.login_identifier, u.display_name, u.status, u.job_title, u.contact_email, u.contact_phone
        FROM abos.user_accounts u
-      WHERE u.id = $1 AND ${memberOfEntity("u", "$2")}
-      FOR UPDATE OF u`,
+      WHERE u.id = $1 AND ${memberOfEntity("u", "$2")}`,
     [userId, actor.legalEntityId]
   );
   const row = rows.rows[0];
@@ -1082,14 +1092,17 @@ async function loadUsers(tx: SqlExecutor, actor: Actor, userId: string | null): 
 
 interface RoleRow { readonly id: string; readonly name: string; readonly status: "ACTIVE" | "INACTIVE"; readonly permissions: string[] }
 
-async function loadRolesById(tx: SqlExecutor, legalEntityId: string, ids: readonly string[]): Promise<RoleRow[]> {
+async function loadRolesById(
+  tx: SqlExecutor, authenticator: SandboxAuthenticator, legalEntityId: string, ids: readonly string[]
+): Promise<RoleRow[]> {
   if (ids.length === 0) return [];
   assertIdentity(ids.every((id) => /^[0-9a-f-]{36}$/i.test(id)), "NOT_FOUND", "One of the selected roles does not exist.");
   // Lock first. A concurrent role edit holds the role row FOR UPDATE until it commits; the
   // permissions are read afterwards, in a new statement, so they are the committed ones.
+  await authenticator.identityLock(tx, "ACCESS_ROLES", { legalEntityId, roleIds: ids });
   const locked = await tx.query<{ readonly id: string; readonly name: string; readonly status: "ACTIVE" | "INACTIVE" }>(
     `SELECT r.id, r.role_name AS name, r.status FROM abos.access_roles r
-      WHERE r.legal_entity_id = $1 AND r.id = ANY($2::uuid[]) FOR SHARE OF r`,
+      WHERE r.legal_entity_id = $1 AND r.id = ANY($2::uuid[])`,
     [legalEntityId, ids]
   );
   const permissions = await tx.query<{ readonly role_id: string; readonly permission_code: string }>(
@@ -1149,19 +1162,16 @@ async function loadAudit(tx: SqlExecutor, legalEntityId: string, userId: string 
   }));
 }
 
-async function writeAudit(tx: SqlExecutor, input: {
+async function writeAudit(tx: SqlExecutor, authenticator: SandboxAuthenticator, input: {
   readonly actor: string; readonly legalEntityId: string; readonly action: string; readonly entityType: "USER_ACCOUNT" | "ACCESS_ROLE";
   readonly entityId: string; readonly before?: Record<string, unknown>; readonly after?: Record<string, unknown>;
 }): Promise<void> {
-  await tx.query(
-    `INSERT INTO abos.audit_records
-       (id, actor_user_account_id, legal_entity_id, correlation_id, action, entity_type, entity_id, before_state, after_state, metadata)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-    [randomUUID(), input.actor, input.legalEntityId, randomUUID(), input.action, input.entityType, input.entityId,
-      input.before === undefined ? null : JSON.stringify(input.before),
-      input.after === undefined ? null : JSON.stringify(input.after),
-      JSON.stringify({ source: "v1-identity-admin" })]
-  );
+  await authenticator.identityCommand(tx, "WRITE_AUDIT", {
+    id: randomUUID(), actorUserAccountId: input.actor, legalEntityId: input.legalEntityId,
+    correlationId: randomUUID(), action: input.action, entityType: input.entityType,
+    entityId: input.entityId, before: input.before ?? null, after: input.after ?? null,
+    metadata: { source: "v1-identity-admin" }
+  });
 }
 
 function translateDatabaseError(error: unknown): unknown {

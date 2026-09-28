@@ -74,7 +74,7 @@ if (databaseUrl() === undefined) {
         // The identity runtime still cannot write other kinds of audit or touch Treasury/Finance tables.
         await assert.rejects(() => executor.query(
           "INSERT INTO abos.audit_records (id, legal_entity_id, correlation_id, action, entity_type) VALUES (gen_random_uuid(), $1, gen_random_uuid(), 'X', 'JOURNAL')",
-          [world.legalEntityId]), /only record access-administration events/);
+          [world.legalEntityId]), /permission denied|only record access-administration events/);
         await assert.rejects(() => executor.query("UPDATE abos.legal_entities SET name = 'x'"), /permission denied/);
       } finally {
         await pool.end();

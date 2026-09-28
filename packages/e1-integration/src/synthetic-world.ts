@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import type {
   CapitalReceiptIntentId,
   CashLocationCurrencyAccountId,
@@ -159,6 +159,14 @@ export async function seedSyntheticWorld(
   await q(
     `INSERT INTO abos.currencies (code, name, enabled) VALUES ('AFN', 'Afghan Afghani', true)
      ON CONFLICT (code) DO NOTHING`
+  );
+  await q(
+    `INSERT INTO abos.identity_runtime_configuration (singleton, signing_secret_sha256)
+     VALUES (true, $1)
+     ON CONFLICT (singleton) DO UPDATE
+       SET signing_secret_sha256 = EXCLUDED.signing_secret_sha256,
+           configured_at = clock_timestamp()`,
+    [createHash("sha256").update(authConfiguration.signingSecret, "utf8").digest("hex")]
   );
 
   await q(

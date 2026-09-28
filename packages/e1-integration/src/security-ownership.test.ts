@@ -27,6 +27,7 @@ import {
 
 const MARKER = SYNTHETIC_AUTH_CONFIGURATION.runtimeMarker;
 const OWNERS = ["abos_e1_treasury_owner", "abos_e1_finance_owner", "abos_e1_shareholder_owner"] as const;
+const FUNCTION_OWNERS = [...OWNERS, "abos_v1_identity_owner"] as const;
 const LOGINS = {
   finance: { name: "abos_e1_finance_runtime_test_login", password: "synthetic-finance-runtime-only-2026", role: "abos_e1_runtime" },
   treasury: { name: "abos_e1_treasury_runtime_test_login", password: "synthetic-treasury-runtime-only-2026", role: "abos_e1_treasury_runtime" },
@@ -55,9 +56,9 @@ if (databaseUrl() === undefined) {
                 p.proconfig AS config, has_function_privilege('public', p.oid, 'EXECUTE') AS public_execute
            FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace JOIN pg_roles r ON r.oid = p.proowner
           WHERE n.nspname = 'abos' AND p.prosecdef ORDER BY 1`);
-      assert.equal(rows.rows.length, 29, "every restricted entry point is accounted for (12 E1 + 3 calendar + 6 chart of accounts + 2 WP-B safes/Saraf + 6 WP-C)");
+      assert.equal(rows.rows.length, 34, "every restricted entry point, including GL and identity, is accounted for");
       for (const fn of rows.rows) {
-        assert.ok((OWNERS as readonly string[]).includes(fn.owner), `${fn.signature} is owned by ${fn.owner}`);
+        assert.ok((FUNCTION_OWNERS as readonly string[]).includes(fn.owner), `${fn.signature} is owned by ${fn.owner}`);
         assert.equal(fn.superuser, false, fn.signature);
         assert.equal(fn.bypassrls, false, fn.signature);
         assert.equal(fn.createrole, false, fn.signature);
@@ -83,7 +84,10 @@ if (databaseUrl() === undefined) {
         // WP-C (0016): exchange rates are Finance; shareholder capital requests have their own least-privilege owner.
         finance_exchange_rates_view: "abos_e1_finance_owner", finance_record_exchange_rate: "abos_e1_finance_owner",
         finance_correct_exchange_rate: "abos_e1_finance_owner", shareholder_runtime_authorize: "abos_e1_shareholder_owner",
-        shareholder_capital_workspace: "abos_e1_shareholder_owner", shareholder_create_capital_request: "abos_e1_shareholder_owner"
+        shareholder_capital_workspace: "abos_e1_shareholder_owner", shareholder_create_capital_request: "abos_e1_shareholder_owner",
+        finance_general_ledger: "abos_e1_finance_owner",
+        identity_issue_session_context: "abos_v1_identity_owner", identity_actor_context: "abos_v1_identity_owner",
+        identity_runtime_lock: "abos_v1_identity_owner", identity_runtime_command: "abos_v1_identity_owner"
       };
       assert.deepEqual(Object.fromEntries(rows.rows.map((fn) => [fn.name, fn.owner])), expectedOwner);
     });
@@ -165,6 +169,8 @@ if (databaseUrl() === undefined) {
         ["finance", "SELECT abos.treasury_secure_context($1)"],
         ["treasury", "SELECT abos.finance_handoff_workspace($1)"],
         ["identity", "SELECT abos.finance_handoff_workspace($1)"],
+        ["treasury", "SELECT abos.finance_general_ledger($1, DATE '2026-01-01', DATE '2026-12-31', NULL)"],
+        ["identity", "SELECT abos.finance_general_ledger($1, DATE '2026-01-01', DATE '2026-12-31', NULL)"],
         ["treasury", "SELECT abos.user_holds_permission(gen_random_uuid(), gen_random_uuid(), 'treasury.read')"],
         ["treasury", "SELECT abos.treasury_actor()"],
         ["finance", "SELECT abos.is_assigned_cashier(gen_random_uuid(), gen_random_uuid())"],
@@ -197,6 +203,93 @@ if (databaseUrl() === undefined) {
       const counts = await harness.executor.query<{ journals: string; lines: string }>(
         "SELECT (SELECT count(*) FROM abos.journals)::text AS journals, (SELECT count(*) FROM abos.journal_lines)::text AS lines");
       assert.deepEqual(counts.rows[0], { journals: "1", lines: "2" });
+
+      const ledger = await restricted("finance", async (db) => (await db.query<{
+        readonly value: {
+          readonly syntheticOnly: boolean;
+          readonly lines: readonly {
+            readonly journalId: string; readonly accountId: string;
+            readonly baseCurrency: string; readonly baseDebit: string; readonly baseCredit: string;
+          }[];
+          readonly totals: readonly { readonly currency: string; readonly debits: string; readonly credits: string; readonly lineCount: string }[];
+          readonly returnedLineCount: number; readonly hasMore: boolean;
+        };
+      }>(
+        "SELECT abos.finance_general_ledger($1, DATE '2026-01-01', DATE '2026-12-31', NULL) AS value",
+        [prepared.token]
+      )).rows[0]?.value);
+      assert.ok(ledger?.syntheticOnly);
+      assert.equal(ledger.returnedLineCount, 2);
+      assert.equal(ledger.hasMore, false);
+      assert.equal(new Set(ledger.lines.map((line) => line.journalId)).size, 1);
+      assert.ok(ledger.lines.every((line) => line.baseCurrency === "USD"));
+      assert.deepEqual(ledger.totals, [{
+        currency: "USD", debits: prepared.world.installmentAmount,
+        credits: prepared.world.installmentAmount, lineCount: "2"
+      }]);
+      assert.ok(ledger.lines.some((line) => line.baseDebit === prepared.world.installmentAmount && Number(line.baseCredit) === 0));
+      assert.ok(ledger.lines.some((line) => Number(line.baseDebit) === 0 && line.baseCredit === prepared.world.installmentAmount));
+
+      const cashAccount = await restricted("finance", async (db) => (await db.query<{ readonly value: { readonly returnedLineCount: number; readonly lines: readonly { readonly accountId: string }[] } }>(
+        "SELECT abos.finance_general_ledger($1, DATE '2026-01-01', DATE '2026-12-31', $2) AS value",
+        [prepared.token, prepared.world.cashLedgerAccountId]
+      )).rows[0]?.value);
+      assert.equal(cashAccount?.returnedLineCount, 1);
+      assert.equal(cashAccount?.lines[0]?.accountId, prepared.world.cashLedgerAccountId);
+      await assert.rejects(
+        () => restricted("finance", (db) => db.query(
+          "SELECT abos.finance_general_ledger($1, DATE '2026-01-01', DATE '2026-12-31', NULL)",
+          ["invalid-finance-token"]
+        )),
+        /session is invalid|authentication|token|bearer credential/i
+      );
+
+      // Scope isolation is conjunctive: a dimensioned line remains hidden until the actor holds
+      // every applicable live scope. The privileged fixture update is test-only and bypasses the
+      // posted-line immutability trigger solely to exercise the read model.
+      const projectId = randomUUID();
+      const departmentId = randomUUID();
+      const costCenterId = randomUUID();
+      await harness.executor.query(
+        "INSERT INTO abos.projects (id, legal_entity_id, code, name, active) VALUES ($1,$2,'GL-P','GL Project',true)",
+        [projectId, prepared.world.legalEntityId]
+      );
+      await harness.executor.query(
+        "INSERT INTO abos.departments (id, legal_entity_id, code, name, active) VALUES ($1,$2,'GL-D','GL Department',true)",
+        [departmentId, prepared.world.legalEntityId]
+      );
+      await harness.executor.query(
+        "INSERT INTO abos.cost_centers (id, legal_entity_id, code, name, active) VALUES ($1,$2,'GL-C','GL Cost Center',true)",
+        [costCenterId, prepared.world.legalEntityId]
+      );
+      await harness.executor.transaction(async (tx) => {
+        await tx.query("SET LOCAL session_replication_role = replica");
+        await tx.query(
+          "UPDATE abos.journal_lines SET project_id=$2, department_id=$3, cost_center_id=$4 WHERE journal_id=$1",
+          [first, projectId, departmentId, costCenterId]
+        );
+      });
+      const scopedCount = async () => restricted("finance", async (db) => (await db.query<{
+        readonly value: { readonly returnedLineCount: number };
+      }>("SELECT abos.finance_general_ledger($1, DATE '2026-01-01', DATE '2026-12-31', NULL) AS value", [prepared.token])).rows[0]?.value.returnedLineCount);
+      assert.equal(await scopedCount(), 0, "dimensioned lines are hidden without scope grants");
+      for (const [kind, scopeId] of [
+        ["PROJECT", projectId], ["DEPARTMENT", departmentId], ["COST_CENTER", costCenterId]
+      ] as const) {
+        await harness.executor.query(
+          `INSERT INTO abos.user_scope_grants
+             (user_account_id, legal_entity_id, scope_kind, scope_id, granted_by_user_account_id)
+           VALUES ($1,$2,$3,$4,$5)`,
+          [prepared.world.approverId, prepared.world.legalEntityId, kind, scopeId, prepared.world.bootstrapUserId]
+        );
+      }
+      assert.equal(await scopedCount(), 2, "all applicable live scope grants reveal the lines");
+      await harness.executor.query(
+        `UPDATE abos.user_scope_grants SET revoked_at=clock_timestamp()
+          WHERE user_account_id=$1 AND legal_entity_id=$2 AND scope_kind='DEPARTMENT' AND scope_id=$3`,
+        [prepared.world.approverId, prepared.world.legalEntityId, departmentId]
+      );
+      assert.equal(await scopedCount(), 0, "revoking one applicable scope hides the lines immediately");
 
       // Even the Finance owner, which wrote the journal, cannot alter it now that it is posted.
       await asRole("abos_e1_finance_owner", async (client) => {

@@ -151,7 +151,7 @@ async function prepare(harness: Harness): Promise<{
   world: SyntheticWorld; token: string; postingIntentId: string;
 }> {
   await resetSchema(harness.pool);
-  const world = await seedSyntheticWorld(harness.executor);
+  const world = await seedSyntheticWorld(harness.executor, { authConfiguration: authConfig });
   const authenticator = new SandboxAuthenticator(harness.executor, authConfig);
   const session = await authenticator.issueSession({
     userAccountId: world.approverId as UserAccountId,

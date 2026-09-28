@@ -371,7 +371,7 @@ async function prepare(harness: Harness): Promise<{
   countEvidenceId: string; receiptEvidenceId: string;
 }> {
   await resetSchema(harness.pool);
-  const world = await seedSyntheticWorld(harness.executor);
+  const world = await seedSyntheticWorld(harness.executor, { authConfiguration: authConfig });
   const service = new CapitalReceiptIntentService(new PostgresShareholderRepository(
     harness.executor, world.intentCreatorId as UserAccountId));
   const intent = await service.createCapitalReceiptIntent({

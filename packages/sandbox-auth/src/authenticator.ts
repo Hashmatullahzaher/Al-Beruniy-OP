@@ -87,9 +87,9 @@ export class SandboxAuthenticator {
    * synthetic-only authorization whose runtime marker matches this process, and unless the legal
    * entity is inside the authorized scope.
    */
-  async resolveGate(legalEntityId: LegalEntityId): Promise<SandboxPostingGate> {
-    const authorization = await this.loadAuthorization();
-    const scope = await this.database.query<{
+  async resolveGate(legalEntityId: LegalEntityId, executor: SqlExecutor = this.database): Promise<SandboxPostingGate> {
+    const authorization = await this.loadAuthorization(executor);
+    const scope = await executor.query<{
       readonly legal_entity_id: LegalEntityId;
       readonly base_currency_code: SupportedCurrency;
       readonly authorized_at: Date | string;
@@ -127,8 +127,10 @@ export class SandboxAuthenticator {
     readonly userAccountId: UserAccountId;
     readonly legalEntityId: LegalEntityId;
     readonly ttlSeconds?: number;
-  }): Promise<IssuedSandboxSession> {
-    await this.resolveGate(input.legalEntityId);
+    /** Identity login only: the credential hash that was verified before this transaction. */
+    readonly expectedPasswordHash?: string;
+  }, executor: SqlExecutor = this.database): Promise<IssuedSandboxSession> {
+    await this.resolveGate(input.legalEntityId, executor);
 
     const ttl = input.ttlSeconds ?? this.configuration.maxSessionSeconds;
     assertSandbox(
@@ -137,28 +139,34 @@ export class SandboxAuthenticator {
       `Session lifetime must be between 1 and ${this.configuration.maxSessionSeconds} seconds`
     );
 
-    const account = await this.database.query<{ readonly status: string }>(
-      "SELECT status FROM abos.user_accounts WHERE id = $1",
-      [input.userAccountId]
-    );
-    assertSandbox(account.rows[0] !== undefined, "AUTHENTICATION_REQUIRED", "Unknown user account");
+    const context = await executor.query<{
+      readonly value: {
+        readonly status: string | null; readonly grantCount: number;
+        readonly credentialCurrent: boolean;
+      };
+    }>("SELECT abos.identity_issue_session_context($1,$2,$3,$4) AS value", [
+      this.configuration.signingSecret, input.userAccountId, input.legalEntityId,
+      input.expectedPasswordHash ?? null
+    ]);
+    const account = context.rows[0]?.value;
+    assertSandbox(account?.status !== null && account?.status !== undefined, "AUTHENTICATION_REQUIRED", "Unknown user account");
     assertSandbox(
-      account.rows[0].status === "ACTIVE",
+      account.status === "ACTIVE",
       "AUTHENTICATION_REQUIRED",
-      `User account is ${account.rows[0].status}`
+      `User account is ${account.status}`
     );
 
     // Any current grant counts, including administration: an administrator who holds no Treasury
     // or Finance permission still needs a session, and still gets no Treasury or Finance authority.
-    const grants = await this.database.query<{ readonly permission_code: string }>(
-      `SELECT permission_code FROM abos.user_permission_grants
-        WHERE user_account_id = $1 AND legal_entity_id = $2 AND revoked_at IS NULL`,
-      [input.userAccountId, input.legalEntityId]
-    );
     assertSandbox(
-      grants.rows.length > 0,
+      account.grantCount > 0,
       "PERMISSION_DENIED",
       "User account holds no permission in this legal entity"
+    );
+    assertSandbox(
+      input.expectedPasswordHash === undefined || account.credentialCurrent,
+      "AUTHENTICATION_REQUIRED",
+      "Credentials changed before the session could be issued"
     );
 
     const issuedAt = this.now();
@@ -166,21 +174,15 @@ export class SandboxAuthenticator {
     const token = randomBytes(32).toString("base64url");
     const sessionId = randomUUID();
 
-    await this.database.query(
-      `INSERT INTO abos.sandbox_sessions
-         (id, user_account_id, token_sha256, runtime_token_sha256,
-          legal_entity_id, issued_at, expires_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-      [
-        sessionId,
-        input.userAccountId,
-        this.digest(token),
-        createHash("sha256").update(token).digest("hex"),
-        input.legalEntityId,
-        issuedAt.toISOString(),
-        expiresAt.toISOString()
-      ]
-    );
+    await this.identityCommand(executor, "ISSUE_SESSION", {
+      id: sessionId,
+      userAccountId: input.userAccountId,
+      tokenSha256: this.digest(token),
+      runtimeTokenSha256: createHash("sha256").update(token).digest("hex"),
+      legalEntityId: input.legalEntityId,
+      issuedAt: issuedAt.toISOString(),
+      expiresAt: expiresAt.toISOString()
+    });
 
     return {
       sessionId,
@@ -190,6 +192,55 @@ export class SandboxAuthenticator {
       issuedAt: issuedAt.toISOString(),
       expiresAt: expiresAt.toISOString()
     };
+  }
+
+  /** Atomically replace one live session. The database locks and revokes the old row. */
+  async rotateSession(executor: SqlExecutor, oldToken: string): Promise<IssuedSandboxSession> {
+    const issuedAt = this.now();
+    const expiresAt = new Date(issuedAt.getTime() + this.configuration.maxSessionSeconds * 1000);
+    const token = randomBytes(32).toString("base64url");
+    const sessionId = randomUUID();
+    const result = await this.identityCommand(executor, "ROTATE_SESSION", {
+      oldRuntimeTokenSha256: createHash("sha256").update(oldToken).digest("hex"),
+      oldTokenSha256: this.digest(oldToken), id: sessionId,
+      tokenSha256: this.digest(token),
+      runtimeTokenSha256: createHash("sha256").update(token).digest("hex"),
+      issuedAt: issuedAt.toISOString(), expiresAt: expiresAt.toISOString()
+    }) as { readonly affected: number; readonly userAccountId: UserAccountId; readonly legalEntityId: LegalEntityId };
+    assertSandbox(result.affected === 1, "AUTHENTICATION_REQUIRED", "Sandbox session was already rotated");
+    return {
+      sessionId, token, userAccountId: result.userAccountId, legalEntityId: result.legalEntityId,
+      issuedAt: issuedAt.toISOString(), expiresAt: expiresAt.toISOString()
+    };
+  }
+
+  async identityActorContext(executor: SqlExecutor, token: string): Promise<{
+    readonly id: string; readonly userAccountId: string; readonly legalEntityId: string;
+    readonly live: boolean; readonly status: string; readonly loginIdentifier: string;
+    readonly mustChangePassword: boolean; readonly permissions: readonly string[];
+  } | null> {
+    const result = await executor.query<{ readonly value: {
+      readonly id: string; readonly userAccountId: string; readonly legalEntityId: string;
+      readonly live: boolean; readonly status: string; readonly loginIdentifier: string;
+      readonly mustChangePassword: boolean; readonly permissions: readonly string[];
+    } | null }>("SELECT abos.identity_actor_context($1,$2,$3) AS value", [
+      this.configuration.signingSecret,
+      createHash("sha256").update(token).digest("hex"), this.digest(token)
+    ]);
+    return result.rows[0]?.value ?? null;
+  }
+
+  /** Acquire a finite, owner-held identity row lock without granting table UPDATE to the runtime. */
+  async identityLock(
+    executor: SqlExecutor,
+    operation: "LEGAL_ENTITY_PROFILE" | "USER_ACCOUNT" | "USER_ASSIGNMENTS" | "ACCESS_ROLE" | "ACCESS_ROLES",
+    payload: Readonly<Record<string, unknown>>
+  ): Promise<number> {
+    const result = await executor.query<{ readonly affected: number }>(
+      "SELECT abos.identity_runtime_lock($1,$2,$3::jsonb) AS affected",
+      [this.configuration.signingSecret, operation, JSON.stringify(payload)]
+    );
+    return result.rows[0]?.affected ?? 0;
   }
 
   /**
@@ -471,6 +522,24 @@ export class SandboxAuthenticator {
     );
   };
 
+  /** Bind identity-service session reads to the process-held pepper as well as the runtime hash. */
+  sessionTokenDigest(token: string): string {
+    return this.digest(token);
+  }
+
+  /** Execute one whitelisted identity mutation after proving possession of the server secret. */
+  async identityCommand(
+    executor: SqlExecutor,
+    operation: string,
+    payload: Readonly<Record<string, unknown>>
+  ): Promise<{ readonly affected: number }> {
+    const result = await executor.query<{ readonly value: { readonly affected: number } }>(
+      "SELECT abos.identity_runtime_command($1, $2, $3::jsonb) AS value",
+      [this.configuration.signingSecret, operation, JSON.stringify(payload)]
+    );
+    return result.rows[0]?.value ?? { affected: 0 };
+  }
+
   private signGate(gate: Omit<SandboxPostingGate, "signature">): string {
     return createHmac("sha256", this.configuration.signingSecret)
       .update(sandboxGateFingerprint(gate))
@@ -478,10 +547,7 @@ export class SandboxAuthenticator {
   }
 
   async revokeSession(sessionId: string): Promise<void> {
-    await this.database.query(
-      "UPDATE abos.sandbox_sessions SET revoked_at = $2 WHERE id = $1 AND revoked_at IS NULL",
-      [sessionId, this.now().toISOString()]
-    );
+    await this.identityCommand(this.database, "REVOKE_SESSION_ID", { sessionId });
   }
 
   /**
@@ -498,8 +564,8 @@ export class SandboxAuthenticator {
     ]);
   }
 
-  private async loadAuthorization(): Promise<SandboxAuthorization> {
-    const result = await this.database.query<AuthorizationRow>(
+  private async loadAuthorization(executor: SqlExecutor = this.database): Promise<SandboxAuthorization> {
+    const result = await executor.query<AuthorizationRow>(
       `SELECT environment, configuration_state, policy_version_id, real_posting_enabled,
               runtime_marker, authorized_by_user_account_id, authorized_at, expires_at
          FROM abos.sandbox_authorizations

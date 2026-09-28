@@ -4,7 +4,7 @@ import type { LegalEntityId } from "@abos/contracts";
 import { SandboxAuthenticator } from "@abos/sandbox-auth";
 import type { PoolClient } from "pg";
 import { databaseUrl, MISSING_DATABASE_MESSAGE, openHarness, resetSchema, type Harness } from "./harness.ts";
-import { seedSyntheticWorld, type SyntheticWorld } from "./synthetic-world.ts";
+import { seedSyntheticWorld, SYNTHETIC_AUTH_CONFIGURATION, type SyntheticWorld } from "./synthetic-world.ts";
 
 /**
  * The migration identity owns the schema; the runtime identity must never inherit its powers.
@@ -118,12 +118,7 @@ if (databaseUrl() === undefined) {
     });
 
     test("a session authenticated before Finance grant revocation cannot pass commit-time revalidation", async () => {
-      const authenticator = new SandboxAuthenticator(harness.executor, {
-        environment: "test",
-        runtimeMarker: world.runtimeMarker,
-        signingSecret: "synthetic-test-only-revalidation-secret-1234567890",
-        maxSessionSeconds: 900
-      });
+      const authenticator = new SandboxAuthenticator(harness.executor, SYNTHETIC_AUTH_CONFIGURATION);
       const legalEntityId = world.legalEntityId as LegalEntityId;
       const session = await authenticator.issueSession({
         userAccountId: world.approverId as never,

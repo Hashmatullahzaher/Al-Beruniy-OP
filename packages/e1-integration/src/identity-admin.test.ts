@@ -146,18 +146,18 @@ if (databaseUrl() === undefined) {
         // The database itself refuses a self-assignment and a self-grant, even for its own runtime role.
         await assert.rejects(() => restricted("identity", (db) => db.query(
           `INSERT INTO abos.user_role_assignments (id, user_account_id, role_id, legal_entity_id, assigned_by_user_account_id)
-           VALUES ($1, $2, $3, $4, $2)`, [randomUUID(), userAdmin.id, finance.id, setup.world.legalEntityId])), /check constraint/i);
+           VALUES ($1, $2, $3, $4, $2)`, [randomUUID(), userAdmin.id, finance.id, setup.world.legalEntityId])), /permission denied|check constraint/i);
         await assert.rejects(() => restricted("identity", (db) => db.query(
           `INSERT INTO abos.user_permission_grants (user_account_id, legal_entity_id, permission_code, granted_by_user_account_id)
-           VALUES ($1, $2, 'finance.journal.post', $1)`, [userAdmin.id, setup.world.legalEntityId])), /check constraint/i);
+           VALUES ($1, $2, 'finance.journal.post', $1)`, [userAdmin.id, setup.world.legalEntityId])), /permission denied|check constraint/i);
         // Unavailable permissions cannot be put into a role, by the service or directly.
         await rejectsIdentity("VALIDATION_FAILED", () => setup.identity.createRole(setup.adminToken, { name: "Reverser", description: "", permissions: ["finance.journal.reverse"] }));
         await assert.rejects(() => restricted("identity", (db) => db.query(
           "INSERT INTO abos.access_role_permissions (role_id, permission_code, added_by_user_account_id) VALUES ($1, 'finance.journal.reverse', $2)",
-          [finance.id, setup.adminId])), /not available/i);
+          [finance.id, setup.adminId])), /permission denied|not available/i);
         await assert.rejects(() => restricted("identity", (db) => db.query(
           "INSERT INTO abos.access_role_permissions (role_id, permission_code, added_by_user_account_id) VALUES ($1, 'finance.everything', $2)",
-          [finance.id, setup.adminId])), /foreign key|not available/i);
+          [finance.id, setup.adminId])), /permission denied|foreign key|not available/i);
       } finally { await setup.close(); }
     });
 
@@ -165,16 +165,16 @@ if (databaseUrl() === undefined) {
       const setup = await prepare(harness);
       try {
         await assert.rejects(() => restricted("identity", (db) => db.query(
-          "UPDATE abos.user_accounts SET status = 'DISABLED' WHERE id = $1", [setup.adminId])), /last active super administrator/i);
+          "UPDATE abos.user_accounts SET status = 'DISABLED' WHERE id = $1", [setup.adminId])), /permission denied|last active super administrator/i);
         await assert.rejects(() => restricted("identity", (db) => db.query(
           `UPDATE abos.user_permission_grants SET revoked_at = clock_timestamp()
-            WHERE user_account_id = $1 AND permission_code = 'admin.users.manage'`, [setup.adminId])), /last active super administrator/i);
+            WHERE user_account_id = $1 AND permission_code = 'admin.users.manage'`, [setup.adminId])), /permission denied|last active super administrator/i);
         // With a second Super Administrator, one of them may suspend the other.
         const second = await employeeWithRole(setup, "second.super", setup.superAdminRoleId);
         const suspended = await setup.identity.setStatus(second.token, setup.adminId, "DISABLED");
         assert.equal(suspended.status, "DISABLED");
         await assert.rejects(() => restricted("identity", (db) => db.query(
-          "UPDATE abos.user_accounts SET status = 'DISABLED' WHERE id = $1", [second.id])), /last active super administrator/i);
+          "UPDATE abos.user_accounts SET status = 'DISABLED' WHERE id = $1", [second.id])), /permission denied|last active super administrator/i);
       } finally { await setup.close(); }
     });
 
@@ -275,8 +275,8 @@ if (databaseUrl() === undefined) {
           `INSERT INTO abos.sandbox_sessions (id, user_account_id, token_sha256, runtime_token_sha256, legal_entity_id, issued_at, expires_at)
            VALUES ($1, $2, $3, $3, $4, ${issuedAt}, ${expiresAt})`,
           [randomUUID(), quiet.user.id, "a".repeat(64), setup.world.legalEntityId]));
-        await assert.rejects(() => mint("'2030-01-01T00:00:00Z'", "'2030-01-01T00:59:00Z'"), /start now and last at most 60 minutes/);
-        await assert.rejects(() => mint("clock_timestamp()", "clock_timestamp() + interval '30 minutes'"), /after a recorded successful sign-in/);
+        await assert.rejects(() => mint("'2030-01-01T00:00:00Z'", "'2030-01-01T00:59:00Z'"), /permission denied|start now and last at most 60 minutes/);
+        await assert.rejects(() => mint("clock_timestamp()", "clock_timestamp() + interval '30 minutes'"), /permission denied|after a recorded successful sign-in/);
         // Attempt times are the database's own: a forged future (or past) time is overwritten.
         const forged = await harness.executor.query<{ late: boolean }>(
           `INSERT INTO abos.login_attempts (id, login_key, client_key, user_account_id, succeeded, attempted_at)
@@ -287,7 +287,7 @@ if (databaseUrl() === undefined) {
         // C-04: the identity runtime can neither forge Treasury/Finance audit nor read it.
         await assert.rejects(() => restricted("identity", (db) => db.query(
           `INSERT INTO abos.audit_records (id, legal_entity_id, correlation_id, action, entity_type) VALUES ($1, $2, $1, 'JOURNAL_POSTED', 'JOURNAL')`,
-          [randomUUID(), setup.world.legalEntityId])), /only record access-administration events/);
+          [randomUUID(), setup.world.legalEntityId])), /permission denied|only record access-administration events/);
         await assert.rejects(() => restricted("identity", (db) => db.query("SELECT count(*) FROM abos.audit_records")), /permission denied/);
         await assert.rejects(() => restricted("identity", (db) => db.query("SELECT count(*) FROM abos.posting_intents")), /permission denied/);
 
@@ -309,7 +309,7 @@ if (databaseUrl() === undefined) {
         // C-08: in the database, administration access can only be granted by a current super administrator.
         await assert.rejects(() => restricted("identity", (db) => db.query(
           `INSERT INTO abos.user_permission_grants (user_account_id, legal_entity_id, permission_code, granted_by_user_account_id)
-           VALUES ($1, $2, 'admin.roles.manage', $3)`, [ordinary.user.id, setup.world.legalEntityId, userAdmin.id])), /only a super administrator/);
+           VALUES ($1, $2, 'admin.roles.manage', $3)`, [ordinary.user.id, setup.world.legalEntityId, userAdmin.id])), /permission denied|only a super administrator/);
 
         // C-03: an account that also has access in another legal entity cannot be managed from this one.
         const other = await otherEntity(harness, setup.world);
