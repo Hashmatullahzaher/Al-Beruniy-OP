@@ -920,13 +920,16 @@ function validateRole(input: RoleInput): { name: string; description: string; pe
 }
 
 /**
- * Administration access, and access that carries an independence rule (verify, approve, post,
- * safe-account approval), can only be given, taken away or have its password reset by a Super
- * Administrator. A user administrator therefore cannot take over an approver's account.
+ * Administration access, and access that carries an independence rule (every catalogue permission
+ * with independence_enforced = true), can only be given, taken away or have its password reset by a
+ * Super Administrator. A user administrator therefore cannot take over an approver's account.
+ * `identity-admin.test.ts` fails if this list drifts from the database catalogue.
  */
-const INDEPENDENCE_PERMISSIONS = new Set([
+export const INDEPENDENCE_PERMISSIONS: ReadonlySet<string> = new Set([
   "treasury.cash-account.reconcile", "treasury.cash-account.approve", "treasury.cash-receipt.verify",
-  "finance.posting-intent.approve", "finance.journal.post", "finance.journal.reverse"
+  "treasury.saraf-account.manage",
+  "finance.posting-intent.approve", "finance.journal.post", "finance.journal.reverse",
+  "finance.ledger-account.review", "finance.reversal.request", "finance.reversal.approve"
 ]);
 
 function requireSuperAdminFor(actor: Actor, permissions: Iterable<string>): void {

@@ -8,7 +8,7 @@ import type {
 } from "@abos/contracts";
 import { asDecimalString } from "@abos/contracts";
 import type { SqlExecutor } from "@abos/database";
-import { bootstrapSuperAdmin, IdentityError, IdentityService, type IdentityErrorCode } from "@abos/identity";
+import { bootstrapSuperAdmin, IdentityError, IdentityService, INDEPENDENCE_PERMISSIONS, type IdentityErrorCode } from "@abos/identity";
 import { PostgresExecutor, PostgresShareholderRepository, RestrictedTreasuryGateway } from "@abos/persistence";
 import { SandboxAuthenticator } from "@abos/sandbox-auth";
 import { CapitalReceiptIntentService } from "@abos/shareholder";
@@ -301,8 +301,18 @@ if (databaseUrl() === undefined) {
         assert.ok(approverRole);
         await rejectsIdentity("SUPER_ADMIN_REQUIRED", () => setup.identity.createUser(userAdmin.token, {
           loginIdentifier: "puppet.approver", displayName: "Puppet Approver", status: "ACTIVE", roleIds: [approverRole.id] }));
+        // Every independence-enforced catalogue permission is Super-Administrator-only in the service,
+        // including those added after 0010 (CoA review, Saraf accounts, reversal request/approval).
+        const independent = await harness.executor.query<{ permission_code: string }>(
+          "SELECT permission_code FROM abos.permission_catalogue WHERE independence_enforced ORDER BY 1");
+        assert.deepEqual(independent.rows.map((row) => row.permission_code), [...INDEPENDENCE_PERMISSIONS].sort());
+        for (const code of ["finance.ledger-account.review", "treasury.saraf-account.manage", "finance.reversal.approve"]) {
+          const sensitiveRole = await setup.identity.createRole(setup.adminToken, { name: `Sensitive ${code}`, description: "", permissions: [code] });
+          await rejectsIdentity("SUPER_ADMIN_REQUIRED", () => setup.identity.createUser(userAdmin.token, {
+            loginIdentifier: `puppet.${code.replace(/[^a-z]/g, "")}`, displayName: "Puppet Holder", status: "ACTIVE", roleIds: [sensitiveRole.id] }));
+        }
         // ...but can still run ordinary accounts.
-        const reader = await setup.identity.createRole(setup.adminToken, { name: "Reader", description: "", permissions: ["treasury.read"] });
+        const reader =await setup.identity.createRole(setup.adminToken, { name: "Reader", description: "", permissions: ["treasury.read"] });
         const ordinary = await setup.identity.createUser(userAdmin.token, { loginIdentifier: "ordinary.reader", displayName: "Ordinary Reader", status: "ACTIVE", roleIds: [reader.id] });
         assert.equal(ordinary.user.permissions.join(","), "treasury.read");
 
