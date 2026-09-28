@@ -1751,6 +1751,7 @@ button.review-context { border: 0; border-inline-start: 1px solid rgba(102, 142,
   .rev-lines td { border: 0; padding: 2px 4px; text-align: start; white-space: normal; }
   .rev-lines td[data-label]::before { content: attr(data-label); display: block; color: var(--abos-gold-300); font-size: 10px; }
   .rev-card > header .treasury-button { flex: 1 1 100%; }
+}
 
 /* WP #19 GL activity: per-account posted activity (not a balance) and Load more paging. */
 .gl-activity { min-width: 0; }
