@@ -290,3 +290,38 @@ Still open (owner or Finance Manager decisions; nothing was invented):
   rounding rules would widen this.
 - **Idempotent retries** must resend the same correlation identifier; a new correlation identifier
   with the same key is treated as different details.
+
+## Implementation record: migration 0029 and the operational Finance pages
+
+Migration `0029_v1_operational_finance_read_model.sql` is read-only. It adds two restricted entry
+points owned by `abos_v1_operational_finance_owner`, executable only by the Finance runtime, with
+actor, legal entity and permissions derived exactly as in 0028:
+
+- `operational_expense_entry_options(date)` (needs `finance.expense.create`): active Treasury accounts
+  and expense categories with the dimensions their ledger accounts require, the actor's own live
+  project/department/cost-center scopes, that date's current exchange rates only, whether an open
+  period covers the date, and whether an expense policy is configured. Offered payees are parties
+  with a current supplier, contractor or employee role, so the shareholder register is not exposed
+  on an expense form.
+- `operational_finance_daily_report(date)` (needs `finance.expense.read`): posted expenses by
+  category and per currency, the base-currency total, and operational Treasury movements before, on
+  and up to the date, computed only from posted Treasury subledger entries. As in the General Ledger,
+  a person sees only expenses inside all of their live scopes. No opening balances exist yet, and the
+  page says so: these are movements recorded in the system, not actual safe or bank balances.
+
+The only new grants are column-level `SELECT` on projects, departments and cost centers.
+
+Pages (English and Dari, right-to-left and phone width), with business wording only:
+
+- **Record expense** (`/finance/record-expense`): one request identity per filled-in form, reused if
+  the outcome of a submission is unknown, so a retry never records twice; that day's rate is chosen
+  automatically when it is the only one and must be chosen when there are several; setup gaps
+  (approval setting, accounts, categories, open period, rate, required dimensions) are explained in
+  plain language.
+- **Daily transactions** (`/finance/transactions`): recorded expenses in a date range, per-currency
+  totals and the base-currency equivalent, rate used, who recorded and who approved. The Approve
+  action appears only where a company uses approval and something is waiting.
+- **Daily financial report** (`/finance/daily-report`).
+- Navigation is grouped by responsibility (Daily work, Reports, Accounting, Company) and shows only
+  what the person's live permissions need. Technical state names, permission codes and processing
+  models never reach these pages; the browser test fails if they do.

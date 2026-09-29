@@ -161,6 +161,12 @@ export const migrationCatalog = [
     checksumSha256: "676082f3365986cb4983a521067c44cc91e71eca0b90d20495bfef9ff855b90a",
     relativePath: "infrastructure/database/migrations/0028_v1_operational_expense_posting.sql",
   },
+  // Read-only Operational Finance model: Record Expense options and the Daily Financial Report.
+  {
+    id: "0029_v1_operational_finance_read_model",
+    checksumSha256: "f1d6f629e4f35572b2c191c64d295f5465537850cdba0d2f26cde97e67ef09e5",
+    relativePath: "infrastructure/database/migrations/0029_v1_operational_finance_read_model.sql",
+  },
 ] as const satisfies readonly MigrationDefinition[];
 
 const migrationTableSql = `

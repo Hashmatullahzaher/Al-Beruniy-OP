@@ -150,3 +150,87 @@ export interface OperationalExpenseWorkspace {
     readonly payees: readonly { readonly id: string; readonly name: string }[];
   };
 }
+
+/** One business date, used by the Record Expense options and the Daily Financial Report. */
+export const operationalFinanceDateQuerySchema = z.object({ date: isoDateSchema }).strict();
+
+export type OperationalFinanceDateQuery = z.infer<typeof operationalFinanceDateQuerySchema>;
+
+interface DimensionRequirements {
+  readonly requiresProject: boolean;
+  readonly requiresDepartment: boolean;
+  readonly requiresCostCenter: boolean;
+}
+
+export interface OperationalDimensionOption {
+  readonly id: string;
+  readonly code: string;
+  readonly name: string;
+}
+
+/** JSON produced by `abos.operational_expense_entry_options` (migration 0029). */
+export interface OperationalExpenseEntryOptions {
+  readonly businessDate: string;
+  readonly baseCurrency: SupportedCurrency | null;
+  readonly policyConfigured: boolean;
+  readonly approvalRequired: boolean | null;
+  readonly openPeriod: { readonly nameEn: string; readonly nameFa: string | null } | null;
+  readonly treasuryAccounts: readonly (DimensionRequirements & {
+    readonly id: string;
+    readonly nameEn: string;
+    readonly nameFa: string | null;
+    readonly currencyCode: SupportedCurrency;
+    readonly accountType: string;
+  })[];
+  readonly expenseCategories: readonly (DimensionRequirements & {
+    readonly id: string;
+    readonly code: string;
+    readonly nameEn: string;
+    readonly nameFa: string | null;
+  })[];
+  readonly payees: readonly { readonly id: string; readonly name: string }[];
+  readonly projects: readonly OperationalDimensionOption[];
+  readonly departments: readonly OperationalDimensionOption[];
+  readonly costCenters: readonly OperationalDimensionOption[];
+  readonly exchangeRates: readonly {
+    readonly id: string;
+    readonly rateSource: "MARKET" | "SARAF";
+    readonly sarafName: string | null;
+    readonly unitCurrency: SupportedCurrency;
+    readonly quoteCurrency: SupportedCurrency;
+    readonly rate: string;
+  }[];
+}
+
+/** JSON produced by `abos.operational_finance_daily_report` (migration 0029). */
+export interface OperationalFinanceDailyReport {
+  readonly reportDate: string;
+  readonly baseCurrency: SupportedCurrency;
+  readonly expensesByCategory: readonly {
+    readonly categoryId: string;
+    readonly code: string;
+    readonly nameEn: string;
+    readonly nameFa: string | null;
+    readonly currency: SupportedCurrency;
+    readonly count: number;
+    readonly amount: string;
+    readonly baseAmount: string;
+  }[];
+  readonly totalsByCurrency: readonly {
+    readonly currency: SupportedCurrency;
+    readonly count: number;
+    readonly amount: string;
+  }[];
+  readonly baseTotal: { readonly currency: SupportedCurrency; readonly amount: string };
+  readonly pendingApproval: { readonly count: number };
+  readonly treasuryMovements: readonly {
+    readonly treasuryAccountId: string;
+    readonly nameEn: string;
+    readonly nameFa: string | null;
+    readonly currency: SupportedCurrency;
+    readonly status: string;
+    readonly before: string;
+    readonly day: string;
+    readonly after: string;
+  }[];
+}

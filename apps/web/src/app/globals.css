@@ -1804,3 +1804,19 @@ button.review-context { border: 0; border-inline-start: 1px solid rgba(102, 142,
   .gl-activity-row { grid-template-columns: minmax(0, 1fr); }
   .gl-activity-more .treasury-button { justify-self: stretch; }
 }
+
+/* Operational Finance: Record expense, Daily transactions, Daily financial report. */
+.expense-entry { display: grid; gap: 12px; }
+.expense-form { max-width: 720px; }
+.expense-warning { color: #edd18d; }
+.expense-gaps { margin: 4px 0 0; padding-inline-start: 18px; color: var(--abos-slate-200); font-size: 12px; line-height: 1.6; }
+.register-range { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
+.register-range label { min-width: 160px; }
+.register-figure { margin-top: 4px !important; color: var(--abos-slate-100, #eef4f8) !important; font-size: 15px !important; font-weight: 700; font-variant-numeric: tabular-nums; }
+.register-totals { margin: 10px 0; }
+.register-table td small { display: block; }
+@media (max-width: 900px) { .register-totals.metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 560px) { .register-totals.metric-grid { grid-template-columns: minmax(0, 1fr); } }
+.expense-form select { min-height: 38px; padding: 7px 10px; border: 1px solid rgba(73, 145, 192, .35); border-radius: 7px; background: rgba(3, 14, 25, .8); color: white; font: inherit; font-size: 12.5px; }
+.expense-form select option { background: #071d30; color: white; }
+.expense-form select:focus, .expense-form input:focus, .expense-form textarea:focus { outline: 2px solid var(--abos-gold-300); outline-offset: 1px; }

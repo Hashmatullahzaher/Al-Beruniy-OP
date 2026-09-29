@@ -14,7 +14,7 @@ test.describe("V1 company configuration", () => {
     test.setTimeout(180_000);
     const accounts = seedPreview();
     await signIn(page, "demo.cashier", accounts["demo.cashier"]);
-    await expect(page.getByRole("navigation", { name: "V1 operations" }).getByRole("link", { name: "Company" })).toBeVisible();
+    await expect(page.getByRole("navigation", { name: "Operations" }).getByRole("link", { name: "Company" })).toBeVisible();
     await page.goto("/admin/company");
     const legal = page.locator(".company-card").first();
     await expect(legal.getByText("Pending from owner")).toHaveCount(3);
@@ -42,13 +42,17 @@ async function signIn(page: Page, username: string, password: string | undefined
 }
 
 function seedPreview(): Record<string, string> {
-  const environment: Record<string, string> = {};
+  const fileEnvironment: Record<string, string> = {};
   for (const line of readFileSync(resolve(__dirname, "../.env.local"), "utf8").split(/\r?\n/)) {
     const match = /^([A-Z0-9_]+)=(.*)$/.exec(line.trim());
-    if (match?.[1] !== undefined && match[2] !== undefined) environment[match[1]] = match[2];
+    if (match?.[1] !== undefined && match[2] !== undefined) fileEnvironment[match[1]] = match[2];
   }
+  // Explicit command-line values win, so every runtime can point at one isolated preview DB; the seed
+  // never runs unless both the owner and identity logins name the same disposable preview database.
+  const environment = { ...fileEnvironment, ...process.env };
+  assertDisposablePreviewDatabase(environment.ABOS_DATABASE_URL, environment.ABOS_IDENTITY_DATABASE_URL);
   const output = execFileSync("pnpm", ["--filter", "@abos/e1-integration", "preview:seed"], {
-    cwd: resolve(__dirname, "../../.."), env: { ...process.env, ...environment }, encoding: "utf8", shell: process.platform === "win32"
+    cwd: resolve(__dirname, "../../.."), env: environment, encoding: "utf8", shell: process.platform === "win32"
   });
   const accounts: Record<string, string> = {};
   for (const line of output.split(/\r?\n/)) {
@@ -56,4 +60,14 @@ function seedPreview(): Record<string, string> {
     if (match?.[1] !== undefined && match[2] !== undefined) accounts[match[1]] = match[2];
   }
   return accounts;
+}
+
+function assertDisposablePreviewDatabase(ownerUrl: string | undefined, identityUrl: string | undefined): void {
+  expect(ownerUrl, "ABOS_DATABASE_URL for an isolated preview database").toBeTruthy();
+  expect(identityUrl, "ABOS_IDENTITY_DATABASE_URL for the same isolated preview database").toBeTruthy();
+  const ownerDatabase = new URL(ownerUrl ?? "").pathname.slice(1);
+  const identityDatabase = new URL(identityUrl ?? "").pathname.slice(1);
+  expect(ownerDatabase).toMatch(/dev|sandbox|preview/i);
+  expect(ownerDatabase).not.toBe("abos_v1_local_review");
+  expect(identityDatabase).toBe(ownerDatabase);
 }

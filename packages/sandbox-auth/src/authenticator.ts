@@ -12,8 +12,10 @@ import type {
   OperationalExpenseCategoryUpsert,
   OperationalExpenseCreate,
   OperationalExpenseMutationResult,
+  OperationalExpenseEntryOptions,
   OperationalExpenseWorkspace,
   OperationalExpenseWorkspaceQuery,
+  OperationalFinanceDailyReport,
   OperationalFinanceConfigurationWorkspace,
   OperationalPeriodOpen,
   OperationalTreasuryAccountUpsert,
@@ -380,6 +382,36 @@ export class SandboxAuthenticator {
       token,
       [expenseId, input.expectedVersion, input.note],
       "Operational expense approval returned no result"
+    );
+  }
+
+  /** Options for recording an expense on one business date (read only). */
+  async operationalExpenseEntryOptions(
+    executor: SqlExecutor,
+    token: string,
+    date: string
+  ): Promise<OperationalExpenseEntryOptions> {
+    return this.operationalFinanceFunction<OperationalExpenseEntryOptions>(
+      executor,
+      "SELECT abos.operational_expense_entry_options($1,$2,$3,$4::date) AS value",
+      token,
+      [date],
+      "Operational expense options are unavailable"
+    );
+  }
+
+  /** The Daily Financial Report for one date, in the actor's live scope (read only). */
+  async operationalFinanceDailyReport(
+    executor: SqlExecutor,
+    token: string,
+    date: string
+  ): Promise<OperationalFinanceDailyReport> {
+    return this.operationalFinanceFunction<OperationalFinanceDailyReport>(
+      executor,
+      "SELECT abos.operational_finance_daily_report($1,$2,$3,$4::date) AS value",
+      token,
+      [date],
+      "The daily financial report is unavailable"
     );
   }
 

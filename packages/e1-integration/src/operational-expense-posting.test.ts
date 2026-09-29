@@ -706,6 +706,139 @@ if (databaseUrl() === undefined) {
         await fixture.close();
       }
     });
+
+    test("Record Expense options: own scopes, that day's current rates, role-filtered payees, entity isolation (0029)", async () => {
+      const fixture = await setupFixture(harness, false);
+      try {
+        const world = fixture.world;
+        // Two synthetic projects; the creator is granted only the first.
+        const [granted, notGranted] = [randomUUID(), randomUUID()];
+        for (const [id, code] of [[granted, "SYN-P1"], [notGranted, "SYN-P2"]] as const) {
+          await harness.executor.query(
+            "INSERT INTO abos.projects (id, legal_entity_id, code, name, active) VALUES ($1,$2,$3,$4,true)",
+            [id, world.legalEntityId, code, `Synthetic project ${code}`]);
+        }
+        await harness.executor.query(
+          `INSERT INTO abos.user_scope_grants (user_account_id, legal_entity_id, scope_kind, scope_id, granted_by_user_account_id)
+           VALUES ($1,$2,'PROJECT',$3,$4)`, [world.intentCreatorId, world.legalEntityId, granted, world.bootstrapUserId]);
+        // A supplier payee; the seeded shareholder must not be offered.
+        const supplier = randomUUID();
+        await harness.executor.query(
+          "INSERT INTO abos.business_parties (id, legal_entity_id, display_name, external_reference, status) VALUES ($1,$2,'Synthetic Supplier',$3,'ACTIVE')",
+          [supplier, world.legalEntityId, `SUP-${supplier.slice(0, 8)}`]);
+        await harness.executor.query(
+          "INSERT INTO abos.business_party_roles (business_party_id, role_code, effective_from) VALUES ($1,'SUPPLIER',current_date - 400)",
+          [supplier]);
+        // Rates: one current for the date, one superseded, one for another date.
+        const [current, superseded, otherDay] = [randomUUID(), randomUUID(), randomUUID()];
+        for (const [id, date, value] of [[superseded, "2026-09-22", 69], [otherDay, "2026-09-21", 68]] as const) {
+          await harness.executor.query(
+            `INSERT INTO abos.exchange_rates (id, legal_entity_id, rate_date, rate_source, unit_currency_code,
+               quote_currency_code, rate_value, note, entered_by_user_account_id)
+             VALUES ($1,$2,$3,'MARKET','USD','AFN',$4,'Synthetic rate',$5)`,
+            [id, world.legalEntityId, date, value, world.bootstrapUserId]);
+        }
+        await harness.executor.query(
+          `INSERT INTO abos.exchange_rates (id, legal_entity_id, rate_date, rate_source, unit_currency_code,
+             quote_currency_code, rate_value, note, supersedes_exchange_rate_id, correction_reason, entered_by_user_account_id)
+           VALUES ($1,$2,'2026-09-22','MARKET','USD','AFN',70.25,'Synthetic correction',$3,'Synthetic correction evidence.',$4)`,
+          [current, world.legalEntityId, superseded, world.bootstrapUserId]);
+
+        const options = await entryOptions(fixture.executor, fixture.creatorSession, "2026-09-22");
+        assert.equal(options.baseCurrency, "USD");
+        assert.equal(options.policyConfigured, true);
+        assert.equal(options.approvalRequired, false);
+        assert.equal(options.openPeriod?.nameEn, "2026-09");
+        assert.deepEqual(options.treasuryAccounts.map((account) => account.id), [fixture.treasuryId]);
+        assert.deepEqual(options.expenseCategories.map((category) => category.id), [fixture.categoryId]);
+        assert.deepEqual(options.projects.map((project) => project.id), [granted], "only the actor's own live scopes");
+        assert.deepEqual(options.payees.map((payee) => payee.id), [supplier], "no shareholder on an expense form");
+        assert.deepEqual(options.exchangeRates.map((rate) => [rate.id, rate.rate]), [[current, "70.25"]],
+          "only that date's current rate, exactly as entered");
+        const closed = await entryOptions(fixture.executor, fixture.creatorSession, "2026-10-05");
+        assert.equal(closed.openPeriod, null);
+
+        // Revoking the scope removes the project at once.
+        await harness.executor.query(
+          "UPDATE abos.user_scope_grants SET revoked_at = clock_timestamp() WHERE user_account_id = $1", [world.intentCreatorId]);
+        assert.deepEqual((await entryOptions(fixture.executor, fixture.creatorSession, "2026-09-22")).projects, []);
+
+        // Only people who may record expenses get the options; another company sees only its own.
+        await assert.rejects(() => entryOptions(fixture.executor, fixture.approverSession, "2026-09-22"),
+          /missing finance\.expense\.create/i);
+        const other = await secondCompany(harness, world, false);
+        const theirs = await entryOptions(fixture.executor, other.creator, "2026-09-22");
+        assert.deepEqual(theirs.treasuryAccounts.map((account) => account.id), [other.treasuryId]);
+        assert.deepEqual(theirs.exchangeRates, []);
+        assert.deepEqual(theirs.payees, []);
+      } finally {
+        await fixture.close();
+      }
+    });
+
+    test("Daily Financial Report: posted figures per category and currency, Treasury movements, scope filtering (0029)", async () => {
+      const fixture = await setupFixture(harness, false);
+      try {
+        const world = fixture.world;
+        await createExpense(fixture.executor, fixture.creatorSession,
+          expensePayload(fixture, { businessDate: "2026-09-21", originalAmount: "40.00" }));
+        await createExpense(fixture.executor, fixture.creatorSession,
+          expensePayload(fixture, { businessDate: "2026-09-22", originalAmount: "125.50" }));
+        await createExpense(fixture.executor, fixture.creatorSession,
+          expensePayload(fixture, { businessDate: "2026-09-22", originalAmount: "74.25" }));
+        // An expense on a project the report reader is not scoped to.
+        const hidden = randomUUID();
+        await harness.executor.query(
+          "INSERT INTO abos.projects (id, legal_entity_id, code, name, active) VALUES ($1,$2,'SYN-HID','Synthetic hidden project',true)",
+          [hidden, world.legalEntityId]);
+        await harness.executor.query(
+          `INSERT INTO abos.user_scope_grants (user_account_id, legal_entity_id, scope_kind, scope_id, granted_by_user_account_id)
+           VALUES ($1,$2,'PROJECT',$3,$4)`, [world.intentCreatorId, world.legalEntityId, hidden, world.bootstrapUserId]);
+        await createExpense(fixture.executor, fixture.creatorSession,
+          expensePayload(fixture, { businessDate: "2026-09-22", originalAmount: "1000", projectId: hidden }));
+
+        // The approver reads (finance.expense.read) without the hidden project's scope.
+        const report = await dailyReport(fixture.executor, fixture.approverSession, "2026-09-22");
+        assert.equal(report.baseCurrency, "USD");
+        assert.deepEqual(report.expensesByCategory.map((row) => [row.code, row.currency, row.count, row.amount, row.baseAmount]),
+          [["SYN-OPS", "USD", 2, "199.75", "199.75"]]);
+        assert.deepEqual(report.totalsByCurrency, [{ currency: "USD", count: 2, amount: "199.75" }]);
+        assert.deepEqual(report.baseTotal, { currency: "USD", amount: "199.75" });
+        assert.equal(report.pendingApproval.count, 0);
+        assert.deepEqual(report.treasuryMovements.map((row) => [row.treasuryAccountId, row.before, row.day, row.after]),
+          [[fixture.treasuryId, "-40.00", "-199.75", "-239.75"]]);
+        // Someone without the read permission gets nothing.
+        const noRead = await sessionFor(harness, world, world.counterId);
+        await assert.rejects(() => dailyReport(fixture.executor, noRead.args, "2026-09-22"), /missing finance\.expense\.read/i);
+        // The creator holds the project scope, so sees that expense too.
+        const scoped = await dailyReport(fixture.executor, fixture.creatorSession, "2026-09-22");
+        assert.deepEqual(scoped.baseTotal, { currency: "USD", amount: "1199.75" });
+        assert.equal(scoped.treasuryMovements[0]?.after, "-1239.75");
+
+        // Another company's report is empty of our figures.
+        const other = await secondCompany(harness, world, false);
+        await grantPermission(harness, other.world, other.world.intentCreatorId, "finance.expense.read");
+        const theirs = await dailyReport(fixture.executor, other.creator, "2026-09-22");
+        assert.deepEqual(theirs.expensesByCategory, []);
+        assert.deepEqual(theirs.baseTotal, { currency: "USD", amount: "0" });
+        assert.deepEqual(theirs.treasuryMovements.map((row) => [row.treasuryAccountId, row.after]), [[other.treasuryId, "0"]]);
+
+        // Only the Finance runtime can call the read model; PUBLIC and other runtimes cannot.
+        const callers = await harness.executor.query<{ role: string; fn: string }>(
+          `SELECT role, fn FROM unnest(ARRAY['abos_e1_treasury_runtime', 'abos_v1_identity_runtime', 'public']) role
+             CROSS JOIN unnest(ARRAY[
+               'abos.operational_expense_entry_options(text,text,text,date)',
+               'abos.operational_finance_daily_report(text,text,text,date)']) fn
+            WHERE has_function_privilege(role, fn, 'EXECUTE')`);
+        assert.deepEqual(callers.rows, []);
+        const before = await financialCounts(harness);
+        await assert.rejects(() => dailyReport(fixture.executor, sessionArgs(`forged-${randomUUID()}`), "2026-09-22"),
+          /sign in with an active account/i);
+        assert.deepEqual(await financialCounts(harness), before, "reads write nothing");
+      } finally {
+        await fixture.close();
+      }
+    });
   });
 }
 
@@ -985,4 +1118,41 @@ async function postLegacyCapital(harness: Harness, world: SyntheticWorld): Promi
   );
   assert.ok(result.rows[0]?.journal_id);
   return result.rows[0].journal_id;
+}
+
+interface EntryOptions {
+  readonly baseCurrency: string | null;
+  readonly policyConfigured: boolean;
+  readonly approvalRequired: boolean | null;
+  readonly openPeriod: { readonly nameEn: string } | null;
+  readonly treasuryAccounts: readonly { readonly id: string }[];
+  readonly expenseCategories: readonly { readonly id: string }[];
+  readonly payees: readonly { readonly id: string }[];
+  readonly projects: readonly { readonly id: string }[];
+  readonly exchangeRates: readonly { readonly id: string; readonly rate: string }[];
+}
+
+interface DailyReport {
+  readonly baseCurrency: string;
+  readonly expensesByCategory: readonly { code: string; currency: string; count: number; amount: string; baseAmount: string }[];
+  readonly totalsByCurrency: readonly { currency: string; count: number; amount: string }[];
+  readonly baseTotal: { currency: string; amount: string };
+  readonly pendingApproval: { count: number };
+  readonly treasuryMovements: readonly { treasuryAccountId: string; before: string; day: string; after: string }[];
+}
+
+async function entryOptions(executor: PostgresExecutor, session: SessionArgs, date: string): Promise<EntryOptions> {
+  const result = await executor.query<{ value: EntryOptions }>(
+    "SELECT abos.operational_expense_entry_options($1,$2,$3,$4::date) AS value",
+    [session.proof, session.runtimeDigest, session.tokenDigest, date]);
+  assert.ok(result.rows[0]);
+  return result.rows[0].value;
+}
+
+async function dailyReport(executor: PostgresExecutor, session: SessionArgs, date: string): Promise<DailyReport> {
+  const result = await executor.query<{ value: DailyReport }>(
+    "SELECT abos.operational_finance_daily_report($1,$2,$3,$4::date) AS value",
+    [session.proof, session.runtimeDigest, session.tokenDigest, date]);
+  assert.ok(result.rows[0]);
+  return result.rows[0].value;
 }

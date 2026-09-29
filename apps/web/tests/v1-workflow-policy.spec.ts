@@ -24,7 +24,7 @@ test.describe("V1 workflow approval policy", () => {
 
     // Super Administration alone does not silently grant Finance policy authority.
     await signIn(page, "super.admin", accounts["super.admin"]);
-    const adminNav = page.getByRole("navigation", { name: "V1 operations" });
+    const adminNav = page.getByRole("navigation", { name: "Operations" });
     await expect(adminNav.getByRole("link", { name: "Workflow approvals" })).toHaveCount(0);
 
     // The Super Administrator explicitly creates the narrow administrative role.
@@ -62,7 +62,7 @@ test.describe("V1 workflow approval policy", () => {
     await expect(page).toHaveURL(/\/dashboard/);
 
     // Navigation and search are derived from the employee's live permissions.
-    const policyNav = page.getByRole("navigation", { name: "V1 operations" });
+    const policyNav = page.getByRole("navigation", { name: "Operations" });
     await expect(policyNav.getByRole("link")).toHaveText(["My dashboard", "Company", "Workflow approvals"]);
     await page.getByLabel("Search workspaces").fill("workflow");
     const search = page.getByRole("navigation", { name: "Workspace search results" });
@@ -95,7 +95,7 @@ test.describe("V1 workflow approval policy", () => {
     // An ordinary cashier does not see the administrative route. Policy is readable company
     // configuration, but the server refuses a mutation and the direct page stays read-only.
     await signIn(page, "demo.cashier", accounts["demo.cashier"]);
-    const cashierNav = page.getByRole("navigation", { name: "V1 operations" });
+    const cashierNav = page.getByRole("navigation", { name: "Operations" });
     await expect(cashierNav.getByRole("link", { name: "Workflow approvals" })).toHaveCount(0);
     await page.getByLabel("Search workspaces").fill("workflow");
     await expect(page.getByRole("navigation", { name: "Workspace search results" })).toHaveCount(0);

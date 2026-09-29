@@ -3,8 +3,10 @@ import type {
   OperationalExpenseCategoryUpsert,
   OperationalExpenseCreate,
   OperationalExpenseMutationResult,
+  OperationalExpenseEntryOptions,
   OperationalExpenseWorkspace,
   OperationalExpenseWorkspaceQuery,
+  OperationalFinanceDailyReport,
   OperationalFinanceConfigurationWorkspace,
   OperationalPeriodOpen,
   OperationalTreasuryAccountUpsert
@@ -116,6 +118,24 @@ export async function operationalExpenseWorkspace(
     finance.executor,
     await operationalFinanceToken(),
     query
+  );
+}
+
+export async function operationalExpenseEntryOptions(date: string): Promise<OperationalExpenseEntryOptions> {
+  const finance = financeHandoffRuntime();
+  return operationalFinanceRuntime().authenticator.operationalExpenseEntryOptions(
+    finance.executor,
+    await operationalFinanceToken(),
+    date
+  );
+}
+
+export async function operationalFinanceDailyReport(date: string): Promise<OperationalFinanceDailyReport> {
+  const finance = financeHandoffRuntime();
+  return operationalFinanceRuntime().authenticator.operationalFinanceDailyReport(
+    finance.executor,
+    await operationalFinanceToken(),
+    date
   );
 }
 

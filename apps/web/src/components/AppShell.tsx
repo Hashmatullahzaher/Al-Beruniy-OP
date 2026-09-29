@@ -3,7 +3,7 @@
 import { workspaceRoutes } from "@abos/contracts";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState, type ReactNode } from "react";
+import { Fragment, useState, type ReactNode } from "react";
 
 import { AppIcon, type AppIconName } from "@/components/AppIcon";
 import { KabulClock } from "@/components/KabulClock";
@@ -29,25 +29,42 @@ const faLabels: Record<string, string> = {
   settings: "تنظیمات"
 };
 
-/** Operational workspaces. Visibility helps the user; the server and database still authorize. */
-const operationalRoutes: ReadonlyArray<{ readonly path: string; readonly icon: AppIconName; readonly en: string; readonly fa: string; readonly visible: (can: (permission: string) => boolean) => boolean }> = [
-  { path: "/dashboard", icon: "overview", en: "My dashboard", fa: "داشبورد من", visible: () => true },
-  { path: "/finance/treasury", icon: "coins", en: "Treasury", fa: "خزانه", visible: (can) => can("treasury.read") },
-  { path: "/finance/handoffs", icon: "finance", en: "Finance inbox", fa: "صندوق مالی", visible: (can) => can("finance.report.operational.read") },
-  { path: "/finance/general-ledger", icon: "reports-analytics", en: "General Ledger", fa: "دفتر کل", visible: (can) => can("finance.report.operational.read") },
-  // WP-A: Chart of Accounts.
-  { path: "/finance/accounts", icon: "finance", en: "Chart of Accounts", fa: "جدول حساب‌ها", visible: (can) => can("finance.ledger-account.manage") || can("finance.ledger-account.review") || can("finance.report.operational.read") },
-  { path: "/finance/calendar", icon: "reports-analytics", en: "Financial calendar", fa: "تقویم مالی", visible: (can) => can("finance.calendar.manage") || can("finance.report.operational.read") },
-  // WP-C: exchange rates and shareholder capital requests.
-  { path: "/finance/exchange-rates", icon: "coins", en: "Exchange rates", fa: "نرخ اسعار", visible: (can) => can("finance.exchange-rate.record") || can("finance.report.operational.read") },
-  { path: "/shareholders", icon: "finance", en: "Shareholder capital", fa: "سرمایه سهامداران", visible: (can) => can("shareholder.capital-request.create") || can("shareholder.read") },
-  // WP #17: journal reversals (request -> Finance Manager decision; posting awaits policy).
-  { path: "/finance/reversals", icon: "finance", en: "Journal reversals", fa: "برگشت ژورنال‌ها", visible: (can) => can("finance.reversal.request") || can("finance.reversal.approve") || can("finance.report.operational.read") },
-  // Lead (#8): company details are visible to every signed-in employee.
-  { path: "/admin/company", icon: "building", en: "Company", fa: "شرکت", visible: () => true },
-  { path: "/admin/finance-workflows", icon: "shield", en: "Workflow approvals", fa: "تأیید جریان‌ها", visible: (can) => can("admin.finance-workflow.manage") },
-  { path: "/admin/users", icon: "human-resources", en: "Users", fa: "کاربران", visible: (can) => can("admin.users.manage") },
-  { path: "/admin/roles", icon: "shield", en: "Roles & permissions", fa: "نقش‌ها و صلاحیت‌ها", visible: (can) => can("admin.roles.manage") || can("admin.users.manage") }
+type NavSection = "home" | "daily" | "reports" | "accounting" | "company";
+
+/** Section headings in business language; a section appears only when it has a visible entry. */
+const sectionHeadings: Readonly<Record<Exclude<NavSection, "home">, { readonly en: string; readonly fa: string }>> = {
+  daily: { en: "Daily work", fa: "کار روزانه" },
+  reports: { en: "Reports", fa: "گزارش‌ها" },
+  accounting: { en: "Accounting", fa: "حسابداری" },
+  company: { en: "Company", fa: "شرکت" }
+};
+
+/**
+ * Operational workspaces, grouped by business responsibility. Each entry appears only for people
+ * whose live permissions need it; visibility helps the user, while the server and database still
+ * authorize every request.
+ */
+const operationalRoutes: ReadonlyArray<{ readonly path: string; readonly icon: AppIconName; readonly en: string; readonly fa: string; readonly section: NavSection; readonly visible: (can: (permission: string) => boolean) => boolean }> = [
+  { path: "/dashboard", icon: "overview", en: "My dashboard", fa: "داشبورد من", section: "home", visible: () => true },
+  // Daily Finance work.
+  { path: "/finance/record-expense", icon: "coins", en: "Record expense", fa: "ثبت مصرف", section: "daily", visible: (can) => can("finance.expense.create") },
+  { path: "/finance/transactions", icon: "reports-analytics", en: "Daily transactions", fa: "معاملات روزانه", section: "daily", visible: (can) => can("finance.expense.read") },
+  { path: "/finance/treasury", icon: "coins", en: "Treasury", fa: "خزانه", section: "daily", visible: (can) => can("treasury.read") },
+  // Reports.
+  { path: "/finance/daily-report", icon: "reports-analytics", en: "Daily financial report", fa: "گزارش مالی روزانه", section: "reports", visible: (can) => can("finance.expense.read") },
+  // Accounting (accountants and Finance managers).
+  { path: "/finance/handoffs", icon: "finance", en: "Finance inbox", fa: "صندوق مالی", section: "accounting", visible: (can) => can("finance.report.operational.read") },
+  { path: "/finance/general-ledger", icon: "reports-analytics", en: "General Ledger", fa: "دفتر کل", section: "accounting", visible: (can) => can("finance.report.operational.read") },
+  { path: "/finance/accounts", icon: "finance", en: "Chart of Accounts", fa: "جدول حساب‌ها", section: "accounting", visible: (can) => can("finance.ledger-account.manage") || can("finance.ledger-account.review") || can("finance.report.operational.read") },
+  { path: "/finance/calendar", icon: "reports-analytics", en: "Financial calendar", fa: "تقویم مالی", section: "accounting", visible: (can) => can("finance.calendar.manage") || can("finance.report.operational.read") },
+  { path: "/finance/exchange-rates", icon: "coins", en: "Exchange rates", fa: "نرخ اسعار", section: "accounting", visible: (can) => can("finance.exchange-rate.record") || can("finance.report.operational.read") },
+  { path: "/shareholders", icon: "finance", en: "Shareholder capital", fa: "سرمایه سهامداران", section: "accounting", visible: (can) => can("shareholder.capital-request.create") || can("shareholder.read") },
+  { path: "/finance/reversals", icon: "finance", en: "Journal reversals", fa: "برگشت ژورنال‌ها", section: "accounting", visible: (can) => can("finance.reversal.request") || can("finance.reversal.approve") || can("finance.report.operational.read") },
+  // Company and administration. Company details are visible to every signed-in employee.
+  { path: "/admin/company", icon: "building", en: "Company", fa: "شرکت", section: "company", visible: () => true },
+  { path: "/admin/finance-workflows", icon: "shield", en: "Workflow approvals", fa: "تأیید جریان‌ها", section: "company", visible: (can) => can("admin.finance-workflow.manage") },
+  { path: "/admin/users", icon: "human-resources", en: "Users", fa: "کاربران", section: "company", visible: (can) => can("admin.users.manage") },
+  { path: "/admin/roles", icon: "shield", en: "Roles & permissions", fa: "نقش‌ها و صلاحیت‌ها", section: "company", visible: (can) => can("admin.roles.manage") || can("admin.users.manage") }
 ];
 
 export function AppShell({ children }: AppShellProps) {
@@ -93,15 +110,19 @@ export function AppShell({ children }: AppShellProps) {
         </Link>
 
         {signedIn ? (
-          <nav className="navigation preview-navigation" aria-label={fa ? "عملیات V1" : "V1 operations"}>
-            <p className="navigation-heading">{fa ? "عملیات V1" : "V1 operations"}</p>
-            {visibleRoutes.map((route) => {
+          <nav className="navigation preview-navigation" aria-label={fa ? "عملیات" : "Operations"}>
+            {visibleRoutes.map((route, index) => {
               const active = pathname === route.path || pathname.startsWith(`${route.path}/`);
+              const heading = route.section !== "home" && visibleRoutes[index - 1]?.section !== route.section
+                ? sectionHeadings[route.section] : null;
               return (
-                <Link key={route.path} href={route.path} aria-current={active ? "page" : undefined} onClick={() => setMenuOpen(false)}>
-                  <span className="nav-glyph" aria-hidden="true"><AppIcon name={route.icon} size={18} /></span>
-                  <span>{fa ? route.fa : route.en}</span>
-                </Link>
+                <Fragment key={route.path}>
+                  {heading ? <p className="navigation-heading">{fa ? heading.fa : heading.en}</p> : null}
+                  <Link href={route.path} aria-current={active ? "page" : undefined} onClick={() => setMenuOpen(false)}>
+                    <span className="nav-glyph" aria-hidden="true"><AppIcon name={route.icon} size={18} /></span>
+                    <span>{fa ? route.fa : route.en}</span>
+                  </Link>
+                </Fragment>
               );
             })}
           </nav>
@@ -126,7 +147,7 @@ export function AppShell({ children }: AppShellProps) {
         <div className="sidebar-boundary">
           <span className="boundary-dot" aria-hidden="true" />
           {signedIn
-            ? <span><strong>{fa ? "عملیات V1" : "V1 operations"}</strong><small>{fa ? "دسترسی کنترل‌شده" : "Controlled access"}</small></span>
+            ? <span><strong>{fa ? "عملیات" : "Operations"}</strong><small>{fa ? "دسترسی کنترل‌شده" : "Controlled access"}</small></span>
             : <span><strong>{fa ? "مرحله صفر" : "Stage 0"}</strong><small>{fa ? "بازبینی رابط کاربری" : "Interface review"}</small></span>}
           <span className="shell-badge">{signedIn ? "V1" : "DEMO"}</span>
         </div>
@@ -199,7 +220,7 @@ export function AppShell({ children }: AppShellProps) {
           <span>{publicEnvironment.environment}</span>
           <span>Build {shortSha}</span>
           <span>{signedIn
-            ? (fa ? "پیکربندی عملیاتی · ثبت مالی هنوز غیرفعال است" : "Operational configuration · financial posting remains disabled")
+            ? (fa ? "دسترسی کنترل‌شده · هر کار در سرور و پایگاه داده بررسی می‌شود" : "Controlled access · every action is checked by the server and the database")
             : (fa ? "هیچ سرویس عملیاتی متصل نیست" : "No operational services connected")}</span>
         </footer>
       </div>
