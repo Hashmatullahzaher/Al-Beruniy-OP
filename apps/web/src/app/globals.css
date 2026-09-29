@@ -914,8 +914,7 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible { outline: 2px s
 .app-footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px 24px; padding: 9px 14px; border-top: 1px solid rgba(65, 133, 179, .12); color: #536c80; font-size: 7px; }
 .mobile-scrim { display: none; }
 
-[dir="rtl"] .app-frame { grid-template-columns: minmax(0, 1fr) var(--sidebar-width); }
-[dir="rtl"] .workspace { grid-column: 1; }
+/* Grid tracks already follow the inline direction, so RTL needs no shell override: the sidebar-width track sits on the right under the fixed sidebar. */
 [dir="rtl"] .project-hero-copy { background: linear-gradient(270deg, rgba(4, 14, 25, .99) 0%, rgba(5, 18, 31, .94) 78%, rgba(5, 18, 31, .1) 100%); }
 [dir="rtl"] .hero-image-vignette { background: linear-gradient(270deg, rgba(5, 18, 31, .56), transparent 36%), linear-gradient(0deg, rgba(3, 10, 18, .82), transparent 36%); }
 [dir="rtl"] .primary-action svg, [dir="rtl"] .inline-link svg, [dir="rtl"] .quick-link > svg { transform: rotate(180deg); }
@@ -1828,11 +1827,18 @@ button.review-context { border: 0; border-inline-start: 1px solid rgba(102, 142,
 .module-card-heading .treasury-button { align-self: center; }
 .setup-checklist li.info > span:first-child { color: var(--abos-cyan-300); background: rgba(40, 167, 243, .12); }
 
-/* Company dashboard: real figures only; modules without a V1 source say so. */
-.company-kpis.metric-grid { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); margin: 10px 0; }
-.company-kpi h3 { font-size: 12px; }
-.company-kpi-figure { margin-top: 4px !important; color: var(--abos-ivory-100, #f4efe4) !important; font-size: 22px !important; font-weight: 750; font-variant-numeric: tabular-nums; }
-.company-kpi-state { margin-top: 6px !important; color: #9fb2c3 !important; font-size: 12px !important; font-weight: 650; }
-.company-kpi-loading { margin-top: 6px !important; color: #71889c !important; font-size: 11px !important; }
-.company-kpi-source { margin-top: 6px !important; color: #71889c !important; font-size: 10px !important; }
-.company-kpi.not-connected { opacity: .78; }
+/* Company dashboard: the approved layout with honest empty states (no figure without a V1 source). */
+.panel-state { color: #9fb2c3 !important; border-color: rgba(159, 178, 195, .38) !important; text-transform: uppercase; }
+.reference-kpi .kpi-empty { color: #9fb2c3; font-size: clamp(11px, .9vw, 13px); font-weight: 700; white-space: normal; line-height: 1.2; }
+.reference-kpi[data-state="not-connected"] .reference-kpi-icon { opacity: .6; }
+.panel-summary .kpi-empty, .cash-summary .kpi-empty { color: #9fb2c3; font-size: 13px; }
+.chart-shell { position: relative; }
+.bar-chart.chart-shell > span { background: none; box-shadow: none; }
+.chart-empty { position: absolute; inset: 0 0 20px; z-index: 3; display: grid; place-content: center; gap: 4px; padding: 10px; text-align: center; pointer-events: none; }
+.chart-empty strong { color: #c9d6e0; font-size: 12px; letter-spacing: .03em; }
+.chart-empty small { max-width: 280px; color: #8ea2b2; font-size: 9px; line-height: 1.45; }
+.panel-empty { min-height: 64px; display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 10px; padding: 9px 10px; border: 1px dashed rgba(83, 150, 193, .3); border-radius: 5px; background: rgba(3, 15, 26, .45); }
+.panel-empty strong { display: block; color: #d6e1e8; font-size: 11px; }
+.panel-empty small { display: block; margin-top: 3px; color: #8ea2b2; font-size: 9px; line-height: 1.45; }
+.panel-empty-icon { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 6px; color: #62c7fa; background: rgba(44, 134, 190, .12); }
+.department-list article[data-state="not-connected"] p { color: #9fb2c3; }

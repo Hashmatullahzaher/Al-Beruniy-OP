@@ -72,9 +72,19 @@ test.describe("V1 company dashboard access", () => {
     await expect(viewer).toHaveURL(/\/$/);
     await expect(viewer.getByRole("heading", { level: 1, name: "Company dashboard" })).toBeVisible();
     const projects = await activeProjects();
-    await expect(viewer.locator('[data-kpi="projects"] .company-kpi-figure')).toHaveText(String(projects));
-    await expect(viewer.locator(".company-kpi.not-connected")).toHaveCount(9);
-    await expect(viewer.locator(".company-kpi.not-connected .company-kpi-state").first()).toHaveText("Not connected yet");
+    await expect(viewer.locator('[data-kpi="projects"] .kpi-figure')).toHaveText(String(projects));
+    // The approved layout is intact: 8 KPI cards and every panel, with honest states instead of figures.
+    await expect(viewer.locator(".kpi-strip .reference-kpi")).toHaveCount(8);
+    await expect(viewer.locator('.kpi-strip [data-state="not-connected"]')).toHaveCount(7);
+    await expect(viewer.locator('.kpi-strip [data-state="not-connected"] .kpi-empty').first()).toHaveText("Not connected yet");
+    for (const panel of ["sales", "projects", "cash", "insights", "departments", "alerts"]) {
+      await expect(viewer.locator(`[data-panel="${panel}"]`), panel).toBeVisible();
+    }
+    await expect(viewer.locator(".bar-chart .chart-empty")).toContainText("Not connected yet");
+    await expect(viewer.locator(".line-chart .chart-empty")).toContainText("Not connected yet");
+    // Empty charts draw no bars, curves or target lines.
+    await expect(viewer.locator(".line-chart .cash-line, .line-chart .target-line, .line-chart .cash-area")).toHaveCount(0);
+    expect(await viewer.locator(".bar-chart > span").evaluateAll((bars) => bars.every((bar) => bar.getBoundingClientRect().height === 0))).toBe(true);
     const text = await viewer.locator("body").innerText();
     for (const figure of RETIRED_DEMO_FIGURES) expect(text, `retired demo figure ${figure}`).not.toContain(figure);
     expect((await viewer.request.get("/api/v1/company/dashboard")).status()).toBe(200);
