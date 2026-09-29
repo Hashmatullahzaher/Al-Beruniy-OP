@@ -46,6 +46,7 @@ const sectionHeadings: Readonly<Record<Exclude<NavSection, "home">, { readonly e
  * authorize every request.
  */
 const operationalRoutes: ReadonlyArray<{ readonly path: string; readonly icon: AppIconName; readonly en: string; readonly fa: string; readonly section: NavSection; readonly visible: (can: (permission: string) => boolean) => boolean }> = [
+  { path: "/", icon: "overview", en: "Company dashboard", fa: "داشبورد عمومی شرکت", section: "home", visible: (can) => can("company.dashboard.read") },
   { path: "/dashboard", icon: "overview", en: "My dashboard", fa: "داشبورد من", section: "home", visible: () => true },
   // Daily Finance work.
   { path: "/finance/record-expense", icon: "coins", en: "Record expense", fa: "ثبت مصرف", section: "daily", visible: (can) => can("finance.expense.create") },

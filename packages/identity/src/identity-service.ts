@@ -41,7 +41,7 @@ export type AccountStatus = "ACTIVE" | "DISABLED" | "INVITED" | "REVOKED";
 
 export interface CatalogueEntry {
   readonly code: string;
-  readonly category: "ADMINISTRATION" | "SHAREHOLDER" | "TREASURY" | "FINANCE";
+  readonly category: "ADMINISTRATION" | "SHAREHOLDER" | "TREASURY" | "FINANCE" | "COMPANY";
   readonly availability: "ACTIVE" | "UNAVAILABLE_IN_PREVIEW";
   readonly independenceEnforced: boolean;
   readonly administrative: boolean;

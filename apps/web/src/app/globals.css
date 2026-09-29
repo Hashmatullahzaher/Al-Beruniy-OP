@@ -1827,3 +1827,12 @@ button.review-context { border: 0; border-inline-start: 1px solid rgba(102, 142,
 .setup-checklist li.missing > span:first-child { color: #edd18d; background: rgba(224, 180, 79, .14); }
 .module-card-heading .treasury-button { align-self: center; }
 .setup-checklist li.info > span:first-child { color: var(--abos-cyan-300); background: rgba(40, 167, 243, .12); }
+
+/* Company dashboard: real figures only; modules without a V1 source say so. */
+.company-kpis.metric-grid { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); margin: 10px 0; }
+.company-kpi h3 { font-size: 12px; }
+.company-kpi-figure { margin-top: 4px !important; color: var(--abos-ivory-100, #f4efe4) !important; font-size: 22px !important; font-weight: 750; font-variant-numeric: tabular-nums; }
+.company-kpi-state { margin-top: 6px !important; color: #9fb2c3 !important; font-size: 12px !important; font-weight: 650; }
+.company-kpi-loading { margin-top: 6px !important; color: #71889c !important; font-size: 11px !important; }
+.company-kpi-source { margin-top: 6px !important; color: #71889c !important; font-size: 10px !important; }
+.company-kpi.not-connected { opacity: .78; }

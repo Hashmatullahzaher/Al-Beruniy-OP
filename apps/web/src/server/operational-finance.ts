@@ -110,6 +110,11 @@ export async function openOperationalFinancePeriod(
   );
 }
 
+/** The shared restricted-runtime authenticator, for other server modules (company dashboard). */
+export function restrictedFinanceAuthenticator(): SandboxAuthenticator {
+  return operationalFinanceRuntime().authenticator;
+}
+
 export async function operationalExpenseWorkspace(
   query: OperationalExpenseWorkspaceQuery
 ): Promise<OperationalExpenseWorkspace> {

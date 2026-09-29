@@ -15,7 +15,8 @@ export const CATEGORY_COPY: Readonly<Record<string, Copy>> = {
   ADMINISTRATION: { en: "Administration", fa: "مدیریت دسترسی" },
   SHAREHOLDER: { en: "Shareholder records", fa: "سوابق سهامداران" },
   TREASURY: { en: "Treasury (cash and safes)", fa: "خزانه (نقد و صندوق‌ها)" },
-  FINANCE: { en: "Finance and General Ledger", fa: "مالی و دفتر کل" }
+  FINANCE: { en: "Finance and General Ledger", fa: "مالی و دفتر کل" },
+  COMPANY: { en: "Company", fa: "شرکت" }
 };
 
 export const PERMISSION_COPY: Readonly<Record<string, PermissionCopy>> = {
@@ -161,6 +162,10 @@ export const PERMISSION_COPY: Readonly<Record<string, PermissionCopy>> = {
     label: { en: "Approve expenses", fa: "تأیید مصارف" },
     allows: { en: "Only used when the company requires expense approval: approve an expense waiting for approval, which records it in the books.", fa: "فقط وقتی شرکت تأیید مصارف را لازم بداند استفاده می‌شود: تأیید مصرف منتظر تأیید، که آن را در دفاتر ثبت می‌کند." },
     independence: { en: "Never by the person who recorded the expense.", fa: "هرگز توسط کسی که مصرف را ثبت کرده است." }
+  },
+  "company.dashboard.read": {
+    label: { en: "View company dashboard", fa: "مشاهده داشبورد عمومی شرکت" },
+    allows: { en: "See the company-wide dashboard with its approved summary figures. It does not open Finance, Treasury, shareholder or administration records, which keep their own permissions.", fa: "دیدن داشبورد عمومی شرکت با ارقام خلاصهٔ تأییدشده. سوابق مالی، خزانه، سهامداران یا مدیریت را باز نمی‌کند؛ آن‌ها صلاحیت‌های خود را دارند." }
   },
   "finance.period.manage": {
     label: { en: "Open accounting periods", fa: "باز کردن دوره‌های حسابداری" },

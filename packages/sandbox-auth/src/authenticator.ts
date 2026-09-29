@@ -5,6 +5,7 @@ import type {
   CostCenterId,
   DepartmentId,
   FinancePermission,
+  CompanyDashboardSummary,
   FinanceWorkflowPolicyWorkspace,
   FinanceWorkflowType,
   LegalEntityId,
@@ -382,6 +383,17 @@ export class SandboxAuthenticator {
       token,
       [expenseId, input.expectedVersion, input.note],
       "Operational expense approval returned no result"
+    );
+  }
+
+  /** Aggregate company dashboard figures; refused without company.dashboard.read (read only). */
+  async companyDashboardSummary(executor: SqlExecutor, token: string): Promise<CompanyDashboardSummary> {
+    return this.operationalFinanceFunction<CompanyDashboardSummary>(
+      executor,
+      "SELECT abos.company_dashboard_summary($1,$2,$3) AS value",
+      token,
+      [],
+      "The company dashboard is unavailable"
     );
   }
 

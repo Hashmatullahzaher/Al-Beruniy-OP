@@ -151,5 +151,6 @@ function categoryOf(code: string): string {
   if (code.startsWith("admin.")) return "ADMINISTRATION";
   if (code.startsWith("shareholder.")) return "SHAREHOLDER";
   if (code.startsWith("treasury.")) return "TREASURY";
+  if (code.startsWith("company.")) return "COMPANY";
   return "FINANCE";
 }
