@@ -182,7 +182,8 @@ test.describe("Treasury workflow against the dev sandbox", () => {
 
 /** Owner connection used only to read synthetic test fixture identifiers. */
 async function devDatabase<T>(work: (client: pg.Client) => Promise<T>): Promise<T> {
-  const environment = readEnvironment();
+  const environment = sandboxEnvironment();
+  assertDisposableSandboxDatabase(environment);
   const client = new pg.Client({ connectionString: environment.ABOS_DATABASE_URL });
   await client.connect();
   try {
@@ -257,15 +258,6 @@ async function financeDatabase<T>(work: (client: pg.Client) => Promise<T>): Prom
   }
 }
 
-function readEnvironment(): Record<string, string> {
-  const environment: Record<string, string> = {};
-  for (const line of readFileSync(resolve(__dirname, "../.env.local"), "utf8").split(/\r?\n/)) {
-    const match = /^([A-Z0-9_]+)=(.*)$/.exec(line.trim());
-    if (match?.[1] !== undefined && match[2] !== undefined) environment[match[1]] = match[2];
-  }
-  return environment;
-}
-
 async function signIn(page: Page, token: string): Promise<void> {
   expect(token.length).toBeGreaterThan(20);
   await page.goto("/finance/treasury");
@@ -281,14 +273,11 @@ async function signOut(page: Page): Promise<void> {
 
 /** Reseeds the dev sandbox named in apps/web/.env.local and returns one token per persona. */
 function seedDevSandbox(): Record<string, string> {
-  const environment: Record<string, string> = {};
-  for (const line of readFileSync(resolve(__dirname, "../.env.local"), "utf8").split(/\r?\n/)) {
-    const match = /^([A-Z0-9_]+)=(.*)$/.exec(line.trim());
-    if (match?.[1] !== undefined && match[2] !== undefined) environment[match[1]] = match[2];
-  }
+  const environment = sandboxEnvironment();
+  assertDisposableSandboxDatabase(environment);
   const output = execFileSync("pnpm", ["--filter", "@abos/e1-integration", "sandbox:seed"], {
     cwd: resolve(__dirname, "../../.."),
-    env: { ...process.env, ...environment },
+    env: environment as NodeJS.ProcessEnv,
     encoding: "utf8",
     shell: process.platform === "win32"
   });
@@ -300,4 +289,27 @@ function seedDevSandbox(): Record<string, string> {
     if (name !== undefined && token !== undefined && /^[A-Za-z0-9_-]{20,}$/.test(token)) tokens[name] = token;
   }
   return tokens;
+}
+
+function sandboxEnvironment(): Record<string, string | undefined> {
+  const fileEnvironment: Record<string, string> = {};
+  for (const line of readFileSync(resolve(__dirname, "../.env.local"), "utf8").split(/\r?\n/)) {
+    const match = /^([A-Z0-9_]+)=(.*)$/.exec(line.trim());
+    if (match?.[1] !== undefined && match[2] !== undefined) fileEnvironment[match[1]] = match[2];
+  }
+  // Explicit command-line values win so a run can point every runtime at one isolated dev sandbox DB.
+  return { ...fileEnvironment, ...process.env };
+}
+
+/** Refuses to seed unless the owner and every restricted login point at one disposable dev sandbox database. */
+function assertDisposableSandboxDatabase(environment: Record<string, string | undefined>): void {
+  const ownerUrl = environment.ABOS_DATABASE_URL;
+  expect(ownerUrl, "ABOS_DATABASE_URL for an isolated dev sandbox database").toBeTruthy();
+  const ownerDatabase = new URL(ownerUrl ?? "").pathname.slice(1);
+  expect(ownerDatabase).toMatch(/dev|sandbox/i);
+  expect(ownerDatabase).not.toBe("abos_v1_local_review");
+  for (const name of ["ABOS_IDENTITY_DATABASE_URL", "ABOS_FINANCE_DATABASE_URL", "ABOS_TREASURY_DATABASE_URL"]) {
+    const url = environment[name];
+    if (url !== undefined && url.trim() !== "") expect(new URL(url).pathname.slice(1), `${name} database`).toBe(ownerDatabase);
+  }
 }

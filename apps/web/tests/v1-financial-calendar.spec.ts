@@ -95,13 +95,10 @@ async function signOut(page: Page): Promise<void> {
 }
 
 function seedPreview(): Record<string, string> {
-  const environment: Record<string, string> = {};
-  for (const line of readFileSync(resolve(__dirname, "../.env.local"), "utf8").split(/\r?\n/)) {
-    const match = /^([A-Z0-9_]+)=(.*)$/.exec(line.trim());
-    if (match?.[1] !== undefined && match[2] !== undefined) environment[match[1]] = match[2];
-  }
+  const environment = previewEnvironment();
+  assertDisposablePreviewDatabase(environment);
   const output = execFileSync("pnpm", ["--filter", "@abos/e1-integration", "preview:seed"], {
-    cwd: resolve(__dirname, "../../.."), env: { ...process.env, ...environment }, encoding: "utf8", shell: process.platform === "win32"
+    cwd: resolve(__dirname, "../../.."), env: environment as NodeJS.ProcessEnv, encoding: "utf8", shell: process.platform === "win32"
   });
   const accounts: Record<string, string> = {};
   for (const line of output.split(/\r?\n/)) {
@@ -109,4 +106,28 @@ function seedPreview(): Record<string, string> {
     if (match?.[1] !== undefined && match[2] !== undefined) accounts[match[1]] = match[2];
   }
   return accounts;
+}
+
+function previewEnvironment(): Record<string, string | undefined> {
+  const fileEnvironment: Record<string, string> = {};
+  for (const line of readFileSync(resolve(__dirname, "../.env.local"), "utf8").split(/\r?\n/)) {
+    const match = /^([A-Z0-9_]+)=(.*)$/.exec(line.trim());
+    if (match?.[1] !== undefined && match[2] !== undefined) fileEnvironment[match[1]] = match[2];
+  }
+  // Explicit command-line values win so a run can point every runtime at one isolated preview DB.
+  return { ...fileEnvironment, ...process.env };
+}
+
+/** Refuses to seed unless the owner and every restricted login point at one disposable preview database. */
+function assertDisposablePreviewDatabase(environment: Record<string, string | undefined>): void {
+  const ownerUrl = environment.ABOS_DATABASE_URL;
+  expect(ownerUrl, "ABOS_DATABASE_URL for an isolated preview database").toBeTruthy();
+  expect(environment.ABOS_IDENTITY_DATABASE_URL, "ABOS_IDENTITY_DATABASE_URL for the same isolated preview database").toBeTruthy();
+  const ownerDatabase = new URL(ownerUrl ?? "").pathname.slice(1);
+  expect(ownerDatabase).toMatch(/dev|sandbox|preview/i);
+  expect(ownerDatabase).not.toBe("abos_v1_local_review");
+  for (const name of ["ABOS_IDENTITY_DATABASE_URL", "ABOS_FINANCE_DATABASE_URL", "ABOS_TREASURY_DATABASE_URL"]) {
+    const url = environment[name];
+    if (url !== undefined && url.trim() !== "") expect(new URL(url).pathname.slice(1), `${name} database`).toBe(ownerDatabase);
+  }
 }

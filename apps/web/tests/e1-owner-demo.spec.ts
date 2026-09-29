@@ -151,13 +151,10 @@ async function financeSignOut(page: Page): Promise<void> {
 }
 
 function seedDevSandbox(): Record<string, string> {
-  const environment: Record<string, string> = {};
-  for (const line of readFileSync(resolve(__dirname, "../.env.local"), "utf8").split(/\r?\n/)) {
-    const match = /^([A-Z0-9_]+)=(.*)$/.exec(line.trim());
-    if (match?.[1] !== undefined && match[2] !== undefined) environment[match[1]] = match[2];
-  }
+  const environment = sandboxEnvironment();
+  assertDisposableSandboxDatabase(environment);
   const output = execFileSync("pnpm", ["--filter", "@abos/e1-integration", "sandbox:seed"], {
-    cwd: resolve(__dirname, "../../.."), env: { ...process.env, ...environment },
+    cwd: resolve(__dirname, "../../.."), env: environment as NodeJS.ProcessEnv,
     encoding: "utf8", shell: process.platform === "win32"
   });
   const tokens: Record<string, string> = {};
@@ -168,4 +165,27 @@ function seedDevSandbox(): Record<string, string> {
     if (name !== undefined && token !== undefined && /^[A-Za-z0-9_-]{20,}$/.test(token)) tokens[name] = token;
   }
   return tokens;
+}
+
+function sandboxEnvironment(): Record<string, string | undefined> {
+  const fileEnvironment: Record<string, string> = {};
+  for (const line of readFileSync(resolve(__dirname, "../.env.local"), "utf8").split(/\r?\n/)) {
+    const match = /^([A-Z0-9_]+)=(.*)$/.exec(line.trim());
+    if (match?.[1] !== undefined && match[2] !== undefined) fileEnvironment[match[1]] = match[2];
+  }
+  // Explicit command-line values win so a run can point every runtime at one isolated dev sandbox DB.
+  return { ...fileEnvironment, ...process.env };
+}
+
+/** Refuses to seed unless the owner and every restricted login point at one disposable dev sandbox database. */
+function assertDisposableSandboxDatabase(environment: Record<string, string | undefined>): void {
+  const ownerUrl = environment.ABOS_DATABASE_URL;
+  expect(ownerUrl, "ABOS_DATABASE_URL for an isolated dev sandbox database").toBeTruthy();
+  const ownerDatabase = new URL(ownerUrl ?? "").pathname.slice(1);
+  expect(ownerDatabase).toMatch(/dev|sandbox/i);
+  expect(ownerDatabase).not.toBe("abos_v1_local_review");
+  for (const name of ["ABOS_IDENTITY_DATABASE_URL", "ABOS_FINANCE_DATABASE_URL", "ABOS_TREASURY_DATABASE_URL"]) {
+    const url = environment[name];
+    if (url !== undefined && url.trim() !== "") expect(new URL(url).pathname.slice(1), `${name} database`).toBe(ownerDatabase);
+  }
 }
