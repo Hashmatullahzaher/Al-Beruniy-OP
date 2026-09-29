@@ -12,7 +12,12 @@ export type FinancePermission =
   | "finance.posting-intent.approve"
   | "finance.journal.post"
   | "finance.journal.reverse"
-  | "finance.report.operational.read";
+  | "finance.report.operational.read"
+  | "finance.expense-category.manage"
+  | "finance.expense.create"
+  | "finance.expense.read"
+  | "finance.expense.approve"
+  | "finance.period.manage";
 
 export interface ServerActorContext {
   readonly userAccountId: UserAccountId;

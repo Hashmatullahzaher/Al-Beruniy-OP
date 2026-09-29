@@ -49,7 +49,8 @@ export type TreasuryPermission =
   | "treasury.cash-receipt.record"
   | "treasury.cash-count.record"
   | "treasury.cash-receipt.verify"
-  | "treasury.handoff.create";
+  | "treasury.handoff.create"
+  | "treasury.operational-account.manage";
 
 export const TREASURY_PERMISSIONS: readonly TreasuryPermission[] = [
   "treasury.read",
@@ -59,7 +60,8 @@ export const TREASURY_PERMISSIONS: readonly TreasuryPermission[] = [
   "treasury.cash-receipt.record",
   "treasury.cash-count.record",
   "treasury.cash-receipt.verify",
-  "treasury.handoff.create"
+  "treasury.handoff.create",
+  "treasury.operational-account.manage"
 ];
 
 export type CashLocationKind = "OFFICE_SAFE";

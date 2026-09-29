@@ -149,6 +149,12 @@ export const migrationCatalog = [
     checksumSha256: "f3a8080fdd92c163d667058016c0d705fdb35cb4496c254acd05e6ee999710f0",
     relativePath: "infrastructure/database/migrations/0026_v1_workflow_policy_owner_read_scope.sql",
   },
+  // Operational Finance configuration only: accounts/categories and PENDING -> OPEN authority.
+  {
+    id: "0027_v1_operational_finance_configuration",
+    checksumSha256: "2863faed4fecd5a3fc96a12294552b224a49dbc845317ac637e78e4ac19e6ff0",
+    relativePath: "infrastructure/database/migrations/0027_v1_operational_finance_configuration.sql",
+  },
 ] as const satisfies readonly MigrationDefinition[];
 
 const migrationTableSql = `

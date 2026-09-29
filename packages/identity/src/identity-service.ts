@@ -965,7 +965,8 @@ export const INDEPENDENCE_PERMISSIONS: ReadonlySet<string> = new Set([
   "treasury.cash-account.reconcile", "treasury.cash-account.approve", "treasury.cash-receipt.verify",
   "treasury.saraf-account.manage",
   "finance.posting-intent.approve", "finance.journal.post", "finance.journal.reverse",
-  "finance.ledger-account.review", "finance.reversal.request", "finance.reversal.approve"
+  "finance.ledger-account.review", "finance.reversal.request", "finance.reversal.approve",
+  "finance.expense.approve"
 ]);
 
 function requireSuperAdminFor(actor: Actor, permissions: Iterable<string>): void {

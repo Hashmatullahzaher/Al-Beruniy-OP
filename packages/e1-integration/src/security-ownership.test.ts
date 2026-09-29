@@ -26,7 +26,10 @@ import {
  */
 
 const MARKER = SYNTHETIC_AUTH_CONFIGURATION.runtimeMarker;
-const OWNERS = ["abos_e1_treasury_owner", "abos_e1_finance_owner", "abos_e1_shareholder_owner"] as const;
+const OWNERS = [
+  "abos_e1_treasury_owner", "abos_e1_finance_owner", "abos_e1_shareholder_owner",
+  "abos_v1_operational_finance_owner"
+] as const;
 const FUNCTION_OWNERS = [...OWNERS, "abos_v1_identity_owner", "abos_v1_workflow_policy_owner"] as const;
 const LOGINS = {
   finance: { name: "abos_e1_finance_runtime_test_login", password: "synthetic-finance-runtime-only-2026", role: "abos_e1_runtime" },
@@ -56,7 +59,7 @@ if (databaseUrl() === undefined) {
                 p.proconfig AS config, has_function_privilege('public', p.oid, 'EXECUTE') AS public_execute
            FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace JOIN pg_roles r ON r.oid = p.proowner
           WHERE n.nspname = 'abos' AND p.prosecdef ORDER BY 1`);
-      assert.equal(rows.rows.length, 43, "every restricted entry point, including workflow policy, GL, identity and reversal requests, is accounted for");
+      assert.equal(rows.rows.length, 48, "every restricted entry point, including operational Finance, workflow policy, GL, identity and reversal requests, is accounted for");
       for (const fn of rows.rows) {
         assert.ok((FUNCTION_OWNERS as readonly string[]).includes(fn.owner), `${fn.signature} is owned by ${fn.owner}`);
         assert.equal(fn.superuser, false, fn.signature);
@@ -93,6 +96,11 @@ if (databaseUrl() === undefined) {
         finance_workflow_policy_actor: "abos_v1_workflow_policy_owner",
         finance_workflow_policy_workspace: "abos_v1_workflow_policy_owner",
         finance_workflow_policy_set: "abos_v1_workflow_policy_owner",
+        operational_finance_actor: "abos_v1_operational_finance_owner",
+        operational_finance_configuration_workspace: "abos_v1_operational_finance_owner",
+        operational_treasury_account_upsert: "abos_v1_operational_finance_owner",
+        operational_expense_category_upsert: "abos_v1_operational_finance_owner",
+        finance_open_accounting_period: "abos_v1_operational_finance_owner",
         // WP #17 (0023): reversal requests (request -> Finance Manager decision; posting fail-closed).
         finance_reversal_requests_view: "abos_e1_finance_owner", finance_reversal_request_create: "abos_e1_finance_owner",
         finance_reversal_request_decide: "abos_e1_finance_owner", finance_reversal_request_withdraw: "abos_e1_finance_owner"

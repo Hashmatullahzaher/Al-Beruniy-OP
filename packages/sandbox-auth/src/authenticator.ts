@@ -8,6 +8,10 @@ import type {
   FinanceWorkflowPolicyWorkspace,
   FinanceWorkflowType,
   LegalEntityId,
+  OperationalExpenseCategoryUpsert,
+  OperationalFinanceConfigurationWorkspace,
+  OperationalPeriodOpen,
+  OperationalTreasuryAccountUpsert,
   ProjectId,
   SandboxAuthorization,
   SandboxLegalEntityScope,
@@ -266,6 +270,83 @@ export class SandboxAuthenticator {
     );
     const value = result.rows[0]?.value;
     assertSandbox(value !== undefined, "POLICY_CONFIGURATION_PENDING", "Workflow policy update returned no result");
+    return value;
+  }
+
+  /** Read operational Finance configuration through the restricted Finance runtime. */
+  async operationalFinanceConfiguration(
+    executor: SqlExecutor,
+    token: string
+  ): Promise<OperationalFinanceConfigurationWorkspace> {
+    return this.operationalFinanceFunction(
+      executor,
+      "SELECT abos.operational_finance_configuration_workspace($1,$2,$3) AS value",
+      token,
+      [],
+      "Operational Finance configuration is unavailable"
+    );
+  }
+
+  /** Create or update one Treasury account; the database derives actor and legal entity. */
+  async upsertOperationalTreasuryAccount(
+    executor: SqlExecutor,
+    token: string,
+    input: OperationalTreasuryAccountUpsert
+  ): Promise<OperationalFinanceConfigurationWorkspace> {
+    return this.operationalFinanceFunction(
+      executor,
+      "SELECT abos.operational_treasury_account_upsert($1,$2,$3,$4::jsonb) AS value",
+      token,
+      [JSON.stringify(input)],
+      "Treasury account configuration returned no result"
+    );
+  }
+
+  /** Create or update one expense category; the database derives actor and legal entity. */
+  async upsertOperationalExpenseCategory(
+    executor: SqlExecutor,
+    token: string,
+    input: OperationalExpenseCategoryUpsert
+  ): Promise<OperationalFinanceConfigurationWorkspace> {
+    return this.operationalFinanceFunction(
+      executor,
+      "SELECT abos.operational_expense_category_upsert($1,$2,$3,$4::jsonb) AS value",
+      token,
+      [JSON.stringify(input)],
+      "Expense category configuration returned no result"
+    );
+  }
+
+  /** Open one pending period through the separately permissioned database entry point. */
+  async openOperationalFinancePeriod(
+    executor: SqlExecutor,
+    token: string,
+    input: OperationalPeriodOpen
+  ): Promise<OperationalFinanceConfigurationWorkspace> {
+    return this.operationalFinanceFunction(
+      executor,
+      "SELECT abos.finance_open_accounting_period($1,$2,$3,$4::uuid,$5::integer,$6) AS value",
+      token,
+      [input.periodId, input.expectedVersion, input.reason],
+      "Opening the accounting period returned no result"
+    );
+  }
+
+  private async operationalFinanceFunction(
+    executor: SqlExecutor,
+    sql: string,
+    token: string,
+    parameters: readonly unknown[],
+    missingMessage: string
+  ): Promise<OperationalFinanceConfigurationWorkspace> {
+    const result = await executor.query<{ readonly value: OperationalFinanceConfigurationWorkspace }>(sql, [
+      this.identityDatabaseProof(),
+      createHash("sha256").update(token).digest("hex"),
+      this.digest(token),
+      ...parameters
+    ]);
+    const value = result.rows[0]?.value;
+    assertSandbox(value !== undefined, "POLICY_CONFIGURATION_PENDING", missingMessage);
     return value;
   }
 
@@ -745,7 +826,12 @@ const FINANCE_PERMISSIONS: ReadonlySet<string> = new Set<FinancePermission>([
   "finance.posting-intent.approve",
   "finance.journal.post",
   "finance.journal.reverse",
-  "finance.report.operational.read"
+  "finance.report.operational.read",
+  "finance.expense-category.manage",
+  "finance.expense.create",
+  "finance.expense.read",
+  "finance.expense.approve",
+  "finance.period.manage"
 ]);
 
 function pick(
