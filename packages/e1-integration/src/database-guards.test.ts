@@ -4,8 +4,8 @@ import test, { after, before, describe } from "node:test";
 import pg from "pg";
 import { databaseUrl, MISSING_DATABASE_MESSAGE, openHarness, resetSchema, type Harness } from "./harness.ts";
 import {
-  addInstallment, bindExistingSyntheticTreasuryEvidence,
-  seedSyntheticWorld, type SyntheticWorld
+  addInstallment, bindExistingSyntheticTreasuryEvidence, cancelInstallment,
+  seedSyntheticWorld, simulatePriorCommitmentUsage, type SyntheticWorld
 } from "./synthetic-world.ts";
 
 /**
@@ -307,23 +307,25 @@ if (databaseUrl() === undefined) {
 
     test("F-4: the sum of intents cannot exceed the committed amount", async () => {
       await resetSchema(harness.pool);
+      // A valid plan (25,000 + 5,000 of 30,000) with 10,000 already consumed: the 0003 usage ceiling
+      // stops a full 25,000 receipt even though the plan itself is within the commitment.
       const world = await seedSyntheticWorld(harness.executor, {
         committedAmount: "30000.00",
         installmentAmount: "25000.00"
       });
       const second = await addInstallment(harness.executor, world, {
         sequenceNumber: 2,
-        expectedAmount: "25000.00"
+        expectedAmount: "5000.00"
       });
+      await simulatePriorCommitmentUsage(harness.executor, world, "10000");
 
-      await insertIntent(harness, world, world.installmentId, "25000.00");
       await assert.rejects(
-        () => insertIntent(harness, world, second, "25000.00"),
+        () => insertIntent(harness, world, world.installmentId, "25000.00"),
         /would exceed the committed amount/,
-        "25000 + 25000 > 30000"
+        "10000 + 25000 > 30000"
       );
 
-      // What is left still fits.
+      // What is left still fits: the full 5,000 installment.
       const intentId = await insertIntent(harness, world, second, "5000.00");
       assert.ok(intentId);
     });
@@ -334,10 +336,6 @@ if (databaseUrl() === undefined) {
         committedAmount: "30000.00",
         installmentAmount: "25000.00"
       });
-      const second = await addInstallment(harness.executor, world, {
-        sequenceNumber: 2,
-        expectedAmount: "25000.00"
-      });
       const first = await insertIntent(harness, world, world.installmentId, "25000.00");
       await harness.executor.query(
         `UPDATE abos.capital_receipt_intents
@@ -345,20 +343,28 @@ if (databaseUrl() === undefined) {
           WHERE id = $1`,
         [first]
       );
+      // The rejected installment is cancelled and replaced, keeping the plan within 30,000.
+      await cancelInstallment(harness.executor, world.installmentId);
+      const second = await addInstallment(harness.executor, world, {
+        sequenceNumber: 2,
+        expectedAmount: "25000.00"
+      });
       const replacement = await insertIntent(harness, world, second, "25000.00");
       assert.ok(replacement, "the released commitment can be used again");
     });
 
     test("F-4: two concurrent installments cannot overrun the commitment", async () => {
       await resetSchema(harness.pool);
+      // A valid plan (25,000 + 25,000 of 50,000) with 20,000 already consumed: only 30,000 is left.
       const world = await seedSyntheticWorld(harness.executor, {
-        committedAmount: "30000.00",
+        committedAmount: "50000.00",
         installmentAmount: "25000.00"
       });
       const second = await addInstallment(harness.executor, world, {
         sequenceNumber: 2,
         expectedAmount: "25000.00"
       });
+      await simulatePriorCommitmentUsage(harness.executor, world, "20000");
 
       // Two transactions, each individually valid, racing on the same agreement. The row lock on
       // the agreement serializes them, so exactly one can win.
@@ -382,7 +388,7 @@ if (databaseUrl() === undefined) {
           WHERE capital_agreement_id = $1 AND status <> 'REJECTED'`,
         [world.agreementId]
       );
-      assert.equal(total.rows[0]?.total, "25000.00", "the ledger of intents never exceeded 30000");
+      assert.equal(total.rows[0]?.total, "25000.00", "the intents never exceeded the 30000 left of the commitment");
     });
 
     test("F-4: an unauthorized partial installment is refused", async () => {

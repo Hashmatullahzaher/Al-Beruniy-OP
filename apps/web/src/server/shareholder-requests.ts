@@ -10,7 +10,7 @@ import { financeHandoffRuntime, financeToken } from "@/server/finance-handoff";
 
 export type CapitalRequestBlocker =
   | "HAS_REQUEST" | "INSTALLMENT_CLOSED" | "LOAN_AGREEMENT" | "SHAREHOLDER_NOT_ACTIVE" | "AGREEMENT_NOT_FUNDABLE"
-  | "REGISTRATION_NOT_VERIFIED" | "COMMITMENT_USED" | "NO_ACTIVE_ACCOUNT";
+  | "REGISTRATION_NOT_VERIFIED" | "AGREEMENT_EVIDENCE_MISSING" | "COMMITMENT_USED" | "NO_ACTIVE_ACCOUNT";
 
 export interface RateSnapshotView {
   readonly id: string; readonly rateDate: string; readonly source: "MARKET" | "SARAF"; readonly sarafName: string | null;

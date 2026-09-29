@@ -4,7 +4,7 @@ import test, { after, before, describe } from "node:test";
 import type { PoolClient } from "pg";
 import { PostgresExecutor, type RetryAttempt } from "@abos/persistence";
 import { databaseUrl, MISSING_DATABASE_MESSAGE, openHarness, resetSchema, type Harness } from "./harness.ts";
-import { addInstallment, seedSyntheticWorld, type SyntheticWorld } from "./synthetic-world.ts";
+import { addInstallment, cancelInstallment, seedSyntheticWorld, simulatePriorCommitmentUsage, type SyntheticWorld } from "./synthetic-world.ts";
 
 const MARKER = "synthetic-e1-sandbox-marker";
 type Isolation = "READ COMMITTED" | "REPEATABLE READ" | "SERIALIZABLE";
@@ -26,16 +26,19 @@ if (databaseUrl() === undefined) {
     });
 
     for (const isolation of ["READ COMMITTED", "REPEATABLE READ", "SERIALIZABLE"] as const) {
-      test(`${isolation}: two 25,000 USD installments cannot consume a 30,000 USD commitment`, async () => {
+      test(`${isolation}: two 25,000 USD receipts cannot consume the 30,000 USD left of a commitment`, async () => {
         await resetSchema(harness.pool);
+        // A valid plan (25,000 + 25,000 of 50,000). 20,000 is already consumed, so the 0003 usage
+        // ceiling - not the plan - is what must stop the second concurrent receipt.
         const world = await seedSyntheticWorld(harness.executor, {
-          committedAmount: "30000.00",
+          committedAmount: "50000.00",
           installmentAmount: "25000.00"
         });
         const secondInstallment = await addInstallment(harness.executor, world, {
           sequenceNumber: 2,
           expectedAmount: "25000.00"
         });
+        await simulatePriorCommitmentUsage(harness.executor, world, "20000");
 
         // Both transactions explicitly take a snapshot before either writes. This reproduces the
         // stale-SUM hole in 0002 under REPEATABLE READ rather than testing sequential inserts.
@@ -56,7 +59,7 @@ if (databaseUrl() === undefined) {
         } else {
           assert.equal(code, "40001", "the stale writer must retry its complete transaction");
         }
-        await assertUsage(harness, world, "25000");
+        await assertUsage(harness, world, "45000", "25000");
       });
     }
 
@@ -167,6 +170,8 @@ if (databaseUrl() === undefined) {
         [firstIntent]
       );
       await assertUsage(harness, world, "0");
+      // The rejected installment is cancelled, so the replacement keeps the plan within 30,000.
+      await cancelInstallment(harness.executor, world.installmentId);
       const secondInstallment = await addInstallment(harness.executor, world, {
         sequenceNumber: 2,
         expectedAmount: "25000.00"
@@ -264,7 +269,8 @@ function intentParams(world: SyntheticWorld, installmentId: string, amount: stri
   ];
 }
 
-async function assertUsage(harness: Harness, world: SyntheticWorld, expected: string): Promise<void> {
+/** `intents` differs from `expected` only when a test simulated usage from outside the plan. */
+async function assertUsage(harness: Harness, world: SyntheticWorld, expected: string, intents: string = expected): Promise<void> {
   const result = await harness.pool.query<{
     readonly usage_matches: boolean;
     readonly intents_match: boolean;
@@ -273,12 +279,12 @@ async function assertUsage(harness: Harness, world: SyntheticWorld, expected: st
     `SELECT usage.consumed_amount = $2::numeric AS usage_matches,
             (SELECT coalesce(sum(amount), 0)
                FROM abos.capital_receipt_intents
-              WHERE capital_agreement_id = $1 AND status <> 'REJECTED') = $2::numeric AS intents_match,
+              WHERE capital_agreement_id = $1 AND status <> 'REJECTED') = $3::numeric AS intents_match,
             usage.consumed_amount <= agreement.committed_amount AS within_ceiling
        FROM abos.capital_agreement_commitment_usage usage
        JOIN abos.capital_agreements agreement ON agreement.id = usage.capital_agreement_id
       WHERE usage.capital_agreement_id = $1`,
-    [world.agreementId, expected]
+    [world.agreementId, expected, intents]
   );
   assert.equal(result.rows[0]?.usage_matches, true);
   assert.equal(result.rows[0]?.intents_match, true);

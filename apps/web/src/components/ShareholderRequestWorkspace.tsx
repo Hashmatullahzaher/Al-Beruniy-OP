@@ -17,6 +17,7 @@ const BLOCKER_COPY: Readonly<Record<CapitalRequestBlocker, Copy>> = {
   SHAREHOLDER_NOT_ACTIVE: { en: "Shareholder is not active", fa: "سهامدار فعال نیست" },
   AGREEMENT_NOT_FUNDABLE: { en: "Agreement is not fundable under the recorded decision", fa: "قرارداد طبق تصمیم ثبت‌شده قابل تمویل نیست" },
   REGISTRATION_NOT_VERIFIED: { en: "Capital registration not verified", fa: "ثبت سرمایه تایید نشده" },
+  AGREEMENT_EVIDENCE_MISSING: { en: "No signed agreement document is recorded for this agreement", fa: "برای این قرارداد سند امضاشده ثبت نشده است" },
   COMMITMENT_USED: { en: "Commitment fully requested", fa: "تعهد به‌طور کامل درخواست شده" },
   NO_ACTIVE_ACCOUNT: { en: "Treasury has not activated a safe account in this currency", fa: "خزانه هنوز حساب صندوقی به این واحد پول فعال نکرده است" }
 };
@@ -40,7 +41,8 @@ function money(amount: string, currency: string, fa: boolean): string {
 
 interface Draft { installment: InstallmentView; agreement: AgreementView; destination: string; amount: string; businessDate: string; rateId: string; key: string }
 
-export function ShareholderRequestWorkspace() {
+/** `embedded` renders inside the Shareholders page tabs, without its own page header. */
+export function ShareholderRequestWorkspace({ embedded = false }: { readonly embedded?: boolean } = {}) {
   const { locale } = useLocale();
   const fa = locale === "fa";
   const t = useCallback((copy: Copy) => copy[locale], [locale]);
@@ -74,7 +76,7 @@ export function ShareholderRequestWorkspace() {
       && [rate.unitCurrency, rate.quoteCurrency].includes(draft.installment.currency));
   }, [base, draft, view]);
 
-  if (gate) return <div className="module-workspace"><AccessGate state={gate} fa={fa} what={{ en: "Shareholder capital needs the “Open capital requests from installments” or “View shareholder agreements” permission.", fa: "سرمایه سهامداران به صلاحیت «باز کردن درخواست سرمایه از اقساط» یا «مشاهده قراردادهای سهامداران» نیاز دارد." }} /></div>;
+  if (gate) return <div className={embedded ? "shareholder-embedded" : "module-workspace"}><AccessGate state={gate} fa={fa} what={{ en: "Shareholder capital needs the “Open capital requests from installments” or “View shareholder agreements” permission.", fa: "سرمایه سهامداران به صلاحیت «باز کردن درخواست سرمایه از اقساط» یا «مشاهده قراردادهای سهامداران» نیاز دارد." }} /></div>;
 
   const open = (agreement: AgreementView, installment: InstallmentView) => {
     const destination = view?.destinationAccounts.find((account) => account.usable && account.currency === installment.currency)?.id ?? "";
@@ -106,11 +108,11 @@ export function ShareholderRequestWorkspace() {
   };
 
   return (
-    <div className="module-workspace shareholder-workspace">
-      <StageZeroPageHeader icon="coins"
+    <div className={embedded ? "shareholder-workspace shareholder-embedded" : "module-workspace shareholder-workspace"}>
+      {embedded ? null : <StageZeroPageHeader icon="coins"
         eyebrow={{ en: `Shareholders · ${view?.legalEntity.name ?? ""}`, fa: `سهامداران · ${view?.legalEntity.name ?? ""}` }}
         title={{ en: "Shareholder capital", fa: "سرمایه سهامداران" }}
-        description={{ en: "Capital agreements and their installments. Open a capital request for an eligible installment so Treasury can receive the cash.", fa: "قراردادهای سرمایه و اقساط آن‌ها. برای قسط واجد شرایط درخواست سرمایه باز کنید تا خزانه نقد را دریافت کند." }} />
+        description={{ en: "Capital agreements and their installments. Open a capital request for an eligible installment so Treasury can receive the cash.", fa: "قراردادهای سرمایه و اقساط آن‌ها. برای قسط واجد شرایط درخواست سرمایه باز کنید تا خزانه نقد را دریافت کند." }} />}
 
       <section className="finance-boundary-banner"><span><AppIcon name="shield" size={22} /></span><div>
         <p>{fa ? "هر واحد پول جداگانه" : "EACH CURRENCY ON ITS OWN"}</p>

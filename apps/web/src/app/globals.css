@@ -1697,6 +1697,38 @@ button.review-context { border: 0; border-inline-start: 1px solid rgba(102, 142,
 .shareholder-rates { display: grid; gap: 6px; border: 1px solid rgba(60, 130, 176, .3); border-radius: 6px; padding: 8px 10px; }
 .shareholder-rates label { display: flex; gap: 8px; align-items: center; }
 .shareholder-rate-missing { color: #f3c77a; }
+/* 0031: shareholder setup (Shareholders | Capital Agreements | Installments | Capital Requests). */
+.shareholder-setup .shareholder-tabs { flex-wrap: wrap; }
+.shareholder-area { display: grid; gap: 12px; margin-top: 12px; }
+.shareholder-add { justify-self: start; display: inline-flex; align-items: center; gap: 6px; }
+.shareholder-embedded { display: grid; gap: 12px; margin-top: 12px; }
+.shareholder-request-note { margin-top: 12px; }
+.shareholder-list td strong { color: white; font-weight: 650; }
+.shareholder-form-row td { padding: 0 0 10px; border-bottom: 1px solid rgba(60, 130, 176, .14); }
+.shareholder-form-row .shareholder-form { margin-top: 4px; }
+.shareholder-check { display: flex !important; grid-template-columns: none; align-items: center; gap: 8px; }
+.shareholder-check span { color: #d9e4eb !important; font-weight: 500 !important; }
+.shareholder-figures { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 1px; margin: 0 0 10px; border-radius: 6px; overflow: hidden; background: rgba(64, 135, 180, .16); }
+.shareholder-figures div { padding: 9px 10px; background: rgba(4, 20, 34, .92); min-width: 0; }
+.shareholder-figures dt { color: var(--abos-slate-300); font-size: 10.5px; }
+.shareholder-figures dd { margin: 3px 0 0; color: white; font-size: 14px; font-weight: 650; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; text-align: start; }
+.shareholder-why, .shareholder-documents { display: grid; gap: 4px; margin-bottom: 10px; padding: 9px 11px; border: 1px solid rgba(60, 130, 176, .22); border-radius: 6px; background: rgba(3, 17, 29, .45); }
+.shareholder-why p, .shareholder-documents p { margin: 0; color: var(--abos-gold-300); font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; }
+.shareholder-why ul, .shareholder-documents ul { margin: 0; padding-inline-start: 18px; display: grid; gap: 4px; color: #d9e4eb; font-size: 12px; }
+.shareholder-documents li { display: grid; gap: 2px; }
+.shareholder-documents small, .shareholder-locked { color: #9fb4c3; font-size: 10.5px; }
+.shareholder-documents code { color: #9fb4c3; font-size: 10px; overflow-wrap: anywhere; }
+.shareholder-row-actions { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+.shareholder-cancelled td { color: #7f95a6; text-decoration: line-through; text-decoration-color: rgba(159, 180, 195, .5); }
+.shareholder-cancelled td:last-child, .shareholder-cancelled .treasury-chip { text-decoration: none; }
+@media (max-width: 960px) { .shareholder-figures { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 720px) {
+  .shareholder-setup .finance-boundary-banner { grid-template-columns: auto minmax(0, 1fr); }
+  .shareholder-setup .finance-boundary-banner > em { grid-column: 1 / -1; }
+  .shareholder-tabs button { flex: 1 1 45%; }
+  .shareholder-form-row td { display: block; }
+  .shareholder-figures { grid-template-columns: minmax(0, 1fr); }
+}
 @media (max-width: 960px) { .rates-grid { grid-template-columns: 1fr; } }
 @media (max-width: 720px) {
   .rates-table thead, .shareholder-installments thead { display: none; }

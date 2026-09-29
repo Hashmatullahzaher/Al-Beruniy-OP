@@ -263,10 +263,10 @@ export class PostgresShareholderRepository implements ShareholderRepository {
         UNION
        SELECT er.id, er.document_id, er.evidence_kind, er.evidence_version, er.sha256, er.completed_at
          FROM abos.evidence_references er
-        WHERE er.legal_entity_id = $1
-          AND er.evidence_kind = 'CAPITAL_AGREEMENT'
-          AND EXISTS (SELECT 1 FROM abos.capital_agreements ca
-                       WHERE ca.id = $2 AND ca.legal_entity_id = $1)`,
+         JOIN abos.capital_agreement_evidence cae
+           ON cae.evidence_reference_id = er.id AND cae.legal_entity_id = er.legal_entity_id
+        WHERE er.legal_entity_id = $1 AND cae.capital_agreement_id = $2
+          AND er.evidence_kind = 'CAPITAL_AGREEMENT'`,
       [legalEntityId, agreementId]
     );
     return result.rows.map((row) => ({

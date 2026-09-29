@@ -139,6 +139,17 @@ export async function addAfnAgreement(database: SqlExecutor, world: SyntheticWor
     `INSERT INTO abos.registration_evidence (id, legal_entity_id, capital_agreement_id, evidence_reference_id, status, verified_by_user_account_id, verified_at)
      VALUES (gen_random_uuid(), $1, $2, $3, 'VERIFIED', $4, clock_timestamp())`,
     [world.legalEntityId, agreementId, registrationEvidenceId, world.bootstrapUserId]);
+  // Each agreement carries its own agreement document (0031); one document never evidences two agreements.
+  const documentEvidenceId = randomUUID();
+  await database.query(
+    `INSERT INTO abos.evidence_references (id, legal_entity_id, document_id, evidence_kind, evidence_version, sha256, completed_at)
+     VALUES ($1, $2, gen_random_uuid(), 'CAPITAL_AGREEMENT', 1, $3, clock_timestamp())`,
+    [documentEvidenceId, world.legalEntityId, documentEvidenceId.replace(/-/g, "").padEnd(64, "0")]);
+  await database.query(
+    `INSERT INTO abos.capital_agreement_evidence
+       (id, legal_entity_id, capital_agreement_id, evidence_reference_id, version, document_reference, document_date, recorded_by_user_account_id)
+     VALUES (gen_random_uuid(), $1, $2, $3, 1, 'Synthetic AFN agreement', '2026-09-01', $4)`,
+    [world.legalEntityId, agreementId, documentEvidenceId, world.bootstrapUserId]);
   const installmentIds: string[] = [];
   for (const [index, amount] of input.installments.entries()) {
     installmentIds.push(await addInstallmentTo(database, world, agreementId, index + 1, amount, "AFN"));

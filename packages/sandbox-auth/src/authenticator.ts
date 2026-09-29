@@ -25,6 +25,10 @@ import type {
   SandboxLegalEntityScope,
   SandboxPostingGate,
   ServerActorContext,
+  ShareholderSetupAction,
+  ShareholderSetupCommand,
+  ShareholderSetupResult,
+  ShareholderSetupWorkspace,
   SupportedCurrency,
   TransactionDimensions,
   TreasuryPermission,
@@ -32,6 +36,18 @@ import type {
 } from "@abos/contracts";
 import type { SandboxAuthConfiguration } from "./configuration.ts";
 import { assertSandbox, SandboxAuthError } from "./errors.ts";
+
+/** Fixed allow-list: a command name never reaches SQL except through this map. */
+const SHAREHOLDER_SETUP_ENTRY_POINTS: Readonly<Record<ShareholderSetupAction, string>> = {
+  "create-shareholder": "shareholder_setup_create_shareholder",
+  "correct-shareholder": "shareholder_setup_correct_shareholder",
+  "create-agreement": "shareholder_setup_create_agreement",
+  "update-agreement": "shareholder_setup_update_agreement",
+  "add-installment": "shareholder_setup_add_installment",
+  "update-installment": "shareholder_setup_update_installment",
+  "cancel-installment": "shareholder_setup_cancel_installment",
+  "record-agreement-document": "shareholder_setup_record_agreement_evidence"
+};
 
 export interface IssuedSandboxSession {
   readonly sessionId: string;
@@ -383,6 +399,34 @@ export class SandboxAuthenticator {
       token,
       [expenseId, input.expectedVersion, input.note],
       "Operational expense approval returned no result"
+    );
+  }
+
+  /** Shareholders, capital agreements, installments and documents (shareholder.setup.manage or shareholder.read). */
+  async shareholderSetupWorkspace(executor: SqlExecutor, token: string): Promise<ShareholderSetupWorkspace> {
+    return this.operationalFinanceFunction<ShareholderSetupWorkspace>(
+      executor,
+      "SELECT abos.shareholder_setup_workspace($1,$2,$3) AS value",
+      token,
+      [],
+      "Shareholder setup is unavailable"
+    );
+  }
+
+  /**
+   * One shareholder setup command through its reviewed entry point. The database derives actor and
+   * legal entity, checks shareholder.setup.manage and refuses anything outside DRAFT setup.
+   */
+  async shareholderSetupCommand(executor: SqlExecutor, token: string, command: ShareholderSetupCommand): Promise<ShareholderSetupResult> {
+    const { action, ...payload } = command;
+    const entryPoint = SHAREHOLDER_SETUP_ENTRY_POINTS[action];
+    assertSandbox(entryPoint !== undefined, "POLICY_CONFIGURATION_PENDING", "Unknown shareholder setup command");
+    return this.operationalFinanceFunction<ShareholderSetupResult>(
+      executor,
+      `SELECT abos.${entryPoint}($1,$2,$3,$4::jsonb) AS value`,
+      token,
+      [JSON.stringify(payload)],
+      "Shareholder setup returned no result"
     );
   }
 

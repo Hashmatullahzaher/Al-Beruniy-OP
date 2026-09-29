@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import test, { after, before, describe } from "node:test";
 import { databaseUrl, MISSING_DATABASE_MESSAGE, openHarness, resetSchema, type Harness } from "./harness.ts";
-import { handOffSyntheticReceipt, recordSyntheticTreasuryReceipt, seedSyntheticWorld, type SyntheticWorld } from "./synthetic-world.ts";
+import { handOffSyntheticReceipt, recordSyntheticTreasuryReceipt, seedSyntheticWorld, simulatePriorCommitmentUsage, type SyntheticWorld } from "./synthetic-world.ts";
 import {
   activateAfnAccount, addAfnAgreement, addInstallmentTo, addSecondEntity, createRequest, ensureFinanceLogin, grant, isoToday, MARKER,
   recordRate, runtime, sessionFor, shareholderWorkspace
@@ -102,14 +102,16 @@ if (databaseUrl() === undefined) {
       await assert.rejects(() => runtime((db) => createRequest(db, creator, { installmentId: world.installmentId, destination: world.cashAccountId, amount: "25000", businessDate: future })), /future/);
       // Partial installments are allowed by this synthetic agreement.
       await usd(world.installmentId, "10000");
-      const second = await addInstallmentTo(harness.executor, world, world.agreementId, 2, "40000", "USD");
-      const third = await addInstallmentTo(harness.executor, world, world.agreementId, 3, "40000", "USD");
-      const fourth = await addInstallmentTo(harness.executor, world, world.agreementId, 4, "40000", "USD");
-      await usd(second, "40000");
-      await usd(third, "40000");
-      // 10000 + 40000 + 40000 = 90000 of 100000 committed: 40000 more would exceed the ceiling.
-      await assert.rejects(() => usd(fourth, "40000"), /exceed the committed amount/);
-      await usd(fourth, "10000");
+      // A valid plan: 25000 + 30000 + 30000 + 14999 = 99999 of 100000 committed (0031 invariant).
+      const second = await addInstallmentTo(harness.executor, world, world.agreementId, 2, "30000", "USD");
+      const third = await addInstallmentTo(harness.executor, world, world.agreementId, 3, "30000", "USD");
+      const fourth = await addInstallmentTo(harness.executor, world, world.agreementId, 4, "14999", "USD");
+      await usd(second, "30000");
+      await usd(third, "30000");
+      // 90000 already consumed (70000 here plus 20000 simulated from outside this plan): the 0003
+      // commitment-usage ceiling refuses the full 14999 installment even though the plan fits.
+      await simulatePriorCommitmentUsage(harness.executor, world, "90000");
+      await assert.rejects(() => usd(fourth, "14999"), /exceed the committed amount/);
       const unknown = randomUUID();
       await assert.rejects(() => usd(unknown, "1"), /installment was not found/);
 

@@ -17,5 +17,6 @@ export * from "./operational-expenses.ts";
 export * from "./company-dashboard.ts";
 export * from "./security.ts";
 export * from "./shareholder-capital.ts";
+export * from "./shareholder-setup.ts";
 export * from "./treasury.ts";
 export * from "./workflow-policy.ts";

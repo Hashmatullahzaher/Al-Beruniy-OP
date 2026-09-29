@@ -126,6 +126,10 @@ export const PERMISSION_COPY: Readonly<Record<string, PermissionCopy>> = {
     label: { en: "Open capital requests from installments", fa: "باز کردن درخواست سرمایه از اقساط" },
     allows: { en: "Open a capital request from an eligible agreement installment, in its own currency (USD or AFN), for Treasury to receive.", fa: "باز کردن درخواست سرمایه از قسط واجد شرایط قرارداد، به واحد پول خود آن (دالر یا افغانی)، تا خزانه دریافت کند." }
   },
+  "shareholder.setup.manage": {
+    label: { en: "Set up shareholders and capital agreements", fa: "تنظیم سهامداران و قراردادهای سرمایه" },
+    allows: { en: "Add shareholders, draft capital agreements and their installment plans, and record the signed agreement document's reference, date and fingerprint. Corrections are possible only while things are still draft. Does not receive or record any money.", fa: "افزودن سهامداران، پیش‌نویس قراردادهای سرمایه و برنامهٔ اقساط آن‌ها، و ثبت مرجع، تاریخ و اثر انگشت سند امضاشدهٔ قرارداد. اصلاح فقط تا زمانی ممکن است که موارد هنوز پیش‌نویس باشند. هیچ پولی دریافت یا ثبت نمی‌کند." }
+  },
   "shareholder.read": {
     label: { en: "View shareholder agreements", fa: "مشاهده قراردادهای سهامداران" },
     allows: { en: "See capital agreements, installments and capital requests, with totals kept per currency.", fa: "مشاهده قراردادهای سرمایه، اقساط و درخواست‌های سرمایه، با جمع‌ها به تفکیک واحد پول." }

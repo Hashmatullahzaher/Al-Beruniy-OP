@@ -74,6 +74,8 @@ test.describe("V1 currency and shareholder capital", () => {
     // Shareholder capital: a USD request, then an AFN request that keeps today's rate.
     await page.getByRole("link", { name: "Shareholder capital" }).click();
     await expect(page).toHaveURL(/\/shareholders/);
+    // 0031: the page has four areas; capital requests are the fourth.
+    await page.getByRole("tab", { name: "Capital Requests" }).click();
     const totals = page.locator(".shareholder-total");
     await expect(totals).toHaveCount(2);
     await expect(totals.nth(0)).toContainText("AFN");

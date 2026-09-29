@@ -344,6 +344,14 @@ export async function seedSyntheticWorld(
       world.bootstrapUserId
     ]
   );
+  // The agreement document evidences this agreement only (0031).
+  await q(
+    `INSERT INTO abos.capital_agreement_evidence
+       (id, legal_entity_id, capital_agreement_id, evidence_reference_id, version, document_reference,
+        document_date, recorded_by_user_account_id)
+     VALUES ($1, $2, $3, $4, 1, 'Synthetic signed agreement', '2026-09-01', $5)`,
+    [randomUUID(), world.legalEntityId, world.agreementId, world.agreementDocumentEvidenceId, world.bootstrapUserId]
+  );
   await q(
     `INSERT INTO abos.capital_installments
        (id, legal_entity_id, capital_agreement_id, sequence_number, expected_amount, currency_code,
@@ -646,4 +654,24 @@ export async function addInstallment(
     ]
   );
   return installmentId;
+}
+
+/**
+ * Defense-in-depth fixture: records commitment usage that did not come from this agreement's own
+ * installment plan (as the ledger would hold after activity outside the current plan), so tests can
+ * prove the 0003 commitment-usage ceiling without an over-planned installment schedule, which 0031
+ * forbids as operational data.
+ */
+export async function simulatePriorCommitmentUsage(database: SqlExecutor, world: SyntheticWorld, consumedAmount: string): Promise<void> {
+  await database.query(
+    `UPDATE abos.capital_agreement_commitment_usage
+        SET consumed_amount = $2::numeric, revision = revision + 1
+      WHERE capital_agreement_id = $1`,
+    [world.agreementId, consumedAmount]
+  );
+}
+
+/** Cancels a planned installment, which releases its share of the installment plan (0031). */
+export async function cancelInstallment(database: SqlExecutor, installmentId: string): Promise<void> {
+  await database.query("UPDATE abos.capital_installments SET status = 'CANCELLED' WHERE id = $1", [installmentId]);
 }
