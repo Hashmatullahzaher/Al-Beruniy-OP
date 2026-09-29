@@ -491,8 +491,13 @@ if (databaseUrl() === undefined) {
 
       for (const [sql, message] of [
         ["SELECT * FROM abos.user_credentials", /permission denied for table user_credentials/i],
-        ["SELECT * FROM abos.journals", /permission denied for table journals/i],
-        ["SELECT * FROM abos.posting_intents", /permission denied for table posting_intents/i]
+        // Migration 0028 (reviewed design, section I) lets the owner READ the ledger tables, because
+        // it writes operational journals and its posting validator runs with the owner's rights.
+        // It still cannot change ungranted columns or delete anything there.
+        ["UPDATE abos.journals SET journal_reference = journal_reference", /permission denied for table journals/i],
+        ["DELETE FROM abos.journals", /permission denied for table journals/i],
+        ["UPDATE abos.posting_intents SET intent_kind = intent_kind", /permission denied for table posting_intents/i],
+        ["DELETE FROM abos.posting_intents", /permission denied for table posting_intents/i]
       ] as const) {
         await ownerStatementRejected(harness, sql, message);
       }

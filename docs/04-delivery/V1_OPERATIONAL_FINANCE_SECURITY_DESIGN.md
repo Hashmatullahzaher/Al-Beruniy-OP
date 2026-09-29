@@ -249,3 +249,44 @@ conflicting idempotency reuse fails; the expense debit, Treasury credit and subl
 exact; a corrected exchange rate does not change a snapshot; and posted sources, journals and
 subledgers remain immutable. The full identity, Treasury, Finance, General Ledger and capital suites
 must remain green.
+
+## Implementation record: migration 0028 (operational expense posting)
+
+Migration `0028_v1_operational_expense_posting.sql` implements sections A–I above. Review
+corrections made before the checkpoint:
+
+- The create entry point's local variables collided with table column names and every call failed
+  with an ambiguous-column error; all variables are now prefixed.
+- Idempotency is resolved immediately after identity and permission checks, before business
+  validation, so an identical retry returns the recorded result even if configuration changed. The
+  creator is part of the request fingerprint: another user reusing a key is refused as a conflict and
+  never receives someone else's result.
+- The amount must be a plain positive decimal string (the contracts' pattern). A bare `::numeric`
+  cast would accept `NaN`, `Infinity` and exponents, and `NaN > 0` is true in PostgreSQL. The expense
+  table also refuses non-finite original and base amounts.
+- Foreign-currency base amounts are stored with `trim_scale`, which removes only trailing zeros
+  produced by PostgreSQL division; the exact-only rule and the value are unchanged.
+- The expense API routes translate the database's own refusals (missing or ambiguous rate, inexact
+  conversion, no open period, policy not configured, idempotency conflict, self-approval, scope) into
+  plain business messages; unknown failures stay opaque.
+
+Proof on a brand-new disposable PostgreSQL 17 server (never the preserved local database):
+`packages/e1-integration/src/operational-expense-posting.test.ts` covers legacy defaults and
+relabelling, owner and runtime privileges, `PUBLIC` execution, forged proof, forged, revoked and
+expired sessions, missing permission, wrong runtimes, cross-company account/category/rate/expense
+access, approval OFF and ON, a policy change after creation, concurrent idempotent replay, conflicting
+key reuse, exact debit/credit/Treasury movement, FX snapshot immutability, other-day and inexact
+rates, posted immutability (boundary and generic guards), and correction through the existing
+independent reversal request.
+
+Still open (owner or Finance Manager decisions; nothing was invented):
+
+- **Reversal posting.** An operational expense journal can be the subject of a reversal request that an
+  independent person raises and a different Finance Manager approves (0023). Posting the reversal
+  journal remains unavailable in both lanes until the reversal effective date, accounting period and
+  evidence policy are approved. The operational journal validator accepts only `EXPENSE` journals,
+  so it will need a reviewed extension at that point.
+- **Rounding.** Non-base expenses post only when conversion is exact; approved monetary scales and
+  rounding rules would widen this.
+- **Idempotent retries** must resend the same correlation identifier; a new correlation identifier
+  with the same key is treated as different details.

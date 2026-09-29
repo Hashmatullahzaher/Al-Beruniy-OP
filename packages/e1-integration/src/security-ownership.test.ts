@@ -59,7 +59,7 @@ if (databaseUrl() === undefined) {
                 p.proconfig AS config, has_function_privilege('public', p.oid, 'EXECUTE') AS public_execute
            FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace JOIN pg_roles r ON r.oid = p.proowner
           WHERE n.nspname = 'abos' AND p.prosecdef ORDER BY 1`);
-      assert.equal(rows.rows.length, 48, "every restricted entry point, including operational Finance, workflow policy, GL, identity and reversal requests, is accounted for");
+      assert.equal(rows.rows.length, 51, "every restricted entry point, including operational Finance and expense posting, workflow policy, GL, identity and reversal requests, is accounted for");
       for (const fn of rows.rows) {
         assert.ok((FUNCTION_OWNERS as readonly string[]).includes(fn.owner), `${fn.signature} is owned by ${fn.owner}`);
         assert.equal(fn.superuser, false, fn.signature);
@@ -101,6 +101,10 @@ if (databaseUrl() === undefined) {
         operational_treasury_account_upsert: "abos_v1_operational_finance_owner",
         operational_expense_category_upsert: "abos_v1_operational_finance_owner",
         finance_open_accounting_period: "abos_v1_operational_finance_owner",
+        // 0028: operational expense entry points (reviewed design, section I).
+        operational_expense_workspace: "abos_v1_operational_finance_owner",
+        operational_expense_create: "abos_v1_operational_finance_owner",
+        operational_expense_approve: "abos_v1_operational_finance_owner",
         // WP #17 (0023): reversal requests (request -> Finance Manager decision; posting fail-closed).
         finance_reversal_requests_view: "abos_e1_finance_owner", finance_reversal_request_create: "abos_e1_finance_owner",
         finance_reversal_request_decide: "abos_e1_finance_owner", finance_reversal_request_withdraw: "abos_e1_finance_owner"

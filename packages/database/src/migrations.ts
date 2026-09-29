@@ -155,6 +155,12 @@ export const migrationCatalog = [
     checksumSha256: "2863faed4fecd5a3fc96a12294552b224a49dbc845317ac637e78e4ac19e6ff0",
     relativePath: "infrastructure/database/migrations/0027_v1_operational_finance_configuration.sql",
   },
+  // Protected Operational V1 expense posting lane; legacy E1 remains synthetic-only.
+  {
+    id: "0028_v1_operational_expense_posting",
+    checksumSha256: "676082f3365986cb4983a521067c44cc91e71eca0b90d20495bfef9ff855b90a",
+    relativePath: "infrastructure/database/migrations/0028_v1_operational_expense_posting.sql",
+  },
 ] as const satisfies readonly MigrationDefinition[];
 
 const migrationTableSql = `

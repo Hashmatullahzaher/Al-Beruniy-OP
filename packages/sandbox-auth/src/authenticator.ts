@@ -8,7 +8,12 @@ import type {
   FinanceWorkflowPolicyWorkspace,
   FinanceWorkflowType,
   LegalEntityId,
+  OperationalExpenseApproveBody,
   OperationalExpenseCategoryUpsert,
+  OperationalExpenseCreate,
+  OperationalExpenseMutationResult,
+  OperationalExpenseWorkspace,
+  OperationalExpenseWorkspaceQuery,
   OperationalFinanceConfigurationWorkspace,
   OperationalPeriodOpen,
   OperationalTreasuryAccountUpsert,
@@ -278,7 +283,7 @@ export class SandboxAuthenticator {
     executor: SqlExecutor,
     token: string
   ): Promise<OperationalFinanceConfigurationWorkspace> {
-    return this.operationalFinanceFunction(
+    return this.operationalFinanceFunction<OperationalFinanceConfigurationWorkspace>(
       executor,
       "SELECT abos.operational_finance_configuration_workspace($1,$2,$3) AS value",
       token,
@@ -293,7 +298,7 @@ export class SandboxAuthenticator {
     token: string,
     input: OperationalTreasuryAccountUpsert
   ): Promise<OperationalFinanceConfigurationWorkspace> {
-    return this.operationalFinanceFunction(
+    return this.operationalFinanceFunction<OperationalFinanceConfigurationWorkspace>(
       executor,
       "SELECT abos.operational_treasury_account_upsert($1,$2,$3,$4::jsonb) AS value",
       token,
@@ -308,7 +313,7 @@ export class SandboxAuthenticator {
     token: string,
     input: OperationalExpenseCategoryUpsert
   ): Promise<OperationalFinanceConfigurationWorkspace> {
-    return this.operationalFinanceFunction(
+    return this.operationalFinanceFunction<OperationalFinanceConfigurationWorkspace>(
       executor,
       "SELECT abos.operational_expense_category_upsert($1,$2,$3,$4::jsonb) AS value",
       token,
@@ -323,7 +328,7 @@ export class SandboxAuthenticator {
     token: string,
     input: OperationalPeriodOpen
   ): Promise<OperationalFinanceConfigurationWorkspace> {
-    return this.operationalFinanceFunction(
+    return this.operationalFinanceFunction<OperationalFinanceConfigurationWorkspace>(
       executor,
       "SELECT abos.finance_open_accounting_period($1,$2,$3,$4::uuid,$5::integer,$6) AS value",
       token,
@@ -332,14 +337,60 @@ export class SandboxAuthenticator {
     );
   }
 
-  private async operationalFinanceFunction(
+  /** Read scoped operational expenses through the restricted Finance runtime. */
+  async operationalExpenseWorkspace(
+    executor: SqlExecutor,
+    token: string,
+    query: OperationalExpenseWorkspaceQuery
+  ): Promise<OperationalExpenseWorkspace> {
+    return this.operationalFinanceFunction<OperationalExpenseWorkspace>(
+      executor,
+      "SELECT abos.operational_expense_workspace($1,$2,$3,$4::date,$5::date) AS value",
+      token,
+      [query.from, query.to],
+      "Operational expense workspace is unavailable"
+    );
+  }
+
+  /** Create, value and route one operational expense; identity is always database-derived. */
+  async createOperationalExpense(
+    executor: SqlExecutor,
+    token: string,
+    input: OperationalExpenseCreate
+  ): Promise<OperationalExpenseMutationResult> {
+    return this.operationalFinanceFunction<OperationalExpenseMutationResult>(
+      executor,
+      "SELECT abos.operational_expense_create($1,$2,$3,$4::jsonb) AS value",
+      token,
+      [JSON.stringify(input)],
+      "Operational expense creation returned no result"
+    );
+  }
+
+  /** Approve and post one expense through the independent Finance approval entry point. */
+  async approveOperationalExpense(
+    executor: SqlExecutor,
+    token: string,
+    expenseId: string,
+    input: OperationalExpenseApproveBody
+  ): Promise<OperationalExpenseMutationResult> {
+    return this.operationalFinanceFunction<OperationalExpenseMutationResult>(
+      executor,
+      "SELECT abos.operational_expense_approve($1,$2,$3,$4::uuid,$5::integer,$6) AS value",
+      token,
+      [expenseId, input.expectedVersion, input.note],
+      "Operational expense approval returned no result"
+    );
+  }
+
+  private async operationalFinanceFunction<T>(
     executor: SqlExecutor,
     sql: string,
     token: string,
     parameters: readonly unknown[],
     missingMessage: string
-  ): Promise<OperationalFinanceConfigurationWorkspace> {
-    const result = await executor.query<{ readonly value: OperationalFinanceConfigurationWorkspace }>(sql, [
+  ): Promise<T> {
+    const result = await executor.query<{ readonly value: T }>(sql, [
       this.identityDatabaseProof(),
       createHash("sha256").update(token).digest("hex"),
       this.digest(token),

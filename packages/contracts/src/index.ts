@@ -13,6 +13,7 @@ export * from "./finance.ts";
 export * from "./ids.ts";
 export * from "./money.ts";
 export * from "./operational-finance.ts";
+export * from "./operational-expenses.ts";
 export * from "./security.ts";
 export * from "./shareholder-capital.ts";
 export * from "./treasury.ts";
