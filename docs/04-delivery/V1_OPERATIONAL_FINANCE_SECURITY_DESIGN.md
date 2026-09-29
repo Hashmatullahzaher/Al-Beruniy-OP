@@ -325,3 +325,15 @@ Pages (English and Dari, right-to-left and phone width), with business wording o
 - Navigation is grouped by responsibility (Daily work, Reports, Accounting, Company) and shows only
   what the person's live permissions need. Technical state names, permission codes and processing
   models never reach these pages; the browser test fails if they do.
+
+## Implementation record: Finance setup page
+
+`/finance/setup` (English and Dari) uses the existing 0027 configuration entry points; no migration.
+It shows a readiness checklist (base currency, expense approval setting, active Treasury accounts,
+active expense types, an open period) with links to the screens that own each prerequisite
+(Workflow approvals, Chart of Accounts, Financial calendar), and lets people with the matching
+permission add and edit Treasury accounts, add and edit expense types, and open a pending accounting
+period with a reason. Fields the database fixes after saving (type, currency, linked account, Saraf,
+category code) are locked when editing. Refusals from 0027 are shown as plain, actionable messages.
+The six operational permissions have plain English and Dari labels in the role editor. Nothing is
+seeded: the company enters its real Treasury accounts, expense types and periods through the app.

@@ -90,13 +90,97 @@ test.describe("V1 operational finance", () => {
   });
 });
 
+test.describe("V1 operational finance setup", () => {
+  test.skip(
+    process.env.ABOS_V1_PREVIEW_E2E !== "1",
+    "Set ABOS_V1_PREVIEW_E2E=1 with an isolated preview database to run this."
+  );
+
+  test("Finance sets up a Treasury account, an expense type and an open period in the app, then records an expense", async ({ page }) => {
+    test.setTimeout(240_000);
+    const accounts = seedPreview();
+    await configureSyntheticOperationalFinance({ setupInTheApp: true });
+
+    // Role editor explains the operational permissions in plain language, never as codes.
+    await signIn(page, "super.admin", accounts["super.admin"]);
+    await page.goto("/admin/roles");
+    await page.getByRole("button", { name: "New role" }).click();
+    const editor = page.getByRole("form", { name: "Role editor" });
+    for (const label of ["Record expenses", "View expenses and the daily report", "Approve expenses",
+      "Set up Treasury accounts for daily Finance", "Set up expense types", "Open accounting periods"]) {
+      await expect(editor.locator(".permission-row", { hasText: label })).toHaveCount(1);
+    }
+    await expect(editor).not.toContainText("finance.expense.create");
+    await signOut(page);
+
+    await signIn(page, "demo.finance.preparer", accounts["demo.finance.preparer"]);
+    const nav = page.getByRole("navigation", { name: "Operations" });
+    await expect(nav.getByText("Setup", { exact: true })).toBeVisible();
+    await nav.getByRole("link", { name: "Finance setup" }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "Finance setup" })).toBeVisible();
+    await expect(page.locator(".setup-checklist")).toContainText("Expense approval: OFF");
+    await expect(page.locator(".setup-checklist li.missing")).toHaveCount(2);
+
+    // Treasury account.
+    await page.getByRole("button", { name: "Add account" }).click();
+    const account = page.getByRole("form", { name: "Treasury account" });
+    await account.getByLabel("Name (English) *").fill("Synthetic Main Safe");
+    await account.getByLabel("Name (Dari)").fill("صندوق اصلی آزمایشی");
+    await account.getByLabel("Type *").selectOption({ label: "Safe" });
+    await account.getByLabel("Currency *").selectOption("USD");
+    await account.getByLabel("Chart of Accounts account *").selectOption({ index: 1 });
+    await account.getByRole("button", { name: "Save" }).click();
+    await expect(page.getByRole("status").filter({ hasText: "Treasury account saved" })).toBeVisible();
+
+    // Expense type.
+    await page.getByRole("button", { name: "Add expense type" }).click();
+    const type = page.getByRole("form", { name: "Expense type" });
+    await type.getByLabel("Code *").fill("SYN-OFFICE");
+    await type.getByLabel("Name (English) *").fill("Synthetic Office Supplies");
+    await type.getByLabel("Expense account in the Chart of Accounts *").selectOption({ label: "SYN-6100 · Synthetic Office Supplies Expense" });
+    await type.getByRole("button", { name: "Save" }).click();
+    await expect(page.getByRole("status").filter({ hasText: "Expense type saved" })).toBeVisible();
+
+    // Open the pending period.
+    const pending = page.locator("tr").filter({ hasText: "Synthetic 2026-10" });
+    await expect(pending).toContainText("Not open yet");
+    await pending.getByRole("button", { name: "Open" }).click();
+    await pending.getByLabel("Reason").fill("Synthetic: October opens for recording");
+    await pending.getByRole("button", { name: "Open period" }).click();
+    await expect(page.getByRole("status").filter({ hasText: "Accounting period opened" })).toBeVisible();
+    await expect(page.locator("tr").filter({ hasText: "Synthetic 2026-10" })).toContainText("Open");
+    await expect(page.locator(".setup-checklist li.missing")).toHaveCount(0);
+    await expectNoTechnicalTerms(page);
+
+    // The configuration is immediately usable for recording.
+    await nav.getByRole("link", { name: "Record expense" }).click();
+    const form = page.getByRole("form", { name: "Record expense" });
+    await form.getByLabel("Date *").fill("2026-10-05");
+    await form.getByLabel("Paid from *").selectOption({ label: "Synthetic Main Safe · USD" });
+    await form.getByLabel("Expense type *").selectOption({ label: "Synthetic Office Supplies" });
+    await form.getByLabel("Amount (USD) *").fill("42.00");
+    await form.getByLabel("Receipt or reference number *").fill("SYN-OCT-001");
+    await form.getByLabel("What was it for? *").fill("Synthetic stationery");
+    await form.getByRole("button", { name: "Record expense" }).click();
+    await expect(page.getByRole("status").filter({ hasText: "Expense recorded" }))
+      .toContainText("Expense recorded: 42.00 USD from Synthetic Main Safe.");
+
+    // Dari on the setup page.
+    await page.getByRole("button", { name: "Switch to Dari" }).click();
+    await page.getByRole("navigation", { name: "عملیات" }).getByRole("link", { name: "تنظیمات مالی" }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "تنظیمات مالی" })).toBeVisible();
+    await expect(page.locator("tr").filter({ hasText: "صندوق اصلی آزمایشی" })).toContainText("صندوق");
+    await expectNoTechnicalTerms(page);
+  });
+});
+
 async function expectNoTechnicalTerms(page: Page): Promise<void> {
   const text = await page.locator("body").innerText();
   for (const term of TECHNICAL_TERMS) expect(text, `page shows "${term}"`).not.toContain(term);
 }
 
 /** Test-only operational configuration inside the disposable preview database. */
-async function configureSyntheticOperationalFinance(): Promise<void> {
+async function configureSyntheticOperationalFinance(options: { readonly setupInTheApp?: boolean } = {}): Promise<void> {
   const environment = previewEnvironment();
   assertDisposablePreviewDatabase(environment.ABOS_DATABASE_URL, environment.ABOS_IDENTITY_DATABASE_URL);
   const client = new pg.Client({ connectionString: environment.ABOS_DATABASE_URL });
@@ -114,6 +198,25 @@ async function configureSyntheticOperationalFinance(): Promise<void> {
       `INSERT INTO abos.ledger_accounts (id, legal_entity_id, account_code, account_name, account_type,
          posting_allowed, account_currency_code, status)
        VALUES ($1,$2,'SYN-6100','Synthetic Office Supplies Expense','EXPENSE',true,'USD','ACTIVE')`, [expenseLedger, entity]);
+    if (options.setupInTheApp === true) {
+      // Only what other screens own: the approval policy (Workflow approvals), a pending period
+      // (Financial calendar) and the setup and expense permissions (Roles). Treasury accounts, expense
+      // types and opening the period are done through the Finance setup page.
+      await client.query(
+        `INSERT INTO abos.accounting_periods (id, legal_entity_id, period_name, starts_on, ends_on)
+         VALUES ($1,$2,'Synthetic 2026-10','2026-10-01','2026-10-31')`, [randomUUID(), entity]);
+      await client.query(
+        `INSERT INTO abos.finance_workflow_policy_versions (id, legal_entity_id, workflow_type, version, approval_required,
+           configured_by_user_account_id, change_reason)
+         VALUES ($1,$2,'EXPENSE',1,false,$3,'Synthetic preview: approval OFF.')`, [randomUUID(), entity, bootstrap]);
+      for (const permission of ["finance.expense.create", "finance.expense.read", "treasury.operational-account.manage",
+        "finance.expense-category.manage", "finance.period.manage"]) {
+        await client.query(
+          `INSERT INTO abos.user_permission_grants (user_account_id, legal_entity_id, permission_code, granted_by_user_account_id)
+           VALUES ($1,$2,$3,$4)`, [preparer, entity, permission, bootstrap]);
+      }
+      return;
+    }
     await client.query(
       `INSERT INTO abos.operational_treasury_accounts (id, legal_entity_id, name_en, name_fa, account_type, currency_code,
          ledger_account_id, status, version, created_by_user_account_id, last_changed_by_user_account_id)

@@ -29,13 +29,14 @@ const faLabels: Record<string, string> = {
   settings: "تنظیمات"
 };
 
-type NavSection = "home" | "daily" | "reports" | "accounting" | "company";
+type NavSection = "home" | "daily" | "reports" | "accounting" | "setup" | "company";
 
 /** Section headings in business language; a section appears only when it has a visible entry. */
 const sectionHeadings: Readonly<Record<Exclude<NavSection, "home">, { readonly en: string; readonly fa: string }>> = {
   daily: { en: "Daily work", fa: "کار روزانه" },
   reports: { en: "Reports", fa: "گزارش‌ها" },
   accounting: { en: "Accounting", fa: "حسابداری" },
+  setup: { en: "Setup", fa: "تنظیمات" },
   company: { en: "Company", fa: "شرکت" }
 };
 
@@ -60,6 +61,8 @@ const operationalRoutes: ReadonlyArray<{ readonly path: string; readonly icon: A
   { path: "/finance/exchange-rates", icon: "coins", en: "Exchange rates", fa: "نرخ اسعار", section: "accounting", visible: (can) => can("finance.exchange-rate.record") || can("finance.report.operational.read") },
   { path: "/shareholders", icon: "finance", en: "Shareholder capital", fa: "سرمایه سهامداران", section: "accounting", visible: (can) => can("shareholder.capital-request.create") || can("shareholder.read") },
   { path: "/finance/reversals", icon: "finance", en: "Journal reversals", fa: "برگشت ژورنال‌ها", section: "accounting", visible: (can) => can("finance.reversal.request") || can("finance.reversal.approve") || can("finance.report.operational.read") },
+  // Finance setup (Treasury accounts, expense types, accounting periods).
+  { path: "/finance/setup", icon: "settings", en: "Finance setup", fa: "تنظیمات مالی", section: "setup", visible: (can) => can("treasury.operational-account.manage") || can("finance.expense-category.manage") || can("finance.period.manage") },
   // Company and administration. Company details are visible to every signed-in employee.
   { path: "/admin/company", icon: "building", en: "Company", fa: "شرکت", section: "company", visible: () => true },
   { path: "/admin/finance-workflows", icon: "shield", en: "Workflow approvals", fa: "تأیید جریان‌ها", section: "company", visible: (can) => can("admin.finance-workflow.manage") },

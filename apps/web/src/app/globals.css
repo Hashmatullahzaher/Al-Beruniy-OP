@@ -1820,3 +1820,10 @@ button.review-context { border: 0; border-inline-start: 1px solid rgba(102, 142,
 .expense-form select { min-height: 38px; padding: 7px 10px; border: 1px solid rgba(73, 145, 192, .35); border-radius: 7px; background: rgba(3, 14, 25, .8); color: white; font: inherit; font-size: 12.5px; }
 .expense-form select option { background: #071d30; color: white; }
 .expense-form select:focus, .expense-form input:focus, .expense-form textarea:focus { outline: 2px solid var(--abos-gold-300); outline-offset: 1px; }
+.setup-checklist { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.setup-checklist li { display: grid; grid-template-columns: 22px 1fr; gap: 8px; align-items: start; color: var(--abos-slate-200); font-size: 12.5px; line-height: 1.5; }
+.setup-checklist li > span:first-child { width: 20px; height: 20px; display: grid; place-items: center; border-radius: 50%; font-size: 11px; font-weight: 800; }
+.setup-checklist li.ready > span:first-child { color: #a9ebce; background: rgba(75, 221, 162, .12); }
+.setup-checklist li.missing > span:first-child { color: #edd18d; background: rgba(224, 180, 79, .14); }
+.module-card-heading .treasury-button { align-self: center; }
+.setup-checklist li.info > span:first-child { color: var(--abos-cyan-300); background: rgba(40, 167, 243, .12); }

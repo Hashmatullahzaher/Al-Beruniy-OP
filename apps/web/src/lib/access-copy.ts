@@ -139,6 +139,32 @@ export const PERMISSION_COPY: Readonly<Record<string, PermissionCopy>> = {
     label: { en: "Approve journal reversals", fa: "تایید برگشت ژورنال" },
     allows: { en: "Approve or reject (with a note) a requested reversal. Approval records the decision only: posting the reversal waits for the Finance Manager's posting policy.", fa: "تایید یا رد (با یادداشت) برگشت درخواست‌شده. تایید فقط تصمیم را ثبت می‌کند: ثبت برگشت منتظر پالیسی ثبت مدیر مالی است." },
     independence: { en: "Never by the person who requested it, nor by whoever prepared, approved or posted the journal.", fa: "هرگز توسط درخواست‌کننده، و نه توسط کسی که ژورنال را آماده، تایید یا ثبت کرده است." }
+  },
+  // Operational Finance (0027-0029): daily expenses and their set-up.
+  "treasury.operational-account.manage": {
+    label: { en: "Set up Treasury accounts for daily Finance", fa: "تنظیم حساب‌های خزانه برای مالی روزانه" },
+    allows: { en: "Add and edit the safes, cash boxes, bank and Saraf accounts that daily expenses are paid from, each linked to a Chart of Accounts account in its own currency. Does not record any transaction.", fa: "افزودن و ویرایش صندوق‌ها، صندوقچه‌ها، حساب‌های بانکی و صراف که مصارف روزانه از آن‌ها پرداخت می‌شود؛ هر کدام به یک حساب جدول حساب‌ها با واحد پول خودش وصل است. هیچ معامله‌ای ثبت نمی‌کند." }
+  },
+  "finance.expense-category.manage": {
+    label: { en: "Set up expense types", fa: "تنظیم انواع مصرف" },
+    allows: { en: "Add and edit the expense types people choose when recording an expense, each linked to an expense account in the Chart of Accounts. Does not record any transaction.", fa: "افزودن و ویرایش انواع مصرف که هنگام ثبت مصرف انتخاب می‌شوند؛ هر کدام به یک حساب مصرف در جدول حساب‌ها وصل است. هیچ معامله‌ای ثبت نمی‌کند." }
+  },
+  "finance.expense.create": {
+    label: { en: "Record expenses", fa: "ثبت مصارف" },
+    allows: { en: "Record money paid out from a Treasury account. When the company does not require approval, the expense is recorded in the books at once.", fa: "ثبت پولی که از یک حساب خزانه پرداخت شده است. وقتی شرکت به تأیید نیاز ندارد، مصرف فوراً در دفاتر ثبت می‌شود." }
+  },
+  "finance.expense.read": {
+    label: { en: "View expenses and the daily report", fa: "مشاهده مصارف و گزارش روزانه" },
+    allows: { en: "See recorded expenses, daily transactions and the daily financial report, within the projects, departments and cost centers the person works with.", fa: "دیدن مصارف ثبت‌شده، معاملات روزانه و گزارش مالی روزانه، در محدوده پروژه‌ها، بخش‌ها و مراکز هزینه‌ای که شخص با آن‌ها کار می‌کند." }
+  },
+  "finance.expense.approve": {
+    label: { en: "Approve expenses", fa: "تأیید مصارف" },
+    allows: { en: "Only used when the company requires expense approval: approve an expense waiting for approval, which records it in the books.", fa: "فقط وقتی شرکت تأیید مصارف را لازم بداند استفاده می‌شود: تأیید مصرف منتظر تأیید، که آن را در دفاتر ثبت می‌کند." },
+    independence: { en: "Never by the person who recorded the expense.", fa: "هرگز توسط کسی که مصرف را ثبت کرده است." }
+  },
+  "finance.period.manage": {
+    label: { en: "Open accounting periods", fa: "باز کردن دوره‌های حسابداری" },
+    allows: { en: "Open a pending accounting period, with a reason, so transactions dated in it can be recorded. Closing periods is not available yet.", fa: "باز کردن یک دوره حسابداری در انتظار، با ذکر دلیل، تا معاملات با تاریخ آن دوره ثبت شوند. بستن دوره‌ها هنوز در دسترس نیست." }
   }
 };
 

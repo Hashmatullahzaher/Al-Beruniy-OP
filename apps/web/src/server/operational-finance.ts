@@ -206,6 +206,44 @@ const EXPENSE_REFUSALS: readonly {
     message: "The expense was not found." }
 ];
 
+/** Set-up refusals from migration 0027, in business language (Treasury accounts, expense types, periods). */
+const SETUP_REFUSALS: readonly {
+  readonly pattern: RegExp;
+  readonly status: number;
+  readonly code: string;
+  readonly message: string;
+}[] = [
+  { pattern: /cash or bank Treasury account requires an ACTIVE posting CASH asset account/i, status: 422, code: "CASH_ACCOUNT_REQUIRED",
+    message: "Link a safe, cash box or bank account to an active cash account in the Chart of Accounts." },
+  { pattern: /Saraf Treasury account requires a posting SARAF control account/i, status: 422, code: "SARAF_ACCOUNT_REQUIRED",
+    message: "Link a Saraf account to an active Saraf account in the Chart of Accounts." },
+  { pattern: /requires an ACTIVE party with a current SARAF role/i, status: 422, code: "SARAF_PARTY_REQUIRED",
+    message: "Choose an active Saraf for this account." },
+  { pattern: /Treasury ledger account must belong to this legal entity and use the same currency/i, status: 422, code: "LEDGER_CURRENCY_MISMATCH",
+    message: "The Chart of Accounts account must use the same currency as the Treasury account." },
+  { pattern: /Treasury ledger account must be ACTIVE and allow posting/i, status: 422, code: "LEDGER_NOT_POSTABLE",
+    message: "The Chart of Accounts account must be active and allow posting." },
+  { pattern: /Treasury account cannot change its type, currency, ledger mapping/i, status: 422, code: "TREASURY_ACCOUNT_FIXED",
+    message: "A Treasury account's type, currency, linked account and Saraf cannot change after it is saved." },
+  { pattern: /expense category requires an ACTIVE posting EXPENSE account/i, status: 422, code: "EXPENSE_ACCOUNT_REQUIRED",
+    message: "Link the expense type to an active expense account in the Chart of Accounts." },
+  { pattern: /expense category cannot change its code or ledger mapping/i, status: 422, code: "EXPENSE_TYPE_FIXED",
+    message: "An expense type's code and linked account cannot change after it is saved." },
+  { pattern: /only a PENDING accounting period can be opened/i, status: 409, code: "PERIOD_NOT_PENDING",
+    message: "Only a period that has not been opened yet can be opened." },
+  { pattern: /(Treasury account|expense category|accounting period) changed; reload/i, status: 409, code: "STALE_VERSION",
+    message: "Someone else changed this meanwhile. Reload and try again." },
+  { pattern: /(Treasury account|expense category|accounting period) does not exist in this legal entity/i, status: 404, code: "NOT_FOUND",
+    message: "This record was not found for your company." }
+];
+
+function knownSetupRefusal(error: unknown) {
+  const message = error instanceof Error ? error.message : "";
+  const known = message === "" ? undefined : SETUP_REFUSALS.find((refusal) => refusal.pattern.test(message));
+  return known === undefined ? undefined
+    : json({ ok: false, error: { code: known.code, message: known.message } }, known.status);
+}
+
 /** Translate an expense-entry-point failure into business language; unknown failures stay opaque. */
 export function operationalExpenseErrorResponse(error: unknown) {
   const message = error instanceof Error ? error.message : "";
@@ -221,6 +259,8 @@ export function operationalExpenseErrorResponse(error: unknown) {
  * internals. Configuration and authority failures are actionable; unknown failures remain opaque.
  */
 export function operationalFinanceErrorResponse(error: unknown) {
+  const setup = knownSetupRefusal(error);
+  if (setup !== undefined) return setup;
   if (error instanceof IdentityError) {
     const status = error.code === "AUTHENTICATION_REQUIRED" ? 401
       : error.code === "PERMISSION_DENIED" ? 403
