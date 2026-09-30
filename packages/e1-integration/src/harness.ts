@@ -64,7 +64,8 @@ export async function withClusterLock<T>(pool: pg.Pool, work: () => Promise<T>):
   const configured = (pool as unknown as { options: { connectionString?: string } }).options.connectionString ?? databaseUrl();
   if (configured === undefined) throw new Error(MISSING_DATABASE_MESSAGE);
   const url = new URL(configured);
-  url.pathname = "/postgres";
+  // A dedicated test cluster can keep every connection in its single authorized database.
+  url.pathname = `/${process.env.ABOS_TEST_CLUSTER_LOCK_DATABASE ?? "postgres"}`;
   const client = new pg.Client({ connectionString: url.toString() });
   await client.connect();
   try {

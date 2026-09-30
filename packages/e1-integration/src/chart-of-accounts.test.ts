@@ -9,9 +9,9 @@ import type {
 import { asDecimalString } from "@abos/contracts";
 import type { SqlExecutor } from "@abos/database";
 import { PostgresExecutor, PostgresShareholderRepository, RestrictedCapitalPostingGateway } from "@abos/persistence";
-import { SandboxAuthenticator } from "@abos/sandbox-auth";
 import { CapitalReceiptIntentService } from "@abos/shareholder";
 import { databaseUrl, MISSING_DATABASE_MESSAGE, openHarness, resetSchema, type Harness } from "./harness.ts";
+import { issueOperationalSession } from "./operational-session.ts";
 import {
   handOffSyntheticReceipt, recordCapitalPostingIntent, recordSyntheticTreasuryReceipt, seedSyntheticWorld,
   SYNTHETIC_AUTH_CONFIGURATION, type SyntheticWorld
@@ -387,8 +387,7 @@ async function grant(harness: Harness, world: SyntheticWorld, userId: string, pe
 }
 
 async function session(harness: Harness, world: SyntheticWorld, userId: string): Promise<string> {
-  const auth = new SandboxAuthenticator(harness.executor, SYNTHETIC_AUTH_CONFIGURATION);
-  return (await auth.issueSession({ userAccountId: userId as UserAccountId, legalEntityId: world.legalEntityId as LegalEntityId })).token;
+  return (await issueOperationalSession(harness, userId, world.legalEntityId)).token;
 }
 
 /** The promise is refused with the given SQLSTATE (when not empty) and a message matching the pattern. */

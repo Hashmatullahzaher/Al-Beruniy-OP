@@ -63,6 +63,7 @@ export function treasuryRuntime(): TreasuryRuntime {
 }
 
 export interface TreasuryRequestContext {
+  readonly syntheticAuthorized: boolean;
   readonly runtime: TreasuryRuntime;
   readonly context: ServerActorContext;
   readonly actor: TreasuryActor;
@@ -97,6 +98,7 @@ export async function currentTreasury(): Promise<TreasuryRequestContext> {
     runtime.gateway, { bearerToken: token, legalEntityId }
   );
   return {
+    syntheticAuthorized: session.syntheticAuthorized === true,
     runtime,
     context,
     actor,

@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import test, { after, before, describe } from "node:test";
 import pg from "pg";
 import type {
-  CapitalAgreementId, CapitalInstallmentId, CashLocationCurrencyAccountId, CorrelationId, EvidenceReference,
+  AccountingPeriodId, CapitalAgreementId, CapitalInstallmentId, CashLocationCurrencyAccountId, CorrelationId, EvidenceReference,
   IdempotencyKey, LegalEntityId, PostingIntentId, UserAccountId
 } from "@abos/contracts";
 import { asDecimalString } from "@abos/contracts";
@@ -11,7 +11,9 @@ import type { SqlExecutor } from "@abos/database";
 import { PostgresExecutor, PostgresShareholderRepository, RestrictedCapitalPostingGateway } from "@abos/persistence";
 import { SandboxAuthenticator } from "@abos/sandbox-auth";
 import { CapitalReceiptIntentService } from "@abos/shareholder";
+import { addSyntheticSaraf } from "./currency-fixtures.ts";
 import { databaseUrl, MISSING_DATABASE_MESSAGE, openHarness, resetSchema, type Harness } from "./harness.ts";
+import { issueOperationalSession } from "./operational-session.ts";
 import {
   handOffSyntheticReceipt, recordCapitalPostingIntent, recordSyntheticTreasuryReceipt, seedSyntheticWorld,
   SYNTHETIC_AUTH_CONFIGURATION, type SyntheticWorld
@@ -59,7 +61,7 @@ if (databaseUrl() === undefined) {
                 p.proconfig AS config, has_function_privilege('public', p.oid, 'EXECUTE') AS public_execute
            FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace JOIN pg_roles r ON r.oid = p.proowner
           WHERE n.nspname = 'abos' AND p.prosecdef ORDER BY 1`);
-      assert.equal(rows.rows.length, 63, "every restricted entry point, including operational Finance, expense posting and its read model, the company dashboard, shareholder setup, workflow policy, GL, identity and reversal requests, is accounted for");
+      assert.equal(rows.rows.length, 67, "every restricted entry point, including operational Finance, expense posting and its read model, the company dashboard, shareholder setup, workflow policy, GL, identity and reversal requests, is accounted for");
       for (const fn of rows.rows) {
         assert.ok((FUNCTION_OWNERS as readonly string[]).includes(fn.owner), `${fn.signature} is owned by ${fn.owner}`);
         assert.equal(fn.superuser, false, fn.signature);
@@ -70,6 +72,10 @@ if (databaseUrl() === undefined) {
         assert.equal(fn.public_execute, false, `${fn.signature} is not executable by PUBLIC`);
       }
       const expectedOwner: Record<string, string> = {
+        operational_bearer_context: "abos_v1_identity_owner",
+        identity_issue_password_session: "abos_v1_identity_owner",
+        identity_rotate_password_session: "abos_v1_identity_owner",
+        treasury_synthetic_signin_context: "abos_e1_treasury_owner",
         treasury_runtime_authorize: "abos_e1_treasury_owner", treasury_secure_context: "abos_e1_treasury_owner",
         treasury_secure_query: "abos_e1_treasury_owner", treasury_secure_command: "abos_e1_treasury_owner",
         treasury_revoke_own_session: "abos_e1_treasury_owner",
@@ -233,6 +239,9 @@ if (databaseUrl() === undefined) {
 
     test("posting still works end to end, a duplicate posting returns the same journal, and posted records cannot change", async () => {
       const prepared = await postingReady(harness);
+      const operationalSession = await issueOperationalSession(
+        harness, prepared.world.approverId, prepared.world.legalEntityId
+      );
       const post = () => restricted("finance", (db) => new RestrictedCapitalPostingGateway(db).post({
         bearerToken: prepared.token, postingIntentId: prepared.postingIntentId as PostingIntentId,
         accountingPeriodId: prepared.world.accountingPeriodId as never
@@ -256,9 +265,9 @@ if (databaseUrl() === undefined) {
         };
       }>(
         "SELECT abos.finance_general_ledger($1, DATE '2026-01-01', DATE '2026-12-31', NULL) AS value",
-        [prepared.token]
+        [operationalSession.token]
       )).rows[0]?.value);
-      assert.ok(ledger?.syntheticOnly);
+      assert.equal(ledger?.syntheticOnly, false);
       assert.equal(ledger.returnedLineCount, 2);
       assert.equal(ledger.hasMore, false);
       assert.equal(new Set(ledger.lines.map((line) => line.journalId)).size, 1);
@@ -272,7 +281,7 @@ if (databaseUrl() === undefined) {
 
       const cashAccount = await restricted("finance", async (db) => (await db.query<{ readonly value: { readonly returnedLineCount: number; readonly lines: readonly { readonly accountId: string }[] } }>(
         "SELECT abos.finance_general_ledger($1, DATE '2026-01-01', DATE '2026-12-31', $2) AS value",
-        [prepared.token, prepared.world.cashLedgerAccountId]
+        [operationalSession.token, prepared.world.cashLedgerAccountId]
       )).rows[0]?.value);
       assert.equal(cashAccount?.returnedLineCount, 1);
       assert.equal(cashAccount?.lines[0]?.accountId, prepared.world.cashLedgerAccountId);
@@ -311,7 +320,7 @@ if (databaseUrl() === undefined) {
       });
       const scopedCount = async () => restricted("finance", async (db) => (await db.query<{
         readonly value: { readonly returnedLineCount: number };
-      }>("SELECT abos.finance_general_ledger($1, DATE '2026-01-01', DATE '2026-12-31', NULL) AS value", [prepared.token])).rows[0]?.value.returnedLineCount);
+      }>("SELECT abos.finance_general_ledger($1, DATE '2026-01-01', DATE '2026-12-31', NULL) AS value", [operationalSession.token])).rows[0]?.value.returnedLineCount);
       assert.equal(await scopedCount(), 0, "dimensioned lines are hidden without scope grants");
       for (const [kind, scopeId] of [
         ["PROJECT", projectId], ["DEPARTMENT", departmentId], ["COST_CENTER", costCenterId]
@@ -341,6 +350,271 @@ if (databaseUrl() === undefined) {
       await asRole("abos_e1_treasury_owner", async (client) => {
         await assert.rejects(() => client.query("UPDATE abos.journals SET status = 'DRAFT' WHERE id = $1", [first]), /permission denied/);
       });
+    });
+
+    test("0032 separates operational setup and reporting while legacy capital money paths stay sandbox-gated", async () => {
+      const prepared = await postingReady(harness);
+      for (const permission of [
+        "finance.ledger-account.manage", "finance.calendar.manage",
+        "finance.exchange-rate.record", "finance.reversal.request",
+        "shareholder.capital-request.create"
+      ]) {
+        await harness.executor.query(
+          `INSERT INTO abos.user_permission_grants
+             (user_account_id, legal_entity_id, permission_code, granted_by_user_account_id)
+           VALUES ($1,$2,$3,$4) ON CONFLICT DO NOTHING`,
+          [prepared.world.approverId, prepared.world.legalEntityId, permission, prepared.world.bootstrapUserId]
+        );
+      }
+      await harness.executor.query(
+        `INSERT INTO abos.user_permission_grants
+           (user_account_id, legal_entity_id, permission_code, granted_by_user_account_id)
+         VALUES ($1,$2,'finance.reversal.request',$3) ON CONFLICT DO NOTHING`,
+        [prepared.world.treasuryManagerId, prepared.world.legalEntityId, prepared.world.bootstrapUserId]
+      );
+      const authenticator = new SandboxAuthenticator(harness.executor, SYNTHETIC_AUTH_CONFIGURATION);
+      const managerSession = await issueOperationalSession(
+        harness, prepared.world.treasuryManagerId, prepared.world.legalEntityId
+      );
+      const financeSession = await issueOperationalSession(
+        harness, prepared.world.approverId, prepared.world.legalEntityId
+      );
+      const shareholderOperationalSession = await issueOperationalSession(
+        harness, prepared.world.intentCreatorId, prepared.world.legalEntityId
+      );
+      const shareholderSession = await authenticator.issueSession({
+        userAccountId: prepared.world.approverId as UserAccountId,
+        legalEntityId: prepared.world.legalEntityId as LegalEntityId
+      });
+      await restricted("finance", (db) => new RestrictedCapitalPostingGateway(db).post({
+        bearerToken: prepared.token, postingIntentId: prepared.postingIntentId as PostingIntentId,
+        accountingPeriodId: prepared.world.accountingPeriodId as AccountingPeriodId
+      }));
+      const journalId = (await harness.executor.query<{ id: string }>(
+        "SELECT id FROM abos.journals WHERE posting_intent_id = $1",
+        [prepared.postingIntentId]
+      )).rows[0]?.id;
+      assert.ok(journalId);
+
+      // This models the real-entity state requested for the slice.  Sessions and RBAC remain;
+      // only the SYNTHETIC_TEST_ONLY authorization is absent.
+      await harness.executor.query("DELETE FROM abos.sandbox_authorizations");
+
+      await assert.rejects(() => authenticator.issueSession({
+        userAccountId: prepared.world.approverId as UserAccountId,
+        legalEntityId: prepared.world.legalEntityId as LegalEntityId
+      }), /no sandbox authorization/i, "developer-token sign-in fails when the sandbox gate is absent");
+
+      await assert.rejects(
+        () => restricted("finance", (db) => db.query(
+          "SELECT abos.finance_ledger_accounts_view($1)", [shareholderSession.token]
+        )),
+        /operational password session is required/,
+        "a synthetic developer session cannot enter an operational Finance function"
+      );
+      await assert.rejects(
+        () => restricted("treasury", (db) => db.query(
+          "SELECT abos.treasury_secure_context($1)", [shareholderSession.token]
+        )),
+        /sandbox session is invalid/,
+        "a synthetic developer session cannot enter the operational Treasury context"
+      );
+
+      const ledger = await restricted("finance", async (db) => (await db.query<{
+        value: { returnedLineCount: number };
+      }>(
+        "SELECT abos.finance_general_ledger($1, DATE '2026-01-01', DATE '2026-12-31', NULL) AS value",
+        [financeSession.token]
+      )).rows[0]?.value);
+      assert.equal(ledger?.returnedLineCount, 2, "posted GL reporting is operational without the sandbox row");
+
+      const accounts = await restricted("finance", async (db) => (await db.query<{ value: { accounts: unknown[] } }>(
+        "SELECT abos.finance_ledger_accounts_view($1) AS value", [financeSession.token]
+      )).rows[0]?.value);
+      assert.ok((accounts?.accounts.length ?? 0) >= 2);
+      await restricted("finance", (db) => db.query(
+        "SELECT abos.finance_ledger_account_create($1,$2::jsonb,false)",
+        [financeSession.token, JSON.stringify({
+          code: `OPS-${randomUUID().slice(0, 8)}`, name: "Operational gate test account",
+          type: "ASSET", currency: "USD", postingAllowed: true
+        })]
+      ));
+
+      await restricted("finance", (db) => db.query(
+        "SELECT abos.finance_calendar_view($1)", [financeSession.token]
+      ));
+      await restricted("finance", (db) => db.query(
+        "SELECT abos.finance_calendar_configure($1,'GREGORIAN',NULL,NULL,ARRAY['GREGORIAN'],0)",
+        [financeSession.token]
+      ));
+      await restricted("finance", (db) => db.query(
+        "SELECT abos.finance_record_exchange_rate($1,DATE '2026-09-30','MARKET',NULL,'USD','AFN','71.25','Operational gate proof')",
+        [financeSession.token]
+      ));
+      await assert.rejects(
+        () => restricted("finance", (db) => db.query(
+          "SELECT abos.finance_reversal_request_create($1,$2,'Reversal policy remains fail closed')",
+          [managerSession.token, journalId]
+        )),
+        /synthetic Finance sandbox authorization is not active/,
+        "reversal requests remain on the legacy gate until the unresolved reversal policy is approved"
+      );
+
+      const context = await restricted("treasury", async (db) => (await db.query<{ value: { legalEntityId: string; syntheticAuthorized: boolean } }>(
+        "SELECT abos.treasury_secure_context($1) AS value", [managerSession.token]
+      )).rows[0]?.value);
+      assert.ok(context);
+      assert.equal(context?.legalEntityId, prepared.world.legalEntityId);
+      assert.equal(context.syntheticAuthorized, false);
+      await assert.rejects(() => restricted("treasury", (db) => db.query(
+        "SELECT abos.treasury_synthetic_signin_context($1)", [managerSession.token]
+      )), /sandbox session is invalid/);
+      for (const query of ["SOURCES", "RECEIPTS", "COUNTS", "HANDOFFS", "FINANCE_PROGRESS", "EVIDENCE", "EVENTS"]) {
+        await assert.rejects(() => restricted("treasury", (db) => db.query(
+          "SELECT abos.treasury_secure_query($1,$2,$3,NULL)",
+          [managerSession.token, prepared.world.legalEntityId, query]
+        )), /synthetic Treasury sandbox authorization is not active/, query);
+      }
+      const locationId = randomUUID();
+      const accountId = randomUUID();
+      await restricted("treasury", (db) => db.query(
+        "SELECT abos.treasury_secure_command($1,$2,'CREATE_LOCATION',$3::jsonb)",
+        [managerSession.token, prepared.world.legalEntityId, JSON.stringify({
+          id: locationId, name: "Operational gate safe",
+          responsibleCashierUserAccountId: prepared.world.cashierId
+        })]
+      ));
+      await restricted("treasury", (db) => db.query(
+        "SELECT abos.treasury_secure_command($1,$2,'OPEN_ACCOUNT',$3::jsonb)",
+        [managerSession.token, prepared.world.legalEntityId, JSON.stringify({
+          id: accountId, cashLocationId: locationId, currency: "USD",
+          ledgerAccountId: prepared.world.cashLedgerAccountId
+        })]
+      ));
+      const locations = await restricted("treasury", async (db) => (await db.query<{ value: { id: string }[] }>(
+        "SELECT abos.treasury_secure_query($1,$2,'LOCATIONS',NULL) AS value",
+        [managerSession.token, prepared.world.legalEntityId]
+      )).rows[0]?.value ?? []);
+      assert.ok(locations.some((location) => location.id === locationId));
+
+      await harness.executor.query(
+        `INSERT INTO abos.user_permission_grants
+           (user_account_id,legal_entity_id,permission_code,granted_by_user_account_id)
+         VALUES ($1,$2,'treasury.saraf-account.manage',$3) ON CONFLICT DO NOTHING`,
+        [prepared.world.treasuryManagerId, prepared.world.legalEntityId, prepared.world.bootstrapUserId]
+      );
+      for (const query of ["SARAF_ACCOUNTS", "CASH_LEDGER_CHOICES", "SARAF_LEDGER_CHOICES", "SARAF_PARTIES"]) {
+        await restricted("treasury", (db) => db.query(
+          "SELECT abos.treasury_safes_saraf_query($1,$2,$3,NULL)",
+          [managerSession.token, prepared.world.legalEntityId, query]
+        ));
+      }
+      for (const query of ["SAFE_COUNTS", "COUNT_EVIDENCE"]) {
+        await assert.rejects(() => restricted("treasury", (db) => db.query(
+          "SELECT abos.treasury_safes_saraf_query($1,$2,$3,NULL)",
+          [managerSession.token, prepared.world.legalEntityId, query]
+        )), /synthetic Treasury sandbox authorization is not active/, query);
+      }
+      for (const operation of ["RECORD_SAFE_COUNT", "CONFIRM_SAFE_COUNT"]) {
+        await assert.rejects(() => restricted("treasury", (db) => db.query(
+          "SELECT abos.treasury_safes_saraf_command($1,$2,$3,$4::jsonb)",
+          [managerSession.token, prepared.world.legalEntityId, operation, JSON.stringify({ id: randomUUID() })]
+        )), /synthetic Treasury sandbox authorization is not active/, operation);
+      }
+      const sarafParty = await addSyntheticSaraf(harness.executor, prepared.world);
+      const sarafLedger = randomUUID();
+      await harness.executor.query(
+        `INSERT INTO abos.ledger_accounts
+           (id, legal_entity_id, account_code, account_name, account_type, control_account_type,
+            posting_allowed, account_currency_code, status)
+         VALUES ($1,$2,'SYN-SARAF-GATE','Synthetic gate Saraf','ASSET','SARAF',true,'USD','ACTIVE')`,
+        [sarafLedger, prepared.world.legalEntityId]
+      );
+      await restricted("treasury", (db) => db.query(
+        "SELECT abos.treasury_safes_saraf_command($1,$2,'CREATE_SARAF_ACCOUNT',$3::jsonb)",
+        [managerSession.token, prepared.world.legalEntityId, JSON.stringify({
+          id: randomUUID(), businessPartyId: sarafParty, currency: "USD", ledgerAccountId: sarafLedger
+        })]
+      ));
+      await restricted("finance", (db) => db.query(
+        "SELECT abos.finance_exchange_rates_view($1,NULL,NULL)", [financeSession.token]
+      ));
+      for (const fn of ["finance_general_ledger_activity", "finance_general_ledger_page"]) {
+        await restricted("finance", (db) => db.query(
+          `SELECT abos.${fn}($1, DATE '2026-01-01', DATE '2026-12-31', NULL)`, [financeSession.token]
+        ));
+      }
+      for (const operation of ["VOID_RECEIPT", "COUNT_RECEIPT", "VERIFY_RECEIPT", "HANDOFF_RECEIPT",
+        "RECORD_COUNT", "RECONCILE_OPENING", "APPROVE_OPENING", "ACTIVATE_ACCOUNT"]) {
+        await assert.rejects(() => restricted("treasury", (db) => db.query(
+          "SELECT abos.treasury_secure_command($1,$2,$3,$4::jsonb)",
+          [managerSession.token, prepared.world.legalEntityId, operation, JSON.stringify({ id: randomUUID(), purpose: "RECEIPT" })]
+        )), /synthetic Treasury sandbox authorization is not active/, operation);
+      }
+      await assert.rejects(() => restricted("finance", (db) => db.query(
+        "SELECT abos.finance_handoff_workspace($1)", [financeSession.token]
+      )), /synthetic Finance sandbox authorization is not active/);
+      await assert.rejects(() => restricted("finance", (db) => db.query(
+        "SELECT abos.finance_handoff_trace($1,$2)", [financeSession.token, randomUUID()]
+      )), /synthetic Finance sandbox authorization is not active/);
+      await assert.rejects(() => restricted("treasury", (db) => db.query(
+        "SELECT abos.treasury_secure_command($1,$2,'CREATE_LOCATION',$3::jsonb)",
+        [managerSession.token, randomUUID(), JSON.stringify({ id: randomUUID() })]
+      )), /out of scope/);
+      await assert.rejects(() => restricted("finance", (db) => db.query(
+        "SELECT abos.finance_ledger_accounts_view($1)", [managerSession.token]
+      )), /current authority is missing/);
+      for (const role of ["finance", "treasury"] as const) {
+        await assert.rejects(() => restricted(role, (db) => db.query(
+          "SELECT abos.operational_bearer_context($1,NULL)", [managerSession.token]
+        )), /permission denied/);
+      }
+      await harness.executor.query(
+        "UPDATE abos.user_credentials SET must_change_password=true WHERE user_account_id=$1",
+        [prepared.world.approverId]
+      );
+      await assert.rejects(() => restricted("finance", (db) => db.query(
+        "SELECT abos.finance_ledger_accounts_view($1)", [financeSession.token]
+      )), /change the temporary password/);
+      await harness.executor.query(
+        "UPDATE abos.user_credentials SET must_change_password=false WHERE user_account_id=$1",
+        [prepared.world.approverId]
+      );
+      assert.equal((await harness.executor.query<{ count: string }>("SELECT count(*)::text AS count FROM abos.journals")).rows[0]?.count, "1",
+        "setup/read attempts add no journals");
+
+      await assert.rejects(
+        () => restricted("treasury", (db) => db.query(
+          "SELECT abos.treasury_secure_command($1,$2,'RECORD_RECEIPT',$3::jsonb)",
+          [managerSession.token, prepared.world.legalEntityId, JSON.stringify({
+            id: randomUUID(), capitalReceiptIntentId: randomUUID(),
+            receiptReference: "BLOCKED", businessEventAt: "2026-09-30T08:00:00Z"
+          })]
+        )),
+        /synthetic Treasury sandbox authorization is not active/
+      );
+      await assert.rejects(
+        () => restricted("finance", (db) => db.query(
+          "SELECT abos.finance_prepare_capital_posting($1,$2,$3,$4)",
+          [financeSession.token, randomUUID(), prepared.world.accountingPeriodId, `blocked-${randomUUID()}`]
+        )),
+        /synthetic Finance sandbox authorization is not active/
+      );
+      await assert.rejects(
+        () => restricted("finance", (db) => db.query(
+          "SELECT abos.post_synthetic_capital_receipt($1,$2,$3)",
+          [financeSession.token, prepared.postingIntentId, prepared.world.accountingPeriodId]
+        )),
+        /synthetic sandbox authorization is not active/
+      );
+      await assert.rejects(
+        () => restricted("finance", (db) => db.query(
+          "SELECT abos.shareholder_create_capital_request($1,$2,$3,'1',DATE '2026-09-30',NULL,$4)",
+          [shareholderOperationalSession.token, prepared.world.installmentId,
+            prepared.world.cashAccountId, `blocked-${randomUUID()}`]
+        )),
+        /synthetic Shareholder sandbox authorization is not active/
+      );
     });
 
     test("a session is refused in another legal entity, even by the functions' own owners' code", async () => {

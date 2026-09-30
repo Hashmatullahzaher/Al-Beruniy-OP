@@ -286,13 +286,12 @@ if (databaseUrl() === undefined) {
       assert.ok(url);
       const admin = new pg.Client({ connectionString: url });
       await admin.connect();
-      const scratch = `abos_upgrade_${randomUUID().slice(0, 8)}`;
       try {
-        await admin.query(`CREATE DATABASE ${scratch}`);
-        const target = new URL(url);
-        target.pathname = `/${scratch}`;
-        const client = new pg.Client({ connectionString: target.toString() });
-        await client.connect();
+        // PostgreSQL DDL is transactional: replay the historical upgrade in this disposable
+        // database, then restore the current schema/role ACLs by rolling the transaction back.
+        await admin.query("BEGIN");
+        await admin.query("DROP SCHEMA abos CASCADE");
+        const client = admin;
         try {
           const { readFile } = await import("node:fs/promises");
           const { resolve } = await import("node:path");
@@ -300,9 +299,7 @@ if (databaseUrl() === undefined) {
           for (const id of ["0001_e0_finance_foundation", "0002_e1_sandbox_integration", "0003_e1_commitment_concurrency",
             "0004_e1_runtime_role", "0005_e1_capital_provenance", "0007_e1_secure_posting_boundary",
             "0006_e1_treasury", "0008_e1_secure_treasury_boundary"]) {
-            await client.query("BEGIN");
             await client.query(await readFile(resolve(root, `infrastructure/database/migrations/${id}.sql`), "utf8"));
-            await client.query("COMMIT");
           }
           const readable = await client.query<{ readonly relname: string }>(
             `SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
@@ -310,10 +307,9 @@ if (databaseUrl() === undefined) {
                 AND has_table_privilege('abos_e1_runtime', c.oid, 'SELECT') ORDER BY 1`);
           assert.deepEqual(readable.rows.map((row) => row.relname), [], "runtime must have no table privileges");
         } finally {
-          await client.end();
+          await admin.query("ROLLBACK");
         }
       } finally {
-        await admin.query(`DROP DATABASE IF EXISTS ${scratch}`);
         await admin.end();
       }
     });

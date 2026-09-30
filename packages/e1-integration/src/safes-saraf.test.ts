@@ -11,10 +11,10 @@ import {
   PostgresExecutor, PostgresShareholderRepository, RestrictedTreasuryGateway, RestrictedTreasuryRepository,
   RestrictedTreasurySafesRepository
 } from "@abos/persistence";
-import { SandboxAuthenticator } from "@abos/sandbox-auth";
 import { CapitalReceiptIntentService } from "@abos/shareholder";
 import { TreasuryDomainError, TreasuryService, TreasurySafesService, type TreasuryActor } from "@abos/treasury";
 import { databaseUrl, MISSING_DATABASE_MESSAGE, openHarness, resetSchema, type Harness } from "./harness.ts";
+import { issueOperationalSession } from "./operational-session.ts";
 import { recordSyntheticTreasuryReceipt, seedSyntheticWorld, SYNTHETIC_AUTH_CONFIGURATION, type SyntheticWorld } from "./synthetic-world.ts";
 
 /**
@@ -168,7 +168,7 @@ if (databaseUrl() === undefined) {
       await refusedDomain(cashier.safes.createSarafAccount(cashier.actor, { businessPartyId: f.sarafPartyId, currency: "USD", ledgerAccountId: f.sarafUsdLedgerId }), "PERMISSION_DENIED");
       await refusedDb(cashier.gateway.safesCommand(authority(cashier), "CREATE_SARAF_ACCOUNT", {
         id: randomUUID(), businessPartyId: f.sarafPartyId, currency: "USD", ledgerAccountId: f.sarafUsdLedgerId
-      }), /current Treasury authority is missing/);
+      }), /^current authority is missing treasury\.saraf-account\.manage$/);
 
       const usd = await manager.safes.createSarafAccount(manager.actor, { businessPartyId: f.sarafPartyId, currency: "USD", ledgerAccountId: f.sarafUsdLedgerId });
       const afn = await manager.safes.createSarafAccount(manager.actor, { businessPartyId: f.sarafPartyId, currency: "AFN", ledgerAccountId: f.sarafAfnLedgerId });
@@ -372,9 +372,8 @@ async function prepare(harness: Harness): Promise<Fixture> {
   await ensureLogin(harness);
   const executor = new PostgresExecutor(restricted(), { runtimeMarker: MARKER });
   const gateway = new RestrictedTreasuryGateway(executor);
-  const auth = new SandboxAuthenticator(harness.executor, SYNTHETIC_AUTH_CONFIGURATION);
   const person = async (id: string): Promise<Person> => {
-    const session = await auth.issueSession({ userAccountId: id as UserAccountId, legalEntityId: world.legalEntityId as LegalEntityId });
+    const session = await issueOperationalSession(harness, id, world.legalEntityId);
     const context = await gateway.context(session.token);
     const actor: TreasuryActor = {
       userAccountId: id as UserAccountId, legalEntityId: world.legalEntityId as LegalEntityId,

@@ -35,6 +35,7 @@ export interface RestrictedTreasurySessionContext {
   readonly displayName: string;
   readonly expiresAt: string;
   readonly treasuryPermissions: readonly string[];
+  readonly syntheticAuthorized: boolean;
 }
 
 /**
@@ -56,6 +57,17 @@ export class RestrictedTreasuryGateway {
     );
     const value = result.rows[0]?.result;
     if (value === undefined) throw new Error("Secure Treasury context returned no result");
+    return value;
+  }
+
+  /** Developer-token exchange only; keeps its independent database sandbox check. */
+  async syntheticContext(bearerToken: string): Promise<RestrictedTreasurySessionContext> {
+    requireCredential(bearerToken);
+    const result = await this.database.query<{ readonly result: RestrictedTreasurySessionContext }>(
+      "SELECT abos.treasury_synthetic_signin_context($1) AS result", [bearerToken]
+    );
+    const value = result.rows[0]?.result;
+    if (value === undefined) throw new Error("Synthetic Treasury context returned no result");
     return value;
   }
 

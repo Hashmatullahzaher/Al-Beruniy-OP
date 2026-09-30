@@ -34,7 +34,7 @@ export interface GeneralLedgerTotal {
  * `totals` covers the whole filtered range and is present on the first page only (null afterwards).
  */
 export interface GeneralLedgerView {
-  readonly syntheticOnly: true;
+  readonly syntheticOnly: false;
   readonly legalEntityId: string;
   readonly from: string;
   readonly to: string;
@@ -71,7 +71,7 @@ export interface AccountActivityRow extends AccountActivityAmounts {
  * are not imported yet (#18) and no period is closed, so `isBalance` is always false.
  */
 export interface GeneralLedgerActivityView {
-  readonly syntheticOnly: true;
+  readonly syntheticOnly: false;
   readonly legalEntityId: string;
   readonly from: string;
   readonly to: string;

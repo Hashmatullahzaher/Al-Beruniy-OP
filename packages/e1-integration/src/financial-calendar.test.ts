@@ -2,11 +2,10 @@ import assert from "node:assert/strict";
 import test, { after, before, describe } from "node:test";
 import pg from "pg";
 import { generateFiscalYear, solarHijriToIso } from "@abos/calendar";
-import type { LegalEntityId, UserAccountId } from "@abos/contracts";
 import type { SqlExecutor } from "@abos/database";
 import { PostgresExecutor } from "@abos/persistence";
-import { SandboxAuthenticator } from "@abos/sandbox-auth";
 import { databaseUrl, MISSING_DATABASE_MESSAGE, openHarness, resetSchema, type Harness } from "./harness.ts";
+import { issueOperationalSession } from "./operational-session.ts";
 import { seedSyntheticWorld, SYNTHETIC_AUTH_CONFIGURATION, type SyntheticWorld } from "./synthetic-world.ts";
 
 /**
@@ -164,8 +163,7 @@ async function prepare(harness: Harness): Promise<{ world: SyntheticWorld; manag
   await harness.executor.query(
     `INSERT INTO abos.user_permission_grants (user_account_id, legal_entity_id, permission_code, granted_by_user_account_id)
      VALUES ($1, $2, 'finance.calendar.manage', $3)`, [world.intentCreatorId, world.legalEntityId, world.bootstrapUserId]);
-  const auth = new SandboxAuthenticator(harness.executor, SYNTHETIC_AUTH_CONFIGURATION);
-  const session = async (userId: string) => (await auth.issueSession({ userAccountId: userId as UserAccountId, legalEntityId: world.legalEntityId as LegalEntityId })).token;
+  const session = async (userId: string) => (await issueOperationalSession(harness, userId, world.legalEntityId)).token;
   return { world, manager: await session(world.intentCreatorId), reader: await session(world.approverId), cashier: await session(world.cashierId) };
 }
 

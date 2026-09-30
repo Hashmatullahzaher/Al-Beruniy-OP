@@ -203,6 +203,19 @@ test.describe("WP-B safes, Saraf accounts and whole-safe counts", () => {
     await shot(page, "07-safes-dari-phone", ".treasury-safes");
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.getByRole("button", { name: "Switch to English" }).click();
+
+    // 0032 operational configuration remains usable after the synthetic gate is removed. The
+    // same password-backed manager can see safe/Saraf configuration, while custody counts and
+    // their evidence are not queried or exposed.
+    await signOut(page);
+    await removeSandboxAuthorization(environment);
+    await signIn(page, "demo.treasury.manager", accounts["demo.treasury.manager"]);
+    await openSafes(page);
+    await expect(page.locator(".treasury-safe", { hasText: SAFE })).toBeVisible();
+    await page.locator(".wpb-switch button", { hasText: "Saraf accounts" }).click();
+    await expect(page.locator(".saraf-account", { hasText: "Synthetic Saraf House (demo)" })).toBeVisible();
+    await page.locator(".wpb-switch button", { hasText: "Cash counts" }).click();
+    await expect(page.locator(".safe-count")).toHaveCount(0);
   });
 });
 
@@ -274,6 +287,18 @@ async function provisionOperatorData(environment: Record<string, string | undefi
     await client.query(
       `INSERT INTO abos.ledger_accounts (id, legal_entity_id, account_code, account_name, account_type, control_account_type, posting_allowed, account_currency_code, status)
        VALUES ($1, $2, '2300-USD', 'Synthetic Saraf control USD (demo)', 'ASSET', 'SARAF', true, 'USD', 'ACTIVE')`, [randomUUID(), entity]);
+  } finally {
+    await client.end();
+  }
+}
+
+async function removeSandboxAuthorization(environment: Record<string, string | undefined>): Promise<void> {
+  const url = environment.ABOS_DATABASE_URL ?? "";
+  if (!/dev|sandbox|preview/i.test(new URL(url).pathname)) throw new Error("Refusing to alter authorization outside a disposable database");
+  const client = new pg.Client({ connectionString: url });
+  await client.connect();
+  try {
+    await client.query("DELETE FROM abos.sandbox_authorizations");
   } finally {
     await client.end();
   }

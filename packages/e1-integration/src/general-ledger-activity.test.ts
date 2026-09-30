@@ -121,7 +121,7 @@ if (databaseUrl() === undefined) {
         { accountId: world.cashLedgerAccountId, debit: "5" }, { accountId: world.capitalLedgerAccountId, credit: "5" }]);
 
       const activity = await activityOf(token, ...RANGE);
-      assert.equal(activity.syntheticOnly, true);
+      assert.equal(activity.syntheticOnly, false);
       assert.equal(activity.legalEntityId, world.legalEntityId);
       assert.equal(activity.basis, "POSTED_ACTIVITY_IN_RANGE");
       assert.equal(activity.isBalance, false);

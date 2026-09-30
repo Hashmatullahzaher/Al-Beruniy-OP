@@ -237,7 +237,7 @@ export class IdentityService {
         // The SECURITY DEFINER command owns the row locks and performs validation, insertion and
         // revocation atomically. The restricted runtime credential never receives direct write
         // privileges on the session or credential tables.
-        return this.authenticator.rotateSession(tx, token);
+        return this.authenticator.rotatePasswordSession(tx, token);
       });
     } catch (error) {
       if (error instanceof SandboxAuthError) {
@@ -356,7 +356,7 @@ export class IdentityService {
   private async openSession(userAccountId: string, legalEntityId: string, expectedPasswordHash: string): Promise<LoginResult> {
     let issued;
     try {
-      issued = await this.database.transaction((tx) => this.authenticator.issueSession({
+      issued = await this.database.transaction((tx) => this.authenticator.issuePasswordSession({
         userAccountId: userAccountId as UserAccountId,
         legalEntityId: legalEntityId as LegalEntityId,
         expectedPasswordHash
@@ -413,17 +413,8 @@ export class IdentityService {
       "AUTHENTICATION_REQUIRED",
       "Your session has ended. Sign in again."
     );
-    // The sandbox gate is checked on this same connection and transaction. Borrowing a second pooled
-    // connection here deadlocked the pool when enough requests held a transaction at once.
-    const gate = await tx.query<{ readonly ok: boolean }>(
-      `SELECT (a.environment IN ('development', 'test') AND a.configuration_state = 'SYNTHETIC_TEST_ONLY'
-               AND NOT a.real_posting_enabled AND a.expires_at > clock_timestamp()
-               AND a.runtime_marker = current_setting('abos.runtime_marker', true)
-               AND EXISTS (SELECT 1 FROM abos.sandbox_legal_entity_scopes s WHERE s.legal_entity_id = $1)) AS ok
-         FROM abos.sandbox_authorizations a WHERE a.singleton`,
-      [session.legalEntityId]
-    );
-    assertIdentity(gate.rows[0]?.ok === true, "AUTHENTICATION_REQUIRED", "The preview environment is not currently authorized. Sign in again later.");
+    // Identity resolution is operational. Synthetic issuance and money commands enforce their
+    // own sandbox gate; removing that authorization must not disable password-backed users.
     return {
       userAccountId: session.userAccountId,
       legalEntityId: session.legalEntityId,

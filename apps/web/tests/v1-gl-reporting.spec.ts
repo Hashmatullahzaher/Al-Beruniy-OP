@@ -24,7 +24,7 @@ function page(lines: readonly unknown[], extra: Record<string, unknown>) {
   return {
     ok: true,
     data: {
-      syntheticOnly: true, legalEntityId: entityId, from: day, to: day, accountId: null, order: ORDER, pageLimit: 100,
+      syntheticOnly: false, legalEntityId: entityId, from: day, to: day, accountId: null, order: ORDER, pageLimit: 100,
       returnedLineCount: lines.length, hasMore: false, nextCursor: null, totals: null, lines, ...extra
     }
   };
@@ -33,7 +33,7 @@ function page(lines: readonly unknown[], extra: Record<string, unknown>) {
 const ACTIVITY = {
   ok: true,
   data: {
-    syntheticOnly: true, legalEntityId: entityId, from: day, to: day, accountId: null,
+    syntheticOnly: false, legalEntityId: entityId, from: day, to: day, accountId: null,
     basis: "POSTED_ACTIVITY_IN_RANGE", isBalance: false, openingBalancesIncluded: false,
     accounts: [
       { accountId, accountCode: "SYN-101", accountName: "Synthetic safe cash", baseCurrency: "USD",
@@ -80,7 +80,7 @@ test("posted GL preview preserves exact decimal text, both calendars, source and
 
   await browser.goto("/finance/general-ledger");
   await expect(browser.getByRole("heading", { name: "General Ledger activity" })).toBeVisible();
-  await expect(browser.getByText("SYNTHETIC DATA · OPERATIONAL PREVIEW")).toBeVisible();
+  await expect(browser.getByText("POSTED ACTIVITY · READ ONLY")).toBeVisible();
   await expect(browser.getByText("12345678901234567890.123456789", { exact: true })).toHaveCount(0);
   await expect(browser.getByText("12,345,678,901,234,567,890.123456789").first()).toBeVisible();
   await expect(browser.getByText("SYN-JRN-001 · #1")).toBeVisible();

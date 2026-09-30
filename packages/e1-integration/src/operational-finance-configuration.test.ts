@@ -122,6 +122,15 @@ if (databaseUrl() === undefined) {
           [pendingPeriodId, world.legalEntityId]
         );
 
+        // Operational configuration is authenticated by the real identity context and must not
+        // depend on the legacy E1 SYNTHETIC_TEST_ONLY authorization.
+        await harness.executor.query("DELETE FROM abos.sandbox_authorizations");
+        const operationalLogin = await identity.login({
+          loginIdentifier: "operational.config.manager",
+          password: "Operational configuration manager 2026", clientAddress: CLIENT
+        });
+        assert.equal((await workspace(executor, sessionArgs(operationalLogin.token))).legalEntity.id, world.legalEntityId);
+
         const initial = await workspace(executor, session);
         assert.deepEqual(initial.permissions, {
           canManageTreasuryAccounts: true,

@@ -149,13 +149,22 @@ export async function buildSafesView(request: SafesRequestContext): Promise<Safe
     me: actor.userAccountId, can, locations: [], cashLedgers: [], sarafLedgers: [], sarafParties: [], sarafAccounts: [],
     safeCounts: [], evidence: { count: [], reconciliation: [] }, people: []
   };
-  if (!holdsPermission(actor, "treasury.read")) return empty;
+  const canReadCustody = request.syntheticAuthorized && holdsPermission(actor, "treasury.read");
+  const canReadCashConfiguration = can.manageSafes || canReadCustody;
+  const canReadSarafConfiguration = can.manageSaraf || canReadCustody;
+  if (!canReadCashConfiguration && !canReadSarafConfiguration) return empty;
 
   const [locations, accounts, counts, cashLedgers, sarafLedgers, parties, sarafAccounts, safeCounts, evidence, users] = await Promise.all([
-    reader.listLocations(entity), reader.listAccounts(entity), safesReader.listPhysicalCounts(entity),
-    safesReader.listCashLedgerChoices(entity), safesReader.listSarafLedgerChoices(entity), safesReader.listSarafParties(entity),
-    safesReader.listSarafAccounts(entity), safesReader.listSafeCounts(entity), safesReader.listCountEvidence(entity),
-    reader.listUsers(entity)
+    canReadCashConfiguration ? reader.listLocations(entity) : Promise.resolve([]),
+    canReadCashConfiguration ? reader.listAccounts(entity) : Promise.resolve([]),
+    canReadCustody ? safesReader.listPhysicalCounts(entity) : Promise.resolve([]),
+    canReadCashConfiguration ? safesReader.listCashLedgerChoices(entity) : Promise.resolve([]),
+    canReadSarafConfiguration ? safesReader.listSarafLedgerChoices(entity) : Promise.resolve([]),
+    canReadSarafConfiguration ? safesReader.listSarafParties(entity) : Promise.resolve([]),
+    canReadSarafConfiguration ? safesReader.listSarafAccounts(entity) : Promise.resolve([]),
+    canReadCustody ? safesReader.listSafeCounts(entity) : Promise.resolve([]),
+    canReadCustody ? safesReader.listCountEvidence(entity) : Promise.resolve([]),
+    canReadCashConfiguration ? reader.listUsers(entity) : Promise.resolve([])
   ]);
   const names = new Map(users.map((row) => [String(row.id), String(row.display_name)]));
   const name = (id: string | undefined) => (id === undefined ? undefined : names.get(id) ?? "Unknown user");
@@ -167,7 +176,7 @@ export async function buildSafesView(request: SafesRequestContext): Promise<Safe
     const assignments = (await reader.listAssignments(entity, location.id)).filter((item) => item.revokedAt === undefined);
     const accountViews: SafeAccountView[] = [];
     for (const account of accounts.filter((item) => item.cashLocationId === location.id)) {
-      const opening = await reader.findOpening(entity, account.id);
+      const opening = canReadCustody ? await reader.findOpening(entity, account.id) : undefined;
       const openingCounts = counts.filter((count) => count.cashAccountId === account.id && count.purpose === "OPENING" && count.status !== "VOIDED")
         .sort((a, b) => b.countedAt.localeCompare(a.countedAt));
       const latest = openingCounts[0];

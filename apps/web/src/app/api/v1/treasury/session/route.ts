@@ -35,7 +35,7 @@ export async function POST(request: Request) {
   try {
     assertSameOrigin(request);
     const token = stringField(await readJson(request), "token").trim();
-    const context = await treasuryRuntime().gateway.context(token);
+    const context = await treasuryRuntime().gateway.syntheticContext(token);
     const expiresAt = new Date(context.expiresAt);
     (await cookies()).set(SESSION_COOKIE, token, {
       httpOnly: true,

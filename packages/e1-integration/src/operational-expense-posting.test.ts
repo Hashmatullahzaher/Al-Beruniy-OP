@@ -28,6 +28,7 @@ import {
   resetSchema,
   type Harness
 } from "./harness.ts";
+import { issueOperationalSession } from "./operational-session.ts";
 import {
   handOffSyntheticReceipt,
   recordCapitalPostingIntent,
@@ -355,6 +356,38 @@ if (databaseUrl() === undefined) {
         }
         assert.equal(await scalar(harness,
           "SELECT count(*) FROM abos.subledger_entries WHERE processing_model = 'OPERATIONAL_V1'"), 1);
+      } finally {
+        await fixture.close();
+      }
+    });
+
+    test("operational expense posting is unchanged when no synthetic sandbox authorization exists", async () => {
+      const fixture = await setupFixture(harness, false);
+      try {
+        await harness.executor.query("DELETE FROM abos.sandbox_authorizations");
+        const posted = await createExpense(
+          fixture.executor,
+          fixture.creatorSession,
+          expensePayload(fixture, {
+            reference: `OPS-NO-GATE-${randomUUID().slice(0, 8)}`,
+            idempotencyKey: `ops-no-gate-${randomUUID()}`
+          })
+        );
+        assert.equal(posted.expense.status, "POSTED");
+        assert.ok(posted.expense.journalId);
+        const models = await harness.executor.query<{ expense_model: string; journal_model: string }>(
+          `SELECT intent.processing_model AS expense_model,
+                  journal.processing_model AS journal_model
+             FROM abos.operational_expenses expense
+             JOIN abos.journals journal ON journal.id = expense.journal_id
+             JOIN abos.posting_intents intent ON intent.id = journal.posting_intent_id
+            WHERE expense.id = $1`,
+          [posted.expense.id]
+        );
+        assert.deepEqual(models.rows[0], {
+          expense_model: "OPERATIONAL_V1",
+          journal_model: "OPERATIONAL_V1"
+        });
       } finally {
         await fixture.close();
       }
@@ -1009,11 +1042,7 @@ async function restrictedFinance(): Promise<{
 async function sessionFor(
   harness: Harness, world: SyntheticWorld, userId: string
 ): Promise<{ token: string; sessionId: string; args: SessionArgs }> {
-  const authenticator = new SandboxAuthenticator(harness.executor, SYNTHETIC_AUTH_CONFIGURATION);
-  const session = await authenticator.issueSession({
-    userAccountId: userId as UserAccountId,
-    legalEntityId: world.legalEntityId as LegalEntityId
-  });
+  const session = await issueOperationalSession(harness, userId, world.legalEntityId);
   return { token: session.token, sessionId: session.sessionId, args: sessionArgs(session.token) };
 }
 

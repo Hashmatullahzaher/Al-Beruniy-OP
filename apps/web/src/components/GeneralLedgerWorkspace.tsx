@@ -143,7 +143,7 @@ export function GeneralLedgerWorkspace() {
 
       <div className="finance-boundary-banner" role="note">
         <span aria-hidden="true">ⓘ</span>
-        <div><p>{fa ? "دادهٔ مصنوعی · پیش‌نمایش عملیاتی" : "SYNTHETIC DATA · OPERATIONAL PREVIEW"}</p>
+        <div><p>{fa ? "فعالیت ثبت‌شده · فقط خواندنی" : "POSTED ACTIVITY · READ ONLY"}</p>
           <strong>{fa ? "این فهرست صورت مالی رسمی نیست؛ مانده‌های افتتاحیه و دوره‌های بسته‌شده هنوز تکمیل نشده‌اند." : "This activity list is not an official financial statement. Opening positions and period close are not complete."}</strong></div>
         <em>{fa ? "فقط خواندنی" : "READ ONLY"}</em>
       </div>

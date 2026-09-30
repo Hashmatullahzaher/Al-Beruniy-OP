@@ -36,13 +36,52 @@ if (databaseUrl() === undefined) {
       const identity = new IdentityService(db, new SandboxAuthenticator(db, SYNTHETIC_AUTH_CONFIGURATION), {
         attemptKeySecret: ATTEMPT_SECRET
       });
+      // Password sign-in/change/refresh is operational; developer-issued synthetic sessions are not.
+      const developerAuthenticator = new SandboxAuthenticator(harness.executor, SYNTHETIC_AUTH_CONFIGURATION);
+      const disposableDeveloperHash = await hashPassword("Disposable developer refresh password 47");
+      await harness.executor.query(
+        `INSERT INTO abos.user_credentials
+           (user_account_id,password_hash,must_change_password,password_set_at,password_set_by_user_account_id)
+         VALUES ($1,$2,false,clock_timestamp(),$1)`,
+        [world.intentCreatorId, disposableDeveloperHash]
+      );
+      const persona = await developerAuthenticator.issueSession({
+        userAccountId: world.intentCreatorId as never, legalEntityId: world.legalEntityId as never
+      });
+      const personaRefreshed = await developerAuthenticator.rotateSession(harness.executor, persona.token);
+      assert.equal(personaRefreshed.sessionProvenance, "SYNTHETIC_DEVELOPER");
+      const developerProvenance = await harness.executor.query<{ provenance: string }>(
+        "SELECT session_provenance AS provenance FROM abos.sandbox_sessions WHERE id=$1",
+        [personaRefreshed.sessionId]
+      );
+      assert.equal(developerProvenance.rows[0]?.provenance, "SYNTHETIC_DEVELOPER");
+      await harness.executor.query("DELETE FROM abos.sandbox_authorizations");
+      await assert.rejects(() => new SandboxAuthenticator(db, SYNTHETIC_AUTH_CONFIGURATION).issueSession({
+        userAccountId: admin.userAccountId as never, legalEntityId: world.legalEntityId as never
+      }), /no sandbox authorization/i);
+      const personaOperational = await new SandboxAuthenticator(db, SYNTHETIC_AUTH_CONFIGURATION).issuePasswordSession({
+        userAccountId: world.intentCreatorId as never,
+        legalEntityId: world.legalEntityId as never,
+        expectedPasswordHash: disposableDeveloperHash
+      });
       const initial = await identity.changePassword({
         loginIdentifier: "rotation.admin", currentPassword: admin.temporaryPassword,
         newPassword: "Synthetic rotation passphrase 47", clientAddress: CLIENT
       });
+      const login = await identity.login({
+        loginIdentifier: "rotation.admin", password: "Synthetic rotation passphrase 47", clientAddress: CLIENT
+      });
+      assert.equal(login.user.userAccountId, admin.userAccountId);
+      assert.equal(await sessionProvenance(harness.executor, login.token), "PASSWORD_OPERATIONAL");
+      await identity.logout(login.token);
+      await assert.rejects(() => new SandboxAuthenticator(db, SYNTHETIC_AUTH_CONFIGURATION).issuePasswordSession({
+        userAccountId: admin.userAccountId as never, legalEntityId: world.legalEntityId as never,
+        expectedPasswordHash: "changed-or-forged-password-hash"
+      }), /password session authority is no longer current|Credentials changed/i);
       const renewed = await identity.refreshSession(initial.token, CLIENT);
       assert.notEqual(renewed.token, initial.token);
       assert.equal(renewed.user.userAccountId, admin.userAccountId);
+      assert.equal(await sessionProvenance(harness.executor, renewed.token), "PASSWORD_OPERATIONAL");
       await assertIdentityDenied(() => identity.currentUser(initial.token));
       await assertIdentityDenied(() => identity.refreshSession(initial.token, CLIENT));
 
@@ -62,21 +101,26 @@ if (databaseUrl() === undefined) {
       );
       assert.equal(sessions.rows[0]?.count, "1");
 
+      await harness.executor.query(
+        `UPDATE abos.user_permission_grants SET revoked_at=clock_timestamp()
+          WHERE user_account_id=$1 AND legal_entity_id=$2 AND revoked_at IS NULL`,
+        [world.intentCreatorId, world.legalEntityId]
+      );
+      await assertIdentityDenied(() => identity.currentUser(personaOperational.token));
+      await assertIdentityDenied(() => identity.refreshSession(personaOperational.token, CLIENT));
+
       await identity.logout(surviving.value.token);
       await assertIdentityDenied(() => identity.refreshSession(surviving.value.token, CLIENT));
 
-      // An operator-seeded persona with no password (0022): its session resolves as before 0021,
-      // but it cannot be rotated, because rotation requires a current credential.
+      // Even a persona that now has a current password cannot use or refresh its already-issued
+      // synthetic session as an operational session; provenance, not credential existence, wins.
       const credentials = await harness.executor.query<{ count: string }>(
         "SELECT count(*)::text AS count FROM abos.user_credentials WHERE user_account_id = $1",
         [world.intentCreatorId]
       );
-      assert.equal(credentials.rows[0]?.count, "0");
-      const persona = await new SandboxAuthenticator(harness.executor, SYNTHETIC_AUTH_CONFIGURATION).issueSession({
-        userAccountId: world.intentCreatorId as never, legalEntityId: world.legalEntityId as never
-      });
-      assert.equal((await identity.currentUser(persona.token)).userAccountId, world.intentCreatorId);
-      await assertIdentityDenied(() => identity.refreshSession(persona.token, CLIENT));
+      assert.equal(credentials.rows[0]?.count, "1");
+      await assertIdentityDenied(() => identity.currentUser(personaRefreshed.token));
+      await assertIdentityDenied(() => identity.refreshSession(personaRefreshed.token, CLIENT));
     } finally {
       await pool?.end();
       await harness.close();
@@ -195,6 +239,15 @@ if (databaseUrl() === undefined) {
       await harness.close();
     }
   });
+}
+
+async function sessionProvenance(database: SqlExecutor, token: string): Promise<string | undefined> {
+  const result = await database.query<{ provenance: string }>(
+    `SELECT session_provenance AS provenance FROM abos.sandbox_sessions
+      WHERE runtime_token_sha256=encode(sha256(convert_to($1,'UTF8')),'hex')`,
+    [token]
+  );
+  return result.rows[0]?.provenance;
 }
 
 async function ensureRestrictedIdentityLogin(db: SqlExecutor): Promise<void> {

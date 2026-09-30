@@ -18,12 +18,13 @@ import { displayNames, type TreasuryRequestContext } from "@/server/treasury";
 export async function buildOverview(request: TreasuryRequestContext): Promise<TreasuryOverview> {
   const { reader, actor, context } = request;
   const entity = actor.legalEntityId;
-  const canRead = actor.treasuryPermissions.includes("treasury.read");
+  const canReadSynthetic = actor.treasuryPermissions.includes("treasury.read") && request.syntheticAuthorized;
+  const canReadCashConfiguration = actor.treasuryPermissions.includes("treasury.cash-location.manage") || canReadSynthetic;
 
-  const locations = canRead ? await reader.listLocations(entity) : [];
-  const accounts = canRead ? await reader.listAccounts(entity) : [];
-  const sources = canRead ? await reader.listSources(entity) : [];
-  const receipts = canRead ? await reader.listReceipts(entity) : [];
+  const locations = canReadCashConfiguration ? await reader.listLocations(entity) : [];
+  const accounts = canReadCashConfiguration ? await reader.listAccounts(entity) : [];
+  const sources = canReadSynthetic ? await reader.listSources(entity) : [];
+  const receipts = canReadSynthetic ? await reader.listReceipts(entity) : [];
 
   const assignmentsByLocation = new Map<string, readonly { userAccountId: string }[]>();
   for (const location of locations) {
@@ -37,7 +38,9 @@ export async function buildOverview(request: TreasuryRequestContext): Promise<Tr
     }
   }
   const openings = new Map<string, Awaited<ReturnType<typeof reader.findOpening>>>();
-  for (const account of accounts) openings.set(account.id, await reader.findOpening(entity, account.id));
+  if (canReadSynthetic) {
+    for (const account of accounts) openings.set(account.id, await reader.findOpening(entity, account.id));
+  }
 
   const names = await displayNames(reader, entity, [
     ...receipts.flatMap((receipt) => [receipt.receivedByUserAccountId, receipt.verifiedByUserAccountId ?? ""]),
@@ -83,7 +86,7 @@ export async function buildOverview(request: TreasuryRequestContext): Promise<Tr
     receiptViews.push(receiptView(receipt, source, receiptStage(receipt, handoff, posted, finance?.decision ?? "NONE"), accountLabel, name, counts.get(receipt.id)?.countedBy));
   }
 
-  const evidence = canRead
+  const evidence = canReadSynthetic
     ? await reader.listEvidence(entity) as readonly { readonly id: string; readonly evidence_kind: string; readonly document_id: string; readonly sha256: string; readonly capital_receipt_intent_id: string }[]
     : [];
   const option = (row: { id: string; evidence_kind: string; document_id: string; sha256: string; capital_receipt_intent_id: string }): EvidenceOption => ({

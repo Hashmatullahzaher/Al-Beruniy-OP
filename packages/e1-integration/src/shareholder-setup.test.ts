@@ -11,11 +11,12 @@ import type {
 } from "@abos/contracts";
 import { asDecimalString } from "@abos/contracts";
 import { PostgresExecutor, PostgresShareholderRepository, RestrictedCapitalPostingGateway } from "@abos/persistence";
-import { identityDatabaseProof, SandboxAuthenticator } from "@abos/sandbox-auth";
+import { identityDatabaseProof } from "@abos/sandbox-auth";
 import { CapitalReceiptIntentService } from "@abos/shareholder";
 
 import { addSecondEntity, createRequest, grant, isoToday, shareholderWorkspace } from "./currency-fixtures.ts";
 import { databaseUrl, MISSING_DATABASE_MESSAGE, openHarness, resetSchema, type Harness } from "./harness.ts";
+import { issueOperationalSession } from "./operational-session.ts";
 import {
   handOffSyntheticReceipt, recordCapitalPostingIntent, recordSyntheticTreasuryReceipt, seedSyntheticWorld,
   SYNTHETIC_AUTH_CONFIGURATION, type SyntheticWorld
@@ -708,8 +709,7 @@ function restrictedFinance(): { executor: PostgresExecutor; close(): Promise<voi
 }
 
 async function plainSession(harness: Harness, world: SyntheticWorld, userId: string): Promise<string> {
-  const authenticator = new SandboxAuthenticator(harness.executor, SYNTHETIC_AUTH_CONFIGURATION);
-  return (await authenticator.issueSession({ userAccountId: userId as UserAccountId, legalEntityId: world.legalEntityId as LegalEntityId })).token;
+  return (await issueOperationalSession(harness, userId, world.legalEntityId)).token;
 }
 
 async function sessionFor(harness: Harness, world: SyntheticWorld, userId: string): Promise<SessionArgs> {

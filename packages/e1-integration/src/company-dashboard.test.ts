@@ -3,11 +3,11 @@ import { createHash, createHmac, randomUUID } from "node:crypto";
 import test, { after, before, describe } from "node:test";
 import pg from "pg";
 
-import type { LegalEntityId, UserAccountId } from "@abos/contracts";
 import { PostgresExecutor } from "@abos/persistence";
-import { identityDatabaseProof, SandboxAuthenticator } from "@abos/sandbox-auth";
+import { identityDatabaseProof } from "@abos/sandbox-auth";
 
 import { databaseUrl, MISSING_DATABASE_MESSAGE, openHarness, resetSchema, type Harness } from "./harness.ts";
+import { issueOperationalSession } from "./operational-session.ts";
 import { seedSyntheticWorld, SYNTHETIC_AUTH_CONFIGURATION, type SyntheticWorld } from "./synthetic-world.ts";
 
 /** Migration 0030: the company dashboard permission and its aggregate-only read model. */
@@ -162,8 +162,7 @@ async function restrictedFinance(): Promise<{ readonly executor: PostgresExecuto
 }
 
 async function sessionFor(harness: Harness, world: SyntheticWorld, userId: string): Promise<{ sessionId: string; args: SessionArgs }> {
-  const authenticator = new SandboxAuthenticator(harness.executor, SYNTHETIC_AUTH_CONFIGURATION);
-  const session = await authenticator.issueSession({ userAccountId: userId as UserAccountId, legalEntityId: world.legalEntityId as LegalEntityId });
+  const session = await issueOperationalSession(harness, userId, world.legalEntityId);
   return { sessionId: session.sessionId, args: sessionArgs(session.token) };
 }
 

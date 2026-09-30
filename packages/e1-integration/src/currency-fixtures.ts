@@ -1,10 +1,10 @@
 import { randomUUID } from "node:crypto";
 import pg from "pg";
-import type { CashLocationCurrencyAccountId, LegalEntityId, UserAccountId } from "@abos/contracts";
+import type { CashLocationCurrencyAccountId } from "@abos/contracts";
 import type { SqlExecutor } from "@abos/database";
 import { PostgresExecutor } from "@abos/persistence";
-import { SandboxAuthenticator } from "@abos/sandbox-auth";
 import { databaseUrl, type Harness } from "./harness.ts";
+import { issueOperationalSession } from "./operational-session.ts";
 import { SYNTHETIC_AUTH_CONFIGURATION, treasuryAs, type SyntheticWorld } from "./synthetic-world.ts";
 
 /**
@@ -66,8 +66,7 @@ export async function grant(database: SqlExecutor, world: SyntheticWorld, userId
 }
 
 export async function sessionFor(database: SqlExecutor, userId: string, legalEntityId: string): Promise<string> {
-  const auth = new SandboxAuthenticator(database, SYNTHETIC_AUTH_CONFIGURATION);
-  return (await auth.issueSession({ userAccountId: userId as UserAccountId, legalEntityId: legalEntityId as LegalEntityId })).token;
+  return (await issueOperationalSession(database, userId, legalEntityId)).token;
 }
 
 /** A synthetic Saraf counterparty with a current SARAF role. */

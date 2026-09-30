@@ -7,6 +7,8 @@
 
 Agents must update the relevant row when status changes. `DONE` requires evidence and, for high-risk packages, an independent reviewer.
 
+**2026-09-30 — authorized V1 operational gate separation slice:** migration 0032 is complete on `codex/v1-operational-gate-separation`, based on `3bae2bec2f19b0bb337e6b326f5778414ac84990`, for a lease-protected checkpoint update of `origin/v1/integration`. Final disposable validation: PostgreSQL security/integration 173/173; unit/migration 133/133; strict typecheck 12/12 tasks; lint zero warnings; production build 11/11 tasks; smoke 7/7; serial browser 34 passed/18 expected gated skips; password/PostgreSQL browser 12/12; developer-token legacy Treasury browser 6/6. No preserved-database connection, no real shareholder creation, and no real posting authority. Exact mapping and evidence: [V1_OPERATIONAL_GATE_SEPARATION_REPORT.md](V1_OPERATIONAL_GATE_SEPARATION_REPORT.md).
+
 | Phase | Work Package | Scope | Status | Agent | Branch | Commit / PR | Reviewer | Evidence / Notes | Updated |
 |---|---|---|---|---|---|---|---|---|---|
 | F0 — Engineering Foundation | WP-0001 | Repository / Application Skeleton | VERIFIED | Codex | agent/codex/WP-0001-app-skeleton | 177c09aab5ec6baaa0ff56f05195a9e403a69035 | Independent Codex review | Frozen install, lint, typecheck, build, 2/2 smoke and 5/5 browser tests pass after accessibility remediation; Antigravity/client UI gate pending | 2026-09-20 |

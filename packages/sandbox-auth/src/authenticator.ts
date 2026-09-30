@@ -55,6 +55,7 @@ export interface IssuedSandboxSession {
   readonly token: string;
   readonly userAccountId: UserAccountId;
   readonly legalEntityId: LegalEntityId;
+  readonly sessionProvenance: "PASSWORD_OPERATIONAL" | "SYNTHETIC_DEVELOPER";
   readonly issuedAt: string;
   readonly expiresAt: string;
 }
@@ -161,6 +162,51 @@ export class SandboxAuthenticator {
     readonly expectedPasswordHash?: string;
   }, executor: SqlExecutor = this.database): Promise<IssuedSandboxSession> {
     await this.resolveGate(input.legalEntityId, executor);
+    return this.issueAuthorizedSession(input, executor);
+  }
+
+  /** Password login only: PostgreSQL rechecks the verified credential under lock. */
+  async issuePasswordSession(input: {
+    readonly userAccountId: UserAccountId;
+    readonly legalEntityId: LegalEntityId;
+    readonly expectedPasswordHash: string;
+  }, executor: SqlExecutor = this.database): Promise<IssuedSandboxSession> {
+    assertSandbox(typeof input.expectedPasswordHash === "string" && input.expectedPasswordHash.length > 0,
+      "AUTHENTICATION_REQUIRED", "A verified password credential is required");
+    const issuedAt = this.now();
+    const expiresAt = new Date(issuedAt.getTime() + this.configuration.maxSessionSeconds * 1000);
+    const token = randomBytes(32).toString("base64url");
+    const sessionId = randomUUID();
+    const result = await executor.query<{ readonly value: {
+      readonly affected: number; readonly userAccountId: UserAccountId;
+      readonly legalEntityId: LegalEntityId; readonly sessionProvenance: "PASSWORD_OPERATIONAL";
+    } }>("SELECT abos.identity_issue_password_session($1,$2::jsonb) AS value", [
+      this.identityDatabaseProof(), JSON.stringify({
+        id: sessionId,
+        userAccountId: input.userAccountId,
+        legalEntityId: input.legalEntityId,
+        expectedPasswordHash: input.expectedPasswordHash,
+        tokenSha256: this.digest(token),
+        runtimeTokenSha256: createHash("sha256").update(token).digest("hex"),
+        issuedAt: issuedAt.toISOString(),
+        expiresAt: expiresAt.toISOString()
+      })
+    ]);
+    const issued = result.rows[0]?.value;
+    assertSandbox(issued?.affected === 1, "AUTHENTICATION_REQUIRED", "Password session was not issued");
+    return {
+      sessionId, token, userAccountId: issued.userAccountId, legalEntityId: issued.legalEntityId,
+      sessionProvenance: issued.sessionProvenance,
+      issuedAt: issuedAt.toISOString(), expiresAt: expiresAt.toISOString()
+    };
+  }
+
+  private async issueAuthorizedSession(input: {
+    readonly userAccountId: UserAccountId;
+    readonly legalEntityId: LegalEntityId;
+    readonly ttlSeconds?: number;
+    readonly expectedPasswordHash?: string;
+  }, executor: SqlExecutor): Promise<IssuedSandboxSession> {
 
     const ttl = input.ttlSeconds ?? this.configuration.maxSessionSeconds;
     assertSandbox(
@@ -219,6 +265,7 @@ export class SandboxAuthenticator {
       token,
       userAccountId: input.userAccountId,
       legalEntityId: input.legalEntityId,
+      sessionProvenance: "SYNTHETIC_DEVELOPER",
       issuedAt: issuedAt.toISOString(),
       expiresAt: expiresAt.toISOString()
     };
@@ -226,20 +273,38 @@ export class SandboxAuthenticator {
 
   /** Atomically replace one live session. The database locks and revokes the old row. */
   async rotateSession(executor: SqlExecutor, oldToken: string): Promise<IssuedSandboxSession> {
+    return this.rotateAuthorizedSession(executor, oldToken, false);
+  }
+
+  /** Password-backed refresh retains live credentials, scope, proof and atomic rotation. */
+  async rotatePasswordSession(executor: SqlExecutor, oldToken: string): Promise<IssuedSandboxSession> {
+    return this.rotateAuthorizedSession(executor, oldToken, true);
+  }
+
+  private async rotateAuthorizedSession(executor: SqlExecutor, oldToken: string, passwordBacked: boolean): Promise<IssuedSandboxSession> {
     const issuedAt = this.now();
     const expiresAt = new Date(issuedAt.getTime() + this.configuration.maxSessionSeconds * 1000);
     const token = randomBytes(32).toString("base64url");
     const sessionId = randomUUID();
-    const result = await this.identityCommand(executor, "ROTATE_SESSION", {
+    const payload = {
       oldRuntimeTokenSha256: createHash("sha256").update(oldToken).digest("hex"),
       oldTokenSha256: this.digest(oldToken), id: sessionId,
       tokenSha256: this.digest(token),
       runtimeTokenSha256: createHash("sha256").update(token).digest("hex"),
       issuedAt: issuedAt.toISOString(), expiresAt: expiresAt.toISOString()
-    }) as { readonly affected: number; readonly userAccountId: UserAccountId; readonly legalEntityId: LegalEntityId };
+    };
+    const result = (passwordBacked
+      ? (await executor.query<{ value: { readonly affected: number; readonly userAccountId: UserAccountId; readonly legalEntityId: LegalEntityId; readonly sessionProvenance: "PASSWORD_OPERATIONAL" } }>(
+        "SELECT abos.identity_rotate_password_session($1,$2::jsonb) AS value", [this.identityDatabaseProof(), JSON.stringify(payload)]
+      )).rows[0]?.value
+      : await this.identityCommand(executor, "ROTATE_SESSION", payload)) as {
+        readonly affected: number; readonly userAccountId: UserAccountId; readonly legalEntityId: LegalEntityId;
+        readonly sessionProvenance?: "PASSWORD_OPERATIONAL" | "SYNTHETIC_DEVELOPER"
+      };
     assertSandbox(result.affected === 1, "AUTHENTICATION_REQUIRED", "Sandbox session was already rotated");
     return {
       sessionId, token, userAccountId: result.userAccountId, legalEntityId: result.legalEntityId,
+      sessionProvenance: result.sessionProvenance ?? "SYNTHETIC_DEVELOPER",
       issuedAt: issuedAt.toISOString(), expiresAt: expiresAt.toISOString()
     };
   }
@@ -247,12 +312,14 @@ export class SandboxAuthenticator {
   async identityActorContext(executor: SqlExecutor, token: string): Promise<{
     readonly id: string; readonly userAccountId: string; readonly legalEntityId: string;
     readonly live: boolean; readonly status: string; readonly loginIdentifier: string;
-    readonly mustChangePassword: boolean; readonly permissions: readonly string[];
+    readonly mustChangePassword: boolean; readonly sessionProvenance: "PASSWORD_OPERATIONAL";
+    readonly permissions: readonly string[];
   } | null> {
     const result = await executor.query<{ readonly value: {
       readonly id: string; readonly userAccountId: string; readonly legalEntityId: string;
       readonly live: boolean; readonly status: string; readonly loginIdentifier: string;
-      readonly mustChangePassword: boolean; readonly permissions: readonly string[];
+      readonly mustChangePassword: boolean; readonly sessionProvenance: "PASSWORD_OPERATIONAL";
+      readonly permissions: readonly string[];
     } | null }>("SELECT abos.identity_actor_context($1,$2,$3) AS value", [
       this.identityDatabaseProof(),
       createHash("sha256").update(token).digest("hex"), this.digest(token)
