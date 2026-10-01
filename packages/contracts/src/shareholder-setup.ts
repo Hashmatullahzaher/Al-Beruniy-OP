@@ -79,6 +79,8 @@ export interface ShareholderSetupWorkspace {
   readonly permissions: { readonly canManage: boolean; readonly canCreateRequests: boolean };
   readonly today: string;
   readonly receiptPathOperational: boolean;
+  /** No policy row means REQUIRED; the owner-approved Al-Beruniy policy is OPTIONAL. */
+  readonly agreementDocumentRequirement: "OPTIONAL" | "REQUIRED";
   readonly currencies: readonly string[];
   readonly shareholders: readonly ShareholderSetupShareholder[];
   readonly agreements: readonly ShareholderSetupAgreement[];

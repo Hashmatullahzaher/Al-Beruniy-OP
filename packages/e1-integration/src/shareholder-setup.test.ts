@@ -52,6 +52,7 @@ interface AgreementView {
 interface ShareholderView { id: string; businessPartyId: string; name: string; reference: string | null; status: string; since: string; correctable: boolean }
 interface Workspace {
   permissions: { canManage: boolean }; receiptPathOperational: boolean; shareholders: ShareholderView[]; agreements: AgreementView[];
+  agreementDocumentRequirement: "OPTIONAL" | "REQUIRED";
   totalsByCurrency: { currency: string; committed: string; received: string; remaining: string }[];
 }
 
@@ -432,6 +433,23 @@ if (databaseUrl() === undefined) {
       const e1 = await run((db) => shareholderWorkspace<{ agreements: { installments: { id: string; blockers: string[] }[] }[] }>(db, creator));
       const blocked = e1.agreements.flatMap((agreement) => agreement.installments).find((installment) => installment.id === installmentId);
       assert.ok(blocked?.blockers.includes("AGREEMENT_EVIDENCE_MISSING"), JSON.stringify(blocked));
+      // An explicit legal-entity policy removes only the agreement-document condition. It does
+      // not grant a receipt, Treasury handoff, Finance approval or journal posting capability.
+      await harness.executor.query(
+        `INSERT INTO abos.capital_agreement_document_policies
+          (legal_entity_id, document_requirement, decision_reference)
+         VALUES ($1, 'OPTIONAL', 'SYNTHETIC_TEST_POLICY')`, [world.legalEntityId]);
+      const optionalView = await run((db) => shareholderWorkspace<{ agreements: { installments: { id: string; blockers: string[] }[] }[] }>(db, creator));
+      const optionalInstallment = optionalView.agreements.flatMap((agreement) => agreement.installments)
+        .find((installment) => installment.id === installmentId);
+      assert.ok(optionalInstallment && !optionalInstallment.blockers.includes("AGREEMENT_EVIDENCE_MISSING"));
+      const optionalRequest = await run((db) => createRequest(db, creator,
+        { installmentId, destination: world.cashAccountId, amount: "25000", businessDate: isoToday() }));
+      assert.ok(optionalRequest.id, "the optional policy permits a synthetic request without a document");
+      const financialRows = await harness.executor.query<{ receipts: string; journals: string }>(
+        `SELECT (SELECT count(*) FROM abos.cash_receipts)::text AS receipts,
+                (SELECT count(*) FROM abos.journals)::text AS journals`);
+      assert.deepEqual(financialRows.rows[0], { receipts: "0", journals: "0" });
       // The world's own agreement has its linked document and still works on the synthetic path.
       const created = await run((db) => createRequest(db, creator, { installmentId: world.installmentId, destination: world.cashAccountId, amount: "25000.00", businessDate: isoToday() }));
       assert.ok(created.id);
@@ -439,6 +457,32 @@ if (databaseUrl() === undefined) {
       const repository = new PostgresShareholderRepository(harness.executor, world.intentCreatorId as UserAccountId);
       assert.deepEqual(await repository.listDocuments(world.legalEntityId as LegalEntityId, agreementId as CapitalAgreementId)
         .then((documents) => documents.filter((document) => document.evidence.kind === "CAPITAL_AGREEMENT")), []);
+    });
+
+    test("optional policy is legal-entity scoped and draft setup needs no document", async () => {
+      await resetSchema(harness.pool);
+      const world = await seedSyntheticWorld(harness.executor);
+      const session = await manager(world);
+      const before = await moneyFootprint(harness);
+      assert.equal((await workspace(session)).agreementDocumentRequirement, "REQUIRED");
+      await harness.executor.query(
+        `INSERT INTO abos.capital_agreement_document_policies
+          (legal_entity_id, document_requirement, decision_reference)
+         VALUES ($1, 'OPTIONAL', 'SYNTHETIC_TEST_POLICY')`, [world.legalEntityId]);
+      const holder = await createShareholder(session, { externalReference: "OPTIONAL-DOC-HOLDER" });
+      const agreement = await createAgreement(session, holder.shareholderProfileId);
+      await addInstallment(session, agreement.capitalAgreementId, "25000");
+      const view = await workspace(session);
+      const created = view.agreements.find((candidate) => candidate.id === agreement.capitalAgreementId);
+      assert.equal(view.agreementDocumentRequirement, "OPTIONAL");
+      assert.deepEqual(created?.documents, []);
+      assert.ok(!created?.requestBlockers.includes("AGREEMENT_EVIDENCE_MISSING"));
+      const second = await addSecondEntity(harness.executor, world, [MANAGE]);
+      const secondSession = sessionArgs((await issueOperationalSession(harness, second.userId, second.legalEntityId)).token);
+      assert.equal((await workspace(secondSession)).agreementDocumentRequirement, "REQUIRED",
+        "an optional policy never leaks into another legal entity");
+      assert.deepEqual(await moneyFootprint(harness), before);
+      await assert.rejects(() => restricted.executor.query("SELECT * FROM abos.capital_agreement_document_policies"), /permission denied/);
     });
 
     test("corrections stop once capital is posted; the read model counts only POSTED, non-reversed capital, and setup never touches money", async () => {

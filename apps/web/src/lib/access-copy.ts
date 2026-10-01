@@ -128,7 +128,7 @@ export const PERMISSION_COPY: Readonly<Record<string, PermissionCopy>> = {
   },
   "shareholder.setup.manage": {
     label: { en: "Set up shareholders and capital agreements", fa: "تنظیم سهامداران و قراردادهای سرمایه" },
-    allows: { en: "Add shareholders, draft capital agreements and their installment plans, and record the signed agreement document's reference, date and fingerprint. Corrections are possible only while things are still draft. Does not receive or record any money.", fa: "افزودن سهامداران، پیش‌نویس قراردادهای سرمایه و برنامهٔ اقساط آن‌ها، و ثبت مرجع، تاریخ و اثر انگشت سند امضاشدهٔ قرارداد. اصلاح فقط تا زمانی ممکن است که موارد هنوز پیش‌نویس باشند. هیچ پولی دریافت یا ثبت نمی‌کند." }
+    allows: { en: "Add shareholders, draft capital agreements and installment plans without uploading documents. Corrections are possible only while things are still draft. Does not receive or record any money.", fa: "افزودن سهامداران، پیش‌نویس قراردادهای سرمایه و برنامهٔ اقساط بدون بارگذاری سند. اصلاح فقط تا زمانی ممکن است که موارد هنوز پیش‌نویس باشند. هیچ پولی دریافت یا ثبت نمی‌کند." }
   },
   "shareholder.read": {
     label: { en: "View shareholder agreements", fa: "مشاهده قراردادهای سهامداران" },

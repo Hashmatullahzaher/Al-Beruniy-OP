@@ -157,6 +157,14 @@ export class PostgresShareholderRepository implements ShareholderRepository {
     };
   }
 
+  async findAgreementDocumentRequirement(legalEntityId: LegalEntityId): Promise<"OPTIONAL" | "REQUIRED"> {
+    const result = await this.database.query<{ document_requirement: "OPTIONAL" | "REQUIRED" }>(
+      `SELECT document_requirement FROM abos.capital_agreement_document_policies WHERE legal_entity_id = $1`,
+      [legalEntityId]
+    );
+    return result.rows[0]?.document_requirement ?? "REQUIRED";
+  }
+
   async findRegistrationEvidence(
     legalEntityId: LegalEntityId,
     agreementId: CapitalAgreementId

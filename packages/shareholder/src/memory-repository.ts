@@ -36,6 +36,7 @@ export class InMemoryShareholderRepository implements ShareholderRepository {
   private readonly byInstallment = new Map<string, CapitalReceiptIntent>();
   private readonly contributions = new Map<string, ContributionHistoryEntry[]>();
   private readonly fundingPolicies = new Map<string, CapitalAgreementFundingPolicy>();
+  private readonly agreementDocumentRequirements = new Map<string, "OPTIONAL" | "REQUIRED">();
 
   seedProfile(profile: ShareholderProfile): void {
     this.profiles.set(key(profile.legalEntityId, profile.businessPartyId), profile);
@@ -62,6 +63,9 @@ export class InMemoryShareholderRepository implements ShareholderRepository {
   seedFundingPolicy(legalEntityId: LegalEntityId, policy: CapitalAgreementFundingPolicy): void {
     this.fundingPolicies.set(legalEntityId, policy);
   }
+  seedAgreementDocumentRequirement(legalEntityId: LegalEntityId, requirement: "OPTIONAL" | "REQUIRED"): void {
+    this.agreementDocumentRequirements.set(legalEntityId, requirement);
+  }
   seedContribution(entry: ContributionHistoryEntry): void {
     const mapKey = key(entry.legalEntityId, entry.agreementId);
     this.contributions.set(mapKey, [...(this.contributions.get(mapKey) ?? []), entry]);
@@ -83,6 +87,9 @@ export class InMemoryShareholderRepository implements ShareholderRepository {
     legalEntityId: LegalEntityId
   ): Promise<CapitalAgreementFundingPolicy | undefined> {
     return this.fundingPolicies.get(legalEntityId);
+  }
+  async findAgreementDocumentRequirement(legalEntityId: LegalEntityId): Promise<"OPTIONAL" | "REQUIRED"> {
+    return this.agreementDocumentRequirements.get(legalEntityId) ?? "REQUIRED";
   }
   async findRegistrationEvidence(
     legalEntityId: LegalEntityId,

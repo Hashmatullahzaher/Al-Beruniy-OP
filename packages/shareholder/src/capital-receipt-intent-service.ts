@@ -260,12 +260,15 @@ export class CapitalReceiptIntentService {
       "Registration evidence must be of kind FORMAL_REGISTRATION"
     );
 
-    const documents = await this.repository.listDocuments(command.legalEntityId, command.agreementId);
-    assertShareholder(
-      documents.some((document) => document.evidence.kind === "CAPITAL_AGREEMENT"),
-      "EVIDENCE_REQUIRED",
-      "A controlled CAPITAL_AGREEMENT document is required"
-    );
+    const documentRequirement = await this.repository.findAgreementDocumentRequirement(command.legalEntityId);
+    if (documentRequirement === "REQUIRED") {
+      const documents = await this.repository.listDocuments(command.legalEntityId, command.agreementId);
+      assertShareholder(
+        documents.some((document) => document.evidence.kind === "CAPITAL_AGREEMENT"),
+        "EVIDENCE_REQUIRED",
+        "A controlled CAPITAL_AGREEMENT document is required by this legal entity's policy"
+      );
+    }
     assertShareholder(
       command.evidence.length > 0,
       "EVIDENCE_REQUIRED",

@@ -14,7 +14,6 @@ import pg from "pg";
  */
 const SHOTS = resolve(__dirname, "../test-results/v1-shareholder-setup");
 const ROOT = resolve(__dirname, "../../..");
-const HASH = "4f9c2d1e8b7a6f5e4d3c2b1a0f9e8d7c6b5a4f3e2d1c0b9a8f7e6d5c4b3a2f10";
 
 test.use({ viewport: { width: 1440, height: 900 } });
 
@@ -26,7 +25,7 @@ function kabulDate(offsetDays = 0): string {
 test.describe("V1 shareholder setup", () => {
   test.skip(process.env.ABOS_V1_PREVIEW_E2E !== "1", "Set ABOS_V1_PREVIEW_E2E=1 with an isolated preview database to run this.");
 
-  test("a permitted person sets up a shareholder, a draft agreement, its document and installments; no money moves", async ({ page }) => {
+  test("a permitted person sets up a shareholder, a draft agreement and installments without a document; no money moves", async ({ page }) => {
     test.setTimeout(420_000);
     mkdirSync(SHOTS, { recursive: true });
     const accounts = seedPreview();
@@ -104,19 +103,10 @@ test.describe("V1 shareholder setup", () => {
     await expect(card.locator(".shareholder-figures")).toContainText("USD 50,000");
     const why = card.locator(".shareholder-why");
     await expect(why).toContainText("The agreement is still a draft");
-    await expect(why).toContainText("No signed agreement document is recorded");
+    await expect(card.locator(".shareholder-documents")).toContainText("No document attached");
+    await expect(card.getByRole("button", { name: "Upload agreement" })).toBeDisabled();
+    await expect(why).toContainText("Agreement evidence is required by this legal entity's policy");
     await expect(why).toContainText("Receiving capital is not operational on company data yet");
-
-    // The signed agreement document: reference, date and fingerprint only.
-    await card.getByRole("button", { name: "Record agreement document" }).click();
-    form = card.getByRole("form", { name: "Record agreement document" });
-    await form.getByLabel("Document reference").fill("Signed agreement SYN-AGR-BETA (synthetic)");
-    await form.getByLabel("Signing date").fill(kabulDate(-6));
-    await form.getByLabel(/^SHA-256/).fill(HASH);
-    await form.getByRole("button", { name: "Record document" }).click();
-    await expect(page.locator(".treasury-message.success")).toContainText("recorded for this agreement");
-    await expect(card.locator(".shareholder-documents")).toContainText(`Document date ${kabulDate(-6)}`);
-    await expect(why).not.toContainText("No signed agreement document");
 
     // Installments: the plan can never exceed the commitment; cancelling releases its share.
     await tabs.getByRole("tab", { name: "Installments" }).click();

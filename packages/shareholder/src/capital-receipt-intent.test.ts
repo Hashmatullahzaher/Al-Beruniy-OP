@@ -313,6 +313,28 @@ test("a missing controlled agreement document is rejected", async () => {
   await expectCode("EVIDENCE_REQUIRED", () => service.createCapitalReceiptIntent(command()));
 });
 
+test("an explicit legal-entity optional-document policy removes only the agreement-document condition", async () => {
+  const bare = new InMemoryShareholderRepository();
+  bare.seedFundingPolicy(ENTITY, syntheticFundingPolicy);
+  bare.seedAgreementDocumentRequirement(ENTITY, "OPTIONAL");
+  bare.seedProfile(profile);
+  bare.seedAgreement(agreement);
+  bare.seedRegistration(registration);
+  bare.seedInstallment(installment);
+  const service = new CapitalReceiptIntentService(bare);
+  const intent = await service.createCapitalReceiptIntent(command({ evidence: [registration.evidence] }));
+  assert.equal(intent.status, "ELIGIBLE");
+  await expectCode("EVIDENCE_REQUIRED", () => service.createCapitalReceiptIntent(command({ evidence: [] })));
+  const missingRegistration = new InMemoryShareholderRepository();
+  missingRegistration.seedFundingPolicy(ENTITY, syntheticFundingPolicy);
+  missingRegistration.seedAgreementDocumentRequirement(ENTITY, "OPTIONAL");
+  missingRegistration.seedProfile(profile);
+  missingRegistration.seedAgreement(agreement);
+  missingRegistration.seedInstallment(installment);
+  await expectCode("REGISTRATION_EVIDENCE_REQUIRED", () =>
+    new CapitalReceiptIntentService(missingRegistration).createCapitalReceiptIntent(command()));
+});
+
 test("an intent without its own evidence reference is rejected", async () => {
   const { service } = harness();
   await expectCode("EVIDENCE_REQUIRED", () => service.createCapitalReceiptIntent(command({ evidence: [] })));

@@ -182,6 +182,12 @@ export const migrationCatalog = [
     checksumSha256: "a3e029227b51fc4fd50ce1235096eb0e79c0140beba6c7410ec29c46a5eee6d1",
     relativePath: "infrastructure/database/migrations/0032_v1_operational_gate_separation.sql",
   },
+  // Owner-approved Al-Beruniy agreement-document policy; no change to receipt/posting gates.
+  {
+    id: "0033_v1_optional_agreement_documents",
+    checksumSha256: "7d732f4e018f5eb87607d724bfb3a1754b80f09c8da6e1637e80664af4fce4f4",
+    relativePath: "infrastructure/database/migrations/0033_v1_optional_agreement_documents.sql",
+  },
 ] as const satisfies readonly MigrationDefinition[];
 
 const migrationTableSql = `

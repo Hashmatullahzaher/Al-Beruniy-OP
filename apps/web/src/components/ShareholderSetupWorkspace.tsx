@@ -30,7 +30,7 @@ const TABS: readonly { readonly id: Tab; readonly copy: Copy }[] = [
 
 const BLOCKER_COPY: Readonly<Record<ShareholderSetupBlocker, Copy>> = {
   AGREEMENT_DRAFT: { en: "The agreement is still a draft", fa: "قرارداد هنوز پیش‌نویس است" },
-  AGREEMENT_EVIDENCE_MISSING: { en: "No signed agreement document is recorded", fa: "سند امضاشدهٔ قرارداد ثبت نشده است" },
+  AGREEMENT_EVIDENCE_MISSING: { en: "Agreement evidence is required by this legal entity's policy", fa: "بر اساس پالیسی این نهاد حقوقی، سند توافق لازم است" },
   REGISTRATION_NOT_VERIFIED: { en: "Formal capital registration is not verified", fa: "ثبت رسمی سرمایه تایید نشده است" },
   NO_FUNDING_DECISION: { en: "Finance has not recorded a funding decision", fa: "مالی هنوز تصمیم تمویل را ثبت نکرده است" },
   RECEIPT_PATH_NOT_OPERATIONAL: { en: "Receiving capital is not operational on company data yet", fa: "دریافت سرمایه هنوز روی داده‌های شرکت فعال نیست" }
@@ -89,7 +89,6 @@ type Form =
   | { kind: "correct-shareholder"; id: string; name: string; reference: string }
   | { kind: "new-agreement"; key: string; shareholder: string; reference: string; amount: string; currency: string; effectiveOn: string; partial: boolean }
   | { kind: "edit-agreement"; id: string; reference: string; amount: string; currency: string; effectiveOn: string; partial: boolean }
-  | { kind: "document"; id: string; key: string; reference: string; date: string; sha256: string }
   | { kind: "new-installment"; key: string; agreement: string; amount: string; dueOn: string }
   | { kind: "edit-installment"; id: string; amount: string; dueOn: string }
   | { kind: "cancel-installment"; id: string; reason: string };
@@ -356,9 +355,8 @@ function AgreementFields({ fa, currencies, value, onChange, currencyLocked = fal
   );
 }
 
-function AgreementCard({ agreement, view, fa, t, locale, canManage, today, form, setForm, busy, run }: AreaProps & { readonly agreement: ShareholderSetupAgreement }) {
+function AgreementCard({ agreement, view, fa, t, locale, canManage, form, setForm, busy, run }: AreaProps & { readonly agreement: ShareholderSetupAgreement }) {
   const editing = form?.kind === "edit-agreement" && form.id === agreement.id ? form : null;
-  const document = form?.kind === "document" && form.id === agreement.id ? form : null;
   const figures: readonly [Copy, string][] = [
     [{ en: "Committed", fa: "تعهدشده" }, agreement.committed],
     [{ en: "Planned in installments", fa: "برنامه‌ریزی در اقساط" }, agreement.planned],
@@ -383,22 +381,26 @@ function AgreementCard({ agreement, view, fa, t, locale, canManage, today, form,
         <ul>{agreement.requestBlockers.map((blocker) => <li key={blocker}>{t(BLOCKER_COPY[blocker])}</li>)}</ul>
       </div>
       <div className="shareholder-documents">
-        <p>{fa ? "سند امضاشدهٔ قرارداد" : "Signed agreement document"}</p>
-        {agreement.documents.length === 0 ? <small>{fa ? "هنوز سندی ثبت نشده است." : "No document recorded yet."}</small> : (
-          <ul>{agreement.documents.map((doc) => (
+        <p>{view.agreementDocumentRequirement === "OPTIONAL"
+          ? (fa ? "سند توافق سرمایه (اختیاری)" : "Agreement document (Optional)")
+          : (fa ? "سند توافق سرمایه" : "Agreement document")}</p>
+        <strong>{fa ? "سند ضمیمه نشده" : "No document attached"}</strong>
+        {agreement.documents.length > 0 ? (
+          <ul aria-label={fa ? "مرجع‌های قدیمی سند؛ فایل ذخیره نشده" : "Earlier document references; files not stored"}>{agreement.documents.map((doc) => (
             <li key={doc.id}><strong>v{doc.version} · {doc.reference}</strong>
               <small>{fa ? "تاریخ سند" : "Document date"} {doc.documentDate} · {doc.recordedBy} · {formatWhen(doc.recordedAt, locale)}</small>
               <code dir="ltr" title="SHA-256">{doc.sha256}</code></li>
           ))}</ul>
-        )}
-        <small>{fa ? "فقط مرجع، تاریخ و اثر انگشت سند نگه داشته می‌شود؛ فایل ذخیره نمی‌شود. ثبت رسمی سرمایه جداگانه است." : "Only the reference, date and fingerprint are kept; no file is stored. Formal capital registration is separate."}</small>
+        ) : null}
+        <button type="button" className="treasury-button" disabled>{fa ? "بارگذاری سند" : "Upload agreement"}</button>
+        <small>{fa
+          ? "ذخیره‌سازی خصوصی سند هنوز فعال نیست. مرجع‌ها و اثر انگشت‌های قبلی فایل ضمیمه یا تأیید حقوقی نیستند. این موضوع مانع ایجاد پیش‌نویس قرارداد یا قسط نمی‌شود."
+          : "Private document storage is not available yet. Earlier references and fingerprints are not attachments or legal verification. This does not block draft agreement or installment setup."}</small>
       </div>
-      {canManage && !editing && !document ? (
+      {canManage && !editing ? (
         <div className="rates-actions">
           {agreement.editable ? <button type="button" className="treasury-button" onClick={() => setForm({ kind: "edit-agreement", id: agreement.id, reference: agreement.reference,
             amount: agreement.committed, currency: agreement.currency, effectiveOn: agreement.effectiveOn, partial: agreement.partialAllowed })}>{fa ? "ویرایش پیش‌نویس" : "Edit draft"}</button> : null}
-          {["DRAFT", "PENDING_EVIDENCE"].includes(agreement.status) ? <button type="button" className="treasury-button" onClick={() => setForm({ kind: "document", id: agreement.id, key: crypto.randomUUID(), reference: "", date: today, sha256: "" })}>
-            {fa ? "ثبت سند قرارداد" : "Record agreement document"}</button> : null}
           {!agreement.editable ? <small className="shareholder-locked">{fa ? "قرارداد دیگر پیش‌نویس نیست؛ ویرایش بسته است." : "No longer a draft; editing is closed."}</small> : null}
         </div>
       ) : null}
@@ -410,17 +412,6 @@ function AgreementCard({ agreement, view, fa, t, locale, canManage, today, form,
           <AgreementFields fa={fa} currencies={view.currencies} value={editing} currencyLocked={agreement.installments.length > 0} onChange={(next) => setForm({ ...editing, ...next })} />
           {agreement.installments.length > 0 ? <p className="admin-hint">{fa ? "پس از ثبت اقساط، واحد پول ثابت است." : "The currency is fixed once installments exist."}</p> : null}
           <FormActions fa={fa} busy={busy} submit={{ en: "Save draft", fa: "ذخیرهٔ پیش‌نویس" }} onCancel={() => setForm(null)} />
-        </form>
-      ) : null}
-      {document ? (
-        <form className="admin-form shareholder-form" aria-label={fa ? "ثبت سند قرارداد" : "Record agreement document"} onSubmit={submitWith(() => void run(
-          { action: "record-agreement-document", capitalAgreementId: agreement.id, documentReference: document.reference, documentDate: document.date,
-            sha256: document.sha256.trim(), idempotencyKey: document.key },
-          { en: "The agreement document was recorded for this agreement.", fa: "سند قرارداد برای همین قرارداد ثبت شد." }))}>
-          <Field label={fa ? "مرجع سند" : "Document reference"}><input value={document.reference} maxLength={200} required onChange={(event) => setForm({ ...document, reference: event.target.value })} /></Field>
-          <Field label={fa ? "تاریخ امضای سند" : "Signing date"}><input type="date" value={document.date} max={today} required onChange={(event) => setForm({ ...document, date: event.target.value })} /></Field>
-          <Field label={fa ? "اثر انگشت SHA-256 (۶۴ حرف)" : "SHA-256 fingerprint (64 characters)"}><input dir="ltr" value={document.sha256} required pattern="[0-9a-fA-F]{64}" maxLength={64} onChange={(event) => setForm({ ...document, sha256: event.target.value })} /></Field>
-          <FormActions fa={fa} busy={busy} submit={{ en: "Record document", fa: "ثبت سند" }} onCancel={() => setForm(null)} />
         </form>
       ) : null}
     </article>

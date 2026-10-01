@@ -16,9 +16,10 @@ test("0031 to 0032 upgrades a populated disposable copy without changing busines
         await client.query("BEGIN");
         await client.query("DROP SCHEMA IF EXISTS abos CASCADE");
         const migrations = await loadMigrations();
-        const separation = migrations.at(-1);
-        assert.equal(separation?.id, "0032_v1_operational_gate_separation");
-        for (const migration of migrations.slice(0, -1)) await client.query(migration.sql);
+        const separationIndex = migrations.findIndex((migration) => migration.id === "0032_v1_operational_gate_separation");
+        assert.ok(separationIndex > 0, "0032 is present after its predecessors");
+        const separation = migrations[separationIndex];
+        for (const migration of migrations.slice(0, separationIndex)) await client.query(migration.sql);
         await client.query("SELECT set_config('abos.runtime_marker',$1,true)", [SYNTHETIC_AUTH_CONFIGURATION.runtimeMarker]);
         const tx: SqlExecutor = {
           query: async <Row extends object>(sql: string, parameters: readonly unknown[] = []) => {

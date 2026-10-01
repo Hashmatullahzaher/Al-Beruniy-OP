@@ -53,6 +53,11 @@ export interface ShareholderRepository {
     legalEntityId: LegalEntityId
   ): Promise<CapitalAgreementFundingPolicy | undefined>;
 
+  /** Per-entity agreement-document policy. A missing decision defaults to REQUIRED. */
+  findAgreementDocumentRequirement(
+    legalEntityId: LegalEntityId
+  ): Promise<"OPTIONAL" | "REQUIRED">;
+
   findRegistrationEvidence(
     legalEntityId: LegalEntityId,
     agreementId: CapitalAgreementId
