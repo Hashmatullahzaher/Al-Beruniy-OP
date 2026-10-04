@@ -1,4 +1,5 @@
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
@@ -14,6 +15,8 @@ import pg from "pg";
  */
 const SHOTS = resolve(__dirname, "../test-results/v1-shareholder-setup");
 const ROOT = resolve(__dirname, "../../..");
+const PDF = Buffer.from("%PDF-1.7\n1 0 obj\n<<>>\nendobj\n%%EOF\n", "ascii");
+const PNG = Buffer.from([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a,0,0,0,0,0x49,0x48,0x44,0x52,0,0,0,1,0,0,0,1]);
 
 test.use({ viewport: { width: 1440, height: 900 } });
 
@@ -29,6 +32,7 @@ test.describe("V1 shareholder setup", () => {
     test.setTimeout(420_000);
     mkdirSync(SHOTS, { recursive: true });
     const accounts = seedPreview();
+    await setAgreementDocumentPolicy("OPTIONAL");
     const before = await moneyFootprint();
 
     // The Super Administrator creates a role with the new permission (labelled in English and Dari).
@@ -104,9 +108,58 @@ test.describe("V1 shareholder setup", () => {
     const why = card.locator(".shareholder-why");
     await expect(why).toContainText("The agreement is still a draft");
     await expect(card.locator(".shareholder-documents")).toContainText("No document attached");
-    await expect(card.getByRole("button", { name: "Upload agreement" })).toBeDisabled();
-    await expect(why).toContainText("Agreement evidence is required by this legal entity's policy");
+    await expect(card.locator(".shareholder-documents")).toContainText("Agreement document (Optional)");
+    await expect(card.getByRole("button", { name: "Upload agreement" })).toBeEnabled();
+    await expect(why).not.toContainText("Agreement evidence is required by this legal entity's policy");
     await expect(why).toContainText("Receiving capital is not operational on company data yet");
+
+    // The optional attachment is operational: bytes are private, SHA-256 is server-generated,
+    // versions are immutable, and an attachment is never described as legal verification.
+    await card.getByRole("button", { name: "Upload agreement" }).click();
+    let upload = card.getByRole("form", { name: "Upload agreement document" });
+    await upload.getByLabel(/PDF or image file/).setInputFiles({ name: "agreement-v1.pdf", mimeType: "application/pdf", buffer: PDF });
+    await upload.getByLabel("Document reference").fill("SYN-AGR-BETA-DOC");
+    await upload.getByLabel("Document date").fill(kabulDate(-5));
+    await upload.getByRole("button", { name: "Upload agreement" }).click();
+    await expect(page.locator(".treasury-message.success")).toContainText("document version was uploaded");
+    await expect(card.locator(".shareholder-documents")).toContainText("Document attached");
+    await expect(card.locator(".shareholder-documents")).toContainText("agreement-v1.pdf");
+    await expect(card.locator("code[title='Document fingerprint (automatic)']")).toHaveText(createHash("sha256").update(PDF).digest("hex"));
+    await expect(card.locator(".shareholder-documents")).toContainText("fingerprint proves file integrity only, not legal verification");
+    const firstView = await card.getByRole("link", { name: "View document" }).first().getAttribute("href");
+    expect(firstView).toBeTruthy();
+    const firstDownload = await page.evaluate(async (url) => {
+      const response = await fetch(url ?? "");
+      return { status: response.status, type: response.headers.get("content-type"), bytes: [...new Uint8Array(await response.arrayBuffer())] };
+    }, firstView);
+    expect(firstDownload).toEqual({ status: 200, type: "application/pdf", bytes: [...PDF] });
+
+    await card.getByRole("button", { name: "Upload another version" }).click();
+    upload = card.getByRole("form", { name: "Upload agreement document" });
+    await upload.getByLabel(/PDF or image file/).setInputFiles({ name: "agreement-v2.png", mimeType: "image/png", buffer: PNG });
+    await upload.getByLabel("Document reference").fill("SYN-AGR-BETA-DOC-V2");
+    await upload.getByRole("button", { name: "Upload agreement" }).click();
+    await expect(card.locator(".shareholder-documents li")).toHaveCount(2);
+    await expect(card.locator(".shareholder-documents")).toContainText("v2 · SYN-AGR-BETA-DOC-V2");
+
+    await card.getByRole("button", { name: "Upload another version" }).click();
+    upload = card.getByRole("form", { name: "Upload agreement document" });
+    await upload.getByLabel(/PDF or image file/).setInputFiles({ name: "fake.pdf", mimeType: "application/pdf", buffer: Buffer.from("not a pdf") });
+    await upload.getByRole("button", { name: "Upload agreement" }).click();
+    await expect(page.locator(".treasury-message.error")).toContainText("Only genuine PDF, JPEG, and PNG files are accepted");
+    await upload.getByRole("button", { name: "Cancel" }).click();
+
+    const oversized = await page.evaluate(async ({ agreementId, documentDate }) => {
+      const formData = new FormData();
+      formData.set("capitalAgreementId", agreementId);
+      formData.set("documentReference", "TOO-LARGE");
+      formData.set("documentDate", documentDate);
+      formData.set("idempotencyKey", crypto.randomUUID());
+      formData.set("file", new File([new Uint8Array(10 * 1024 * 1024 + 1)], "too-large.pdf", { type: "application/pdf" }));
+      const response = await fetch("/api/v1/shareholder/setup/documents", { method: "POST", body: formData });
+      return { status: response.status, body: await response.json() };
+    }, { agreementId: await card.getAttribute("data-agreement-id") ?? "", documentDate: kabulDate(-5) });
+    expect(oversized.status).toBe(413);
 
     // Installments: the plan can never exceed the commitment; cancelling releases its share.
     await tabs.getByRole("tab", { name: "Installments" }).click();
@@ -153,6 +206,8 @@ test.describe("V1 shareholder setup", () => {
     await expect(page.getByTestId("receipt-not-operational")).toContainText("هنوز هیچ پولی دریافت نمی‌شود");
     await page.getByRole("tab", { name: /^قراردادهای سرمایه/ }).click();
     await expect(card).toContainText("پیش‌نویس");
+    await expect(card.locator(".shareholder-documents")).toContainText("سند ضمیمه شده");
+    await expect(card.getByRole("button", { name: "بارگذاری نسخهٔ دیگر" })).toBeVisible();
     await expect(card.locator(".shareholder-why")).toContainText("دریافت سرمایه هنوز روی داده‌های شرکت فعال نیست");
     expect(await page.evaluate(() => document.documentElement.dir)).toBe("rtl");
     await page.screenshot({ path: resolve(SHOTS, "02-agreements-dari.png"), fullPage: true });
@@ -174,14 +229,18 @@ test.describe("V1 shareholder setup", () => {
     expect(await moneyFootprint()).toEqual(before);
     await signOut(page);
 
+    const signedOutDownload = await page.evaluate(async (url) => (await fetch(url ?? "")).status, firstView);
+    expect(signedOutDownload).toBe(401);
+
     // Someone without the permission: the API refuses reads and writes; the page says so.
     await signIn(page, "demo.cashier", accounts["demo.cashier"]);
-    const status = await page.evaluate(async () => ({
+    const status = await page.evaluate(async (documentUrl) => ({
       read: (await fetch("/api/v1/shareholder/setup")).status,
       write: (await fetch("/api/v1/shareholder/setup", { method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "create-shareholder", displayName: "Refused", shareholderSince: "2026-01-01" }) })).status
-    }));
-    expect(status).toEqual({ read: 403, write: 403 });
+        body: JSON.stringify({ action: "create-shareholder", displayName: "Refused", shareholderSince: "2026-01-01" }) })).status,
+      document: (await fetch(documentUrl ?? "")).status
+    }), firstView);
+    expect(status).toEqual({ read: 403, write: 403, document: 403 });
     await page.goto("/shareholders");
     await expect(page.getByRole("heading", { name: "You do not have access" }).first()).toBeVisible();
     expect(await partyCount("Refused")).toBe(0);
@@ -198,6 +257,16 @@ async function moneyFootprint(): Promise<unknown> {
 
 async function partyCount(name: string): Promise<number> {
   return Number(await query("SELECT count(*)::int AS value FROM abos.business_parties WHERE display_name = $1", [name]));
+}
+
+async function setAgreementDocumentPolicy(requirement: "OPTIONAL" | "REQUIRED"): Promise<void> {
+  const result = await query(`INSERT INTO abos.capital_agreement_document_policies
+    (legal_entity_id, document_requirement, decision_reference)
+    SELECT id, $1, 'DISPOSABLE_BROWSER_SECURITY_TEST' FROM abos.legal_entities ORDER BY id LIMIT 1
+    ON CONFLICT (legal_entity_id) DO UPDATE SET document_requirement = EXCLUDED.document_requirement,
+      decision_reference = EXCLUDED.decision_reference
+    RETURNING document_requirement AS value`, [requirement]);
+  expect(result).toBe(requirement);
 }
 
 async function query(sql: string, parameters: readonly unknown[] = []): Promise<unknown> {

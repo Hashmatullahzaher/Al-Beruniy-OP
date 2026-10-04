@@ -82,7 +82,10 @@ async function main(): Promise<void> {
         agreementId: world.agreementId as CapitalAgreementId, installmentId: installmentId as CapitalInstallmentId,
         amount: { amount: asDecimalString("25000.00"), currency: "USD" },
         expectedDestinationAccountId: world.cashAccountId as CashLocationCurrencyAccountId,
-        businessEventAt: new Date().toISOString(),
+        // Keep the disposable preview source date inside the fixed synthetic September 2026
+        // accounting period. Using the wall clock makes this fixture fail as soon as the current
+        // month moves beyond that period, even though the product boundary is working correctly.
+        businessEventAt: "2026-09-22T07:00:00.000Z",
         source: { legalEntityId: world.legalEntityId as LegalEntityId, idempotencyKey: `preview-${randomUUID()}` as IdempotencyKey, correlationId: randomUUID() as CorrelationId },
         evidence: [{ id: evidence.id as never, documentId: evidence.document_id as never, kind: evidence.evidence_kind, version: 1, sha256: evidence.sha256, completedAt: evidence.completed_at.toISOString() }]
       });

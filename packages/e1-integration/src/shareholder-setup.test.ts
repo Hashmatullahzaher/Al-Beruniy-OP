@@ -37,8 +37,11 @@ const SETUP_FUNCTIONS = [
   "shareholder_setup_create_shareholder(text,text,text,jsonb)", "shareholder_setup_correct_shareholder(text,text,text,jsonb)",
   "shareholder_setup_create_agreement(text,text,text,jsonb)", "shareholder_setup_update_agreement(text,text,text,jsonb)",
   "shareholder_setup_add_installment(text,text,text,jsonb)", "shareholder_setup_update_installment(text,text,text,jsonb)",
-  "shareholder_setup_cancel_installment(text,text,text,jsonb)", "shareholder_setup_record_agreement_evidence(text,text,text,jsonb)",
-  "shareholder_setup_workspace(text,text,text)"
+  "shareholder_setup_cancel_installment(text,text,text,jsonb)", "shareholder_setup_workspace(text,text,text)",
+  "shareholder_agreement_document_prepare(text,text,text,uuid)",
+  "shareholder_agreement_document_finalize(text,text,text,jsonb)",
+  "shareholder_agreement_document_read(text,text,text,uuid)",
+  "shareholder_agreement_document_list(text,text,text)"
 ] as const;
 
 interface SessionArgs { readonly proof: string; readonly runtimeDigest: string; readonly tokenDigest: string }
@@ -92,9 +95,11 @@ if (databaseUrl() === undefined) {
     const addInstallment = (session: SessionArgs, agreementId: string, amount: string, input: Json = {}) => call<{ capitalInstallmentId: string; sequenceNumber: number }>(
       "shareholder_setup_add_installment", session,
       { capitalAgreementId: agreementId, expectedAmount: amount, dueOn: "2026-12-01", idempotencyKey: randomUUID(), correlationId: randomUUID(), ...input });
-    const recordDocument = (session: SessionArgs, agreementId: string, input: Json = {}) => call<{ agreementEvidenceId: string; evidenceReferenceId: string; version: number }>(
-      "shareholder_setup_record_agreement_evidence", session,
-      { capitalAgreementId: agreementId, documentReference: "Synthetic signed agreement v1", documentDate: "2026-08-30",
+    const recordDocument = (session: SessionArgs, agreementId: string, input: Json = {}) => call<{
+      agreementEvidenceId: string; evidenceReferenceId: string; storageId: string; version: number; replayed: boolean
+    }>("shareholder_agreement_document_finalize", session,
+      { capitalAgreementId: agreementId, storageId: randomUUID(), originalFileName: "synthetic-agreement.pdf",
+        mediaType: "application/pdf", byteSize: 128, documentReference: "Synthetic signed agreement v1", documentDate: "2026-08-30",
         sha256: "a".repeat(64), idempotencyKey: randomUUID(), correlationId: randomUUID(), ...input });
 
     async function manager(world: SyntheticWorld, userId = world.treasuryManagerId): Promise<SessionArgs> {
@@ -383,7 +388,7 @@ if (databaseUrl() === undefined) {
       assert.deepEqual(view?.documents.map((document) => [document.version, document.documentDate]), [[1, "2026-08-30"], [2, "2026-09-01"]]);
       assert.ok(!view?.requestBlockers.includes("AGREEMENT_EVIDENCE_MISSING"));
       await assert.rejects(() => recordDocument(session, agreementId, { documentDate: "2999-01-01" }), /cannot be in the future/);
-      await assert.rejects(() => recordDocument(session, agreementId, { sha256: "xyz" }), /SHA-256/);
+      await assert.rejects(() => recordDocument(session, agreementId, { sha256: "xyz" }), /valid agreement document metadata/);
       // Links are append-only and one document evidences one agreement.
       await assert.rejects(() => harness.executor.query("UPDATE abos.capital_agreement_evidence SET document_reference = 'x'"), /audit|immutable|not permitted|cannot/i);
       const { capitalAgreementId: otherAgreement } = await createAgreement(session, holder.shareholderProfileId);
@@ -581,6 +586,7 @@ if (databaseUrl() === undefined) {
         "business_party_roles.INSERT(business_party_id,effective_from,role_code)",
         "capital_agreement_commitment_usage.INSERT(capital_agreement_id,consumed_amount,legal_entity_id)",
         "capital_agreement_commitment_usage.UPDATE(capital_agreement_id)",
+        "capital_agreement_document_files.INSERT(agreement_evidence_id,byte_size,capital_agreement_id,legal_entity_id,media_type,original_file_name,sha256,storage_id,uploaded_by_user_account_id)",
         "capital_agreement_evidence.INSERT(capital_agreement_id,document_date,document_reference,evidence_reference_id,id,legal_entity_id,recorded_by_user_account_id,version)",
         "capital_agreements.INSERT(agreement_kind,agreement_reference,committed_amount,created_by_user_account_id,currency_code,effective_on,id,legal_entity_id,partial_installments_allowed,shareholder_profile_id,status)",
         "capital_agreements.UPDATE(agreement_reference,committed_amount,currency_code,effective_on,partial_installments_allowed)",
@@ -613,10 +619,14 @@ if (databaseUrl() === undefined) {
       for (const helper of ["shareholder_setup_actor(text,text,text,text[])", "shareholder_setup_received(uuid,uuid)", "shareholder_setup_audit(uuid,uuid,uuid,text,text,uuid,jsonb,jsonb)"]) {
         assert.equal((await harness.executor.query<{ ok: boolean }>("SELECT has_function_privilege('abos_e1_runtime', $1, 'EXECUTE') AS ok", [`abos.${helper}`])).rows[0]?.ok, false, helper);
       }
+      assert.equal((await harness.executor.query<{ ok: boolean }>(
+        "SELECT has_function_privilege('abos_e1_runtime', 'abos.shareholder_setup_record_agreement_evidence(text,text,text,jsonb)', 'EXECUTE') AS ok"
+      )).rows[0]?.ok, false, "metadata-only document recording is no longer an application entry point");
       for (const statement of [
         `INSERT INTO abos.business_parties (id, legal_entity_id, display_name, status) VALUES (gen_random_uuid(), '${world.legalEntityId}', 'x', 'ACTIVE')`,
         "UPDATE abos.capital_agreements SET committed_amount = 1", "UPDATE abos.capital_installments SET status = 'CANCELLED'",
-        "SELECT * FROM abos.capital_agreement_evidence", "DELETE FROM abos.capital_agreement_evidence"
+        "SELECT * FROM abos.capital_agreement_evidence", "DELETE FROM abos.capital_agreement_evidence",
+        "SELECT * FROM abos.capital_agreement_document_files"
       ]) {
         await assert.rejects(() => restricted.executor.query(statement), /permission denied/, statement);
       }

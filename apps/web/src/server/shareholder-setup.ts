@@ -17,7 +17,28 @@ import { json, TreasuryUnavailableError } from "@/server/treasury";
  */
 
 export async function shareholderSetupWorkspace(): Promise<ShareholderSetupWorkspace> {
-  return restrictedFinanceAuthenticator().shareholderSetupWorkspace(financeHandoffRuntime().executor, await sessionToken());
+  const token = await sessionToken();
+  const executor = financeHandoffRuntime().executor;
+  const authenticator = restrictedFinanceAuthenticator();
+  const workspace = await authenticator.shareholderSetupWorkspace(executor, token);
+  const files = await authenticator.agreementDocuments(executor, token);
+  const byEvidence = new Map(files.map(file => [file.agreementEvidenceId, file]));
+  return {
+    ...workspace,
+    agreements: workspace.agreements.map(agreement => ({
+      ...agreement,
+      documents: agreement.documents.map(document => {
+        const file = byEvidence.get(document.id);
+        return {
+          ...document,
+          attached: file !== undefined,
+          fileName: file?.originalFileName ?? null,
+          mediaType: file?.mediaType ?? null,
+          byteSize: file === undefined ? null : Number(file.byteSize)
+        };
+      })
+    }))
+  };
 }
 
 export async function runShareholderSetupCommand(command: ShareholderSetupCommand): Promise<ShareholderSetupResult> {
@@ -56,9 +77,6 @@ export function shareholderSetupCommand(body: Record<string, unknown>): Sharehol
         dueOn: nullable("dueOn") };
     case "cancel-installment":
       return { action, capitalInstallmentId: text(body, "capitalInstallmentId"), reason: text(body, "reason") };
-    case "record-agreement-document":
-      return { action, capitalAgreementId: text(body, "capitalAgreementId"), documentReference: text(body, "documentReference"),
-        documentDate: text(body, "documentDate"), sha256: text(body, "sha256"), idempotencyKey: key(), correlationId: randomUUID() };
     default:
       throw new IdentityError("VALIDATION_FAILED", "Unknown shareholder setup action.");
   }

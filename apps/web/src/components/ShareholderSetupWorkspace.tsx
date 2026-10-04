@@ -89,6 +89,7 @@ type Form =
   | { kind: "correct-shareholder"; id: string; name: string; reference: string }
   | { kind: "new-agreement"; key: string; shareholder: string; reference: string; amount: string; currency: string; effectiveOn: string; partial: boolean }
   | { kind: "edit-agreement"; id: string; reference: string; amount: string; currency: string; effectiveOn: string; partial: boolean }
+  | { kind: "upload-document"; id: string; key: string; reference: string; date: string; file: File | null }
   | { kind: "new-installment"; key: string; agreement: string; amount: string; dueOn: string }
   | { kind: "edit-installment"; id: string; amount: string; dueOn: string }
   | { kind: "cancel-installment"; id: string; reason: string };
@@ -138,6 +139,34 @@ export function ShareholderSetupWorkspace() {
     }
     setForm(null);
     setMessage({ tone: "ok", text: t(success) });
+    await reload();
+  };
+
+  const upload = async (agreementId: string, active: Extract<Form, { kind: "upload-document" }>) => {
+    if (active.file === null) return;
+    setBusy(true); setMessage(null);
+    const body = new FormData();
+    body.set("capitalAgreementId", agreementId);
+    body.set("documentReference", active.reference);
+    body.set("documentDate", active.date);
+    body.set("idempotencyKey", active.key);
+    body.set("file", active.file);
+    let response: Response;
+    try {
+      response = await fetch("/api/v1/shareholder/setup/documents", { method: "POST", body });
+    } catch {
+      setBusy(false); setMessage({ tone: "error", text: fa ? "بارگذاری انجام نشد. دوباره کوشش کنید." : "Upload failed. Try again." });
+      return;
+    }
+    const result = await response.json() as { ok: boolean; error?: { code?: string; message?: string } };
+    setBusy(false);
+    if (!response.ok || !result.ok) {
+      if (response.status === 401) { setGate("signed-out"); return; }
+      setMessage({ tone: "error", text: result.error?.message ?? (fa ? "بارگذاری انجام نشد." : "Upload failed.") });
+      return;
+    }
+    setForm(null);
+    setMessage({ tone: "ok", text: fa ? "نسخهٔ سند با موفقیت بارگذاری شد." : "The agreement document version was uploaded." });
     await reload();
   };
 
@@ -191,7 +220,7 @@ export function ShareholderSetupWorkspace() {
           <>
             {!canManage ? <p className="admin-hint">{fa ? "شما فقط می‌توانید ببینید؛ تنظیم به صلاحیت «تنظیم سهامداران و قراردادهای سرمایه» نیاز دارد." : "You can view only; making changes needs the “Set up shareholders and capital agreements” permission."}</p> : null}
             {tab === "shareholders" ? <ShareholdersArea view={view} fa={fa} t={t} locale={locale} canManage={canManage} today={today} form={form} setForm={setForm} busy={busy} run={run} /> : null}
-            {tab === "agreements" ? <AgreementsArea view={view} fa={fa} t={t} locale={locale} canManage={canManage} today={today} form={form} setForm={setForm} busy={busy} run={run} /> : null}
+            {tab === "agreements" ? <AgreementsArea view={view} fa={fa} t={t} locale={locale} canManage={canManage} today={today} form={form} setForm={setForm} busy={busy} run={run} upload={upload} /> : null}
             {tab === "installments" ? <InstallmentsArea view={view} fa={fa} t={t} locale={locale} canManage={canManage} today={today} form={form} setForm={setForm} busy={busy} run={run} /> : null}
           </>
         )}
@@ -204,6 +233,7 @@ interface AreaProps {
   readonly view: SetupView; readonly fa: boolean; readonly t: (copy: Copy) => string; readonly locale: "en" | "fa";
   readonly canManage: boolean; readonly today: string; readonly form: Form | null; readonly setForm: (form: Form | null) => void;
   readonly busy: boolean; readonly run: (body: Record<string, unknown>, success: Copy) => Promise<void>;
+  readonly upload?: ((agreementId: string, active: Extract<Form, { kind: "upload-document" }>) => Promise<void>) | undefined;
 }
 
 function submitWith(handler: () => void) {
@@ -291,7 +321,7 @@ function ShareholderRow({ holder, fa, t, canManage, correcting, setForm, busy, r
   );
 }
 
-function AgreementsArea({ view, fa, t, locale, canManage, today, form, setForm, busy, run }: AreaProps) {
+function AgreementsArea({ view, fa, t, locale, canManage, today, form, setForm, busy, run, upload }: AreaProps) {
   const creating = form?.kind === "new-agreement" ? form : null;
   const activeHolders = view.shareholders.filter((holder) => holder.status === "ACTIVE");
   return (
@@ -328,7 +358,7 @@ function AgreementsArea({ view, fa, t, locale, canManage, today, form, setForm, 
       ) : null}
       {view.agreements.length === 0 ? <p className="treasury-placeholder">{fa ? "هنوز هیچ قرارداد سرمایه‌ای وجود ندارد." : "There is no capital agreement yet."}</p> : null}
       {view.agreements.map((agreement) => (
-        <AgreementCard key={agreement.id} agreement={agreement} view={view} fa={fa} t={t} locale={locale} canManage={canManage} today={today} form={form} setForm={setForm} busy={busy} run={run} />
+        <AgreementCard key={agreement.id} agreement={agreement} view={view} fa={fa} t={t} locale={locale} canManage={canManage} today={today} form={form} setForm={setForm} busy={busy} run={run} upload={upload} />
       ))}
     </section>
   );
@@ -355,8 +385,10 @@ function AgreementFields({ fa, currencies, value, onChange, currencyLocked = fal
   );
 }
 
-function AgreementCard({ agreement, view, fa, t, locale, canManage, form, setForm, busy, run }: AreaProps & { readonly agreement: ShareholderSetupAgreement }) {
+function AgreementCard({ agreement, view, fa, t, locale, canManage, today, form, setForm, busy, run, upload }: AreaProps & { readonly agreement: ShareholderSetupAgreement }) {
   const editing = form?.kind === "edit-agreement" && form.id === agreement.id ? form : null;
+  const uploading = form?.kind === "upload-document" && form.id === agreement.id ? form : null;
+  const attached = agreement.documents.some(document => document.attached);
   const figures: readonly [Copy, string][] = [
     [{ en: "Committed", fa: "تعهدشده" }, agreement.committed],
     [{ en: "Planned in installments", fa: "برنامه‌ریزی در اقساط" }, agreement.planned],
@@ -365,7 +397,8 @@ function AgreementCard({ agreement, view, fa, t, locale, canManage, form, setFor
     [{ en: "Remaining", fa: "باقی‌مانده" }, agreement.remaining]
   ];
   return (
-    <article className="module-content-card shareholder-agreement" aria-label={agreement.reference} data-agreement={agreement.reference}>
+    <article className="module-content-card shareholder-agreement" aria-label={agreement.reference}
+      data-agreement={agreement.reference} data-agreement-id={agreement.id}>
       <div className="module-card-heading"><div><p>{agreement.shareholderName} · {agreement.currency}</p><h2 dir="ltr">{agreement.reference}</h2></div>
         <span>{fa ? "از" : "Effective"} {agreement.effectiveOn}</span></div>
       <p className="shareholder-chips">
@@ -384,25 +417,46 @@ function AgreementCard({ agreement, view, fa, t, locale, canManage, form, setFor
         <p>{view.agreementDocumentRequirement === "OPTIONAL"
           ? (fa ? "سند توافق سرمایه (اختیاری)" : "Agreement document (Optional)")
           : (fa ? "سند توافق سرمایه" : "Agreement document")}</p>
-        <strong>{fa ? "سند ضمیمه نشده" : "No document attached"}</strong>
+        <strong>{attached ? (fa ? "سند ضمیمه شده" : "Document attached") : (fa ? "سند ضمیمه نشده" : "No document attached")}</strong>
         {agreement.documents.length > 0 ? (
-          <ul aria-label={fa ? "مرجع‌های قدیمی سند؛ فایل ذخیره نشده" : "Earlier document references; files not stored"}>{agreement.documents.map((doc) => (
+          <ul aria-label={fa ? "نسخه‌های سند توافق" : "Agreement document versions"}>{agreement.documents.map((doc) => (
             <li key={doc.id}><strong>v{doc.version} · {doc.reference}</strong>
               <small>{fa ? "تاریخ سند" : "Document date"} {doc.documentDate} · {doc.recordedBy} · {formatWhen(doc.recordedAt, locale)}</small>
-              <code dir="ltr" title="SHA-256">{doc.sha256}</code></li>
+              {doc.attached ? <small>{doc.fileName} · {doc.mediaType} · {doc.byteSize?.toLocaleString(locale)} {fa ? "بایت" : "bytes"}</small> : <small>{fa ? "فقط مرجع قدیمی؛ فایل ذخیره نشده" : "Earlier reference only; no stored file"}</small>}
+              <code dir="ltr" title={fa ? "اثر انگشت دیجیتالی سند (خودکار)" : "Document fingerprint (automatic)"}>{doc.sha256}</code>
+              {doc.attached ? <span className="rates-actions">
+                <a className="treasury-button" href={`/api/v1/shareholder/setup/documents/${doc.id}`} target="_blank" rel="noopener noreferrer">{fa ? "مشاهده سند" : "View document"}</a>
+                <a className="treasury-button" href={`/api/v1/shareholder/setup/documents/${doc.id}?download=1`}>{fa ? "دانلود سند" : "Download document"}</a>
+              </span> : null}</li>
           ))}</ul>
         ) : null}
-        <button type="button" className="treasury-button" disabled>{fa ? "بارگذاری سند" : "Upload agreement"}</button>
+        {canManage && uploading === null ? <button type="button" className="treasury-button" onClick={() => setForm({
+          kind: "upload-document", id: agreement.id, key: crypto.randomUUID(), reference: agreement.reference, date: today, file: null
+        })}>{attached ? (fa ? "بارگذاری نسخهٔ دیگر" : "Upload another version") : (fa ? "بارگذاری سند" : "Upload agreement")}</button> : null}
         <small>{fa
-          ? "ذخیره‌سازی خصوصی سند هنوز فعال نیست. مرجع‌ها و اثر انگشت‌های قبلی فایل ضمیمه یا تأیید حقوقی نیستند. این موضوع مانع ایجاد پیش‌نویس قرارداد یا قسط نمی‌شود."
-          : "Private document storage is not available yet. Earlier references and fingerprints are not attachments or legal verification. This does not block draft agreement or installment setup."}</small>
+          ? "فایل به‌صورت خصوصی نگهداری می‌شود. اثر انگشت فقط یکپارچگی فایل را نشان می‌دهد و تأیید حقوقی یا ثبت رسمی نیست. نبود سند مانع پیش‌نویس قرارداد یا قسط نمی‌شود."
+          : "The file is retained privately. Its fingerprint proves file integrity only, not legal verification or formal registration. A missing file does not block draft agreement or installment setup."}</small>
       </div>
-      {canManage && !editing ? (
+      {canManage && !editing && !uploading ? (
         <div className="rates-actions">
           {agreement.editable ? <button type="button" className="treasury-button" onClick={() => setForm({ kind: "edit-agreement", id: agreement.id, reference: agreement.reference,
             amount: agreement.committed, currency: agreement.currency, effectiveOn: agreement.effectiveOn, partial: agreement.partialAllowed })}>{fa ? "ویرایش پیش‌نویس" : "Edit draft"}</button> : null}
           {!agreement.editable ? <small className="shareholder-locked">{fa ? "قرارداد دیگر پیش‌نویس نیست؛ ویرایش بسته است." : "No longer a draft; editing is closed."}</small> : null}
         </div>
+      ) : null}
+      {uploading ? (
+        <form className="admin-form shareholder-form" aria-label={fa ? "بارگذاری سند توافق" : "Upload agreement document"}
+          onSubmit={submitWith(() => void upload?.(agreement.id, uploading))}>
+          <h3>{attached ? (fa ? "بارگذاری نسخهٔ دیگر" : "Upload another version") : (fa ? "بارگذاری سند" : "Upload agreement")}</h3>
+          <Field label={fa ? "فایل PDF یا تصویر (حداکثر ۱۰ مگابایت)" : "PDF or image file (maximum 10 MB)"}><input type="file"
+            accept="application/pdf,image/jpeg,image/png,.pdf,.jpg,.jpeg,.png" required
+            onChange={(event) => setForm({ ...uploading, file: event.target.files?.[0] ?? null })} /></Field>
+          <Field label={fa ? "مرجع سند" : "Document reference"}><input value={uploading.reference} maxLength={200} required
+            onChange={(event) => setForm({ ...uploading, reference: event.target.value })} /></Field>
+          <Field label={fa ? "تاریخ سند" : "Document date"}><input type="date" value={uploading.date} max={today} required
+            onChange={(event) => setForm({ ...uploading, date: event.target.value })} /></Field>
+          <FormActions fa={fa} busy={busy} submit={{ en: "Upload agreement", fa: "بارگذاری سند" }} onCancel={() => setForm(null)} />
+        </form>
       ) : null}
       {editing ? (
         <form className="admin-form shareholder-form" aria-label={fa ? "ویرایش پیش‌نویس قرارداد" : "Edit draft agreement"} onSubmit={submitWith(() => void run(

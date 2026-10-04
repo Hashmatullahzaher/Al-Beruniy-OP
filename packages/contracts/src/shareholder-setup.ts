@@ -45,6 +45,44 @@ export interface ShareholderSetupDocument {
   readonly sha256: string;
   readonly recordedAt: string;
   readonly recordedBy: string;
+  /** True only when immutable bytes exist in the configured private document vault. */
+  readonly attached: boolean;
+  readonly fileName: string | null;
+  readonly mediaType: string | null;
+  readonly byteSize: number | null;
+}
+
+export interface AgreementDocumentPrepareResult {
+  readonly legalEntityId: string;
+  readonly capitalAgreementId: string;
+}
+
+export interface AgreementDocumentFinalizeInput {
+  readonly capitalAgreementId: string;
+  readonly storageId: string;
+  readonly originalFileName: string;
+  readonly mediaType: "application/pdf" | "image/jpeg" | "image/png";
+  readonly byteSize: number;
+  readonly sha256: string;
+  readonly documentReference: string;
+  readonly documentDate: string;
+  readonly idempotencyKey: string;
+  readonly correlationId: string;
+}
+
+export interface AgreementDocumentRecord {
+  readonly agreementEvidenceId: string;
+  readonly evidenceReferenceId?: string;
+  readonly capitalAgreementId: string;
+  readonly legalEntityId: string;
+  readonly storageId: string;
+  readonly originalFileName: string;
+  readonly mediaType: "application/pdf" | "image/jpeg" | "image/png";
+  readonly byteSize: number;
+  readonly sha256: string;
+  readonly version: number;
+  readonly uploadedAt: string;
+  readonly replayed: boolean;
 }
 
 export interface ShareholderSetupAgreement {

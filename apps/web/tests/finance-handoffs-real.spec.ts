@@ -41,7 +41,9 @@ test.describe("Finance handoff against the dev sandbox", () => {
     // These assertions require both finance_handoff_workspace and finance_handoff_trace
     // to execute successfully through the restricted role. The old qualified COALESCE
     // fails at this point with PostgreSQL 42883.
-    await expect(page.locator(".treasury-identity strong")).toContainText("Synthetic Intent Creator");
+    // The workspace presents the actor's effective Finance role; the token above is still issued
+    // to the Synthetic Intent Creator and the visible prepare action proves that authority.
+    await expect(page.locator(".treasury-identity strong")).toContainText("Finance preparer");
     const handoff = page.getByRole("button", { name: /RCPT-FINANCE-BROWSER-0001/ });
     await expect(handoff).toContainText("USD 25,000.00");
     const traceResponse = page.waitForResponse(response =>

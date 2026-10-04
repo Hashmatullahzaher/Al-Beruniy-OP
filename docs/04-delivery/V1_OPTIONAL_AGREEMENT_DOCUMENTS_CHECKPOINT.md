@@ -1,6 +1,6 @@
 # V1 optional shareholder agreement documents — isolated checkpoint
 
-**Starting checkpoint:** `e940df515efdb49f10980fddbc82b1b155ac4f15` on `v1/integration`.
+**Starting implementation checkpoint:** `28377dd458f618ddfa23f76adf5cba3aba2db331` on `codex/v1-optional-shareholder-documents` (based on the accepted `e940df515efdb49f10980fddbc82b1b155ac4f15` integration checkpoint).
 **Scope:** Owner-approved Al-Beruniy policy that a physical agreement document is optional for shareholder and draft-agreement setup. This is not approval for a capital receipt or posting.
 
 ## Implemented in the isolated branch
@@ -8,27 +8,39 @@
 - Migration 0033 adds a legal-entity-scoped `capital_agreement_document_policies` table. A missing row remains `REQUIRED`; only the exact Al-Beruniy legal entity identified at checkpoint 0032 receives `OPTIONAL`. The row records this owner decision. No existing shareholder, agreement, installment, evidence, Treasury or financial row is changed by the migration.
 - The three existing read/request functions consult the policy when deciding whether a missing `CAPITAL_AGREEMENT` reference is a blocker. Other entities remain subject to the prior document check. The synthetic-only capital request gate and all Treasury, Finance and General Ledger controls remain unchanged.
 - The shareholder domain's in-memory and PostgreSQL adapters use the same per-entity decision. Draft shareholder, agreement and installment setup already works without a document.
-- The English/Dari shareholder screen no longer asks for a manually typed SHA-256 or implies that a reference-only record is an uploaded or legally verified document. It displays `No document attached / سند ضمیمه نشده`; the upload control remains disabled and explains that private storage is unavailable.
+- The English/Dari shareholder screen never asks for a manually typed SHA-256. It identifies the agreement document as optional for Al-Beruniy, supports upload/view/download/version history, and keeps legacy reference-only records visibly distinct from retained files.
 
-## Architectural gap: file upload is not implemented
+## Private file retention implemented in migration 0034
 
-`apps/web` has no private file-storage adapter, protected download route, scanning/quarantine workflow or document-byte retention system. Migration 0031 stores only a reference, date and caller-supplied SHA-256; it never receives a file. Those legacy metadata rows must not be labelled `Document uploaded` or used as proof of signing, registration, identity or legal validity. No file bytes are uploaded in this checkpoint.
+The existing Documents page is a Stage 0 fixture browser and has no storage adapter. Reusing it would have falsely implied that its preview records were operational. This checkpoint therefore adds one narrow private vault for capital-agreement attachments without turning the general Documents preview into an operational module.
 
-The smallest safe subsequent upload slice needs:
+- `ABOS_DOCUMENT_STORAGE_ROOT` must name an absolute private directory outside `public` and `.next`. File bytes are stored there under server-generated UUID identifiers; original names never become paths and there are no public URLs.
+- Upload and download are authenticated server routes. Every request derives the user and legal entity from the live database session, then calls agreement-scoped `SECURITY DEFINER` functions requiring `shareholder.setup.manage` or `shareholder.read`. Runtime credentials receive no document-table write privilege.
+- The server permits only PDF, JPEG and PNG, validates byte signatures rather than the browser MIME declaration, caps files at 10 MiB, normalizes the retained display name, and computes SHA-256 from the received bytes. It never accepts a caller-entered digest. A bounded stream reader enforces the multipart envelope limit even when a chunked request has no `Content-Length` header.
+- File creation is staged, flushed and atomically linked into the vault with create-only semantics. Existing object identifiers cannot be replaced. A failed database finalize removes only a candidate this request successfully created; a storage-ID collision cannot delete an existing immutable object. Finalized versions cannot be updated or deleted and uploading again creates the next immutable version.
+- Migration 0034 links each metadata row to exactly one legal entity and capital agreement. Download reauthorizes the current session and rechecks the stored byte length and SHA-256 before returning `private, no-store`, `nosniff` content.
+- Audit rows contain the agreement/evidence IDs, version, MIME type, length and digest; file contents and original names are excluded. A matching digest proves byte integrity only. It does not prove signatures, registration, legal validity or shareholder identity and cannot activate an agreement or authorize a receipt.
 
-1. A private, backed-up, encrypted object store with environment-specific credentials and an agreed retention/deletion policy.
-2. A server-controlled upload endpoint that verifies a current session and legal-entity/document permission, enforces an approved size limit, checks actual PDF/image signatures, quarantines/scans bytes, computes SHA-256 from the received bytes, and writes immutable object/version metadata transactionally against the exact agreement.
-3. An authorized, audited download path that rechecks current entity and permission for each request, serves private bytes without public file URLs, and never logs file contents or sensitive metadata.
-4. Disposable-object-store and PostgreSQL tests for version history, digest correctness, corrupted/oversized/disguised files, interrupted uploads, revoked sessions, cross-entity denial, and no financial side effect; plus English/Dari desktop/mobile browser checks.
+Legacy 0031 reference/digest rows remain visible as `Earlier reference only; no stored file`. They are never presented as uploaded files.
 
-Do not enable the upload control or mark a file `Document uploaded / سند بارگذاری شد` until that complete path passes. A matching SHA-256 means only that bytes match a recorded digest; it is not legal authentication. Formal registration and Finance policy remain separate unresolved controls for any future real capital receipt.
+## Backup and restore pairing
 
-**Deployment boundary:** 0033 has not been applied to `abos_v1_local_review`. The real shareholder, draft agreement, installment, policies and permissions remain untouched. Test databases and files must be disposable; never run schema-reset tests against the preserved review database.
+A PostgreSQL backup does not contain vault bytes. An operator must quiesce uploads, take the PostgreSQL backup, export the corresponding immutable file metadata, and create a vault backup with `createDocumentVaultBackup`. The backup contains a versioned manifest plus every referenced object, and creation fails on any missing or mismatched byte length/digest. Restore the matching PostgreSQL backup and vault together; `restoreDocumentVaultBackup` requires its manifest to exactly equal the database metadata supplied by the operator, verifies every object, and refuses to replace an existing object. Disk encryption, offline-media encryption, retention and disaster-recovery custody remain deployment responsibilities; this local V1 slice does not invent those company policies.
+
+Normal failed uploads remove their unlinked candidate. A process or power loss at the narrow boundary between object creation and metadata finalization can leave an unreferenced object. It has no database ID exposed through the application and is therefore inaccessible to users. `auditDocumentVault` compares the vault with an exact PostgreSQL metadata export and reports missing, corrupted and unexpected objects for operator review; it never silently deletes anything. Stale `.part` files and reported unexpected objects must be investigated before an explicit cleanup decision. Finalized objects are never silently deleted or replaced.
+
+**Deployment boundary:** migrations 0033 and 0034 have not been applied to `abos_v1_local_review`. The real shareholder, draft agreement, installment, policies and permissions remain untouched. Test databases and vaults must be disposable; never run schema-reset tests against the preserved review database.
 
 ## Validation on disposable infrastructure
 
-- Lint, strict typecheck, production web build, and the unit suite passed.
-- PostgreSQL shareholder setup/security tests passed (14/14). The full PostgreSQL integration run passed 173/174; its sole failure was an older upgrade test assuming 0032 was the last migration. That test was corrected to select 0032 by ID and then passed independently (1/1).
-- PostgreSQL catalog inspection confirmed that all three replaced functions retain their prior `SECURITY DEFINER` owners; only their two owner roles can read the policy columns, and restricted runtime roles have no direct policy-table read or write privilege.
-- The shareholder setup browser flow passed (1/1), including English/Dari desktop and mobile checks. The serial browser smoke suite passed (7/7).
-- Upload, retrieval, SHA-256-from-file, and document-version tests are blocked because no private file storage exists. No claim of secure upload completion is made.
+- Private-vault unit tests pass 9/9, covering signature validation, server digesting, size limits, path rejection, create-only immutability, exact-manifest backup and restore, and version preservation.
+- PostgreSQL shareholder setup/security tests pass 12/12, including optional setup, agreement-specific linkage, live permission checks, cross-entity denial, version history, runtime table denial and no Treasury/GL side effect.
+- The operational browser flow passes 1/1 with a disposable database and vault: optional setup without a file, two uploads, authorized view/download, automatic SHA-256, invalid and oversized rejection, signed-out and unauthorized download denial, English/Dari, RTL and phone layout.
+- Migration 0034 SHA-256 is `2b9e9dd2823d5270dc4a73bc4d372cb16ed790588cb9c77a14b0111af5df7ead`, exactly matching the committed migration registry.
+- Lint passes with zero warnings; strict typecheck passes all 12 workspace packages.
+- Unit tests pass 136/136, including 9/9 private-vault tests.
+- The complete serial PostgreSQL suite passes 174/174 with zero failures or skips.
+- The Next.js production build passes and includes both authenticated document routes.
+- Smoke tests pass 7/7.
+- The complete serial browser suite passes 52/52 with every guarded database journey enabled and no skipped tests. This includes optional setup without a document, two immutable upload versions, authorized view/download, server-computed SHA-256, invalid and oversized rejection, signed-out and unauthorized denial, cross-entity enforcement, Dari/RTL, phone layout, and zero Treasury/General Ledger side effects.
+- Two legacy disposable fixture scripts now use their fixed September 2026 source date instead of the wall clock. This keeps their source inside their fixed synthetic open period and removes a calendar-dependent test failure; production transaction dating is unchanged.

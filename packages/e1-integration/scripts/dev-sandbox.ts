@@ -85,7 +85,10 @@ async function main(): Promise<void> {
           installmentId: installmentId as CapitalInstallmentId,
           amount: { amount: asDecimalString("25000.00"), currency: "USD" },
           expectedDestinationAccountId: world.cashAccountId as CashLocationCurrencyAccountId,
-          businessEventAt: new Date().toISOString(),
+          // The disposable sandbox uses a fixed September 2026 open period. Keep its source
+          // event inside that period so the preview remains reproducible after the wall clock
+          // advances to another month.
+          businessEventAt: "2026-09-22T07:00:00.000Z",
           source: {
             legalEntityId: world.legalEntityId as LegalEntityId,
             idempotencyKey: `dev-${randomUUID()}` as IdempotencyKey,

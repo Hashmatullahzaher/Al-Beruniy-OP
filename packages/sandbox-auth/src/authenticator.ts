@@ -25,6 +25,9 @@ import type {
   SandboxLegalEntityScope,
   SandboxPostingGate,
   ServerActorContext,
+  AgreementDocumentFinalizeInput,
+  AgreementDocumentPrepareResult,
+  AgreementDocumentRecord,
   ShareholderSetupAction,
   ShareholderSetupCommand,
   ShareholderSetupResult,
@@ -495,6 +498,36 @@ export class SandboxAuthenticator {
       [JSON.stringify(payload)],
       "Shareholder setup returned no result"
     );
+  }
+
+  async prepareAgreementDocument(
+    executor: SqlExecutor, token: string, capitalAgreementId: string
+  ): Promise<AgreementDocumentPrepareResult> {
+    return this.operationalFinanceFunction<AgreementDocumentPrepareResult>(executor,
+      "SELECT abos.shareholder_agreement_document_prepare($1,$2,$3,$4::uuid) AS value",
+      token, [capitalAgreementId], "Agreement document upload is unavailable");
+  }
+
+  async finalizeAgreementDocument(
+    executor: SqlExecutor, token: string, input: AgreementDocumentFinalizeInput
+  ): Promise<AgreementDocumentRecord> {
+    return this.operationalFinanceFunction<AgreementDocumentRecord>(executor,
+      "SELECT abos.shareholder_agreement_document_finalize($1,$2,$3,$4::jsonb) AS value",
+      token, [JSON.stringify(input)], "Agreement document upload is unavailable");
+  }
+
+  async agreementDocument(
+    executor: SqlExecutor, token: string, agreementEvidenceId: string
+  ): Promise<AgreementDocumentRecord> {
+    return this.operationalFinanceFunction<AgreementDocumentRecord>(executor,
+      "SELECT abos.shareholder_agreement_document_read($1,$2,$3,$4::uuid) AS value",
+      token, [agreementEvidenceId], "Agreement document is unavailable");
+  }
+
+  async agreementDocuments(executor: SqlExecutor, token: string): Promise<readonly AgreementDocumentRecord[]> {
+    return this.operationalFinanceFunction<readonly AgreementDocumentRecord[]>(executor,
+      "SELECT abos.shareholder_agreement_document_list($1,$2,$3) AS value",
+      token, [], "Agreement documents are unavailable");
   }
 
   /** Aggregate company dashboard figures; refused without company.dashboard.read (read only). */
