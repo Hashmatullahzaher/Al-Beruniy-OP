@@ -51,12 +51,14 @@ test.describe("V1 shareholder contributions", () => {
     await expect(simple).toBeVisible();
     await expect(page.getByRole("tablist", { name: "Shareholder areas" })).toHaveCount(0, { timeout: 2_000 });
 
-    // The seeded shareholder's earlier cash capital agreement is shown as history, separately.
+    // A shareholder with only a legacy cash agreement shows it as a legacy cash commitment, never "None yet".
     const legacyHolder = page.locator("article.contribution-card", { hasText: "Synthetic Shareholder One" });
-    await expect(legacyHolder.getByTestId("legacy-cash-agreements")).toContainText("Legacy cash capital agreement");
+    await expect(legacyHolder.getByTestId("legacy-commitment-chip")).toHaveText("Legacy cash commitment: USD 100,000.00 · Eligible");
+    await expect(legacyHolder.getByTestId("legacy-cash-agreements")).toContainText("Legacy cash commitment");
     await expect(legacyHolder.getByTestId("legacy-cash-agreements")).toContainText("SYN-CAP-");
-    await expect(legacyHolder.locator(".contribution-none")).toHaveText("None yet");
+    await expect(legacyHolder.locator(".contribution-none")).toHaveCount(0);
     await expect(legacyHolder.locator("table.contribution-table")).toHaveCount(0, { timeout: 2_000 });
+    expect(await occurrences(legacyHolder, "100,000.00"), "the legacy amount is shown exactly once").toBe(1);
 
     // A new shareholder starts with no contribution.
     await page.getByRole("button", { name: "Add shareholder" }).click();
@@ -153,6 +155,21 @@ test.describe("V1 shareholder contributions", () => {
     await expect(row(card, "CREDIT")).toContainText("Cancelled");
     await expect(card.locator('[data-total="CREDIT-AFN"]')).toHaveCount(0);
 
+    // Mixed: a new cash contribution for the shareholder with a legacy commitment is counted on its own.
+    await legacyHolder.getByRole("button", { name: "Add contribution" }).click();
+    form = legacyHolder.getByRole("form", { name: "Add contribution" });
+    await form.getByLabel("Cash").check();
+    await form.getByLabel("Amount").fill("7500");
+    await form.getByLabel("Currency").selectOption("USD");
+    await form.getByRole("button", { name: "Save contribution" }).click();
+    await expect(page.locator(".treasury-message.success")).toContainText("recorded as declared");
+    await expect(legacyHolder.locator('[data-total="CASH-USD"]')).toHaveText("Cash: USD 7,500");
+    await expect(legacyHolder.getByTestId("legacy-commitment-chip")).toHaveText("Legacy cash commitment: USD 100,000.00 · Eligible");
+    await expect(legacyHolder.locator(".contribution-total")).toHaveCount(2, { timeout: 2_000 });
+    expect(await occurrences(legacyHolder, "100,000.00"), "legacy amount still shown once, never added to the cash total").toBe(1);
+    expect(await occurrences(legacyHolder, "107,500"), "no combined total of legacy and new contributions").toBe(0);
+    await expect(legacyHolder.locator(".contribution-none")).toHaveCount(0);
+
     // Advanced still exposes agreements, installments and capital requests.
     await page.getByRole("button", { name: "Advanced" }).click();
     const tabs = page.getByRole("tablist", { name: "Shareholder areas" });
@@ -171,6 +188,8 @@ test.describe("V1 shareholder contributions", () => {
     // Dari, desktop and phone.
     await page.getByRole("button", { name: "Switch to Dari" }).click();
     expect(await page.evaluate(() => document.documentElement.dir)).toBe("rtl");
+    await expect(legacyHolder.getByTestId("legacy-commitment-chip")).toHaveText("تعهد نقدی قبلی: USD 100,000.00 · واجد شرایط");
+    await expect(legacyHolder.getByTestId("legacy-cash-agreements")).toContainText("تعهد نقدی قبلی");
     const faCard = page.locator("article.contribution-card", { hasText: "Synthetic Shareholder Gamma" });
     await expect(row(faCard, "CASH")).toContainText("اعلام‌شده");
     await expect(row(faCard, "IN_KIND")).toContainText("زمین / ملک");
@@ -197,6 +216,7 @@ test.describe("V1 shareholder contributions", () => {
     expect(await moneyFootprint()).toEqual(moneyBefore);
     expect(await legacyFingerprint()).toEqual(legacyBefore);
     expect(await contributionCount("Synthetic Shareholder Gamma")).toBe(3);
+    expect(await contributionCount("Synthetic Shareholder One"), "the legacy agreement was never copied into contributions").toBe(1);
     await signOut(page);
 
     // Someone without the permission cannot read or write contributions.
@@ -210,6 +230,11 @@ test.describe("V1 shareholder contributions", () => {
     expect(status).toEqual({ read: 403, write: 403 });
   });
 });
+
+/** How many times a text occurs in the visible text of a card. */
+async function occurrences(card: Locator, text: string): Promise<number> {
+  return (await card.innerText()).split(text).length - 1;
+}
 
 function row(card: Locator, type: "CASH" | "IN_KIND" | "CREDIT"): Locator {
   return card.locator(`tr[data-contribution-type="${type}"]`);

@@ -15,8 +15,8 @@ import type { Copy } from "@/lib/access-copy";
 /**
  * The simple Shareholders view (0035): shareholder → contributions → add contribution.
  * DECLARATION ONLY. Saving a contribution records what was declared; it never receives cash, values an
- * asset, classifies credit or posts anything. "None yet" saves nothing. Legacy cash capital agreements
- * are shown as history, separately, and are never counted with contributions.
+ * asset, classifies credit or posts anything. "None yet" saves nothing. A legacy cash capital agreement
+ * is shown once, as a separate "legacy cash commitment", and is never counted with contributions.
  */
 
 type Choice = ContributionType | "NONE";
@@ -47,6 +47,14 @@ const RECORD_COPY: Readonly<Record<string, Copy>> = {
   APPROVED: { en: "Approved", fa: "تأییدشده" },
   CANCELLED: { en: "Cancelled", fa: "لغوشده" },
   POSTED: { en: "Posted", fa: "ثبت‌شده" }
+};
+/** Status of a legacy capital agreement (the earlier cash workflow). */
+const AGREEMENT_STATUS_COPY: Readonly<Record<string, Copy>> = {
+  DRAFT: { en: "Draft", fa: "پیش‌نویس" },
+  PENDING_EVIDENCE: { en: "Waiting for evidence", fa: "در انتظار مدارک" },
+  ELIGIBLE: { en: "Eligible", fa: "واجد شرایط" },
+  SUSPENDED: { en: "Suspended", fa: "معلق" },
+  CLOSED: { en: "Closed", fa: "بسته" }
 };
 const RECEIPT_COPY: Readonly<Record<string, Copy>> = {
   NOT_APPLICABLE: { en: "Not applicable", fa: "مورد ندارد" },
@@ -230,6 +238,9 @@ interface CardProps {
 
 function ShareholderCard({ holder, view, base, fa, t, canManage, form, setForm, busy, run }: CardProps) {
   const live = holder.contributions.filter((c) => c.recordStatus !== "CANCELLED");
+  const legacy = holder.legacyCashAgreements;
+  // "None yet" only when there is neither a new contribution nor a legacy cash commitment.
+  const noneYet = live.length === 0 && legacy.length === 0;
   const adding = form?.kind === "add" && form.shareholderId === holder.id ? form : null;
   return (
     <article className="module-content-card contribution-card" aria-label={holder.name} data-shareholder={holder.name}>
@@ -242,7 +253,13 @@ function ShareholderCard({ holder, view, base, fa, t, canManage, form, setForm, 
       </header>
 
       <div className="contribution-summary" aria-label={fa ? "خلاصهٔ آورده‌ها" : "Contribution summary"}>
-        {live.length === 0 ? <span className="contribution-none">{fa ? "فعلاً هیچ آورده‌ای ندارد" : "None yet"}</span> : null}
+        {noneYet ? <span className="contribution-none">{fa ? "فعلاً هیچ آورده‌ای ندارد" : "None yet"}</span> : null}
+        {legacy.map((a) => (
+          <span key={a.id} className="contribution-total legacy" data-testid="legacy-commitment-chip">
+            {fa ? "تعهد نقدی قبلی" : "Legacy cash commitment"}: <b dir="ltr">{money(a.committed, a.currency, false)}</b>
+            {" · "}{t(AGREEMENT_STATUS_COPY[a.status] ?? { en: a.status, fa: a.status })}
+          </span>
+        ))}
         {holder.declaredTotals.map((total) => (
           <span key={`${total.type}-${total.currency}`} className="contribution-total" data-total={`${total.type}-${total.currency}`}>
             {t(TYPE_COPY[total.type])}: <b dir="ltr">{money(total.amount, total.currency, false)}</b>
@@ -267,14 +284,13 @@ function ShareholderCard({ holder, view, base, fa, t, canManage, form, setForm, 
         </table>
       ) : null}
 
-      {holder.legacyCashAgreements.length > 0 ? (
+      {legacy.length > 0 ? (
         <div className="contribution-legacy" data-testid="legacy-cash-agreements">
-          <p>{fa ? "قرارداد قبلی سرمایهٔ نقدی" : "Legacy cash capital agreement"}</p>
-          <ul>{holder.legacyCashAgreements.map((a) => (
+          <p>{fa ? "تعهد نقدی قبلی" : "Legacy cash commitment"}</p>
+          {/* The amount, currency and status are in the summary chip above; they are not repeated here. */}
+          <ul>{legacy.map((a) => (
             <li key={a.id}>
               <strong dir="ltr">{a.reference}</strong>
-              <span dir="ltr">{money(a.committed, a.currency, false)}</span>
-              <em className="treasury-chip muted">{t(RECORD_COPY[a.status] ?? { en: a.status, fa: a.status })}</em>
               <small>{fa ? `${a.installmentCount} قسط برنامه‌ریزی‌شده` : `${a.installmentCount} installment(s) planned`}</small>
             </li>
           ))}</ul>

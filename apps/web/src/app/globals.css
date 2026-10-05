@@ -1711,6 +1711,7 @@ button.review-context { border: 0; border-inline-start: 1px solid rgba(102, 142,
 .contribution-total, .contribution-none { padding: 5px 10px; border: 1px solid rgba(60, 130, 176, .3); border-radius: 999px; background: rgba(3, 17, 29, .55); color: #d9e4eb; font-size: 11.5px; }
 .contribution-total b { color: white; font-variant-numeric: tabular-nums; }
 .contribution-total.estimate { border-style: dashed; color: #b9c9d4; }
+.contribution-total.legacy { border-color: rgba(224, 180, 79, .45); background: rgba(71, 53, 19, .18); }
 .contribution-none { border-color: rgba(224, 180, 79, .35); color: #ebc86e; }
 .contribution-sub { display: block; margin-top: 2px; color: #9fb4c3; font-size: 10.5px; }
 .contribution-legacy { display: grid; gap: 5px; padding: 9px 11px; border: 1px dashed rgba(224, 180, 79, .35); border-radius: 6px; background: rgba(71, 53, 19, .12); }
