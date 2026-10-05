@@ -10,11 +10,14 @@ import { AccessGate, api, errorText, formatWhen } from "@/components/AdminUsersW
 import { AppIcon } from "@/components/AppIcon";
 import { exactDecimal } from "@/components/ExchangeRatesWorkspace";
 import { useLocale } from "@/components/LocaleProvider";
+import { ShareholderContributionsView } from "@/components/ShareholderContributionsView";
 import { ShareholderRequestWorkspace } from "@/components/ShareholderRequestWorkspace";
 import { StageZeroPageHeader } from "@/components/StageZeroWorkspace";
 import type { Copy } from "@/lib/access-copy";
 
 /**
+ * Default: the simple Shareholders view (0035) — shareholder → contributions → add contribution.
+ * Advanced / جزئیات پیشرفته keeps the earlier areas unchanged:
  * Shareholders | Capital Agreements | Installments | Capital Requests (migration 0031).
  * Setup is master data and DRAFT agreements only: nothing here receives or records money. The
  * existing capital request workspace is reused unchanged for the fourth area.
@@ -101,6 +104,7 @@ export function ShareholderSetupWorkspace() {
   const [view, setView] = useState<SetupView | null>(null);
   const [gate, setGate] = useState<"signed-out" | "denied" | null>(null);
   const [tab, setTab] = useState<Tab>("shareholders");
+  const [mode, setMode] = useState<"simple" | "advanced">("simple");
   const [form, setForm] = useState<Form | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
@@ -110,14 +114,14 @@ export function ShareholderSetupWorkspace() {
       const next = result.status === 401 ? "signed-out" : result.status === 403 ? "denied" : null;
       setGate(next);
       // People who may only open capital requests land on that area.
-      if (next === "denied" && first) setTab("requests");
+      if (next === "denied" && first) { setMode("advanced"); setTab("requests"); }
       if (next === null) setMessage({ tone: "error", text: errorText(result.error, locale) });
       return;
     }
     setGate(null);
     setView(result.data);
     // Someone who opens capital requests but does not set up shareholders starts on their own work.
-    if (first && !result.data.permissions.canManage && result.data.permissions.canCreateRequests) setTab("requests");
+    if (first && !result.data.permissions.canManage && result.data.permissions.canCreateRequests) { setMode("advanced"); setTab("requests"); }
   }, [locale]);
 
   const reload = useCallback(async () => apply(await api<SetupView>("/api/v1/shareholder/setup"), false), [apply]);
@@ -182,7 +186,7 @@ export function ShareholderSetupWorkspace() {
       <StageZeroPageHeader icon="coins"
         eyebrow={{ en: `Shareholders · ${view?.legalEntity?.name ?? ""}`, fa: `سهامداران · ${view?.legalEntity?.name ?? ""}` }}
         title={{ en: "Shareholder capital", fa: "سرمایه سهامداران" }}
-        description={{ en: "Shareholders, their capital agreements and installment plans, and capital requests.", fa: "سهامداران، قراردادهای سرمایه و برنامهٔ اقساط آن‌ها، و درخواست‌های سرمایه." }} />
+        description={{ en: "Shareholders and what each has contributed or committed. Capital agreements, installments and capital requests are under Advanced.", fa: "سهامداران و آنچه هر کدام آورده یا تعهد کرده است. قراردادهای سرمایه، اقساط و درخواست‌های سرمایه در «جزئیات پیشرفته» هستند." }} />
 
       <section className="finance-boundary-banner" data-testid="receipt-not-operational"><span><AppIcon name="shield" size={22} /></span><div>
         <p>{fa ? "هنوز هیچ پولی دریافت نمی‌شود" : "NO MONEY IS RECEIVED YET"}</p>
@@ -193,6 +197,13 @@ export function ShareholderSetupWorkspace() {
 
       {message ? <div className={`treasury-message ${message.tone === "ok" ? "success" : "error"}`} role="status"><AppIcon name={message.tone === "ok" ? "shield" : "alert"} size={16} /><span>{message.text}</span><button onClick={() => setMessage(null)} aria-label={fa ? "بستن" : "Dismiss"}>×</button></div> : null}
 
+      <div className="shareholder-mode-switch">
+        {mode === "simple"
+          ? <button type="button" className="treasury-button" aria-expanded={false} onClick={() => { setMode("advanced"); setForm(null); setMessage(null); }}>{fa ? "جزئیات پیشرفته" : "Advanced"}</button>
+          : <button type="button" className="treasury-button" aria-expanded={true} onClick={() => { setMode("simple"); setForm(null); setMessage(null); }}>{fa ? "بازگشت به نمای سهامداران" : "Back to shareholders view"}</button>}
+      </div>
+
+      {mode === "simple" ? <ShareholderContributionsView fa={fa} onAdvanced={() => { setMode("advanced"); setTab("requests"); }} /> : <>
       <div className="admin-tabs shareholder-tabs" role="tablist" aria-label={fa ? "بخش‌های سهامداران" : "Shareholder areas"}>
         {TABS.map((entry) => (
           <button key={entry.id} role="tab" id={`shareholder-tab-${entry.id}`} aria-selected={tab === entry.id} aria-controls={`shareholder-panel-${entry.id}`}
@@ -225,6 +236,7 @@ export function ShareholderSetupWorkspace() {
           </>
         )}
       </div>
+      </>}
     </div>
   );
 }

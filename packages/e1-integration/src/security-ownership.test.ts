@@ -61,7 +61,7 @@ if (databaseUrl() === undefined) {
                 p.proconfig AS config, has_function_privilege('public', p.oid, 'EXECUTE') AS public_execute
            FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace JOIN pg_roles r ON r.oid = p.proowner
           WHERE n.nspname = 'abos' AND p.prosecdef ORDER BY 1`);
-      assert.equal(rows.rows.length, 71, "every restricted entry point, including operational Finance, expense posting and its read model, the company dashboard, shareholder setup and private documents, workflow policy, GL, identity and reversal requests, is accounted for");
+      assert.equal(rows.rows.length, 76, "every restricted entry point, including operational Finance, expense posting and its read model, the company dashboard, shareholder setup and private documents, workflow policy, GL, identity and reversal requests, is accounted for");
       for (const fn of rows.rows) {
         assert.ok((FUNCTION_OWNERS as readonly string[]).includes(fn.owner), `${fn.signature} is owned by ${fn.owner}`);
         assert.equal(fn.superuser, false, fn.signature);
@@ -131,6 +131,12 @@ if (databaseUrl() === undefined) {
         shareholder_agreement_document_finalize: "abos_v1_shareholder_setup_owner",
         shareholder_agreement_document_read: "abos_v1_shareholder_setup_owner",
         shareholder_agreement_document_list: "abos_v1_shareholder_setup_owner",
+        // 0035: contribution declarations (no financial effect).
+        shareholder_contribution_create: "abos_v1_shareholder_setup_owner",
+        shareholder_contribution_update: "abos_v1_shareholder_setup_owner",
+        shareholder_contribution_declare: "abos_v1_shareholder_setup_owner",
+        shareholder_contribution_cancel: "abos_v1_shareholder_setup_owner",
+        shareholder_contributions_workspace: "abos_v1_shareholder_setup_owner",
         // WP #17 (0023): reversal requests (request -> Finance Manager decision; posting fail-closed).
         finance_reversal_requests_view: "abos_e1_finance_owner", finance_reversal_request_create: "abos_e1_finance_owner",
         finance_reversal_request_decide: "abos_e1_finance_owner", finance_reversal_request_withdraw: "abos_e1_finance_owner"

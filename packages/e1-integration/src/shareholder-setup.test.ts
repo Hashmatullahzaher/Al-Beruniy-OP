@@ -597,6 +597,9 @@ if (databaseUrl() === undefined) {
         "evidence_references.INSERT(completed_at,document_id,evidence_kind,evidence_version,id,legal_entity_id,sha256)",
         "idempotency_records.INSERT(correlation_id,idempotency_key,request_fingerprint,scope,status)",
         "idempotency_records.UPDATE(completed_at,resource_id,resource_type,response_code,response_snapshot,status)",
+        // 0035 contribution declarations: reviewed column grants (no DELETE; identity, type and classification fixed).
+        "shareholder_contributions.INSERT(amount,asset_category,business_date,contribution_type,created_by_user_account_id,credit_classification,currency_code,declared_at,declared_by_user_account_id,description,estimated_value,id,item_name,legal_entity_id,ownership_note,quantity,receipt_status,record_status,reference,shareholder_profile_id,unit,valuation_currency_code,valuation_status)",
+        "shareholder_contributions.UPDATE(amount,asset_category,business_date,cancellation_reason,cancelled_at,cancelled_by_user_account_id,currency_code,declared_at,declared_by_user_account_id,description,estimated_value,item_name,ownership_note,quantity,record_status,reference,unit,updated_at,updated_by_user_account_id,valuation_currency_code,version)",
         "shareholder_profiles.INSERT(business_party_id,id,legal_entity_id,status)"
       ]);
       // The usage row can be locked by the owner but never changed.

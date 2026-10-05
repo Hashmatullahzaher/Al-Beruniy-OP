@@ -1,3 +1,5 @@
+import type { ShareholderContributionCommand } from "./shareholder-contributions.ts";
+
 /**
  * Shareholder master data and DRAFT capital agreement setup (migration 0031). The database derives
  * actor and legal entity from the session; these shapes carry business fields only. Amounts are
@@ -196,7 +198,8 @@ export type ShareholderSetupCommand =
   | ({ readonly action: "add-installment" } & ShareholderSetupAddInstallment)
   | ({ readonly action: "update-installment" } & ShareholderSetupUpdateInstallment)
   | ({ readonly action: "cancel-installment" } & ShareholderSetupCancelInstallment)
-  | ({ readonly action: "record-agreement-document" } & ShareholderSetupRecordAgreementDocument);
+  | ({ readonly action: "record-agreement-document" } & ShareholderSetupRecordAgreementDocument)
+  | ShareholderContributionCommand;
 
 export type ShareholderSetupAction = ShareholderSetupCommand["action"];
 

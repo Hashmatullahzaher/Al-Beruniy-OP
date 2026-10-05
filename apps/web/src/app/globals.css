@@ -1697,6 +1697,42 @@ button.review-context { border: 0; border-inline-start: 1px solid rgba(102, 142,
 .shareholder-rates { display: grid; gap: 6px; border: 1px solid rgba(60, 130, 176, .3); border-radius: 6px; padding: 8px 10px; }
 .shareholder-rates label { display: flex; gap: 8px; align-items: center; }
 .shareholder-rate-missing { color: #f3c77a; }
+/* 0035: simple Shareholders view (shareholder -> contributions -> add contribution). */
+.shareholder-mode-switch { display: flex; justify-content: flex-end; margin-top: 10px; }
+.contribution-view { display: grid; gap: 12px; margin-top: 10px; }
+.contribution-intro { margin: 0; color: #c7d5df; font-size: 12.5px; line-height: 1.6; }
+.contribution-add-shareholder, .contribution-add { justify-self: start; display: inline-flex; align-items: center; gap: 6px; }
+.contribution-gate { display: grid; gap: 10px; justify-items: start; }
+.contribution-card { padding: 14px; display: grid; gap: 10px; }
+.contribution-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.contribution-card-head h2 { margin: 0; font-size: 17px; color: white; }
+.contribution-card-head p { margin: 3px 0 0; display: flex; flex-wrap: wrap; gap: 10px; color: #9fb4c3; font-size: 11.5px; }
+.contribution-summary { display: flex; flex-wrap: wrap; gap: 6px; }
+.contribution-total, .contribution-none { padding: 5px 10px; border: 1px solid rgba(60, 130, 176, .3); border-radius: 999px; background: rgba(3, 17, 29, .55); color: #d9e4eb; font-size: 11.5px; }
+.contribution-total b { color: white; font-variant-numeric: tabular-nums; }
+.contribution-total.estimate { border-style: dashed; color: #b9c9d4; }
+.contribution-none { border-color: rgba(224, 180, 79, .35); color: #ebc86e; }
+.contribution-sub { display: block; margin-top: 2px; color: #9fb4c3; font-size: 10.5px; }
+.contribution-legacy { display: grid; gap: 5px; padding: 9px 11px; border: 1px dashed rgba(224, 180, 79, .35); border-radius: 6px; background: rgba(71, 53, 19, .12); }
+.contribution-legacy p { margin: 0; color: var(--abos-gold-300); font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; }
+.contribution-legacy ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; }
+.contribution-legacy li { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; color: #d9e4eb; font-size: 12px; }
+.contribution-legacy small { color: #9fb4c3; font-size: 10.5px; }
+.contribution-choice { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin: 0; padding: 0; border: 0; }
+.contribution-choice label { display: flex !important; align-items: center; gap: 8px; padding: 9px 10px; border: 1px solid rgba(60, 130, 176, .35); border-radius: 7px; background: rgba(3, 17, 29, .6); cursor: pointer; }
+.contribution-choice label.selected { border-color: var(--abos-gold-400); background: rgba(71, 53, 19, .3); }
+.contribution-choice label span { color: #e3ecf2 !important; font-size: 12.5px !important; font-weight: 600 !important; }
+.contribution-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.contribution-fields .contribution-note { grid-column: 1 / -1; margin: 0; }
+.contribution-fields textarea { min-height: 54px; }
+@media (max-width: 720px) {
+  .contribution-choice { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .contribution-fields { grid-template-columns: minmax(0, 1fr); }
+  .contribution-card-head { flex-direction: column; }
+  .shareholder-mode-switch { justify-content: stretch; }
+  .shareholder-mode-switch .treasury-button { width: 100%; }
+}
+
 /* 0031: shareholder setup (Shareholders | Capital Agreements | Installments | Capital Requests). */
 .shareholder-setup .shareholder-tabs { flex-wrap: wrap; }
 .shareholder-area { display: grid; gap: 12px; margin-top: 12px; }

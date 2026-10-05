@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto";
 
-import type { ShareholderSetupCommand, ShareholderSetupResult, ShareholderSetupWorkspace } from "@abos/contracts";
+import type {
+  ContributionType, ShareholderContributionsWorkspace, ShareholderSetupCommand, ShareholderSetupResult, ShareholderSetupWorkspace
+} from "@abos/contracts";
 import { IdentityError } from "@abos/identity";
 import { SandboxAuthError } from "@abos/sandbox-auth";
 
@@ -41,6 +43,11 @@ export async function shareholderSetupWorkspace(): Promise<ShareholderSetupWorks
   };
 }
 
+/** Shareholders with their contribution declarations (0035) and any legacy cash agreements. */
+export async function shareholderContributionsWorkspace(): Promise<ShareholderContributionsWorkspace> {
+  return restrictedFinanceAuthenticator().shareholderContributionsWorkspace(financeHandoffRuntime().executor, await sessionToken());
+}
+
 export async function runShareholderSetupCommand(command: ShareholderSetupCommand): Promise<ShareholderSetupResult> {
   return restrictedFinanceAuthenticator().shareholderSetupCommand(financeHandoffRuntime().executor, await sessionToken(), command);
 }
@@ -77,13 +84,53 @@ export function shareholderSetupCommand(body: Record<string, unknown>): Sharehol
         dueOn: nullable("dueOn") };
     case "cancel-installment":
       return { action, capitalInstallmentId: text(body, "capitalInstallmentId"), reason: text(body, "reason") };
+    // 0035 contribution declarations. The credit classification is never accepted from the browser.
+    case "create-contribution":
+      return { action, shareholderProfileId: text(body, "shareholderProfileId"),
+        contributionType: text(body, "contributionType") as ContributionType, declare: body.declare !== false,
+        ...contributionFields(body), idempotencyKey: key(), correlationId: randomUUID() };
+    case "update-contribution":
+      return { action, contributionId: text(body, "contributionId"), expectedVersion: version(body), ...contributionFields(body) };
+    case "declare-contribution":
+      return { action, contributionId: text(body, "contributionId"), expectedVersion: version(body) };
+    case "cancel-contribution":
+      return { action, contributionId: text(body, "contributionId"), expectedVersion: version(body), reason: text(body, "reason") };
     default:
       throw new IdentityError("VALIDATION_FAILED", "Unknown shareholder setup action.");
   }
 }
 
-/** Refusals written by migration 0031, translated to stable codes; the page shows them in English or Dari. */
+function version(body: Record<string, unknown>): number {
+  const value = body.expectedVersion;
+  return typeof value === "number" && Number.isInteger(value) && value > 0 ? value : 0;
+}
+
+/** Only the fields of contributions; empty strings become null so another type's fields stay absent. */
+function contributionFields(body: Record<string, unknown>) {
+  const nullable = (name: string) => {
+    const value = optionalText(body, name);
+    return value === null || value.trim() === "" ? null : value.trim();
+  };
+  return {
+    businessDate: text(body, "businessDate"), description: nullable("description"), reference: nullable("reference"),
+    amount: nullable("amount"), currencyCode: nullable("currencyCode"),
+    assetCategory: nullable("assetCategory") as never, itemName: nullable("itemName"), quantity: nullable("quantity"),
+    unit: nullable("unit"), ownershipNote: nullable("ownershipNote"), estimatedValue: nullable("estimatedValue"),
+    valuationCurrencyCode: nullable("valuationCurrencyCode")
+  };
+}
+
+/** Refusals written by migrations 0031 and 0035, translated to stable codes; the page shows them in English or Dari. */
 const SETUP_REFUSALS: readonly { readonly pattern: RegExp; readonly status: number; readonly code: string; readonly message: string }[] = [
+  // 0035 contributions (checked first: their texts are specific).
+  { pattern: /approval, receipt, valuation and posting are not available in this phase/i, status: 409, code: "CONTRIBUTION_PHASE_LOCKED",
+    message: "Approval, receipt, valuation and posting of contributions are not available yet." },
+  { pattern: /cancelled contribution cannot change|only a draft (or declared )?contribution/i, status: 409, code: "CONTRIBUTION_NOT_EDITABLE",
+    message: "This contribution can no longer be changed." },
+  { pattern: /this contribution changed; reload/i, status: 409, code: "STALE_VERSION",
+    message: "Someone else changed this meanwhile. Reload and try again." },
+  { pattern: /asset fields do not apply|has no cash amount|choose an asset category|item name|unit needs a quantity|estimated value needs|valuation currency needs|enabled currency is required|credit contribution needs a description|contribution date|choose a contribution type|choose a shareholder|cancellation reason/i,
+    status: 422, code: "CONTRIBUTION_INVALID", message: "Some contribution details are missing or not valid." },
   { pattern: /already used by another business party/i, status: 409, code: "REFERENCE_IN_USE",
     message: "This reference is already used by another business party of your company." },
   { pattern: /agreement_reference/i, status: 409, code: "AGREEMENT_REFERENCE_IN_USE",

@@ -59,6 +59,10 @@ test.describe("V1 shareholder setup", () => {
     await signIn(page, "demo.treasury.manager", accounts["demo.treasury.manager"]);
     await page.getByRole("navigation", { name: "Operations" }).getByRole("link", { name: "Shareholder capital" }).click();
     await expect(page).toHaveURL(/\/shareholders$/);
+    // 0035: the simple contributions view is the default; agreements and requests live under Advanced.
+    await expect(page.getByRole("region", { name: "Shareholders and contributions" })).toBeVisible();
+    await expect(page.getByRole("tablist", { name: "Shareholder areas" })).toHaveCount(0);
+    await page.getByRole("button", { name: "Advanced" }).click();
     const tabs = page.getByRole("tablist", { name: "Shareholder areas" });
     for (const name of ["Shareholders", "Capital Agreements", "Installments", "Capital Requests"]) {
       await expect(tabs.getByRole("tab", { name: new RegExp(`^${name}`) })).toBeVisible();

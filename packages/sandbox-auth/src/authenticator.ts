@@ -32,6 +32,7 @@ import type {
   ShareholderSetupCommand,
   ShareholderSetupResult,
   ShareholderSetupWorkspace,
+  ShareholderContributionsWorkspace,
   SupportedCurrency,
   TransactionDimensions,
   TreasuryPermission,
@@ -49,7 +50,12 @@ const SHAREHOLDER_SETUP_ENTRY_POINTS: Readonly<Record<ShareholderSetupAction, st
   "add-installment": "shareholder_setup_add_installment",
   "update-installment": "shareholder_setup_update_installment",
   "cancel-installment": "shareholder_setup_cancel_installment",
-  "record-agreement-document": "shareholder_setup_record_agreement_evidence"
+  "record-agreement-document": "shareholder_setup_record_agreement_evidence",
+  // 0035: contribution declarations (no financial effect).
+  "create-contribution": "shareholder_contribution_create",
+  "update-contribution": "shareholder_contribution_update",
+  "declare-contribution": "shareholder_contribution_declare",
+  "cancel-contribution": "shareholder_contribution_cancel"
 };
 
 export interface IssuedSandboxSession {
@@ -473,6 +479,17 @@ export class SandboxAuthenticator {
   }
 
   /** Shareholders, capital agreements, installments and documents (shareholder.setup.manage or shareholder.read). */
+  /** Shareholders with their contribution declarations and any legacy cash agreements (read only). */
+  async shareholderContributionsWorkspace(executor: SqlExecutor, token: string): Promise<ShareholderContributionsWorkspace> {
+    return this.operationalFinanceFunction<ShareholderContributionsWorkspace>(
+      executor,
+      "SELECT abos.shareholder_contributions_workspace($1,$2,$3) AS value",
+      token,
+      [],
+      "Shareholder contributions are unavailable"
+    );
+  }
+
   async shareholderSetupWorkspace(executor: SqlExecutor, token: string): Promise<ShareholderSetupWorkspace> {
     return this.operationalFinanceFunction<ShareholderSetupWorkspace>(
       executor,
