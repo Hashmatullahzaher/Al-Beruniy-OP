@@ -71,7 +71,8 @@ const SETUP_ERROR_COPY: Readonly<Record<string, Copy>> = {
   CURRENCY_NOT_ENABLED: { en: "This currency is not enabled.", fa: "این واحد پول فعال نیست." },
   FUTURE_DATE: { en: "This date cannot be in the future.", fa: "این تاریخ نمی‌تواند در آینده باشد." },
   INVALID_AMOUNT: { en: "Enter a positive amount such as 25000 or 25000.50.", fa: "مبلغ مثبت وارد کنید، مانند 25000 یا 25000.50." },
-  INVALID_DOCUMENT: { en: "Enter the document reference, its date and its 64-character SHA-256 fingerprint.", fa: "مرجع سند، تاریخ آن و اثر انگشت ۶۴ حرفی SHA-256 آن را وارد کنید." },
+  // The fingerprint is computed by the server from the uploaded file; the user never enters it.
+  INVALID_DOCUMENT: { en: "Choose the agreement file and enter its document reference and date.", fa: "فایل قرارداد را انتخاب کنید و مرجع و تاریخ سند را وارد کنید." },
   ALREADY_SUBMITTED_DIFFERENTLY: { en: "This form was already submitted with different details. Reload and try again.", fa: "این فرم قبلاً با جزئیات دیگری ارسال شده است. دوباره بارگذاری کنید." },
   IN_PROGRESS: { en: "This request is still being processed. Try again in a moment.", fa: "این درخواست هنوز در حال پردازش است. لحظه‌ای بعد دوباره تلاش کنید." },
   NOT_FOUND: { en: "This record was not found for your company.", fa: "این مورد برای شرکت شما پیدا نشد." },
@@ -83,8 +84,9 @@ function kabulToday(): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kabul", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
 }
 
-function money(amount: string, currency: string, fa: boolean): string {
-  return fa ? `${exactDecimal(amount)} ${currency}` : `${currency} ${exactDecimal(amount)}`;
+function money(amount: string, currency: string): string {
+  // One convention in both languages: the currency code first, e.g. "USD 20,000".
+  return `${currency} ${exactDecimal(amount)}`;
 }
 
 type Form =
@@ -342,8 +344,8 @@ function AgreementsArea({ view, fa, t, locale, canManage, today, form, setForm, 
         {view.totalsByCurrency.map((total) => (
           <div key={total.currency} className="module-content-card shareholder-total">
             <p>{total.currency}</p>
-            <strong>{money(total.committed, total.currency, fa)}</strong>
-            <small>{fa ? "دریافت‌شده" : "received"} {money(total.received, total.currency, fa)} · {fa ? "باقی" : "remaining"} {money(total.remaining, total.currency, fa)}</small>
+            <strong>{money(total.committed, total.currency)}</strong>
+            <small>{fa ? "دریافت‌شده" : "received"} {money(total.received, total.currency)} · {fa ? "باقی" : "remaining"} {money(total.remaining, total.currency)}</small>
           </div>
         ))}
       </section>
@@ -419,7 +421,7 @@ function AgreementCard({ agreement, view, fa, t, locale, canManage, today, form,
         {agreement.partialAllowed ? <em className="treasury-chip muted">{fa ? "پرداخت قسمتی مجاز" : "Partial payments allowed"}</em> : null}
       </p>
       <dl className="shareholder-figures">
-        {figures.map(([label, amount]) => <div key={label.en}><dt>{t(label)}</dt><dd dir="ltr">{money(amount, agreement.currency, false)}</dd></div>)}
+        {figures.map(([label, amount]) => <div key={label.en}><dt>{t(label)}</dt><dd dir="ltr">{money(amount, agreement.currency)}</dd></div>)}
       </dl>
       <div className="shareholder-why" aria-label={fa ? "چرا هنوز سرمایه دریافت نمی‌شود" : "Why no capital can be received yet"}>
         <p>{fa ? "چرا هنوز سرمایه دریافت نمی‌شود" : "Why no capital can be received yet"}</p>
@@ -507,7 +509,7 @@ function InstallmentsArea({ view, fa, t, canManage, form, setForm, busy, run }: 
           <Field label={fa ? `مبلغ قسط (${target?.currency ?? ""})` : `Installment amount (${target?.currency ?? ""})`}>
             <input dir="ltr" inputMode="decimal" value={adding.amount} required pattern="(0|[1-9][0-9]*)(\.[0-9]+)?" onChange={(event) => setForm({ ...adding, amount: event.target.value })} /></Field>
           <Field label={fa ? "سررسید (اختیاری)" : "Due date (optional)"}><input type="date" value={adding.dueOn} onChange={(event) => setForm({ ...adding, dueOn: event.target.value })} /></Field>
-          {target ? <p className="admin-hint" dir={fa ? "rtl" : "ltr"}>{fa ? "هنوز قابل برنامه‌ریزی:" : "Still available to plan:"} <span dir="ltr">{money(subtract(target.committed, target.planned), target.currency, false)}</span> · {fa ? "واحد پول از قرارداد گرفته می‌شود." : "The currency comes from the agreement."}</p> : null}
+          {target ? <p className="admin-hint" dir={fa ? "rtl" : "ltr"}>{fa ? "هنوز قابل برنامه‌ریزی:" : "Still available to plan:"} <span dir="ltr">{money(subtract(target.committed, target.planned), target.currency)}</span> · {fa ? "واحد پول از قرارداد گرفته می‌شود." : "The currency comes from the agreement."}</p> : null}
           <FormActions fa={fa} busy={busy} submit={{ en: "Add installment", fa: "افزودن قسط" }} onCancel={() => setForm(null)} />
         </form>
       ) : null}
@@ -515,7 +517,7 @@ function InstallmentsArea({ view, fa, t, canManage, form, setForm, busy, run }: 
       {view.agreements.map((agreement) => (
         <article key={agreement.id} className="module-content-card shareholder-agreement" aria-label={`${agreement.reference} installments`}>
           <div className="module-card-heading"><div><p>{agreement.shareholderName} · {agreement.currency}</p><h2 dir="ltr">{agreement.reference}</h2></div>
-            <span dir="ltr">{money(agreement.planned, agreement.currency, false)} / {money(agreement.committed, agreement.currency, false)}</span></div>
+            <span dir="ltr">{money(agreement.planned, agreement.currency)} / {money(agreement.committed, agreement.currency)}</span></div>
           {agreement.installments.length === 0 ? <p className="treasury-placeholder">{fa ? "هنوز قسطی برنامه‌ریزی نشده است." : "No installment planned yet."}</p> : (
             <table className="shareholder-installments">
               <thead><tr><th>#</th><th>{fa ? "مبلغ" : "Amount"}</th><th>{fa ? "سررسید" : "Due"}</th><th>{fa ? "وضعیت" : "Status"}</th><th /></tr></thead>
@@ -540,7 +542,7 @@ function InstallmentRow({ installment, fa, t, canManage, form, setForm, busy, ru
     <>
       <tr className={installment.status === "CANCELLED" ? "shareholder-cancelled" : undefined}>
         <td data-label="#">{installment.sequence}</td>
-        <td data-label={fa ? "مبلغ" : "Amount"} dir="ltr">{money(installment.amount, installment.currency, false)}</td>
+        <td data-label={fa ? "مبلغ" : "Amount"} dir="ltr">{money(installment.amount, installment.currency)}</td>
         <td data-label={fa ? "سررسید" : "Due"}>{installment.dueOn ?? "—"}</td>
         <td data-label={fa ? "وضعیت" : "Status"}><em className="treasury-chip">{t(STATUS_COPY[installment.status] ?? { en: installment.status, fa: installment.status })}</em></td>
         <td data-label="">{canManage && installment.editable && !editing && !cancelling ? (

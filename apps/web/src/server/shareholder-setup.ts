@@ -152,7 +152,7 @@ const SETUP_REFUSALS: readonly { readonly pattern: RegExp; readonly status: numb
   { pattern: /plain positive decimals/i, status: 422, code: "INVALID_AMOUNT",
     message: "Enter a positive amount such as 25000 or 25000.50." },
   { pattern: /SHA-256/i, status: 422, code: "INVALID_DOCUMENT",
-    message: "Enter the document reference, its date and its 64-character SHA-256 fingerprint." },
+    message: "Choose the agreement file and enter its document reference and date." },
   { pattern: /already used for different details/i, status: 409, code: "ALREADY_SUBMITTED_DIFFERENTLY",
     message: "This form was already submitted with different details. Reload and try again." },
   { pattern: /still in progress/i, status: 409, code: "IN_PROGRESS",

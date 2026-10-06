@@ -62,6 +62,31 @@ const RECEIPT_COPY: Readonly<Record<string, Copy>> = {
   PARTIALLY_RECEIVED: { en: "Partly received", fa: "بخشی دریافت‌شده" },
   RECEIVED: { en: "Received", fa: "دریافت‌شده" }
 };
+/** Record state as a qualifier on a summary chip ("Cash declared"), so a total never reads as money received. */
+const RECORD_QUALIFIER_ORDER = ["DRAFT", "DECLARED", "APPROVED", "POSTED"] as const;
+const RECORD_QUALIFIER_COPY: Readonly<Record<(typeof RECORD_QUALIFIER_ORDER)[number], Copy>> = {
+  DRAFT: { en: "draft", fa: "پیش‌نویس" },
+  DECLARED: { en: "declared", fa: "اعلام‌شده" },
+  APPROVED: { en: "approved", fa: "تأییدشده" },
+  POSTED: { en: "posted", fa: "ثبت‌شده" }
+};
+
+/**
+ * Presentation only: describes the rows behind one declared total (same type and currency, not
+ * cancelled) by their record and receipt states. The total itself is the server's and is unchanged.
+ */
+function totalQualifiers(rows: readonly ShareholderContribution[], type: string, currency: string): { readonly record: Copy; readonly receipt: Copy | null } {
+  const matching = rows.filter((c) => c.type === type && c.currency === currency);
+  const states = RECORD_QUALIFIER_ORDER.filter((s) => matching.some((c) => c.recordStatus === s));
+  const record = {
+    en: states.map((s) => RECORD_QUALIFIER_COPY[s].en).join(" / "),
+    fa: states.map((s) => RECORD_QUALIFIER_COPY[s].fa).join(" / ")
+  };
+  const receipts = [...new Set(matching.map((c) => c.receiptStatus).filter((s) => s !== "NOT_APPLICABLE"))];
+  const receiptKey = receipts.length === 0 ? null : receipts.length === 1 ? (receipts[0] ?? null) : "PARTIALLY_RECEIVED";
+  const receipt = receiptKey === null ? null : RECEIPT_COPY[receiptKey] ?? null;
+  return { record, receipt };
+}
 const VALUATION_COPY: Readonly<Record<string, Copy>> = {
   NOT_APPLICABLE: { en: "Not applicable", fa: "مورد ندارد" },
   NOT_VALUED: { en: "Not valued", fa: "ارزیابی‌نشده" },
@@ -98,8 +123,9 @@ type Form =
   | { readonly kind: "edit"; readonly contribution: ShareholderContribution; readonly draft: Draft }
   | { readonly kind: "cancel"; readonly contribution: ShareholderContribution; readonly reason: string };
 
-function money(amount: string, currency: string, fa: boolean): string {
-  return fa ? `${exactDecimal(amount)} ${currency}` : `${currency} ${exactDecimal(amount)}`;
+function money(amount: string, currency: string): string {
+  // One convention in both languages: the currency code first, e.g. "USD 20,000".
+  return `${currency} ${exactDecimal(amount)}`;
 }
 
 function emptyDraft(today: string, currency: string): Draft {
@@ -256,18 +282,22 @@ function ShareholderCard({ holder, view, base, fa, t, canManage, form, setForm, 
         {noneYet ? <span className="contribution-none">{fa ? "فعلاً هیچ آورده‌ای ندارد" : "None yet"}</span> : null}
         {legacy.map((a) => (
           <span key={a.id} className="contribution-total legacy" data-testid="legacy-commitment-chip">
-            {fa ? "تعهد نقدی قبلی" : "Legacy cash commitment"}: <b dir="ltr">{money(a.committed, a.currency, false)}</b>
+            {fa ? "تعهد نقدی قبلی" : "Legacy cash commitment"}: <b dir="ltr">{money(a.committed, a.currency)}</b>
             {" · "}{t(AGREEMENT_STATUS_COPY[a.status] ?? { en: a.status, fa: a.status })}
           </span>
         ))}
-        {holder.declaredTotals.map((total) => (
-          <span key={`${total.type}-${total.currency}`} className="contribution-total" data-total={`${total.type}-${total.currency}`}>
-            {t(TYPE_COPY[total.type])}: <b dir="ltr">{money(total.amount, total.currency, false)}</b>
-          </span>
-        ))}
+        {holder.declaredTotals.map((total) => {
+          const { record, receipt } = totalQualifiers(live, total.type, total.currency);
+          return (
+            <span key={`${total.type}-${total.currency}`} className="contribution-total" data-total={`${total.type}-${total.currency}`}>
+              {t(TYPE_COPY[total.type])} {t(record)}: <b dir="ltr">{money(total.amount, total.currency)}</b>
+              {receipt ? <>{" · "}{t(receipt)}</> : null}
+            </span>
+          );
+        })}
         {holder.estimatedAssetTotals.map((total) => (
           <span key={`est-${total.currency}`} className="contribution-total estimate">
-            {fa ? "ارزش تخمینی دارایی (فقط معلومات)" : "Estimated asset value (information only)"}: <b dir="ltr">{money(total.amount, total.currency, false)}</b>
+            {fa ? "ارزش تخمینی دارایی (فقط معلومات)" : "Estimated asset value (information only)"}: <b dir="ltr">{money(total.amount, total.currency)}</b>
           </span>
         ))}
       </div>
@@ -315,8 +345,8 @@ function ContributionRow({ c, view, fa, t, canManage, form, setForm, busy, run }
     ? `${c.assetCategory ? t(CATEGORY_COPY[c.assetCategory]) : ""} · ${c.itemName ?? ""}${c.quantity ? ` · ${exactDecimal(c.quantity)}${c.unit ? ` ${c.unit}` : ""}` : ""}`
     : c.description ?? "—";
   const value = c.type === "IN_KIND"
-    ? (c.estimatedValue && c.valuationCurrency ? `${money(c.estimatedValue, c.valuationCurrency, false)} ${fa ? "(تخمینی)" : "(estimate)"}` : "—")
-    : (c.amount && c.currency ? money(c.amount, c.currency, false) : "—");
+    ? (c.estimatedValue && c.valuationCurrency ? `${money(c.estimatedValue, c.valuationCurrency)} ${fa ? "(تخمینی)" : "(estimate)"}` : "—")
+    : (c.amount && c.currency ? money(c.amount, c.currency) : "—");
   return (
     <>
       <tr className={c.recordStatus === "CANCELLED" ? "shareholder-cancelled" : undefined} data-contribution-type={c.type}>

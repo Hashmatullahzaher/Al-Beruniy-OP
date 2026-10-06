@@ -121,6 +121,9 @@ test.describe("V1 shareholder setup", () => {
     // versions are immutable, and an attachment is never described as legal verification.
     await card.getByRole("button", { name: "Upload agreement" }).click();
     let upload = card.getByRole("form", { name: "Upload agreement document" });
+    // The user is never asked to type a fingerprint: no SHA-256 field and no SHA-256 instruction.
+    await expect(upload.getByLabel(/SHA-?256|fingerprint/i)).toHaveCount(0);
+    await expect(upload).not.toContainText(/SHA-?256/i);
     await upload.getByLabel(/PDF or image file/).setInputFiles({ name: "agreement-v1.pdf", mimeType: "application/pdf", buffer: PDF });
     await upload.getByLabel("Document reference").fill("SYN-AGR-BETA-DOC");
     await upload.getByLabel("Document date").fill(kabulDate(-5));

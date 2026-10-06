@@ -135,8 +135,9 @@ test.describe("V1 shareholder contributions", () => {
     await expect(row(card, "CREDIT")).toContainText("Not yet classified");
     await expect(row(card, "CREDIT")).toContainText("AFN 10,000");
     await expect(card.locator(".contribution-none")).toHaveCount(0);
-    await expect(card.locator('[data-total="CASH-USD"]')).toContainText("USD 25,000");
-    await expect(card.locator('[data-total="CREDIT-AFN"]')).toContainText("AFN 10,000");
+    // Summary chips carry declaration semantics, so a total never reads as money received.
+    await expect(card.locator('[data-total="CASH-USD"]')).toHaveText("Cash declared: USD 25,000 · Not received");
+    await expect(card.locator('[data-total="CREDIT-AFN"]')).toContainText("Credit declared: AFN 10,000");
     await expect(card.locator(".contribution-total.estimate")).toContainText("Estimated asset value (information only)");
     await page.screenshot({ path: resolve(SHOTS, "01-contributions-en.png"), fullPage: true });
 
@@ -146,7 +147,7 @@ test.describe("V1 shareholder contributions", () => {
     await edit.getByLabel("Amount").fill("30000");
     await edit.getByRole("button", { name: "Save changes" }).click();
     await expect(page.locator(".treasury-message.success")).toContainText("updated");
-    await expect(card.locator('[data-total="CASH-USD"]')).toContainText("USD 30,000");
+    await expect(card.locator('[data-total="CASH-USD"]')).toHaveText("Cash declared: USD 30,000 · Not received");
     await row(card, "CREDIT").getByRole("button", { name: "Cancel contribution" }).click();
     const cancel = card.getByRole("form", { name: "Cancel contribution" });
     await cancel.getByLabel("Reason for cancelling").fill("Synthetic credit withdrawn");
@@ -163,7 +164,7 @@ test.describe("V1 shareholder contributions", () => {
     await form.getByLabel("Currency").selectOption("USD");
     await form.getByRole("button", { name: "Save contribution" }).click();
     await expect(page.locator(".treasury-message.success")).toContainText("recorded as declared");
-    await expect(legacyHolder.locator('[data-total="CASH-USD"]')).toHaveText("Cash: USD 7,500");
+    await expect(legacyHolder.locator('[data-total="CASH-USD"]')).toHaveText("Cash declared: USD 7,500 · Not received");
     await expect(legacyHolder.getByTestId("legacy-commitment-chip")).toHaveText("Legacy cash commitment: USD 100,000.00 · Eligible");
     await expect(legacyHolder.locator(".contribution-total")).toHaveCount(2, { timeout: 2_000 });
     expect(await occurrences(legacyHolder, "100,000.00"), "legacy amount still shown once, never added to the cash total").toBe(1);
@@ -190,6 +191,14 @@ test.describe("V1 shareholder contributions", () => {
     expect(await page.evaluate(() => document.documentElement.dir)).toBe("rtl");
     await expect(legacyHolder.getByTestId("legacy-commitment-chip")).toHaveText("تعهد نقدی قبلی: USD 100,000.00 · واجد شرایط");
     await expect(legacyHolder.getByTestId("legacy-cash-agreements")).toContainText("تعهد نقدی قبلی");
+    await expect(legacyHolder.locator('[data-total="CASH-USD"]')).toHaveText("پول نقد اعلام‌شده: USD 7,500 · دریافت‌نشده");
+    // Dari money uses the same "USD 20,000" order as English, including the Advanced totals.
+    await page.getByRole("button", { name: "جزئیات پیشرفته" }).click();
+    await page.getByRole("tablist").getByRole("tab", { name: /^قراردادهای سرمایه/ }).click();
+    const faTotals = await page.locator(".shareholder-totals").innerText();
+    expect(faTotals, "Dari totals show the currency code first").toMatch(/USD [0-9]/);
+    expect(faTotals, "no amount-first money in Dari").not.toMatch(/[0-9] USD/);
+    await page.getByRole("button", { name: /بازگشت/ }).click();
     const faCard = page.locator("article.contribution-card", { hasText: "Synthetic Shareholder Gamma" });
     await expect(row(faCard, "CASH")).toContainText("اعلام‌شده");
     await expect(row(faCard, "IN_KIND")).toContainText("زمین / ملک");

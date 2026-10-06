@@ -34,9 +34,10 @@ function kabulToday(): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kabul", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
 }
 
-function money(amount: string, currency: string, fa: boolean): string {
+function money(amount: string, currency: string): string {
   // Display only: exact digits, grouped. Currencies are always shown separately.
-  return fa ? `${exactDecimal(amount)} ${currency}` : `${currency} ${exactDecimal(amount)}`;
+  // One convention in both languages: the currency code first, e.g. "USD 20,000".
+  return `${currency} ${exactDecimal(amount)}`;
 }
 
 interface Draft { installment: InstallmentView; agreement: AgreementView; destination: string; amount: string; businessDate: string; rateId: string; key: string }
@@ -126,8 +127,8 @@ export function ShareholderRequestWorkspace({ embedded = false }: { readonly emb
           {view.totalsByCurrency.map((total) => (
             <div key={total.currency} className="module-content-card shareholder-total">
               <p>{total.currency}</p>
-              <strong>{money(total.requested, total.currency, fa)}</strong>
-              <small>{fa ? "درخواست‌شده از تعهد" : "requested of"} {money(total.committed, total.currency, fa)}</small>
+              <strong>{money(total.requested, total.currency)}</strong>
+              <small>{fa ? "درخواست‌شده از تعهد" : "requested of"} {money(total.committed, total.currency)}</small>
             </div>
           ))}
           {view.totalsByCurrency.length === 0 ? <p className="treasury-placeholder">{fa ? "هیچ قرارداد سرمایه‌ای وجود ندارد." : "There is no capital agreement."}</p> : null}
@@ -138,7 +139,7 @@ export function ShareholderRequestWorkspace({ embedded = false }: { readonly emb
         {view.agreements.map((agreement) => (
           <section key={agreement.id} className="module-content-card shareholder-agreement" aria-label={agreement.reference}>
             <div className="module-card-heading"><div><p>{agreement.shareholder} · {agreement.currency}</p><h2>{agreement.reference}</h2></div>
-              <span>{fa ? "تعهد" : "Committed"} {money(agreement.committedAmount, agreement.currency, fa)} · {fa ? "باقی" : "remaining"} {money(agreement.remainingAmount, agreement.currency, fa)}</span></div>
+              <span>{fa ? "تعهد" : "Committed"} {money(agreement.committedAmount, agreement.currency)} · {fa ? "باقی" : "remaining"} {money(agreement.remainingAmount, agreement.currency)}</span></div>
             <p className="shareholder-chips">
               <em className="treasury-chip">{agreement.status}</em>
               <em className={`treasury-chip ${agreement.registrationVerified ? "" : "muted"}`}>{agreement.registrationVerified ? (fa ? "ثبت سرمایه تایید شده" : "Registration verified") : (fa ? "ثبت تایید نشده" : "Registration not verified")}</em>
@@ -149,12 +150,12 @@ export function ShareholderRequestWorkspace({ embedded = false }: { readonly emb
               <tbody>{agreement.installments.map((installment) => (
                 <tr key={installment.id}>
                   <td data-label="#">{installment.sequence}</td>
-                  <td data-label={fa ? "مبلغ قسط" : "Installment"}>{money(installment.expectedAmount, installment.currency, fa)}</td>
+                  <td data-label={fa ? "مبلغ قسط" : "Installment"}>{money(installment.expectedAmount, installment.currency)}</td>
                   <td data-label={fa ? "سررسید" : "Due"}>{installment.dueOn ?? "—"}</td>
                   <td data-label={fa ? "درخواست" : "Request"}>
                     {installment.request ? (
                       <div className="shareholder-request">
-                        <strong>{money(installment.request.amount, installment.request.currency, fa)}</strong>
+                        <strong>{money(installment.request.amount, installment.request.currency)}</strong>
                         <em className="treasury-chip">{t(STATUS_COPY[installment.request.status] ?? { en: installment.request.status, fa: installment.request.status })}</em>
                         <small>{installment.request.destination} · {installment.request.businessDate} · {installment.request.createdBy} · {formatWhen(installment.request.createdAt, locale)}</small>
                         {installment.request.snapshot ? <small className="shareholder-snapshot" dir="ltr">{fa ? "نرخ ثابت‌شده: " : "Rate snapshot: "}{rateSentence(installment.request.snapshot)} · {installment.request.snapshot.rateDate}</small> : null}
