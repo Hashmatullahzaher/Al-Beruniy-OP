@@ -5,11 +5,23 @@ import { json } from "@/server/treasury";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * Capital requests still run only behind the synthetic sandbox gate. On company data that gate is
+ * deliberately closed, which is not a session problem: report it as "not operational" (403) instead
+ * of "session ended" (401). Every other refusal keeps its existing mapping.
+ */
+function notOperational(error: unknown): Response | null {
+  const code = error !== null && typeof error === "object" && "code" in error ? String((error as { code: unknown }).code) : "";
+  const message = error instanceof Error ? error.message : "";
+  if (code !== "42501" || !/synthetic Shareholder sandbox authorization is not active/.test(message)) return null;
+  return json({ ok: false, error: { code: "NOT_OPERATIONAL", message: "Capital Requests is not operational yet." } }, 403);
+}
+
 export async function GET() {
   try {
     return json({ ok: true, data: await shareholderWorkspace() });
   } catch (error) {
-    return currencyErrorResponse(error, "You do not have permission to view shareholder agreements.");
+    return notOperational(error) ?? currencyErrorResponse(error, "You do not have permission to view shareholder agreements.");
   }
 }
 
@@ -25,6 +37,6 @@ export async function POST(request: Request) {
     });
     return json({ ok: true, data: created }, created.replayed ? 200 : 201);
   } catch (error) {
-    return currencyErrorResponse(error, "You do not have permission to create shareholder capital requests.");
+    return notOperational(error) ?? currencyErrorResponse(error, "You do not have permission to create shareholder capital requests.");
   }
 }

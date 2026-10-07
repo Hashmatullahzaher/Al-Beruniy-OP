@@ -1740,6 +1740,9 @@ button.review-context { border: 0; border-inline-start: 1px solid rgba(102, 142,
 .shareholder-add { justify-self: start; display: inline-flex; align-items: center; gap: 6px; }
 .shareholder-embedded { display: grid; gap: 12px; margin-top: 12px; }
 .shareholder-request-note { margin-top: 12px; }
+.capital-requests-unavailable { display: flex; align-items: flex-start; gap: 14px; color: #e0b44f; }
+.capital-requests-unavailable h2 { margin: 0 0 6px; color: #f4f7fb; font-size: 17px; }
+.capital-requests-unavailable p { margin: 0; color: #a9bbca; font-size: 13px; line-height: 1.6; }
 .shareholder-list td strong { color: white; font-weight: 650; }
 .shareholder-form-row td { padding: 0 0 10px; border-bottom: 1px solid rgba(60, 130, 176, .14); }
 .shareholder-form-row .shareholder-form { margin-top: 4px; }

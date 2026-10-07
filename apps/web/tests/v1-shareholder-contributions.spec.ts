@@ -183,6 +183,33 @@ test.describe("V1 shareholder contributions", () => {
     await expect(page.locator(".shareholder-agreement", { hasText: "SYN-CAP-" }).first()).toBeVisible();
     await tabs.getByRole("tab", { name: "Capital Requests" }).click();
     await expect(page.locator(".shareholder-request-note")).toBeVisible();
+
+    // On company data the synthetic capital-request gate is closed. Close it here (disposable preview
+    // database only) and check that it reads as "not operational", never as a sign-in problem.
+    const gateExpiry = await query("SELECT expires_at::text AS value FROM abos.sandbox_authorizations WHERE singleton");
+    expect(gateExpiry, "the preview sandbox gate exists").toBeTruthy();
+    // The gate's own CHECK requires expires_at > authorized_at; one millisecond after it is already past.
+    await query("UPDATE abos.sandbox_authorizations SET expires_at = authorized_at + interval '1 millisecond' WHERE singleton RETURNING 1 AS value");
+    try {
+      const refused = await page.evaluate(async () => {
+        const response = await fetch("/api/v1/shareholder/capital-requests");
+        return { status: response.status, code: ((await response.json()) as { error?: { code?: string } }).error?.code };
+      });
+      expect(refused).toEqual({ status: 403, code: "NOT_OPERATIONAL" });
+      await tabs.getByRole("tab", { name: "Installments" }).click();
+      await tabs.getByRole("tab", { name: "Capital Requests" }).click();
+      const unavailable = page.getByTestId("capital-requests-not-operational");
+      await expect(unavailable).toContainText("Capital Requests is not operational yet.");
+      await expect(page.getByText("Sign in first")).toHaveCount(0);
+      await expect(page.getByRole("link", { name: "Sign in" })).toHaveCount(0);
+      await page.getByRole("button", { name: "Switch to Dari" }).click();
+      await expect(unavailable).toContainText("درخواست سرمایه هنوز عملیاتی نشده است.");
+      await expect(page.getByText("ابتدا وارد شوید")).toHaveCount(0);
+      await expect(page.getByRole("link", { name: "ورود" })).toHaveCount(0);
+      await page.getByRole("button", { name: "Switch to English" }).click();
+    } finally {
+      await query("UPDATE abos.sandbox_authorizations SET expires_at = $1::timestamptz WHERE singleton RETURNING 1 AS value", [gateExpiry]);
+    }
     await page.getByRole("button", { name: "Back to shareholders view" }).click();
     await expect(simple).toBeVisible();
 

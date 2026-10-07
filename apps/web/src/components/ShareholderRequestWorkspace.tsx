@@ -48,14 +48,16 @@ export function ShareholderRequestWorkspace({ embedded = false }: { readonly emb
   const fa = locale === "fa";
   const t = useCallback((copy: Copy) => copy[locale], [locale]);
   const [view, setView] = useState<ShareholderWorkspaceView | null>(null);
-  const [gate, setGate] = useState<"signed-out" | "denied" | null>(null);
+  const [gate, setGate] = useState<"signed-out" | "denied" | "not-operational" | null>(null);
   const [message, setMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [draft, setDraft] = useState<Draft | null>(null);
 
   const apply = useCallback((result: Awaited<ReturnType<typeof api<ShareholderWorkspaceView>>>) => {
     if (!result.ok) {
-      setGate(result.status === 401 ? "signed-out" : result.status === 403 ? "denied" : null);
+      // The capital-request path is closed on company data by design; that is not a sign-in problem.
+      setGate(result.error.code === "NOT_OPERATIONAL" ? "not-operational"
+        : result.status === 401 ? "signed-out" : result.status === 403 ? "denied" : null);
       if (result.status !== 401 && result.status !== 403) setMessage({ tone: "error", text: errorText(result.error, locale) });
       return;
     }
@@ -77,6 +79,19 @@ export function ShareholderRequestWorkspace({ embedded = false }: { readonly emb
       && [rate.unitCurrency, rate.quoteCurrency].includes(draft.installment.currency));
   }, [base, draft, view]);
 
+  if (gate === "not-operational") return (
+    <div className={embedded ? "shareholder-embedded" : "module-workspace"}>
+      <section className="module-content-card capital-requests-unavailable" role="status" data-testid="capital-requests-not-operational">
+        <AppIcon name="shield" size={22} />
+        <div>
+          <h2>{fa ? "درخواست سرمایه هنوز عملیاتی نشده است." : "Capital Requests is not operational yet."}</h2>
+          <p>{fa
+            ? "دریافت سرمایه (درخواست سرمایه ← خزانه ← مالی ← دفتر کل) هنوز روی داده‌های واقعی شرکت فعال نیست. قراردادها، اقساط و آورده‌ها همچنان قابل مشاهده‌اند و هیچ رقمی در خزانه یا دفاتر ثبت نمی‌شود."
+            : "Receiving capital (Capital Request → Treasury → Finance → General Ledger) is not operational on real company data yet. Agreements, installments and contributions remain available, and nothing is recorded in Treasury or the books."}</p>
+        </div>
+      </section>
+    </div>
+  );
   if (gate) return <div className={embedded ? "shareholder-embedded" : "module-workspace"}><AccessGate state={gate} fa={fa} what={{ en: "Shareholder capital needs the “Open capital requests from installments” or “View shareholder agreements” permission.", fa: "سرمایه سهامداران به صلاحیت «باز کردن درخواست سرمایه از اقساط» یا «مشاهده قراردادهای سهامداران» نیاز دارد." }} /></div>;
 
   const open = (agreement: AgreementView, installment: InstallmentView) => {
