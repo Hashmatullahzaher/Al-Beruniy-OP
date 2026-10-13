@@ -8,7 +8,13 @@ import type {
 } from "@abos/contracts";
 
 /** Presentation-only state. No adapter, database, real session or financial command uses this file. */
-export type BridgeReviewRole = "OBSERVER" | "TREASURY_RECORDER" | "FINANCE_REVIEWER";
+export type BridgeReviewRole = "OBSERVER" | "TREASURY_RECORDER" | "TREASURY_VERIFIER" | "FINANCE_REVIEWER";
+
+export interface BridgeReviewReceipt extends CapitalReceiptRecord {
+  readonly custodyState: "PENDING_VERIFICATION" | "VERIFIED" | "REJECTED";
+  readonly verifiedBy: UserAccountId | null;
+  readonly verifiedAt: string | null;
+}
 
 export interface BridgeReviewContribution extends CapitalContributionDeclaration {
   readonly holderEn: string;
@@ -18,6 +24,7 @@ export interface BridgeReviewContribution extends CapitalContributionDeclaration
 export const REVIEW_ACTORS: Readonly<Record<BridgeReviewRole, UserAccountId>> = {
   OBSERVER: "review-observer" as UserAccountId,
   TREASURY_RECORDER: "review-treasury-recorder" as UserAccountId,
+  TREASURY_VERIFIER: "review-treasury-verifier" as UserAccountId,
   FINANCE_REVIEWER: "review-finance-reviewer" as UserAccountId
 };
 
@@ -63,19 +70,22 @@ export function reviewDecimal(values: readonly string[], subtract: readonly stri
 
 export function reviewContributionSummary(
   contribution: BridgeReviewContribution,
-  receipts: readonly CapitalReceiptRecord[]
-): CapitalContributionFinanceSummary {
+  receipts: readonly BridgeReviewReceipt[]
+): CapitalContributionFinanceSummary & { readonly verified: CapitalContributionFinanceSummary["received"]; readonly approved: CapitalContributionFinanceSummary["received"] } {
   if (!contribution.amount) throw new Error("NOT_CASH");
   const relevant = receipts.filter((receipt) => receipt.contributionId === contribution.id && receipt.receiptState === "RECORDED");
   if (relevant.some((receipt) => receipt.amount.currency !== contribution.amount?.currency)) throw new Error("CURRENCY_MISMATCH");
   const received = reviewDecimal(relevant.map((receipt) => receipt.amount.amount));
   const posted = reviewDecimal(relevant.filter((receipt) => receipt.postingState === "POSTED").map((receipt) => receipt.amount.amount));
+  const verified = reviewDecimal(relevant.filter((receipt) => receipt.custodyState === "VERIFIED").map((receipt) => receipt.amount.amount));
+  const approved = reviewDecimal(relevant.filter((receipt) => receipt.approvalState === "APPROVED").map((receipt) => receipt.amount.amount));
   const currency = contribution.amount.currency;
   return {
     contributionId: contribution.id,
     declared: contribution.amount,
     received: { amount: received, currency },
     outstanding: { amount: reviewDecimal([contribution.amount.amount], [received]), currency },
+    verified: { amount: verified, currency }, approved: { amount: approved, currency },
     posted: { amount: posted, currency },
     receiptCount: relevant.length,
     approvalState: relevant.length === 0 ? "NOT_RECEIVED" : relevant.some((receipt) => receipt.approvalState === "PENDING") ? "PENDING"
@@ -85,13 +95,17 @@ export function reviewContributionSummary(
 }
 
 /** Illustrative action visibility only. Production authorization belongs to the secure service. */
-export function reviewReceiptActions(receipt: CapitalReceiptRecord, role: BridgeReviewRole, configurationReady: boolean) {
+export function reviewReceiptActions(receipt: BridgeReviewReceipt, role: BridgeReviewRole, configurationReady: boolean) {
+  const independentTreasury = role === "TREASURY_VERIFIER" && receipt.recordedBy !== REVIEW_ACTORS[role];
   const independentFinance = role === "FINANCE_REVIEWER" && receipt.recordedBy !== REVIEW_ACTORS[role];
-  const pending = receipt.receiptState === "RECORDED" && receipt.approvalState === "PENDING" && receipt.postingState === "NOT_POSTED";
+  const pendingCustody = receipt.receiptState === "RECORDED" && receipt.custodyState === "PENDING_VERIFICATION";
+  const pending = receipt.receiptState === "RECORDED" && receipt.custodyState === "VERIFIED"
+    && receipt.approvalState === "PENDING" && receipt.postingState === "NOT_POSTED";
   return {
+    canVerify: independentTreasury && pendingCustody,
     canReview: independentFinance && pending,
     canApprove: independentFinance && pending,
-    canPost: independentFinance && receipt.receiptState === "RECORDED" && receipt.approvalState === "APPROVED"
+    canPost: independentFinance && receipt.receiptState === "RECORDED" && receipt.custodyState === "VERIFIED" && receipt.approvalState === "APPROVED"
       && receipt.approvedBy === REVIEW_ACTORS[role] && receipt.postingState === "NOT_POSTED" && configurationReady,
     canReverse: false
   } as const;

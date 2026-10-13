@@ -18,6 +18,10 @@ export type StageOneErrorCode =
   | "EVIDENCE_REQUIRED"
   | "IDEMPOTENCY_CONFLICT"
   | "POSTED_RECORD_IMMUTABLE"
+  | "NOT_OPERATIONAL"
+  | "SCHEMA_NOT_AVAILABLE"
+  | "STALE_VERSION"
+  | "DUPLICATE_SOURCE"
   | "NOT_FOUND";
 
 export interface RequestMetadata {

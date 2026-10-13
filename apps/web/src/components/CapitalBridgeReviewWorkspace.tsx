@@ -1,6 +1,6 @@
 "use client";
 
-import type { CapitalReceiptRecord, DecimalString, JournalId } from "@abos/contracts";
+import type { DecimalString, JournalId } from "@abos/contracts";
 import { useState, type FormEvent } from "react";
 
 import { AppIcon } from "@/components/AppIcon";
@@ -13,11 +13,12 @@ import {
   reviewContributionSummary,
   reviewDecimal,
   reviewReceiptActions,
+  type BridgeReviewReceipt,
   type BridgeReviewRole
 } from "@/lib/capital-bridge-review";
 
-interface ReviewEvent { readonly at: string; readonly action: "RECORD" | "APPROVE" | "REJECT" | "POST"; readonly receiptId: string; readonly role: BridgeReviewRole; }
-interface ReviewState { readonly receipts: readonly CapitalReceiptRecord[]; readonly audit: readonly ReviewEvent[]; readonly error: string | null; }
+interface ReviewEvent { readonly at: string; readonly action: "RECORD" | "VERIFY" | "APPROVE" | "REJECT" | "POST"; readonly receiptId: string; readonly role: BridgeReviewRole; }
+interface ReviewState { readonly receipts: readonly BridgeReviewReceipt[]; readonly audit: readonly ReviewEvent[]; readonly error: string | null; }
 interface ReceiptForm { readonly id: string; readonly contributionId: string; readonly amount: string; readonly currency: "USD" | "AFN"; readonly date: string; readonly destination: string; readonly reference: string; readonly evidence: string; }
 const DECLARATIONS = bridgeReviewFixtures();
 
@@ -40,6 +41,7 @@ export function CapitalBridgeReviewWorkspace() {
   const names: Readonly<Record<BridgeReviewRole, string>> = {
     OBSERVER: copy("Observer", "مشاهده‌کننده"),
     TREASURY_RECORDER: copy("Treasury recorder", "ثبت‌کننده خزانه"),
+    TREASURY_VERIFIER: copy("Independent Treasury verifier", "تأییدکننده مستقل خزانه"),
     FINANCE_REVIEWER: copy("Independent Finance reviewer / poster", "بازبین مستقل مالی / ثبت‌کننده حسابداری")
   };
 
@@ -76,12 +78,13 @@ export function CapitalBridgeReviewWorkspace() {
         || pending.date < declaration.businessDate) return { ...current, error: "INVALID_DATE" };
       if (pending.destination !== "DEMO-USD-SAFE") return { ...current, error: "DESTINATION_REQUIRED" };
       const id = pending.id;
-      const receipt: CapitalReceiptRecord = {
+      const receipt: BridgeReviewReceipt = {
         id, legalEntityId: declaration.legalEntityId, contributionId: declaration.id,
         sourceFingerprint: `DEMO-FIXTURE-${declaration.id}-${declaration.businessDate}`,
         amount: { amount: pending.amount as DecimalString, currency: pending.currency }, receiptDate: pending.date,
         treasuryDestinationId: pending.destination, paymentReference: pending.reference.trim() || null,
         evidenceReferenceId: pending.evidence || null, receiptState: "RECORDED", approvalState: "PENDING", postingState: "NOT_POSTED",
+        custodyState: "PENDING_VERIFICATION", verifiedBy: null, verifiedAt: null,
         recordedBy: REVIEW_ACTORS[role], recordedAt: now, approvedBy: null, approvedAt: null,
         rejectedBy: null, rejectedAt: null, rejectionReason: null, journalId: null, reversedByJournalId: null, version: 1
       };
@@ -90,15 +93,17 @@ export function CapitalBridgeReviewWorkspace() {
     // The successful submission disappears below; failed validation retains its fields and identity.
   };
 
-  const decide = (receiptId: string, action: "APPROVE" | "REJECT" | "POST") => {
+  const decide = (receiptId: string, action: "VERIFY" | "APPROVE" | "REJECT" | "POST") => {
     setState((current) => {
       const receipt = current.receipts.find((value) => value.id === receiptId);
       if (!receipt) return current;
       const allowed = reviewReceiptActions(receipt, role, configurationReady);
-      if ((action === "APPROVE" && !allowed.canApprove) || (action === "REJECT" && (!allowed.canApprove || rejectionReason.trim().length < 5))
+      if ((action === "VERIFY" && !allowed.canVerify) || (action === "APPROVE" && !allowed.canApprove) || (action === "REJECT" && (!allowed.canApprove || rejectionReason.trim().length < 5))
         || (action === "POST" && !allowed.canPost)) return { ...current, error: "NOT_PERMITTED" };
       const now = new Date().toISOString();
-      const next: CapitalReceiptRecord = action === "POST"
+      const next: BridgeReviewReceipt = action === "VERIFY"
+        ? { ...receipt, custodyState: "VERIFIED", verifiedBy: REVIEW_ACTORS[role], verifiedAt: now, version: receipt.version + 1 }
+        : action === "POST"
         ? { ...receipt, postingState: "POSTED", journalId: `SYN-JOURNAL-${receipt.id}` as JournalId, version: receipt.version + 1 }
         : action === "APPROVE"
           ? { ...receipt, approvalState: "APPROVED", approvedBy: REVIEW_ACTORS[role], approvedAt: now, version: receipt.version + 1 }
@@ -155,6 +160,8 @@ export function CapitalBridgeReviewWorkspace() {
           <dl className="bridge-figures">
             <div data-figure="declared"><dt>{copy("Declared", "اعلام‌شده")}</dt><dd>{money(summary.declared)}</dd></div>
             <div data-figure="received"><dt>{copy("Received (simulation)", "دریافت‌شده (شبیه‌سازی)")}</dt><dd>{money(summary.received)}</dd></div>
+            <div data-figure="verified"><dt>{copy("Custody verified", "تحویل خزانه تأییدشده")}</dt><dd>{money(summary.verified)}</dd></div>
+            <div data-figure="approved"><dt>{copy("Finance approved", "تأییدشده مالی")}</dt><dd>{money(summary.approved)}</dd></div>
             <div data-figure="outstanding"><dt>{copy("Outstanding declaration", "باقی‌مانده آورده")}</dt><dd>{money(summary.outstanding)}</dd></div>
             <div data-figure="posted" className="bridge-posted"><dt>{copy("Posted (simulation)", "ثبت حسابداری (شبیه‌سازی)")}</dt><dd>{money(summary.posted)}</dd></div>
           </dl>
@@ -186,13 +193,16 @@ export function CapitalBridgeReviewWorkspace() {
             const status = receipt.postingState === "POSTED" ? copy("Posted (simulation)", "ثبت حسابداری (شبیه‌سازی)")
               : receipt.approvalState === "APPROVED" ? copy("Approved · Not posted", "تأییدشده · ثبت حسابداری نشده")
                 : receipt.approvalState === "REJECTED" ? copy("Rejected · Not posted", "ردشده · ثبت حسابداری نشده")
-                  : copy("Received · Awaiting review", "دریافت‌شده · منتظر بازبینی");
+                  : receipt.custodyState === "VERIFIED" ? copy("Verified · Awaiting Finance", "تحویل تأییدشده · منتظر مالی")
+                    : copy("Received · Awaiting custody verification", "دریافت‌شده · منتظر تأیید تحویل خزانه");
             return <section className="bridge-receipt" data-receipt-id={receipt.id} key={receipt.id} aria-label={`${copy("Receipt", "دریافت")} ${index + 1} ${declaration.id}`}>
               <div className="bridge-receipt-header"><strong>{copy("Receipt", "دریافت")} {index + 1} · {money(receipt.amount)}</strong><span className="treasury-chip muted">{status}</span></div>
               <p>{receipt.receiptDate} · {copy("Illustrative USD safe", "صندوق دالر نمایشی")} · {copy("Recorded by", "ثبت‌کننده")} {names.TREASURY_RECORDER}</p>
               <p><time dateTime={receipt.recordedAt}>{receipt.recordedAt}</time> · {copy("Reference", "مرجع")}: <bdi>{receipt.paymentReference ?? "—"}</bdi> · {copy("Evidence", "سند")}: <bdi>{receipt.evidenceReferenceId ?? "—"}</bdi></p>
+              <p>{copy("Custody", "تحویل خزانه")}: {receipt.custodyState === "VERIFIED" ? copy("Verified independently", "به‌صورت مستقل تأیید شد") : copy("Awaiting independent verification", "منتظر تأیید مستقل")}</p>
               {receipt.rejectionReason ? <p>{copy("Review reason", "دلیل بازبینی")}: {receipt.rejectionReason}</p> : null}
               <div className="bridge-actions">
+                {actions.canVerify ? <button type="button" className="treasury-button gold" onClick={() => decide(receipt.id, "VERIFY")}>{copy("Simulate custody verification", "شبیه‌سازی تأیید تحویل خزانه")}</button> : null}
                 {actions.canReview ? <button type="button" className="treasury-button" onClick={() => setReviewingId(receipt.id)}>{copy("Review receipt", "بازبینی دریافت")}</button> : null}
                 {actions.canPost ? <button type="button" className="treasury-button gold" onClick={() => decide(receipt.id, "POST")}>{copy("Simulate posting", "شبیه‌سازی ثبت حسابداری")}</button> : null}
                 {receipt.approvalState === "APPROVED" && receipt.postingState !== "POSTED" && !configurationReady ? <small>{copy("Posting blocked: accounting configuration and policy need approval.", "ثبت حسابداری بسته است: تنظیمات و سیاست حسابداری به تأیید نیاز دارند.")}</small> : null}
@@ -224,7 +234,7 @@ export function CapitalBridgeReviewWorkspace() {
       <div className="module-card-heading"><div><p>{copy("THIS PAGE ONLY", "فقط همین صفحه")}</p><h2>{copy("Simulation history", "تاریخچه شبیه‌سازی")}</h2></div></div>
       {state.audit.length === 0 ? <p className="admin-hint">{copy("No receipt, approval or posting simulated yet.", "هنوز دریافت، تأیید یا ثبت حسابداری شبیه‌سازی نشده است.")}</p>
         : <ol className="bridge-audit">{state.audit.map((entry, index) => <li key={`${entry.receiptId}-${entry.action}-${index}`} data-audit-action={entry.action}>
-          <time dateTime={entry.at}>{entry.at}</time>{names[entry.role]} · {({ RECORD: copy("Receipt recorded", "دریافت ثبت شد"), APPROVE: copy("Receipt approved", "دریافت تأیید شد"), REJECT: copy("Receipt rejected", "دریافت رد شد"), POST: copy("Posting simulated", "ثبت حسابداری شبیه‌سازی شد") })[entry.action]}
+          <time dateTime={entry.at}>{entry.at}</time>{names[entry.role]} · {({ RECORD: copy("Receipt recorded", "دریافت ثبت شد"), VERIFY: copy("Custody verified", "تحویل خزانه تأیید شد"), APPROVE: copy("Receipt approved", "دریافت تأیید شد"), REJECT: copy("Receipt rejected", "دریافت رد شد"), POST: copy("Posting simulated", "ثبت حسابداری شبیه‌سازی شد") })[entry.action]}
         </li>)}</ol>}
     </section>
   </div>;

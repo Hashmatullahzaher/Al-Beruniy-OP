@@ -7,3 +7,5 @@ export * from "./reconciliation.ts";
 export * from "./repository.ts";
 export * from "./shareholder-capital-bridge.ts";
 export * from "./shareholder-capital-bridge-memory.ts";
+export * from "./shareholder-capital-application.ts";
+export * from "./shareholder-capital-read-model.ts";

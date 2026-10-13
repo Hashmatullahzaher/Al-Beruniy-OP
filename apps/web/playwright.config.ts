@@ -22,6 +22,7 @@ export default defineConfig({
   webServer: {
     command: `pnpm dev --hostname 127.0.0.1 --port ${port}`,
     url: `http://127.0.0.1:${port}/api/ready`,
+    env: { ABOS_SHAREHOLDER_FINANCE_REVIEW_MODE: "1" },
     reuseExistingServer: !process.env.CI,
     timeout: 120_000
   }

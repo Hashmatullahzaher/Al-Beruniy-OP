@@ -191,10 +191,10 @@ export function ShareholderSetupWorkspace() {
         description={{ en: "Shareholders and what each has contributed or committed. Capital agreements, installments and capital requests are under Advanced.", fa: "سهامداران و آنچه هر کدام آورده یا تعهد کرده است. قراردادهای سرمایه، اقساط و درخواست‌های سرمایه در «جزئیات پیشرفته» هستند." }} />
 
       <section className="finance-boundary-banner" data-testid="receipt-not-operational"><span><AppIcon name="shield" size={22} /></span><div>
-        <p>{fa ? "هنوز هیچ پولی دریافت نمی‌شود" : "NO MONEY IS RECEIVED YET"}</p>
+        <p>{fa ? "مسیر دریافت و ثبت حسابداری هنوز عملیاتی نیست" : "RECEIPT AND POSTING ARE NOT OPERATIONAL"}</p>
         <strong>{fa
-          ? "دریافت سرمایه (درخواست سرمایه ← خزانه ← مالی ← دفتر کل) روی داده‌های واقعی شرکت هنوز فعال نیست و فقط در محیط آزمایشی مصنوعی اجرا می‌شود. قراردادهایی که اینجا تنظیم می‌کنید پیش‌نویس می‌مانند و هیچ رقمی در خزانه یا دفاتر ثبت نمی‌شود."
-          : "Receiving capital (Capital Request → Treasury → Finance → General Ledger) is not operational on real company data yet; it runs only in the synthetic sandbox. Agreements set up here stay draft, and nothing is recorded in Treasury or the books."}</strong>
+          ? "مسیر سرمایه اظهارشده ← دریافت‌شده ← تحویل خزانه تأییدشده ← تأییدشده مالی ← ثبت‌شده، تا نصب ساختار هماهنگ پایگاه داده فعال نمی‌شود. هیچ دکمه عملیاتی برای دریافت، تأیید یا ثبت وجود ندارد و هیچ رقمی در خزانه یا دفتر کل ایجاد نمی‌شود."
+          : "The Declared → Received → Custody verified → Finance approved → Posted path remains unavailable until the coordinated database schema is installed. No operational receipt, approval or posting controls are exposed, and nothing is created in Treasury or the General Ledger."}</strong>
       </div><em>{fa ? "فقط تنظیمات" : "Setup only"}</em></section>
 
       {message ? <div className={`treasury-message ${message.tone === "ok" ? "success" : "error"}`} role="status"><AppIcon name={message.tone === "ok" ? "shield" : "alert"} size={16} /><span>{message.text}</span><button onClick={() => setMessage(null)} aria-label={fa ? "بستن" : "Dismiss"}>×</button></div> : null}

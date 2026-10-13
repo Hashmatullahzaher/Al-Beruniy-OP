@@ -39,6 +39,11 @@ async function recordReceipt(page: Page, id: string, amount: string): Promise<vo
   await expect(form).toHaveCount(0);
 }
 
+async function verifyReceipt(page: Page, id: string): Promise<void> {
+  await page.getByLabel("Simulated role", { exact: true }).selectOption("TREASURY_VERIFIER");
+  await contribution(page, id).getByRole("button", { name: "Simulate custody verification", exact: true }).click();
+}
+
 test("@smoke isolated bridge keeps declarations, legacy commitment and cancelled history separate", async ({ page }) => {
   const requests = await openReview(page);
   await expect(page.getByRole("region", { name: "Isolated review boundary" })).toContainText("DEMO DATA");
@@ -61,14 +66,18 @@ test("partial receipts, independent review and one simulation posting follow sep
   await recordReceipt(page, "SYN-C1", "12500.25");
   const first = contribution(page, "SYN-C1");
   await expect(first.locator('[data-figure="received"]')).toContainText("USD 12,500.25");
+  await expect(first.locator('[data-figure="verified"]')).toContainText("USD 0");
   await expect(first.locator('[data-figure="outstanding"]')).toContainText("USD 37,499.75");
   await expect(first.locator('[data-figure="posted"]')).toContainText("USD 0");
   await expect(first.getByRole("button", { name: "Review receipt" })).toHaveCount(0);
   await expect(first.getByRole("button", { name: "Simulate posting" })).toHaveCount(0);
 
+  await verifyReceipt(page, "SYN-C1");
+  await expect(first.locator('[data-figure="verified"]')).toContainText("USD 12,500.25");
   await page.getByLabel("Simulated role", { exact: true }).selectOption("FINANCE_REVIEWER");
   await first.getByRole("button", { name: "Review receipt", exact: true }).click();
   await first.getByRole("button", { name: "Simulate approval", exact: true }).click();
+  await expect(first.locator('[data-figure="approved"]')).toContainText("USD 12,500.25");
   await expect(first).toContainText("Approved · Not posted");
   await expect(first.locator('[data-figure="posted"]')).toContainText("USD 0");
   await expect(first).toContainText("Posting blocked");
@@ -115,6 +124,7 @@ test("invalid amount, over-receipt and currency mismatch are refused without a r
 test("rejected receipt remains in received history with no posting, refresh clears only simulation", async ({ page }) => {
   const requests = await openReview(page);
   await recordReceipt(page, "SYN-C3", "1000");
+  await verifyReceipt(page, "SYN-C3");
   await page.getByLabel("Simulated role", { exact: true }).selectOption("FINANCE_REVIEWER");
   const card = contribution(page, "SYN-C3");
   await card.getByRole("button", { name: "Review receipt" }).click();

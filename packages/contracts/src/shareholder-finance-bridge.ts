@@ -1,5 +1,8 @@
+import { z } from "zod";
+
 import type { AccountingPeriodId, JournalId, LedgerAccountId, LegalEntityId, UserAccountId } from "./ids.ts";
-import type { Money, SupportedCurrency } from "./money.ts";
+import { moneySchema, type Money, type SupportedCurrency } from "./money.ts";
+import { isoDateSchema, opaqueUuidSchema } from "./runtime-schemas.ts";
 
 /**
  * Application contract for the reviewed Shareholders -> Finance bridge.
@@ -113,4 +116,167 @@ export interface CapitalContributionFinanceSummary {
   readonly receiptCount: number;
   readonly approvalState: CapitalReceiptApprovalState | "NOT_RECEIVED";
   readonly postingState: CapitalReceiptPostingState;
+}
+
+/**
+ * Production application contract for the future coordinated PostgreSQL bridge.
+ *
+ * These request schemas deliberately omit actor, legal-entity, permission, policy and account
+ * mapping fields. The server obtains the session proof from its secure cookie and PostgreSQL must
+ * resolve every authority/configuration fact again at execution time.
+ */
+export const shareholderCapitalReceiptRecordSchema = z.object({
+  contributionId: opaqueUuidSchema,
+  expectedContributionVersion: z.number().int().positive(),
+  amount: moneySchema,
+  receiptDate: isoDateSchema,
+  treasuryDestinationId: opaqueUuidSchema,
+  paymentReference: z.string().trim().min(1).max(120).nullable().optional(),
+  evidenceReferenceId: opaqueUuidSchema.nullable().optional()
+}).strict();
+
+export const shareholderCapitalCustodyDecisionSchema = z.object({
+  expectedReceiptVersion: z.number().int().positive(),
+  decision: z.enum(["VERIFIED", "REJECTED"]),
+  verificationKind: z.enum(["PHYSICAL_CASH_COUNT", "BANK_CONFIRMATION", "SARAF_CONFIRMATION", "CONTROLLED_EVIDENCE"]),
+  evidenceReferenceId: opaqueUuidSchema,
+  decisionReason: z.string().trim().min(3).max(500).nullable().optional()
+}).strict().superRefine((value, context) => {
+  if (value.decision === "REJECTED" && !value.decisionReason) {
+    context.addIssue({ code: "custom", path: ["decisionReason"], message: "A rejection reason is required." });
+  }
+});
+
+export const shareholderCapitalPostingPrepareSchema = z.object({
+  expectedReceiptVersion: z.number().int().positive(),
+  accountingEffectiveDate: isoDateSchema
+}).strict();
+
+export const shareholderCapitalPostingDecisionSchema = z.object({
+  expectedIntentVersion: z.number().int().positive(),
+  decision: z.enum(["APPROVED", "REJECTED"]),
+  evidenceReferenceId: opaqueUuidSchema,
+  decisionReason: z.string().trim().min(3).max(500)
+}).strict();
+
+export const shareholderCapitalPostingPostSchema = z.object({
+  expectedIntentVersion: z.number().int().positive()
+}).strict();
+
+export type ShareholderCapitalReceiptRecordRequest = z.infer<typeof shareholderCapitalReceiptRecordSchema>;
+export type ShareholderCapitalCustodyDecisionRequest = z.infer<typeof shareholderCapitalCustodyDecisionSchema>;
+export type ShareholderCapitalPostingPrepareRequest = z.infer<typeof shareholderCapitalPostingPrepareSchema>;
+export type ShareholderCapitalPostingDecisionRequest = z.infer<typeof shareholderCapitalPostingDecisionSchema>;
+export type ShareholderCapitalPostingPostRequest = z.infer<typeof shareholderCapitalPostingPostSchema>;
+
+export type ShareholderFinanceCapabilityState = "NOT_OPERATIONAL" | "SCHEMA_NOT_AVAILABLE" | "OPERATIONAL";
+
+export interface ShareholderFinanceCapability {
+  readonly state: ShareholderFinanceCapabilityState;
+  readonly schemaInstalled: boolean;
+  readonly mutationAvailable: boolean;
+  readonly reviewModeAvailable: boolean;
+  readonly requiredSessionProvenance: "PASSWORD_OPERATIONAL";
+  readonly reason: string;
+}
+
+export type ShareholderFinanceOperation =
+  | "RECORD_RECEIPT"
+  | "VERIFY_CUSTODY"
+  | "PREPARE_POSTING"
+  | "DECIDE_POSTING"
+  | "POST_RECEIPT"
+  | "READ_TRACE";
+
+export const SHAREHOLDER_FINANCE_PERMISSION_BY_OPERATION: Readonly<Record<ShareholderFinanceOperation, string>> = Object.freeze({
+  RECORD_RECEIPT: "shareholder.capital-receipt.record",
+  VERIFY_CUSTODY: "treasury.capital-receipt.verify",
+  PREPARE_POSTING: "finance.posting-intent.create",
+  DECIDE_POSTING: "finance.capital-receipt.approve",
+  POST_RECEIPT: "finance.capital-receipt.post",
+  READ_TRACE: "shareholder.capital-receipt.read"
+});
+
+export type ShareholderCapitalCustodyState = "NOT_RECEIVED" | "PENDING_VERIFICATION" | "VERIFIED" | "REJECTED";
+export type ShareholderCapitalTraceStatus = "DECLARED" | "RECEIVED" | "VERIFIED" | "APPROVED" | "POSTED";
+
+export interface ShareholderCapitalReceiptTrace {
+  readonly receiptId: string;
+  readonly contributionId: string;
+  readonly amount: Money;
+  readonly receiptDate: string;
+  readonly treasuryDestinationId: string;
+  readonly treasuryDestinationName: string;
+  readonly custodyState: ShareholderCapitalCustodyState;
+  readonly approvalState: CapitalReceiptApprovalState;
+  readonly postingState: CapitalReceiptPostingState;
+  readonly postingIntentId: string | null;
+  readonly journalId: JournalId | null;
+}
+
+export interface ShareholderCapitalContributionTrace {
+  readonly contributionId: string;
+  readonly shareholderProfileId: string;
+  readonly shareholderBusinessPartyId: string;
+  readonly shareholderDisplayName: string;
+  readonly declarationDate: string;
+  readonly declaredAmount: Money;
+  readonly receivedAmount: Money;
+  readonly custodyVerifiedAmount: Money;
+  readonly approvedAmount: Money;
+  readonly postedAmount: Money;
+  readonly outstandingAmount: Money;
+  readonly status: ShareholderCapitalTraceStatus;
+  readonly receipts: readonly ShareholderCapitalReceiptTrace[];
+}
+
+export interface ShareholderCapitalLegacyAgreementTrace {
+  readonly agreementId: string;
+  readonly shareholderProfileId: string;
+  readonly shareholderDisplayName: string;
+  readonly committedAmount: Money;
+  readonly sourceModel: "LEGACY_CAPITAL_AGREEMENT";
+  readonly includedInContributionTotals: false;
+}
+
+export interface ShareholderCapitalTraceReadModel {
+  readonly capability: ShareholderFinanceCapability;
+  readonly contribution: ShareholderCapitalContributionTrace;
+  /** Legacy agreements remain separate and are never copied into contribution receipt totals. */
+  readonly legacyAgreements: readonly ShareholderCapitalLegacyAgreementTrace[];
+}
+
+export type ShareholderCapitalBridgeEventType =
+  | "SHAREHOLDER_CAPITAL_RECEIPT_RECORDED"
+  | "SHAREHOLDER_CAPITAL_CUSTODY_VERIFIED"
+  | "SHAREHOLDER_CAPITAL_CUSTODY_REJECTED"
+  | "SHAREHOLDER_CAPITAL_POSTING_PREPARED"
+  | "SHAREHOLDER_CAPITAL_POSTING_APPROVED"
+  | "SHAREHOLDER_CAPITAL_POSTING_REJECTED"
+  | "SHAREHOLDER_CAPITAL_RECEIPT_POSTED";
+
+export interface ShareholderCapitalBridgeEventPayload {
+  readonly contributionId: string;
+  readonly receiptId: string;
+  readonly postingIntentId: string | null;
+  readonly journalId: JournalId | null;
+  readonly fromState: string | null;
+  readonly toState: string;
+  readonly policyVersionId: string | null;
+  readonly mappingVersionId: string | null;
+  readonly evidenceReferenceId: string | null;
+}
+
+export interface ShareholderCapitalReceiptCommandResult {
+  readonly receipt: ShareholderCapitalReceiptTrace;
+  readonly replayed: boolean;
+}
+
+export interface ShareholderCapitalPostingCommandResult {
+  readonly receiptId: string;
+  readonly postingIntentId: string;
+  readonly status: "PENDING_APPROVAL" | "APPROVED" | "REJECTED" | "POSTED";
+  readonly version: number;
+  readonly journalId: JournalId | null;
+  readonly replayed: boolean;
 }

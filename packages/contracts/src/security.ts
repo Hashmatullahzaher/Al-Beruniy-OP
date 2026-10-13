@@ -17,7 +17,11 @@ export type FinancePermission =
   | "finance.expense.create"
   | "finance.expense.read"
   | "finance.expense.approve"
-  | "finance.period.manage";
+  | "finance.period.manage"
+  | "shareholder.capital-receipt.read"
+  | "finance.capital-receipt.configure"
+  | "finance.capital-receipt.approve"
+  | "finance.capital-receipt.post";
 
 export interface ServerActorContext {
   readonly userAccountId: UserAccountId;

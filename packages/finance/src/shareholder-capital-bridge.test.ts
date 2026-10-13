@@ -18,7 +18,6 @@ import type {
 } from "@abos/contracts";
 
 import { FinanceDomainError } from "./errors.ts";
-import type { LedgerAccountPolicy } from "./journal.ts";
 import { InMemoryShareholderCapitalBridgeRepository } from "./shareholder-capital-bridge-memory.ts";
 import { ShareholderCapitalBridgeService } from "./shareholder-capital-bridge.ts";
 import type { BridgeDestination, BridgeLedgerAccount, BridgeReversalDecision } from "./shareholder-capital-bridge.ts";
