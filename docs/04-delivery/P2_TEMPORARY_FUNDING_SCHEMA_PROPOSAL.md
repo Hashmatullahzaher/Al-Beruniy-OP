@@ -233,7 +233,7 @@ The proven end state: an ordinary Safe-funded expense that exceeds recorded cash
 This work used only:
 - the P2 worktree;
 - the disposable container `abos-p2-tempfunding-pg`, with databases `abos_p2_tempfunding_test` and `abos_p2_tf_preview`;
-- private configuration under `AppData\Local\AlBeruniyOS\config\p2-tempfunding`.
+- private local configuration kept outside the repository.
 
 It did not touch:
 - the live database, runtime-0035 or runtime-0032;
