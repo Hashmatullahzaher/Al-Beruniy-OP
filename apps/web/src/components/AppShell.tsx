@@ -1,6 +1,6 @@
 "use client";
 
-import { workspaceRoutes } from "@abos/contracts";
+import { TEMPORARY_FUNDING_PERMISSIONS, workspaceRoutes } from "@abos/contracts";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Fragment, useState, type ReactNode } from "react";
@@ -52,6 +52,7 @@ const operationalRoutes: ReadonlyArray<{ readonly path: string; readonly icon: A
   { path: "/finance/record-expense", icon: "coins", en: "Record expense", fa: "ثبت مصرف", section: "daily", visible: (can) => can("finance.expense.create") },
   { path: "/finance/transactions", icon: "reports-analytics", en: "Daily transactions", fa: "معاملات روزانه", section: "daily", visible: (can) => can("finance.expense.read") },
   { path: "/finance/treasury", icon: "coins", en: "Treasury", fa: "خزانه", section: "daily", visible: (can) => can("treasury.read") },
+  { path: "/finance/temporary-funding", icon: "coins", en: "Temporary funding", fa: "تمویل موقت", section: "daily", visible: (can) => TEMPORARY_FUNDING_PERMISSIONS.some((permission) => can(permission)) },
   // Reports.
   { path: "/finance/daily-report", icon: "reports-analytics", en: "Daily financial report", fa: "گزارش مالی روزانه", section: "reports", visible: (can) => can("finance.expense.read") },
   // Accounting (accountants and Finance managers).

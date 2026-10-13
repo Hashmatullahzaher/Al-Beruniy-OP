@@ -162,6 +162,38 @@ export const PERMISSION_COPY: Readonly<Record<string, PermissionCopy>> = {
     label: { en: "View expenses and the daily report", fa: "مشاهده مصارف و گزارش روزانه" },
     allows: { en: "See recorded expenses, daily transactions and the daily financial report, within the projects, departments and cost centers the person works with.", fa: "دیدن مصارف ثبت‌شده، معاملات روزانه و گزارش مالی روزانه، در محدوده پروژه‌ها، بخش‌ها و مراکز هزینه‌ای که شخص با آن‌ها کار می‌کند." }
   },
+  // P2 Temporary Funding (isolated proposal; catalogue version assigned at promotion).
+  "finance.temporary-funding.read": {
+    label: { en: "View temporary funding", fa: "مشاهده تمویل موقت" },
+    allows: { en: "See who temporarily funded the company, how much is still owed to each provider, and the physical Safe positions kept separate from it.", fa: "دیدن این‌که چه کسی شرکت را به‌طور موقت تمویل کرده، چه مقدار هنوز به هر تمویل‌کننده بدهکار است، و موقعیت نقد فزیکی صندوق که جدا از آن نگه داشته می‌شود." }
+  },
+  "finance.temporary-funding.create": {
+    label: { en: "Record temporary funding", fa: "ثبت تمویل موقت" },
+    allows: { en: "Record that a person or organization paid an expense directly or put cash into the Safe for the company. It is sent for approval and becomes an amount the company owes them.", fa: "ثبت این‌که یک شخص یا سازمان مصرفی را مستقیماً پرداخت کرده یا برای شرکت نقد در صندوق گذاشته است. برای تأیید فرستاده می‌شود و به مبلغی تبدیل می‌شود که شرکت به آن‌ها بدهکار است." }
+  },
+  "finance.temporary-funding.approve": {
+    label: { en: "Approve temporary funding", fa: "تأیید تمویل موقت" },
+    allows: { en: "Approve a recorded temporary funding, which records it in the books as an amount owed to the provider.", fa: "تأیید تمویل موقت ثبت‌شده، که آن را در دفاتر به‌عنوان مبلغ بدهکار به تمویل‌کننده ثبت می‌کند." },
+    independence: { en: "Never by the person who recorded it or by the provider.", fa: "هرگز توسط کسی که آن را ثبت کرده یا توسط خود تمویل‌کننده." }
+  },
+  "finance.temporary-funding.settle": {
+    label: { en: "Request repayment of temporary funding", fa: "درخواست بازپرداخت تمویل موقت" },
+    allows: { en: "Request a full or partial repayment to a provider from a Safe or bank account. It is never more than the amount still owed.", fa: "درخواست بازپرداخت کامل یا قسمی به تمویل‌کننده از صندوق یا حساب بانکی. هرگز بیشتر از مبلغ باقی‌مانده نیست." }
+  },
+  "finance.temporary-funding.settle-approve": {
+    label: { en: "Approve repayments of temporary funding", fa: "تأیید بازپرداخت تمویل موقت" },
+    allows: { en: "Approve a repayment, which pays the provider and reduces the amount owed. The original expense is never recorded again.", fa: "تأیید بازپرداخت، که به تمویل‌کننده پرداخت می‌کند و مبلغ بدهی را کم می‌کند. مصرف اصلی هرگز دوباره ثبت نمی‌شود." },
+    independence: { en: "Never by the person who requested the repayment or by the provider.", fa: "هرگز توسط کسی که بازپرداخت را درخواست کرده یا توسط خود تمویل‌کننده." }
+  },
+  "finance.temporary-funding.reverse": {
+    label: { en: "Reverse temporary funding", fa: "برگشت تمویل موقت" },
+    allows: { en: "Request or decide the reversal of a temporary funding that has no repayments, recorded as an exact mirror in the books.", fa: "درخواست یا تصمیم برگشت تمویل موقتی که بازپرداخت ندارد، که به‌صورت قرینه دقیق در دفاتر ثبت می‌شود." },
+    independence: { en: "The decision is never by the requester, the recorder, the original approver or the provider.", fa: "تصمیم هرگز توسط درخواست‌کننده، ثبت‌کننده، تأییدکننده اصلی یا خود تمویل‌کننده گرفته نمی‌شود." }
+  },
+  "finance.temporary-funding.configure": {
+    label: { en: "Set up temporary funding", fa: "تنظیم تمویل موقت" },
+    allows: { en: "Choose the liability account in the Chart of Accounts where amounts owed to temporary funding providers are recorded.", fa: "انتخاب حساب بدهی در جدول حساب‌ها که مبالغ بدهکار به تمویل‌کنندگان موقت در آن ثبت می‌شود." }
+  },
   "finance.expense.approve": {
     label: { en: "Approve expenses", fa: "تأیید مصارف" },
     allows: { en: "Only used when the company requires expense approval: approve an expense waiting for approval, which records it in the books.", fa: "فقط وقتی شرکت تأیید مصارف را لازم بداند استفاده می‌شود: تأیید مصرف منتظر تأیید، که آن را در دفاتر ثبت می‌کند." },

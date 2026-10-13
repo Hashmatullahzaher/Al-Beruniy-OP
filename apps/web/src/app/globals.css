@@ -1891,6 +1891,21 @@ button.review-context { border: 0; border-inline-start: 1px solid rgba(102, 142,
 .expense-form select { min-height: 38px; padding: 7px 10px; border: 1px solid rgba(73, 145, 192, .35); border-radius: 7px; background: rgba(3, 14, 25, .8); color: white; font: inherit; font-size: 12.5px; }
 .expense-form select option { background: #071d30; color: white; }
 .expense-form select:focus, .expense-form input:focus, .expense-form textarea:focus { outline: 2px solid var(--abos-gold-300); outline-offset: 1px; }
+/* P2 Temporary Funding: the physical Safe and the provider payable are always shown apart. */
+.tf-positions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.tf-panel h2 { display: flex; gap: 8px; align-items: center; margin: 0 0 6px; font-size: 15px; }
+.tf-panel .rates-table { margin-top: 8px; }
+.tf-payable { border-color: rgba(224, 180, 79, .32); }
+.tf-total { margin: 2px 0; color: var(--abos-gold-300); font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.tf-list, .tf-settlements { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.tf-card { display: grid; gap: 6px; padding: 12px; border: 1px solid rgba(73, 145, 192, .25); border-radius: 9px; background: rgba(3, 14, 25, .45); }
+.tf-card p { margin: 0; }
+.tf-card-head { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.tf-amounts { font-variant-numeric: tabular-nums; font-weight: 700; }
+.tf-settlements { padding-inline-start: 12px; border-inline-start: 2px solid rgba(224, 180, 79, .25); font-size: 12.5px; }
+.tf-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.tf-actions input, .tf-actions select { min-height: 34px; padding: 6px 9px; border: 1px solid rgba(73, 145, 192, .35); border-radius: 7px; background: rgba(3, 14, 25, .8); color: white; font: inherit; font-size: 12.5px; }
+@media (max-width: 900px) { .tf-positions { grid-template-columns: minmax(0, 1fr); } .tf-panel { overflow-x: auto; } }
 .setup-checklist { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
 .setup-checklist li { display: grid; grid-template-columns: 22px 1fr; gap: 8px; align-items: start; color: var(--abos-slate-200); font-size: 12.5px; line-height: 1.5; }
 .setup-checklist li > span:first-child { width: 20px; height: 20px; display: grid; place-items: center; border-radius: 50%; font-size: 11px; font-weight: 800; }
