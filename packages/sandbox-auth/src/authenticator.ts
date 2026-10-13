@@ -41,6 +41,9 @@ import type {
   ShareholderSetupResult,
   ShareholderSetupWorkspace,
   ShareholderContributionsWorkspace,
+  TemporaryFundingCommand,
+  TemporaryFundingResult,
+  TemporaryFundingWorkspace,
   SupportedCurrency,
   TransactionDimensions,
   TreasuryPermission,
@@ -496,6 +499,56 @@ export class SandboxAuthenticator {
       [],
       "Shareholder contributions are unavailable"
     );
+  }
+
+  /** P2 Temporary Funding (isolated proposal): providers, Safe positions and fundings for the actor's company. */
+  async temporaryFundingWorkspace(executor: SqlExecutor, token: string): Promise<TemporaryFundingWorkspace> {
+    return this.operationalFinanceFunction<TemporaryFundingWorkspace>(
+      executor,
+      "SELECT abos.temporary_funding_workspace($1,$2,$3) AS value",
+      token,
+      [],
+      "Temporary funding is unavailable"
+    );
+  }
+
+  /**
+   * One Temporary Funding command through its reviewed entry point. PostgreSQL derives actor and
+   * legal entity, checks the command's own permission and enforces maker-checker and idempotency.
+   */
+  async temporaryFundingCommand(
+    executor: SqlExecutor, token: string, command: TemporaryFundingCommand
+  ): Promise<TemporaryFundingResult> {
+    // The action selects the entry point; it is not part of the payload (JSON drops undefined keys).
+    const payloadOf = (value: TemporaryFundingCommand) => JSON.stringify({ ...value, action: undefined });
+    const call = (sql: string, parameters: readonly unknown[]) => this.operationalFinanceFunction<TemporaryFundingResult>(
+      executor, sql, token, parameters, "Temporary funding returned no result");
+    switch (command.action) {
+      case "create":
+        return call("SELECT abos.temporary_funding_create($1,$2,$3,$4::jsonb) AS value", [payloadOf(command)]);
+      case "settlement-create":
+        return call("SELECT abos.temporary_funding_settlement_create($1,$2,$3,$4::jsonb) AS value", [payloadOf(command)]);
+      case "reversal-request":
+        return call("SELECT abos.temporary_funding_reversal_request($1,$2,$3,$4::jsonb) AS value", [payloadOf(command)]);
+      case "decide":
+        return call("SELECT abos.temporary_funding_decide($1,$2,$3,$4::uuid,$5::integer,$6,$7) AS value",
+          [command.temporaryFundingId, command.expectedVersion, command.decision, command.note]);
+      case "cancel":
+        return call("SELECT abos.temporary_funding_cancel($1,$2,$3,$4::uuid,$5::integer,$6) AS value",
+          [command.temporaryFundingId, command.expectedVersion, command.reason]);
+      case "settlement-decide":
+        return call("SELECT abos.temporary_funding_settlement_decide($1,$2,$3,$4::uuid,$5::integer,$6,$7) AS value",
+          [command.settlementId, command.expectedVersion, command.decision, command.note]);
+      case "settlement-cancel":
+        return call("SELECT abos.temporary_funding_settlement_cancel($1,$2,$3,$4::uuid,$5::integer,$6) AS value",
+          [command.settlementId, command.expectedVersion, command.reason]);
+      case "reversal-decide":
+        return call("SELECT abos.temporary_funding_reversal_decide($1,$2,$3,$4::uuid,$5::integer,$6,$7) AS value",
+          [command.reversalId, command.expectedVersion, command.decision, command.note]);
+      case "configure":
+        return call("SELECT abos.temporary_funding_configure($1,$2,$3,$4::uuid,$5::integer,$6) AS value",
+          [command.payableLedgerAccountId, command.expectedVersion, command.changeReason]);
+    }
   }
 
   async shareholderSetupWorkspace(executor: SqlExecutor, token: string): Promise<ShareholderSetupWorkspace> {

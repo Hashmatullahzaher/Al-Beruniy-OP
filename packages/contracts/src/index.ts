@@ -20,5 +20,6 @@ export * from "./shareholder-capital.ts";
 export * from "./shareholder-setup.ts";
 export * from "./shareholder-contributions.ts";
 export * from "./shareholder-finance-bridge.ts";
+export * from "./temporary-funding.ts";
 export * from "./treasury.ts";
 export * from "./workflow-policy.ts";
