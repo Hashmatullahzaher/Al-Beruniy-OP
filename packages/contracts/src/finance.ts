@@ -70,7 +70,7 @@ export interface PostedJournal {
   readonly legalEntityId: TransactionDimensions["legalEntityId"];
   readonly accountingPeriodId: AccountingPeriodId;
   readonly baseCurrency: SupportedCurrency;
-  readonly sourceType: CapitalPostingIntent["sourceType"] | "REVERSAL";
+  readonly sourceType: CapitalPostingIntent["sourceType"] | "SHAREHOLDER_CAPITAL_CONTRIBUTION_RECEIPT" | "REVERSAL";
   readonly sourceId: string;
   readonly postedByUserAccountId: UserAccountId;
   readonly postedAt: string;

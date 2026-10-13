@@ -5,3 +5,5 @@ export * from "./memory-repository.ts";
 export * from "./posting-service.ts";
 export * from "./reconciliation.ts";
 export * from "./repository.ts";
+export * from "./shareholder-capital-bridge.ts";
+export * from "./shareholder-capital-bridge-memory.ts";

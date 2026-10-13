@@ -1,0 +1,43 @@
+.capital-bridge-review { min-width: 0; }
+.capital-bridge-review .bridge-notice { border-inline-start: 3px solid #e4bd6c; display: flex; align-items: start; gap: 12px; padding: 16px; color: #c1d4e5; }
+.capital-bridge-review .bridge-notice p { margin: 4px 0 0; line-height: 1.55; }
+.capital-bridge-review .bridge-controls { display: flex; flex-wrap: wrap; gap: 18px; align-items: center; }
+.capital-bridge-review .bridge-controls label { flex: 1 1 230px; }
+.capital-bridge-review .bridge-controls .bridge-policy-toggle { display: flex; gap: 9px; align-items: start; }
+.capital-bridge-review .bridge-controls input[type=checkbox] { width: 18px; margin-top: 4px; }
+.capital-bridge-review .bridge-controls .bridge-policy-toggle span { line-height: 1.55; }
+.capital-bridge-review .bridge-contributions { display: grid; gap: 16px; }
+.capital-bridge-review .bridge-contribution-header { display: flex; align-items: start; justify-content: space-between; gap: 16px; }
+.capital-bridge-review .bridge-contribution-header h2 { margin: 4px 0; font-size: 17px; }
+.capital-bridge-review .bridge-contribution-header p { margin: 0; font-size: 12px; color: #93b4cb; }
+.capital-bridge-review .bridge-figures { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 18px 0; }
+.capital-bridge-review .bridge-figures > div { padding: 12px; background: #071622; border: 1px solid var(--panel-border); border-radius: 6px; min-width: 0; }
+.capital-bridge-review .bridge-figures dt { color: #9cb4c7; font-size: 12px; margin-bottom: 7px; }
+.capital-bridge-review .bridge-figures dd { margin: 0; font-size: 18px; font-weight: 600; overflow-wrap: anywhere; }
+.capital-bridge-review .bridge-figures .bridge-posted { color: #e4bd6c; }
+.capital-bridge-review .bridge-receipts { display: grid; gap: 12px; margin-top: 16px; }
+.capital-bridge-review .bridge-receipt { padding: 14px; border: 1px solid var(--panel-border); border-radius: 6px; background: #091a29; }
+.capital-bridge-review .bridge-receipt-header { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.capital-bridge-review .bridge-receipt-header strong { flex: 1; }
+.capital-bridge-review .bridge-receipt p { font-size: 12px; line-height: 1.5; margin: 8px 0; color: #b6cbdc; overflow-wrap: anywhere; }
+.capital-bridge-review .bridge-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 10px; }
+.capital-bridge-review .bridge-actions small { color: #9cb4c7; }
+.capital-bridge-review .bridge-form { padding: 18px; margin-top: 16px; border: 1px solid #d3a950; border-radius: 7px; }
+.capital-bridge-review .bridge-form h3 { margin: 0 0 14px; }
+.capital-bridge-review .bridge-form-grid { display: grid; gap: 14px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.capital-bridge-review .bridge-form-grid label { min-width: 0; }
+.capital-bridge-review .bridge-history { display: grid; gap: 7px; padding-inline-start: 22px; color: #b6cbdc; line-height: 1.55; }
+.capital-bridge-review .bridge-audit { max-height: 260px; overflow: auto; padding-inline-start: 22px; }
+.capital-bridge-review .bridge-audit li { margin: 7px 0; font-size: 12px; }
+.capital-bridge-review .bridge-audit time { color: #9cb4c7; margin-inline-end: 8px; }
+.capital-bridge-review button:disabled { opacity: .55; cursor: not-allowed; }
+.capital-bridge-review .bridge-review-note { padding: 12px; border-inline-start: 2px solid #65afe0; background: #06121c; }
+@media (max-width: 800px) {
+  .capital-bridge-review .bridge-figures { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .capital-bridge-review .bridge-contribution-header { flex-wrap: wrap; }
+}
+@media (max-width: 500px) {
+  .capital-bridge-review .bridge-form-grid { grid-template-columns: 1fr; }
+  .capital-bridge-review .bridge-figures dd { font-size: 15px; }
+  .capital-bridge-review .bridge-figures > div { padding: 10px; }
+}
