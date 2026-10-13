@@ -1,8 +1,10 @@
 # V1 Shareholder → Finance bridge: schema proposal only
 
-Potential follow-up migration: `0036` subject to coordination and approval. No number is reserved against Claude's Security Rotation S1. No SQL migration, registry entry, owner grant or schema change is created or applied by this task.
+> **Coordination note (re-review through migration 0035):** The exact migration-readiness authority is now `V1_SHAREHOLDER_FINANCE_MIGRATION_READINESS_MANIFEST.md`. That review corrects three earlier assumptions below: reuse `finance_workflow_policy_versions` instead of adding a capital policy table; reuse `posting_approvals` with a typed capital binding instead of adding a duplicate Finance decision table; and reuse the existing `SHAREHOLDER_CAPITAL_RECEIPT` intent kind with model-aware LEGACY_E1/OPERATIONAL_V1 source constraints. This file remains the broader design history where it does not conflict with the manifest.
 
-Source baseline: `8caeae419735f61d41afd9f307b8c9d9f95307b0`, latest committed shareholder declaration migration `0035`. This proposal accompanies `V1_SHAREHOLDER_FINANCE_BRIDGE_DESIGN.md`; unresolved accounting, custody and reversal decisions remain release blockers.
+No migration number is reserved by this proposal. A later migration remains subject to schema coordination and explicit approval. No SQL migration, registry entry, owner grant or schema change is created or applied by this task.
+
+Current coordination baseline: `ee198f94b0539fcb7bc5e63e069132c576dee7dc`, latest committed shareholder declaration migration `0035`. This proposal accompanies `V1_SHAREHOLDER_FINANCE_BRIDGE_DESIGN.md`; unresolved accounting, custody and reversal decisions remain release blockers.
 
 ## 1. Smallest safe persistent extension
 
