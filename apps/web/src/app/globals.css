@@ -1714,6 +1714,20 @@ button.review-context { border: 0; border-inline-start: 1px solid rgba(102, 142,
 .contribution-total.legacy { border-color: rgba(224, 180, 79, .45); background: rgba(71, 53, 19, .18); }
 .contribution-none { border-color: rgba(224, 180, 79, .35); color: #ebc86e; }
 .contribution-sub { display: block; margin-top: 2px; color: #9fb4c3; font-size: 10.5px; }
+.capital-live-boundary.operational { border-color: rgba(67, 190, 133, .38); background: linear-gradient(100deg, rgba(19, 77, 58, .24), rgba(7, 28, 46, .94) 38%, rgba(4, 18, 31, .97)); }
+.capital-live-boundary.operational > span { background: rgba(67, 190, 133, .12); color: #7ddca8; }
+.capital-live-boundary.operational > em { border-color: rgba(67, 190, 133, .32); background: rgba(67, 190, 133, .08); color: #8de1b3; }
+.capital-operation-row td { padding: 0 4px 10px; border-bottom: 1px solid rgba(60, 130, 176, .14); }
+.capital-operations { display: grid; gap: 9px; padding: 11px; border: 1px solid rgba(67, 190, 133, .28); border-radius: 7px; background: rgba(5, 28, 31, .52); }
+.capital-operations-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.capital-operations-head p { margin: 0 0 3px; color: #7ddca8; font-size: 10px; font-weight: 800; letter-spacing: .08em; }
+.capital-operations-head strong { color: #c7d9df; font-size: 11px; font-weight: 550; }
+.capital-operation-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 0; }
+.capital-operation-form h3, .capital-operation-form .admin-hint, .capital-operation-form .rates-actions { grid-column: 1 / -1; }
+.capital-operation-form.compact { margin-top: 9px; }
+.capital-receipt { display: grid; gap: 5px; padding: 10px; border: 1px solid rgba(60, 130, 176, .25); border-radius: 6px; background: rgba(3, 17, 29, .52); }
+.capital-receipt header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.capital-receipt p { margin: 0; color: #9fb4c3; font-size: 11px; }
 .contribution-legacy { display: grid; gap: 5px; padding: 9px 11px; border: 1px dashed rgba(224, 180, 79, .35); border-radius: 6px; background: rgba(71, 53, 19, .12); }
 .contribution-legacy p { margin: 0; color: var(--abos-gold-300); font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; }
 .contribution-legacy ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; }
@@ -1730,6 +1744,8 @@ button.review-context { border: 0; border-inline-start: 1px solid rgba(102, 142,
   .contribution-choice { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .contribution-fields { grid-template-columns: minmax(0, 1fr); }
   .contribution-card-head { flex-direction: column; }
+  .capital-operation-form { grid-template-columns: minmax(0, 1fr); }
+  .capital-operations-head { flex-direction: column; }
   .shareholder-mode-switch { justify-content: stretch; }
   .shareholder-mode-switch .treasury-button { width: 100%; }
 }

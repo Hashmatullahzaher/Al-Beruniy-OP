@@ -277,8 +277,15 @@ if (databaseUrl() === undefined) {
     test("least privilege: column grants only, no delete, runtime executes only the five entry points and cannot touch the table", async () => {
       await prepared();
       const tableGrants = await harness.executor.query<{ grantee: string; privilege_type: string }>(
-        "SELECT grantee, privilege_type FROM information_schema.role_table_grants WHERE table_schema = 'abos' AND table_name = 'shareholder_contributions' AND grantee <> 'abos' ORDER BY 1, 2");
-      assert.deepEqual(tableGrants.rows, [], "no whole-table grant to anyone but the migration owner");
+        `SELECT grantee, privilege_type FROM information_schema.role_table_grants
+          WHERE table_schema = 'abos' AND table_name = 'shareholder_contributions'
+            AND grantee <> 'abos'
+            AND grantee <> (SELECT tableowner FROM pg_catalog.pg_tables
+                              WHERE schemaname = 'abos' AND tablename = 'shareholder_contributions')
+          ORDER BY 1, 2`);
+      assert.deepEqual(tableGrants.rows, [
+        { grantee: "abos_v1_operational_finance_owner", privilege_type: "SELECT" }
+      ], "only the migration owner and the non-login capital posting owner may read the declared source");
       const owner = await harness.executor.query<{ privilege_type: string; n: string }>(
         `SELECT privilege_type, count(*)::text AS n FROM information_schema.column_privileges
           WHERE table_schema = 'abos' AND table_name = 'shareholder_contributions' AND grantee = $1 GROUP BY 1 ORDER BY 1`, [OWNER]);

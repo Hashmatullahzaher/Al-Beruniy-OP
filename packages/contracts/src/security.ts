@@ -20,6 +20,7 @@ export type FinancePermission =
   | "finance.period.manage"
   | "shareholder.capital-receipt.read"
   | "finance.capital-receipt.configure"
+  | "finance.capital-receipt.prepare"
   | "finance.capital-receipt.approve"
   | "finance.capital-receipt.post";
 

@@ -10,6 +10,7 @@ import { AccessGate, api, errorText, formatWhen } from "@/components/AdminUsersW
 import { AppIcon } from "@/components/AppIcon";
 import { exactDecimal } from "@/components/ExchangeRatesWorkspace";
 import { useLocale } from "@/components/LocaleProvider";
+import { ShareholderCapitalBoundary, useShareholderCapitalBridge } from "@/components/ShareholderCapitalBridge";
 import { ShareholderContributionsView } from "@/components/ShareholderContributionsView";
 import { ShareholderRequestWorkspace } from "@/components/ShareholderRequestWorkspace";
 import { StageZeroPageHeader } from "@/components/StageZeroWorkspace";
@@ -110,6 +111,7 @@ export function ShareholderSetupWorkspace() {
   const [form, setForm] = useState<Form | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
+  const capitalBridge = useShareholderCapitalBridge();
 
   const apply = useCallback((result: Awaited<ReturnType<typeof api<SetupView>>>, first: boolean) => {
     if (!result.ok) {
@@ -190,12 +192,7 @@ export function ShareholderSetupWorkspace() {
         title={{ en: "Shareholder capital", fa: "سرمایه سهامداران" }}
         description={{ en: "Shareholders and what each has contributed or committed. Capital agreements, installments and capital requests are under Advanced.", fa: "سهامداران و آنچه هر کدام آورده یا تعهد کرده است. قراردادهای سرمایه، اقساط و درخواست‌های سرمایه در «جزئیات پیشرفته» هستند." }} />
 
-      <section className="finance-boundary-banner" data-testid="receipt-not-operational"><span><AppIcon name="shield" size={22} /></span><div>
-        <p>{fa ? "مسیر دریافت و ثبت حسابداری هنوز عملیاتی نیست" : "RECEIPT AND POSTING ARE NOT OPERATIONAL"}</p>
-        <strong>{fa
-          ? "مسیر سرمایه اظهارشده ← دریافت‌شده ← تحویل خزانه تأییدشده ← تأییدشده مالی ← ثبت‌شده، تا نصب ساختار هماهنگ پایگاه داده فعال نمی‌شود. هیچ دکمه عملیاتی برای دریافت، تأیید یا ثبت وجود ندارد و هیچ رقمی در خزانه یا دفتر کل ایجاد نمی‌شود."
-          : "The Declared → Received → Custody verified → Finance approved → Posted path remains unavailable until the coordinated database schema is installed. No operational receipt, approval or posting controls are exposed, and nothing is created in Treasury or the General Ledger."}</strong>
-      </div><em>{fa ? "فقط تنظیمات" : "Setup only"}</em></section>
+      <ShareholderCapitalBoundary fa={fa} bridge={capitalBridge} />
 
       {message ? <div className={`treasury-message ${message.tone === "ok" ? "success" : "error"}`} role="status"><AppIcon name={message.tone === "ok" ? "shield" : "alert"} size={16} /><span>{message.text}</span><button onClick={() => setMessage(null)} aria-label={fa ? "بستن" : "Dismiss"}>×</button></div> : null}
 
@@ -205,7 +202,7 @@ export function ShareholderSetupWorkspace() {
           : <button type="button" className="treasury-button" aria-expanded={true} onClick={() => { setMode("simple"); setForm(null); setMessage(null); }}>{fa ? "بازگشت به نمای سهامداران" : "Back to shareholders view"}</button>}
       </div>
 
-      {mode === "simple" ? <ShareholderContributionsView fa={fa} onAdvanced={() => { setMode("advanced"); setTab("requests"); }} /> : <>
+      {mode === "simple" ? <ShareholderContributionsView fa={fa} capitalBridge={capitalBridge} onAdvanced={() => { setMode("advanced"); setTab("requests"); }} /> : <>
       <div className="admin-tabs shareholder-tabs" role="tablist" aria-label={fa ? "بخش‌های سهامداران" : "Shareholder areas"}>
         {TABS.map((entry) => (
           <button key={entry.id} role="tab" id={`shareholder-tab-${entry.id}`} aria-selected={tab === entry.id} aria-controls={`shareholder-panel-${entry.id}`}

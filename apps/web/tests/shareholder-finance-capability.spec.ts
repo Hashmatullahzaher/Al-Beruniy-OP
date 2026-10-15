@@ -23,6 +23,7 @@ test("all reserved production bridge routes fail closed without a memory fallbac
     request.post(`/api/v1/finance/shareholder-capital-receipts/${receipt}/prepare`, { data: {} }),
     request.post(`/api/v1/finance/shareholder-capital-postings/${intent}/decision`, { data: { decision: "APPROVED" } }),
     request.post(`/api/v1/finance/shareholder-capital-postings/${intent}/post`, { data: {} }),
+    request.post("/api/v1/finance/shareholder-capital-mapping", { data: {} }),
     request.get(`/api/v1/finance/shareholder-capital-trace/${contribution}`)
   ];
   for (const response of await Promise.all(calls)) {

@@ -28,6 +28,14 @@ import type {
   AgreementDocumentFinalizeInput,
   AgreementDocumentPrepareResult,
   AgreementDocumentRecord,
+  ShareholderCapitalCustodyDecisionRequest,
+  ShareholderCapitalMappingConfigureRequest,
+  ShareholderCapitalPostingDecisionRequest,
+  ShareholderCapitalPostingPostRequest,
+  ShareholderCapitalPostingPrepareRequest,
+  ShareholderCapitalReceiptRecordRequest,
+  ShareholderCapitalTraceReadModel,
+  ShareholderFinanceCapability,
   ShareholderSetupAction,
   ShareholderSetupCommand,
   ShareholderSetupResult,
@@ -588,6 +596,66 @@ export class SandboxAuthenticator {
     );
   }
 
+  async shareholderFinanceCapability(executor: SqlExecutor, token: string): Promise<ShareholderFinanceCapability> {
+    return this.operationalFinanceFunction<ShareholderFinanceCapability>(executor,
+      "SELECT abos.shareholder_capital_capability($1,$2,$3) AS value", token, [],
+      "The Shareholders to Finance capability is unavailable");
+  }
+
+  async configureShareholderCapitalMapping(executor: SqlExecutor, token: string,
+    input: ShareholderCapitalMappingConfigureRequest & { readonly idempotencyKey: string; readonly correlationId: string }
+  ): Promise<Readonly<Record<string, unknown>>> {
+    return this.operationalFinanceFunction(executor,
+      "SELECT abos.configure_shareholder_capital_mapping($1,$2,$3,$4::jsonb) AS value", token,
+      [JSON.stringify(input)], "Capital mapping configuration returned no result");
+  }
+
+  async recordShareholderCapitalReceipt(executor: SqlExecutor, token: string,
+    input: ShareholderCapitalReceiptRecordRequest & { readonly idempotencyKey: string; readonly correlationId: string }
+  ) {
+    return this.operationalFinanceFunction<import("@abos/contracts").ShareholderCapitalReceiptCommandResult>(executor,
+      "SELECT abos.record_shareholder_capital_receipt($1,$2,$3,$4::jsonb) AS value", token,
+      [JSON.stringify(input)], "Capital receipt recording returned no result");
+  }
+
+  async verifyShareholderCapitalCustody(executor: SqlExecutor, token: string, receiptId: string,
+    input: ShareholderCapitalCustodyDecisionRequest & { readonly idempotencyKey: string; readonly correlationId: string }
+  ) {
+    return this.operationalFinanceFunction<import("@abos/contracts").ShareholderCapitalReceiptCommandResult>(executor,
+      "SELECT abos.verify_shareholder_capital_receipt_custody($1,$2,$3,$4::uuid,$5::jsonb) AS value", token,
+      [receiptId, JSON.stringify(input)], "Capital custody verification returned no result");
+  }
+
+  async prepareShareholderCapitalPosting(executor: SqlExecutor, token: string, receiptId: string,
+    input: ShareholderCapitalPostingPrepareRequest & { readonly idempotencyKey: string; readonly correlationId: string }
+  ) {
+    return this.operationalFinanceFunction<import("@abos/contracts").ShareholderCapitalPostingCommandResult>(executor,
+      "SELECT abos.prepare_shareholder_capital_posting($1,$2,$3,$4::uuid,$5::jsonb) AS value", token,
+      [receiptId, JSON.stringify(input)], "Capital posting preparation returned no result");
+  }
+
+  async decideShareholderCapitalPosting(executor: SqlExecutor, token: string, postingIntentId: string,
+    input: ShareholderCapitalPostingDecisionRequest & { readonly idempotencyKey: string; readonly correlationId: string }
+  ) {
+    return this.operationalFinanceFunction<import("@abos/contracts").ShareholderCapitalPostingCommandResult>(executor,
+      "SELECT abos.decide_shareholder_capital_posting($1,$2,$3,$4::uuid,$5::jsonb) AS value", token,
+      [postingIntentId, JSON.stringify(input)], "Capital posting decision returned no result");
+  }
+
+  async postShareholderCapitalReceipt(executor: SqlExecutor, token: string, postingIntentId: string,
+    input: ShareholderCapitalPostingPostRequest & { readonly idempotencyKey: string; readonly correlationId: string }
+  ) {
+    return this.operationalFinanceFunction<import("@abos/contracts").ShareholderCapitalPostingCommandResult>(executor,
+      "SELECT abos.post_shareholder_capital_receipt($1,$2,$3,$4::uuid,$5::jsonb) AS value", token,
+      [postingIntentId, JSON.stringify(input)], "Capital receipt posting returned no result");
+  }
+
+  async shareholderCapitalTrace(executor: SqlExecutor, token: string, contributionId: string): Promise<ShareholderCapitalTraceReadModel> {
+    return this.operationalFinanceFunction<ShareholderCapitalTraceReadModel>(executor,
+      "SELECT abos.shareholder_capital_trace($1,$2,$3,$4::uuid) AS value", token,
+      [contributionId], "Capital receipt trace returned no result");
+  }
+
   private async operationalFinanceFunction<T>(
     executor: SqlExecutor,
     sql: string,
@@ -1087,7 +1155,12 @@ const FINANCE_PERMISSIONS: ReadonlySet<string> = new Set<FinancePermission>([
   "finance.expense.create",
   "finance.expense.read",
   "finance.expense.approve",
-  "finance.period.manage"
+  "finance.period.manage",
+  "shareholder.capital-receipt.read",
+  "finance.capital-receipt.configure",
+  "finance.capital-receipt.prepare",
+  "finance.capital-receipt.approve",
+  "finance.capital-receipt.post"
 ]);
 
 function pick(

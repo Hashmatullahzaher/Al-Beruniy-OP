@@ -86,7 +86,7 @@ test("production operations map to the coordinated least-privilege permissions",
   assert.deepEqual(SHAREHOLDER_FINANCE_PERMISSION_BY_OPERATION, {
     RECORD_RECEIPT: "shareholder.capital-receipt.record",
     VERIFY_CUSTODY: "treasury.capital-receipt.verify",
-    PREPARE_POSTING: "finance.posting-intent.create",
+    PREPARE_POSTING: "finance.capital-receipt.prepare",
     DECIDE_POSTING: "finance.capital-receipt.approve",
     POST_RECEIPT: "finance.capital-receipt.post",
     READ_TRACE: "shareholder.capital-receipt.read"

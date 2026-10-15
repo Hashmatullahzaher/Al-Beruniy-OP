@@ -10,6 +10,7 @@ import { CONTRIBUTION_ASSET_CATEGORIES } from "@abos/contracts";
 import { AccessGate, api, errorText } from "@/components/AdminUsersWorkspace";
 import { AppIcon } from "@/components/AppIcon";
 import { exactDecimal } from "@/components/ExchangeRatesWorkspace";
+import { ShareholderCapitalOperations, type CapitalBridgeState } from "@/components/ShareholderCapitalBridge";
 import type { Copy } from "@/lib/access-copy";
 
 /**
@@ -151,7 +152,7 @@ function fieldsFor(type: ContributionType, d: Draft): Record<string, string> {
   return { ...common, amount: d.amount, currencyCode: d.currencyCode };
 }
 
-export function ShareholderContributionsView({ fa, onAdvanced }: { readonly fa: boolean; readonly onAdvanced: () => void }) {
+export function ShareholderContributionsView({ fa, capitalBridge, onAdvanced }: { readonly fa: boolean; readonly capitalBridge: CapitalBridgeState; readonly onAdvanced: () => void }) {
   const t = useCallback((copy: Copy) => (fa ? copy.fa : copy.en), [fa]);
   const locale = fa ? "fa" : "en";
   const [view, setView] = useState<ShareholderContributionsWorkspace | null>(null);
@@ -231,7 +232,7 @@ export function ShareholderContributionsView({ fa, onAdvanced }: { readonly fa: 
       {view.shareholders.length === 0 ? <p className="treasury-placeholder">{fa ? "هنوز هیچ سهامداری ثبت نشده است." : "No shareholder has been added yet."}</p> : null}
       {view.shareholders.map((holder) => (
         <ShareholderCard key={holder.id} holder={holder} view={view} base={base} fa={fa} t={t} canManage={canManage}
-          form={form} setForm={(next) => { setMessage(null); setForm(next); }} busy={busy} run={run} />
+          capitalBridge={capitalBridge} form={form} setForm={(next) => { setMessage(null); setForm(next); }} busy={busy} run={run} />
       ))}
     </section>
   );
@@ -257,12 +258,12 @@ function Actions({ fa, busy, submit: label, onCancel, extra }: { readonly fa: bo
 
 interface CardProps {
   readonly holder: ShareholderWithContributions; readonly view: ShareholderContributionsWorkspace; readonly base: string;
-  readonly fa: boolean; readonly t: (copy: Copy) => string; readonly canManage: boolean;
+  readonly fa: boolean; readonly t: (copy: Copy) => string; readonly canManage: boolean; readonly capitalBridge: CapitalBridgeState;
   readonly form: Form | null; readonly setForm: (form: Form | null) => void; readonly busy: boolean;
   readonly run: (body: Record<string, unknown>, success: Copy) => Promise<void>;
 }
 
-function ShareholderCard({ holder, view, base, fa, t, canManage, form, setForm, busy, run }: CardProps) {
+function ShareholderCard({ holder, view, base, fa, t, canManage, capitalBridge, form, setForm, busy, run }: CardProps) {
   const live = holder.contributions.filter((c) => c.recordStatus !== "CANCELLED");
   const legacy = holder.legacyCashAgreements;
   // "None yet" only when there is neither a new contribution nor a legacy cash commitment.
@@ -309,7 +310,7 @@ function ShareholderCard({ holder, view, base, fa, t, canManage, form, setForm, 
             <th>{fa ? "اعلام" : "Declaration"}</th><th>{fa ? "دریافت" : "Receipt"}</th><th>{fa ? "ارزیابی" : "Valuation"}</th><th />
           </tr></thead>
           <tbody>{holder.contributions.map((c) => (
-            <ContributionRow key={c.id} c={c} view={view} fa={fa} t={t} canManage={canManage} form={form} setForm={setForm} busy={busy} run={run} />
+            <ContributionRow key={c.id} c={c} view={view} fa={fa} t={t} canManage={canManage} capitalBridge={capitalBridge} form={form} setForm={setForm} busy={busy} run={run} />
           ))}</tbody>
         </table>
       ) : null}
@@ -338,7 +339,7 @@ function ShareholderCard({ holder, view, base, fa, t, canManage, form, setForm, 
   );
 }
 
-function ContributionRow({ c, view, fa, t, canManage, form, setForm, busy, run }: Omit<CardProps, "holder" | "base"> & { readonly c: ShareholderContribution }) {
+function ContributionRow({ c, view, fa, t, canManage, capitalBridge, form, setForm, busy, run }: Omit<CardProps, "holder" | "base"> & { readonly c: ShareholderContribution }) {
   const editing = form?.kind === "edit" && form.contribution.id === c.id ? form : null;
   const cancelling = form?.kind === "cancel" && form.contribution.id === c.id ? form : null;
   const what = c.type === "IN_KIND"
@@ -368,6 +369,7 @@ function ContributionRow({ c, view, fa, t, canManage, form, setForm, busy, run }
           </span>
         ) : c.recordStatus === "CANCELLED" && c.cancellationReason ? <small className="contribution-sub">{c.cancellationReason}</small> : null}</td>
       </tr>
+      {c.type === "CASH" && c.recordStatus === "DECLARED" ? <tr className="capital-operation-row"><td colSpan={7}><ShareholderCapitalOperations contribution={c} fa={fa} bridge={capitalBridge} /></td></tr> : null}
       {editing ? (
         <tr className="shareholder-form-row"><td colSpan={7}>
           <form className="admin-form shareholder-form" aria-label={fa ? "ویرایش آورده" : "Edit contribution"} onSubmit={submit(() => void run(

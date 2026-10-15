@@ -18,6 +18,8 @@ function receipt(contributionId: string, id: string, amount: string, stage: "REC
     approvalState: stage === "APPROVED" || stage === "POSTED" ? "APPROVED" : "PENDING",
     postingState: stage === "POSTED" ? "POSTED" : "NOT_POSTED",
     postingIntentId: stage === "APPROVED" || stage === "POSTED" ? `intent-${id}` : null,
+    receiptVersion: 1,
+    postingIntentVersion: stage === "POSTED" ? 3 : stage === "APPROVED" ? 2 : null,
     journalId: stage === "POSTED" ? `journal-${id}` as JournalId : null
   };
 }

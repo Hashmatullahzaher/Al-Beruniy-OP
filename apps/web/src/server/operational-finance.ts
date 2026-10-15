@@ -266,6 +266,15 @@ export function operationalExpenseErrorResponse(error: unknown) {
 export function operationalFinanceErrorResponse(error: unknown) {
   const setup = knownSetupRefusal(error);
   if (setup !== undefined) return setup;
+  if (error instanceof Error && error.name === "ZodError") {
+    const issues = "issues" in error && Array.isArray(error.issues)
+      ? error.issues as readonly { readonly path?: readonly PropertyKey[] }[] : [];
+    return json({ ok: false, error: {
+      code: "VALIDATION_FAILED",
+      message: "The request contains invalid or missing fields.",
+      fields: issues.map((issue) => (issue.path ?? []).map(String).join("."))
+    } }, 422);
+  }
   if (error instanceof IdentityError) {
     const status = error.code === "AUTHENTICATION_REQUIRED" ? 401
       : error.code === "PERMISSION_DENIED" ? 403

@@ -954,10 +954,10 @@ function validateRole(input: RoleInput): { name: string; description: string; pe
  */
 export const INDEPENDENCE_PERMISSIONS: ReadonlySet<string> = new Set([
   "treasury.cash-account.reconcile", "treasury.cash-account.approve", "treasury.cash-receipt.verify",
-  "treasury.saraf-account.manage",
+  "treasury.saraf-account.manage", "treasury.capital-receipt.verify",
   "finance.posting-intent.approve", "finance.journal.post", "finance.journal.reverse",
   "finance.ledger-account.review", "finance.reversal.request", "finance.reversal.approve",
-  "finance.expense.approve"
+  "finance.expense.approve", "finance.capital-receipt.approve", "finance.capital-receipt.post"
 ]);
 
 function requireSuperAdminFor(actor: Actor, permissions: Iterable<string>): void {

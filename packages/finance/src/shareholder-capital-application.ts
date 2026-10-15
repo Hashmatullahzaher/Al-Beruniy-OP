@@ -2,6 +2,7 @@ import type {
   CorrelationId,
   IdempotencyKey,
   ShareholderCapitalCustodyDecisionRequest,
+  ShareholderCapitalMappingConfigureRequest,
   ShareholderCapitalPostingCommandResult,
   ShareholderCapitalPostingDecisionRequest,
   ShareholderCapitalPostingPostRequest,
@@ -36,6 +37,7 @@ export interface ShareholderFinanceReadContext {
 export interface OperationalShareholderFinanceGateway {
   readonly kind: "COORDINATED_POSTGRES" | "UNAVAILABLE";
   capability(): Promise<ShareholderFinanceCapability>;
+  configureMapping(context: ShareholderFinanceRequestContext, input: ShareholderCapitalMappingConfigureRequest): Promise<Readonly<Record<string, unknown>>>;
   recordReceipt(context: ShareholderFinanceRequestContext, input: ShareholderCapitalReceiptRecordRequest): Promise<ShareholderCapitalReceiptCommandResult>;
   verifyCustody(context: ShareholderFinanceRequestContext, receiptId: string, input: ShareholderCapitalCustodyDecisionRequest): Promise<ShareholderCapitalReceiptCommandResult>;
   preparePosting(context: ShareholderFinanceRequestContext, receiptId: string, input: ShareholderCapitalPostingPrepareRequest): Promise<ShareholderCapitalPostingCommandResult>;
@@ -62,6 +64,7 @@ export class UnavailableShareholderFinanceGateway implements OperationalSharehol
   }
 
   async recordReceipt(): Promise<never> { return unavailable(); }
+  async configureMapping(): Promise<never> { return unavailable(); }
   async verifyCustody(): Promise<never> { return unavailable(); }
   async preparePosting(): Promise<never> { return unavailable(); }
   async decidePosting(): Promise<never> { return unavailable(); }
@@ -81,6 +84,11 @@ export class ShareholderFinanceApplicationService {
   }
 
   capability(): Promise<ShareholderFinanceCapability> { return this.gateway.capability(); }
+
+  async configureMapping(context: ShareholderFinanceRequestContext, input: ShareholderCapitalMappingConfigureRequest) {
+    await this.requireOperational(); validateWriteContext(context);
+    return this.gateway.configureMapping(context, input);
+  }
 
   async recordReceipt(context: ShareholderFinanceRequestContext, input: ShareholderCapitalReceiptRecordRequest) {
     await this.requireOperational(); validateWriteContext(context);

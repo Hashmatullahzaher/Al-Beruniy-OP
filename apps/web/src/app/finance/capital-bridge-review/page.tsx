@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 
 export const dynamic = "force-dynamic";
 
-export default function Page() {
-  if (!shareholderFinanceCapability().reviewModeAvailable) notFound();
+export default async function Page() {
+  if (!(await shareholderFinanceCapability()).reviewModeAvailable) notFound();
   return <CapitalBridgeReviewWorkspace />;
 }

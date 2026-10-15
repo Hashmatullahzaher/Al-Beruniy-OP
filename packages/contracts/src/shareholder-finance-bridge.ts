@@ -163,11 +163,18 @@ export const shareholderCapitalPostingPostSchema = z.object({
   expectedIntentVersion: z.number().int().positive()
 }).strict();
 
+export const shareholderCapitalMappingConfigureSchema = z.object({
+  ledgerAccountId: opaqueUuidSchema,
+  evidenceReferenceId: opaqueUuidSchema,
+  changeReason: z.string().trim().min(3).max(500)
+}).strict();
+
 export type ShareholderCapitalReceiptRecordRequest = z.infer<typeof shareholderCapitalReceiptRecordSchema>;
 export type ShareholderCapitalCustodyDecisionRequest = z.infer<typeof shareholderCapitalCustodyDecisionSchema>;
 export type ShareholderCapitalPostingPrepareRequest = z.infer<typeof shareholderCapitalPostingPrepareSchema>;
 export type ShareholderCapitalPostingDecisionRequest = z.infer<typeof shareholderCapitalPostingDecisionSchema>;
 export type ShareholderCapitalPostingPostRequest = z.infer<typeof shareholderCapitalPostingPostSchema>;
+export type ShareholderCapitalMappingConfigureRequest = z.infer<typeof shareholderCapitalMappingConfigureSchema>;
 
 export type ShareholderFinanceCapabilityState = "NOT_OPERATIONAL" | "SCHEMA_NOT_AVAILABLE" | "OPERATIONAL";
 
@@ -178,6 +185,14 @@ export interface ShareholderFinanceCapability {
   readonly reviewModeAvailable: boolean;
   readonly requiredSessionProvenance: "PASSWORD_OPERATIONAL";
   readonly reason: string;
+  readonly permissions?: readonly string[];
+  readonly policyVersion?: number | null;
+  readonly mappingVersionId?: string | null;
+  readonly treasuryDestinations?: readonly {
+    readonly id: string;
+    readonly name: string;
+    readonly currency: SupportedCurrency;
+  }[];
 }
 
 export type ShareholderFinanceOperation =
@@ -191,7 +206,7 @@ export type ShareholderFinanceOperation =
 export const SHAREHOLDER_FINANCE_PERMISSION_BY_OPERATION: Readonly<Record<ShareholderFinanceOperation, string>> = Object.freeze({
   RECORD_RECEIPT: "shareholder.capital-receipt.record",
   VERIFY_CUSTODY: "treasury.capital-receipt.verify",
-  PREPARE_POSTING: "finance.posting-intent.create",
+  PREPARE_POSTING: "finance.capital-receipt.prepare",
   DECIDE_POSTING: "finance.capital-receipt.approve",
   POST_RECEIPT: "finance.capital-receipt.post",
   READ_TRACE: "shareholder.capital-receipt.read"
@@ -211,6 +226,8 @@ export interface ShareholderCapitalReceiptTrace {
   readonly approvalState: CapitalReceiptApprovalState;
   readonly postingState: CapitalReceiptPostingState;
   readonly postingIntentId: string | null;
+  readonly receiptVersion: number;
+  readonly postingIntentVersion: number | null;
   readonly journalId: JournalId | null;
 }
 
