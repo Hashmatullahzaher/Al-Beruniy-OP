@@ -1,29 +1,35 @@
 /**
- * P2 Temporary Funding (isolated schema proposal infrastructure/database/proposals/p2_temporary_funding.sql).
- *
- * A person or organization that temporarily funds the business creates an explicit liability,
- * TEMPORARY_FUNDING_PAYABLE, per provider. It is never shareholder capital and never negative Safe cash.
+ * V1 Temporary Funding (migration 0037). A person or organization that temporarily funds the business
+ * creates an explicit per-provider liability (control type TEMPORARY_FUNDING_PAYABLE). It is never
+ * shareholder capital and never negative Safe cash. First slice: base currency only, no reversal.
  */
 
-export type TemporaryFundingMode = "PROVIDER_PAID_EXPENSE" | "PROVIDER_FUNDED_SAFE";
-export type TemporaryFundingProviderKind = "SHAREHOLDER" | "EMPLOYEE_OFFICER" | "OTHER_PERSON" | "ORGANIZATION";
-export type TemporaryFundingStatus = "PENDING_APPROVAL" | "REJECTED" | "CANCELLED" | "POSTED" | "REVERSED";
+export type TemporaryFundingMode = "PROVIDER_PAID_EXPENSE_DIRECTLY" | "PROVIDER_FUNDED_SAFE";
+export type TemporaryFundingProviderKind = "SHAREHOLDER" | "EMPLOYEE_OFFICER" | "INDIVIDUAL" | "ORGANIZATION";
+export type TemporaryFundingStatus = "PENDING_APPROVAL" | "REJECTED" | "POSTED";
 /** Stored status plus derived settlement progress. */
 export type TemporaryFundingLifecycleStatus = TemporaryFundingStatus | "PARTIALLY_SETTLED" | "SETTLED";
-export type TemporaryFundingSettlementStatus = "PENDING_APPROVAL" | "REJECTED" | "CANCELLED" | "POSTED";
+export type TemporaryFundingSettlementStatus = "PENDING_APPROVAL" | "REJECTED" | "POSTED";
 export type TemporaryFundingDecision = "APPROVED" | "REJECTED";
+
+/** Typed source discriminators carried by posting intents, journal lines and subledger entries. */
+export const TEMPORARY_FUNDING_SOURCE_TYPES = ["TEMPORARY_FUNDING", "TEMPORARY_FUNDING_SETTLEMENT"] as const;
 
 export const TEMPORARY_FUNDING_PERMISSIONS = [
   "finance.temporary-funding.read",
-  "finance.temporary-funding.create",
+  "finance.temporary-funding.record",
   "finance.temporary-funding.approve",
   "finance.temporary-funding.settle",
   "finance.temporary-funding.settle-approve",
-  "finance.temporary-funding.reverse",
   "finance.temporary-funding.configure"
 ] as const;
 
 export type TemporaryFundingPermission = (typeof TEMPORARY_FUNDING_PERMISSIONS)[number];
+
+export interface TemporaryFundingMoney {
+  readonly amount: string;
+  readonly currency: string;
+}
 
 interface NamedAccount {
   readonly id: string;
@@ -34,7 +40,7 @@ interface NamedAccount {
 
 export interface TemporaryFundingDecisionView {
   readonly decision: TemporaryFundingDecision;
-  readonly note: string;
+  readonly reason: string;
   readonly decidedBy: string;
   readonly decidedAt: string;
 }
@@ -58,21 +64,6 @@ export interface TemporaryFundingSettlementView {
   readonly decision: TemporaryFundingDecisionView | null;
 }
 
-export interface TemporaryFundingReversalView {
-  readonly id: string;
-  readonly status: "REQUESTED" | "REJECTED" | "POSTED";
-  readonly version: number;
-  readonly reversalDate: string;
-  readonly reason: string;
-  readonly requestedBy: string;
-  readonly requestedByUserAccountId: string;
-  readonly requestedAt: string;
-  readonly decidedBy: string | null;
-  readonly decidedAt: string | null;
-  readonly decisionNote: string | null;
-  readonly reversalJournalId: string | null;
-}
-
 export interface TemporaryFundingView {
   readonly id: string;
   readonly fundingMode: TemporaryFundingMode;
@@ -82,9 +73,6 @@ export interface TemporaryFundingView {
   readonly expenseCategory: { readonly id: string; readonly code: string; readonly nameEn: string; readonly nameFa: string | null } | null;
   readonly payee: { readonly id: string; readonly name: string } | null;
   readonly treasuryAccount: NamedAccount | null;
-  readonly projectId: string | null;
-  readonly departmentId: string | null;
-  readonly costCenterId: string | null;
   readonly reference: string;
   readonly description: string;
   readonly note: string | null;
@@ -99,13 +87,14 @@ export interface TemporaryFundingView {
   readonly pendingSettlementAmount: string;
   readonly outstandingAmount: string;
   readonly journalId: string | null;
+  readonly mappingVersionId: string;
+  readonly workflowPolicyVersionId: string;
   readonly createdBy: string;
   readonly createdByUserAccountId: string;
   readonly createdAt: string;
   readonly updatedAt: string;
   readonly decision: TemporaryFundingDecisionView | null;
   readonly settlements: readonly TemporaryFundingSettlementView[];
-  readonly reversal: TemporaryFundingReversalView | null;
 }
 
 export interface TemporaryFundingProviderSummary {
@@ -114,10 +103,8 @@ export interface TemporaryFundingProviderSummary {
   readonly providerKinds: readonly TemporaryFundingProviderKind[];
   readonly fundedAmount: string;
   readonly settledAmount: string;
-  readonly reversedAmount: string;
   /** From the posted TEMPORARY_FUNDING_PAYABLE subledger: the authoritative amount owed. */
   readonly outstandingAmount: string;
-  readonly openFundings: number;
   readonly status: "OUTSTANDING" | "PARTIALLY_SETTLED" | "SETTLED";
 }
 
@@ -127,13 +114,15 @@ export interface TemporaryFundingSafePosition {
   readonly nameFa: string | null;
   readonly accountType: string;
   readonly currencyCode: string;
-  /** Sum of posted Operational V1 movements. Not a balance unless an opening is approved. */
+  /** Sum of posted Operational V1 movements. Not a balance: no opening balance is approved yet. */
   readonly postedMovementTotal: string;
   readonly temporaryFundingInflow: string;
   readonly temporaryFundingSettlementOutflow: string;
-  readonly cashControl: null | { readonly openingAmount: string; readonly openingAsOf: string; readonly recordedCash: string };
-  readonly nonNegativeEnforced: boolean;
 }
+
+export type TemporaryFundingCapabilityReason =
+  | "BASE_CURRENCY_NOT_APPROVED" | "POLICY_NOT_CONFIGURED" | "APPROVAL_MUST_BE_REQUIRED"
+  | "PAYABLE_MAPPING_NOT_CONFIGURED" | "PAYABLE_MAPPING_INVALID";
 
 export interface TemporaryFundingWorkspace {
   readonly legalEntityId: string;
@@ -141,19 +130,27 @@ export interface TemporaryFundingWorkspace {
   readonly actorUserAccountId: string;
   readonly permissions: {
     readonly canRead: boolean;
-    readonly canCreate: boolean;
+    readonly canRecord: boolean;
     readonly canApprove: boolean;
     readonly canSettle: boolean;
     readonly canApproveSettlement: boolean;
-    readonly canReverse: boolean;
     readonly canConfigure: boolean;
+  };
+  readonly capability: {
+    readonly state: "OPERATIONAL" | "NOT_OPERATIONAL";
+    readonly reason: TemporaryFundingCapabilityReason | null;
+    readonly reversalAvailable: false;
+    readonly safeNonNegativeGuardActive: false;
+    readonly requiredSessionProvenance: "PASSWORD_OPERATIONAL";
   };
   readonly configuration: {
     readonly mapping: null | {
       readonly id: string;
       readonly version: number;
-      readonly payableLedgerAccount: { readonly id: string; readonly code: string; readonly name: string };
       readonly configuredAt: string;
+      readonly evidenceDocumentReference: string;
+      readonly valid: boolean;
+      readonly payableLedgerAccount: { readonly id: string; readonly code: string; readonly name: string };
     };
     readonly policy: null | { readonly id: string; readonly version: number; readonly approvalRequired: boolean };
   };
@@ -162,14 +159,17 @@ export interface TemporaryFundingWorkspace {
   readonly safePositions: readonly TemporaryFundingSafePosition[];
   readonly fundings: readonly TemporaryFundingView[];
   readonly options: {
-    readonly treasuryAccounts: readonly (NamedAccount & { readonly currencyCode: string })[];
+    readonly safeAccounts: readonly (NamedAccount & { readonly currencyCode: string })[];
+    readonly settlementSources: readonly (NamedAccount & { readonly currencyCode: string })[];
     readonly expenseCategories: readonly { readonly id: string; readonly code: string; readonly nameEn: string; readonly nameFa: string | null }[];
-    readonly parties: readonly { readonly id: string; readonly name: string; readonly roles: readonly string[] }[];
+    readonly parties: readonly { readonly id: string; readonly name: string; readonly shareholder: boolean }[];
+    /** Active users of this company, for recording the provider's own ABOS user (excluded from approvals). */
+    readonly users: readonly { readonly id: string; readonly name: string }[];
     readonly payableLedgerAccounts: readonly { readonly id: string; readonly code: string; readonly name: string }[];
   };
 }
 
-export interface TemporaryFundingCreate {
+export interface TemporaryFundingRecord {
   readonly fundingMode: TemporaryFundingMode;
   readonly providerKind: TemporaryFundingProviderKind;
   readonly providerBusinessPartyId: string;
@@ -184,48 +184,47 @@ export interface TemporaryFundingCreate {
   readonly description: string;
   readonly note: string | null;
   readonly businessDate: string;
-  readonly originalAmount: string;
-  readonly currencyCode: string;
-  readonly correlationId: string;
+  readonly amount: TemporaryFundingMoney;
   readonly idempotencyKey: string;
+  readonly correlationId: string;
 }
 
-export interface TemporaryFundingSettlementCreate {
+export interface TemporaryFundingDecide {
+  readonly expectedVersion: number;
+  readonly decision: TemporaryFundingDecision;
+  readonly decisionReason: string;
+  readonly idempotencyKey: string;
+  readonly correlationId: string;
+}
+
+export interface TemporaryFundingSettlementRequest {
   readonly temporaryFundingId: string;
+  readonly expectedFundingVersion: number;
   readonly treasuryAccountId: string;
+  readonly amount: TemporaryFundingMoney;
+  readonly businessDate: string;
   readonly reference: string;
   readonly note: string | null;
-  readonly businessDate: string;
-  readonly originalAmount: string;
-  readonly correlationId: string;
   readonly idempotencyKey: string;
+  readonly correlationId: string;
 }
 
-export interface TemporaryFundingReversalRequest {
-  readonly temporaryFundingId: string;
-  readonly reversalDate: string;
-  readonly reason: string;
-  readonly correlationId: string;
+export interface TemporaryFundingMappingConfigure {
+  readonly ledgerAccountId: string;
+  readonly evidenceDocumentReference: string;
+  readonly evidenceSha256: string;
+  readonly changeReason: string;
   readonly idempotencyKey: string;
+  readonly correlationId: string;
 }
 
-/** One Temporary Funding command, as the API accepts it. */
+/** One Temporary Funding command, as the API accepts it. Reversal is not available in this slice. */
 export type TemporaryFundingCommand =
-  | ({ readonly action: "create" } & TemporaryFundingCreate)
-  | { readonly action: "decide"; readonly temporaryFundingId: string; readonly expectedVersion: number;
-      readonly decision: TemporaryFundingDecision; readonly note: string }
-  | { readonly action: "cancel"; readonly temporaryFundingId: string; readonly expectedVersion: number;
-      readonly reason: string }
-  | ({ readonly action: "settlement-create" } & TemporaryFundingSettlementCreate)
-  | { readonly action: "settlement-decide"; readonly settlementId: string; readonly expectedVersion: number;
-      readonly decision: TemporaryFundingDecision; readonly note: string }
-  | { readonly action: "settlement-cancel"; readonly settlementId: string; readonly expectedVersion: number;
-      readonly reason: string }
-  | ({ readonly action: "reversal-request" } & TemporaryFundingReversalRequest)
-  | { readonly action: "reversal-decide"; readonly reversalId: string; readonly expectedVersion: number;
-      readonly decision: TemporaryFundingDecision; readonly note: string }
-  | { readonly action: "configure"; readonly payableLedgerAccountId: string; readonly expectedVersion: number;
-      readonly changeReason: string };
+  | ({ readonly action: "record" } & TemporaryFundingRecord)
+  | ({ readonly action: "decide"; readonly temporaryFundingId: string } & TemporaryFundingDecide)
+  | ({ readonly action: "request-settlement" } & TemporaryFundingSettlementRequest)
+  | ({ readonly action: "decide-settlement"; readonly settlementId: string } & TemporaryFundingDecide)
+  | ({ readonly action: "configure-mapping" } & TemporaryFundingMappingConfigure);
 
 export type TemporaryFundingAction = TemporaryFundingCommand["action"];
 

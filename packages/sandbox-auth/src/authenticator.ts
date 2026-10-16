@@ -501,7 +501,7 @@ export class SandboxAuthenticator {
     );
   }
 
-  /** P2 Temporary Funding (isolated proposal): providers, Safe positions and fundings for the actor's company. */
+  /** Temporary Funding (0037): providers, Safe movements and fundings of the actor's company. */
   async temporaryFundingWorkspace(executor: SqlExecutor, token: string): Promise<TemporaryFundingWorkspace> {
     return this.operationalFinanceFunction<TemporaryFundingWorkspace>(
       executor,
@@ -513,41 +513,30 @@ export class SandboxAuthenticator {
   }
 
   /**
-   * One Temporary Funding command through its reviewed entry point. PostgreSQL derives actor and
-   * legal entity, checks the command's own permission and enforces maker-checker and idempotency.
+   * One Temporary Funding command through its reviewed 0037 entry point. PostgreSQL derives actor and
+   * legal entity from the password session, checks the command's permission and enforces
+   * maker-checker, provider independence, idempotency and the payable/Safe journal contracts.
    */
   async temporaryFundingCommand(
     executor: SqlExecutor, token: string, command: TemporaryFundingCommand
   ): Promise<TemporaryFundingResult> {
-    // The action selects the entry point; it is not part of the payload (JSON drops undefined keys).
-    const payloadOf = (value: TemporaryFundingCommand) => JSON.stringify({ ...value, action: undefined });
     const call = (sql: string, parameters: readonly unknown[]) => this.operationalFinanceFunction<TemporaryFundingResult>(
       executor, sql, token, parameters, "Temporary funding returned no result");
+    // The action (and a target id carried in the URL) select the entry point; JSON drops undefined keys.
+    const payload = { ...command, action: undefined };
     switch (command.action) {
-      case "create":
-        return call("SELECT abos.temporary_funding_create($1,$2,$3,$4::jsonb) AS value", [payloadOf(command)]);
-      case "settlement-create":
-        return call("SELECT abos.temporary_funding_settlement_create($1,$2,$3,$4::jsonb) AS value", [payloadOf(command)]);
-      case "reversal-request":
-        return call("SELECT abos.temporary_funding_reversal_request($1,$2,$3,$4::jsonb) AS value", [payloadOf(command)]);
+      case "record":
+        return call("SELECT abos.record_temporary_funding($1,$2,$3,$4::jsonb) AS value", [JSON.stringify(payload)]);
       case "decide":
-        return call("SELECT abos.temporary_funding_decide($1,$2,$3,$4::uuid,$5::integer,$6,$7) AS value",
-          [command.temporaryFundingId, command.expectedVersion, command.decision, command.note]);
-      case "cancel":
-        return call("SELECT abos.temporary_funding_cancel($1,$2,$3,$4::uuid,$5::integer,$6) AS value",
-          [command.temporaryFundingId, command.expectedVersion, command.reason]);
-      case "settlement-decide":
-        return call("SELECT abos.temporary_funding_settlement_decide($1,$2,$3,$4::uuid,$5::integer,$6,$7) AS value",
-          [command.settlementId, command.expectedVersion, command.decision, command.note]);
-      case "settlement-cancel":
-        return call("SELECT abos.temporary_funding_settlement_cancel($1,$2,$3,$4::uuid,$5::integer,$6) AS value",
-          [command.settlementId, command.expectedVersion, command.reason]);
-      case "reversal-decide":
-        return call("SELECT abos.temporary_funding_reversal_decide($1,$2,$3,$4::uuid,$5::integer,$6,$7) AS value",
-          [command.reversalId, command.expectedVersion, command.decision, command.note]);
-      case "configure":
-        return call("SELECT abos.temporary_funding_configure($1,$2,$3,$4::uuid,$5::integer,$6) AS value",
-          [command.payableLedgerAccountId, command.expectedVersion, command.changeReason]);
+        return call("SELECT abos.decide_temporary_funding($1,$2,$3,$4::uuid,$5::jsonb) AS value",
+          [command.temporaryFundingId, JSON.stringify({ ...payload, temporaryFundingId: undefined })]);
+      case "request-settlement":
+        return call("SELECT abos.request_temporary_funding_settlement($1,$2,$3,$4::jsonb) AS value", [JSON.stringify(payload)]);
+      case "decide-settlement":
+        return call("SELECT abos.decide_temporary_funding_settlement($1,$2,$3,$4::uuid,$5::jsonb) AS value",
+          [command.settlementId, JSON.stringify({ ...payload, settlementId: undefined })]);
+      case "configure-mapping":
+        return call("SELECT abos.configure_temporary_funding_mapping($1,$2,$3,$4::jsonb) AS value", [JSON.stringify(payload)]);
     }
   }
 

@@ -7,7 +7,8 @@ export const FINANCE_WORKFLOW_TYPES = [
   "EXPENSE",
   "SUPPLIER_PAYMENT",
   "SALARY_PAYMENT",
-  "TREASURY_TRANSFER"
+  "TREASURY_TRANSFER",
+  "TEMPORARY_FUNDING"
 ] as const;
 
 export type FinanceWorkflowType = (typeof FINANCE_WORKFLOW_TYPES)[number];

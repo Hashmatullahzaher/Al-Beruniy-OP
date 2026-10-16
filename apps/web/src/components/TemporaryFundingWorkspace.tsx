@@ -1,6 +1,7 @@
 "use client";
 
 import type {
+  TemporaryFundingCapabilityReason,
   TemporaryFundingLifecycleStatus,
   TemporaryFundingMode,
   TemporaryFundingProviderKind,
@@ -19,28 +20,32 @@ import { StageZeroPageHeader } from "@/components/StageZeroWorkspace";
 import type { Copy } from "@/lib/access-copy";
 
 const AMOUNT = /^(0|[1-9][0-9]*)(\.[0-9]+)?$/;
+const SHA256 = /^[0-9a-f]{64}$/;
 const ENDPOINT = "/api/v1/finance/operations/temporary-funding";
 
 const MODE_COPY: Readonly<Record<TemporaryFundingMode, Copy>> = {
-  PROVIDER_PAID_EXPENSE: { en: "Paid an expense directly", fa: "مصرف را مستقیماً پرداخت کرد" },
+  PROVIDER_PAID_EXPENSE_DIRECTLY: { en: "Paid an expense directly", fa: "مصرف را مستقیماً پرداخت کرد" },
   PROVIDER_FUNDED_SAFE: { en: "Put cash into the Safe", fa: "نقد در صندوق گذاشت" }
+};
+
+const MODE_EFFECT: Readonly<Record<TemporaryFundingMode, Copy>> = {
+  PROVIDER_PAID_EXPENSE_DIRECTLY: { en: "Safe unchanged", fa: "صندوق بدون تغییر" },
+  PROVIDER_FUNDED_SAFE: { en: "Safe funded", fa: "صندوق تمویل شد" }
 };
 
 const KIND_COPY: Readonly<Record<TemporaryFundingProviderKind, Copy>> = {
   SHAREHOLDER: { en: "Shareholder", fa: "سهامدار" },
   EMPLOYEE_OFFICER: { en: "Employee or officer", fa: "کارمند یا مسئول" },
-  OTHER_PERSON: { en: "Other person", fa: "شخص دیگر" },
+  INDIVIDUAL: { en: "Individual", fa: "شخص" },
   ORGANIZATION: { en: "Organization", fa: "سازمان" }
 };
 
 const STATUS_COPY: Readonly<Record<TemporaryFundingLifecycleStatus, Copy>> = {
   PENDING_APPROVAL: { en: "Waiting for approval", fa: "منتظر تأیید" },
   REJECTED: { en: "Rejected", fa: "رد شد" },
-  CANCELLED: { en: "Cancelled", fa: "لغو شد" },
   POSTED: { en: "Owed — not repaid", fa: "بدهکار — بازپرداخت نشده" },
   PARTIALLY_SETTLED: { en: "Partly repaid", fa: "قسماً بازپرداخت شده" },
-  SETTLED: { en: "Fully repaid", fa: "کاملاً بازپرداخت شده" },
-  REVERSED: { en: "Reversed", fa: "برگشت داده شد" }
+  SETTLED: { en: "Fully repaid", fa: "کاملاً بازپرداخت شده" }
 };
 
 const PROVIDER_STATUS_COPY: Readonly<Record<string, Copy>> = {
@@ -49,25 +54,37 @@ const PROVIDER_STATUS_COPY: Readonly<Record<string, Copy>> = {
   SETTLED: { en: "Repaid", fa: "بازپرداخت شده" }
 };
 
+const SETTLEMENT_STATUS_COPY: Readonly<Record<TemporaryFundingSettlementView["status"], Copy>> = {
+  PENDING_APPROVAL: { en: "Waiting for approval", fa: "منتظر تأیید" },
+  REJECTED: { en: "Rejected", fa: "رد شد" },
+  POSTED: { en: "Repaid", fa: "پرداخت شد" }
+};
+
+const CAPABILITY_COPY: Readonly<Record<TemporaryFundingCapabilityReason, Copy>> = {
+  BASE_CURRENCY_NOT_APPROVED: { en: "The company's base currency is not approved yet.", fa: "واحد پول پایه شرکت هنوز تصویب نشده است." },
+  POLICY_NOT_CONFIGURED: { en: "The “Temporary funding” approval setting has not been saved yet (System Administrator, Workflow approvals).", fa: "تنظیم تأیید «تمویل موقت» هنوز ذخیره نشده است (مدیر سیستم، تأیید جریان‌ها)." },
+  APPROVAL_MUST_BE_REQUIRED: { en: "Temporary funding must require approval (System Administrator, Workflow approvals).", fa: "تمویل موقت باید تأیید لازم داشته باشد (مدیر سیستم، تأیید جریان‌ها)." },
+  PAYABLE_MAPPING_NOT_CONFIGURED: { en: "The Temporary Funding Payable account has not been chosen.", fa: "حساب بدهی تمویل موقت هنوز انتخاب نشده است." },
+  PAYABLE_MAPPING_INVALID: { en: "The chosen Temporary Funding Payable account is no longer active or valid.", fa: "حساب بدهی تمویل موقت انتخاب‌شده دیگر فعال یا معتبر نیست." }
+};
+
 /** Dari for the refusal codes returned by temporaryFundingErrorResponse. */
 const ERROR_FA: Readonly<Record<string, string>> = {
-  INSUFFICIENT_CASH: "صندوق نقد ثبت‌شده کافی برای این پرداخت ندارد. به‌جای آن تمویل موقت ثبت کنید.",
   OVER_SETTLEMENT: "این بازپرداخت بیشتر از مبلغی است که هنوز به تمویل‌کننده بدهکار هستیم.",
-  HAS_SETTLEMENTS: "تمویلی که بازپرداخت دارد قابل برگشت نیست.",
-  SEGREGATION_OF_DUTIES: "این تصمیم باید توسط کسی گرفته شود که از این درخواست و از تمویل‌کننده مستقل است.",
-  PROVIDER_KIND_MISMATCH: "نوع تمویل‌کننده با نقش این شخص یا سازمان مطابقت ندارد.",
+  SEGREGATION_OF_DUTIES: "این تصمیم باید توسط کسی گرفته شود که از ثبت‌کننده و از تمویل‌کننده مستقل است.",
+  PROVIDER_KIND_MISMATCH: "«سهامدار» را فقط وقتی انتخاب کنید که تمویل‌کننده در آن تاریخ سهامدار شرکت باشد.",
   BASE_CURRENCY_ONLY: "فعلاً تمویل موقت فقط به واحد پول پایه شرکت ثبت می‌شود.",
-  PAYABLE_NOT_CONFIGURED: "ابتدا یک حساب بدهی فعال برای تمویل موقت انتخاب کنید.",
-  POLICY_NOT_CONFIGURED: "تنظیم تأیید تمویل موقت برای این شرکت هنوز انجام نشده است.",
+  PAYABLE_NOT_CONFIGURED: "ابتدا یک حساب بدهی تمویل موقت فعال به واحد پول پایه انتخاب کنید.",
+  EVIDENCE_REQUIRED: "مرجع سند صلاحیت، اثر انگشت SHA-256 آن و دلیل را وارد کنید.",
+  APPROVAL_REQUIRED: "تمویل موقت باید تأیید لازم داشته باشد. از مدیر سیستم بخواهید آن را در تأیید جریان‌ها تنظیم کند.",
   PERIOD_NOT_OPEN: "هیچ دوره حسابداری باز این تاریخ را پوشش نمی‌دهد.",
-  DATE_NOT_ALLOWED: "یک تاریخ بعدتر انتخاب کنید.",
-  REVERSAL_PENDING: "برگشت این تمویل قبلاً منتظر تصمیم است.",
+  DATE_NOT_ALLOWED: "بازپرداخت نمی‌تواند قبل از تاریخ تمویل باشد.",
+  TREASURY_UNAVAILABLE: "یک صندوق یا حساب بانکی فعال به واحد پول پایه انتخاب کنید.",
   NOT_PENDING: "این مورد دیگر در وضعیتی نیست که این کار را اجازه دهد.",
   STALE_VERSION: "کس دیگری در این میان آن را تغییر داد. دوباره بارگذاری کنید.",
   ALREADY_SUBMITTED_DIFFERENTLY: "این فورم قبلاً با جزئیات دیگری فرستاده شده است. دوباره شروع کنید.",
-  IN_PROGRESS: "این درخواست هنوز در حال پردازش است. لحظه‌ای بعد دوباره تلاش کنید.",
-  NOT_CREATOR: "فقط کسی که آن را ثبت کرده می‌تواند آن را لغو کند.",
   NOT_AVAILABLE: "یکی از موارد انتخاب‌شده برای شرکت شما در دسترس نیست.",
+  DIMENSION_REQUIRED: "این نوع مصرف به پروژه، بخش یا مرکز هزینه‌ای نیاز دارد که با آن کار می‌کنید.",
   INVALID_AMOUNT: "یک مبلغ مثبت مانند 250 یا 250.50 وارد کنید.",
   VALIDATION_FAILED: "بعضی جزئیات ناقص یا نادرست است.",
   NETWORK: "سرور در دسترس نیست. دوباره تلاش کنید؛ همان درخواست دوباره ثبت نمی‌شود."
@@ -87,28 +104,24 @@ interface Draft {
   fundingMode: TemporaryFundingMode;
   providerKind: TemporaryFundingProviderKind;
   providerBusinessPartyId: string;
+  providerUserAccountId: string;
   expenseCategoryId: string;
   payeeBusinessPartyId: string;
   treasuryAccountId: string;
   businessDate: string;
-  originalAmount: string;
+  amount: string;
   reference: string;
   description: string;
   note: string;
 }
 
 const EMPTY_DRAFT = (): Draft => ({
-  fundingMode: "PROVIDER_PAID_EXPENSE", providerKind: "OTHER_PERSON", providerBusinessPartyId: "",
-  expenseCategoryId: "", payeeBusinessPartyId: "", treasuryAccountId: "", businessDate: kabulToday(),
-  originalAmount: "", reference: "", description: "", note: ""
+  fundingMode: "PROVIDER_PAID_EXPENSE_DIRECTLY", providerKind: "INDIVIDUAL", providerBusinessPartyId: "",
+  providerUserAccountId: "", expenseCategoryId: "", payeeBusinessPartyId: "", treasuryAccountId: "",
+  businessDate: kabulToday(), amount: "", reference: "", description: "", note: ""
 });
 
-/** Which live party roles fit each provider kind (the database checks the same rule on the funding date). */
-function partyFits(roles: readonly string[], kind: TemporaryFundingProviderKind): boolean {
-  if (kind === "SHAREHOLDER") return roles.includes("SHAREHOLDER");
-  if (kind === "EMPLOYEE_OFFICER") return roles.includes("EMPLOYEE");
-  return !roles.includes("SHAREHOLDER") && !roles.includes("EMPLOYEE");
-}
+type Run = (body: Record<string, unknown>, done: Copy) => Promise<boolean>;
 
 export function TemporaryFundingWorkspace() {
   const { locale } = useLocale();
@@ -139,7 +152,7 @@ export function TemporaryFundingWorkspace() {
     return () => { current = false; };
   }, [apply]);
 
-  const run = useCallback(async (body: Record<string, unknown>, done: Copy): Promise<boolean> => {
+  const run: Run = useCallback(async (body, done) => {
     setBusy(true);
     setError(null);
     const result = await api<TemporaryFundingResult>(ENDPOINT, "POST", body);
@@ -156,8 +169,8 @@ export function TemporaryFundingWorkspace() {
 
   if (gate) {
     return <div className="module-workspace"><AccessGate state={gate} fa={fa} what={{
-      en: "Temporary funding needs a Finance role that records, approves or views temporary funding.",
-      fa: "تمویل موقت به نقش مالی نیاز دارد که تمویل موقت را ثبت، تأیید یا مشاهده کند."
+      en: "Temporary funding needs a Finance role that records, approves, repays or views temporary funding.",
+      fa: "تمویل موقت به نقش مالی نیاز دارد که تمویل موقت را ثبت، تأیید، بازپرداخت یا مشاهده کند."
     }} /></div>;
   }
 
@@ -166,24 +179,23 @@ export function TemporaryFundingWorkspace() {
     setIdentity(requestIdentity());
   };
   const base = workspace?.baseCurrency ?? null;
-  const parties = (workspace?.options.parties ?? []).filter((party) => partyFits(party.roles, draft.providerKind));
-  const safes = (workspace?.options.treasuryAccounts ?? []).filter((account) =>
-    ["SAFE", "CASH_BOX", "PETTY_CASH"].includes(account.accountType));
-  const amountValid = AMOUNT.test(draft.originalAmount.trim()) && /[1-9]/.test(draft.originalAmount);
-  const configured = workspace?.configuration.mapping !== null && workspace?.configuration.policy !== null;
-  const ready = workspace !== null && configured && base !== null && draft.providerBusinessPartyId !== "" && amountValid
+  const operational = workspace?.capability.state === "OPERATIONAL";
+  const parties = (workspace?.options.parties ?? []).filter((party) =>
+    draft.providerKind === "SHAREHOLDER" ? party.shareholder : !party.shareholder);
+  const amountValid = AMOUNT.test(draft.amount.trim()) && /[1-9]/.test(draft.amount);
+  const ready = operational && base !== null && draft.providerBusinessPartyId !== "" && amountValid
     && draft.reference.trim() !== "" && draft.description.trim().length >= 3
-    && (draft.fundingMode === "PROVIDER_PAID_EXPENSE" ? draft.expenseCategoryId !== "" : draft.treasuryAccountId !== "");
+    && (draft.fundingMode === "PROVIDER_PAID_EXPENSE_DIRECTLY" ? draft.expenseCategoryId !== "" : draft.treasuryAccountId !== "");
 
   const submit = async () => {
     if (!ready || base === null) return;
     const ok = await run({
-      action: "create", fundingMode: draft.fundingMode, providerKind: draft.providerKind,
-      providerBusinessPartyId: draft.providerBusinessPartyId,
-      expenseCategoryId: draft.fundingMode === "PROVIDER_PAID_EXPENSE" ? draft.expenseCategoryId : null,
-      payeeBusinessPartyId: draft.fundingMode === "PROVIDER_PAID_EXPENSE" ? draft.payeeBusinessPartyId || null : null,
+      action: "record", fundingMode: draft.fundingMode, providerKind: draft.providerKind,
+      providerBusinessPartyId: draft.providerBusinessPartyId, providerUserAccountId: draft.providerUserAccountId || null,
+      expenseCategoryId: draft.fundingMode === "PROVIDER_PAID_EXPENSE_DIRECTLY" ? draft.expenseCategoryId : null,
+      payeeBusinessPartyId: draft.fundingMode === "PROVIDER_PAID_EXPENSE_DIRECTLY" ? draft.payeeBusinessPartyId || null : null,
       treasuryAccountId: draft.fundingMode === "PROVIDER_FUNDED_SAFE" ? draft.treasuryAccountId : null,
-      businessDate: draft.businessDate, originalAmount: draft.originalAmount.trim(), currencyCode: base,
+      businessDate: draft.businessDate, amount: { amount: draft.amount.trim(), currency: base },
       reference: draft.reference.trim(), description: draft.description.trim(), note: draft.note.trim() || null,
       ...identity
     }, { en: "Temporary funding sent for approval. Nothing is recorded in the books until it is approved.",
@@ -208,30 +220,30 @@ export function TemporaryFundingWorkspace() {
         <button onClick={() => setError(null)} aria-label={fa ? "بستن" : "Dismiss"}>×</button></div> : null}
 
       {workspace === null ? <p className="treasury-placeholder">{fa ? "در حال بارگذاری…" : "Loading…"}</p> : <>
+        {!operational && workspace.capability.reason ? (
+          <div className="state-panel" role="status"><span className="state-panel-icon" aria-hidden="true">!</span><div>
+            <h3>{fa ? "تمویل موقت هنوز آماده نیست" : "Temporary funding is not ready yet"}</h3>
+            <p className="expense-gaps">{t(CAPABILITY_COPY[workspace.capability.reason])}</p></div></div>
+        ) : null}
+
         <div className="tf-positions">
           <section className="module-content-card tf-panel" aria-labelledby="tf-safe-heading">
-            <h2 id="tf-safe-heading"><AppIcon name="coins" size={18} /> {fa ? "صندوق فزیکی (نقد موجود)" : "Physical Safe (cash on hand)"}</h2>
+            <h2 id="tf-safe-heading"><AppIcon name="coins" size={18} /> {fa ? "صندوق فزیکی (حرکات نقد)" : "Physical Safe (cash movements)"}</h2>
             <p className="admin-hint">{fa
-              ? "فقط پولی که واقعاً در صندوق گذاشته شده آن را افزایش می‌دهد. مصرفی که تمویل‌کننده مستقیماً پرداخت کرده، صندوق را تغییر نمی‌دهد."
-              : "Only cash actually put into the Safe increases it. An expense the provider paid directly never changes the Safe."}</p>
+              ? "فقط پولی که واقعاً در صندوق گذاشته شده آن را افزایش می‌دهد. مصرفی که تمویل‌کننده مستقیماً پرداخت کرده، صندوق را تغییر نمی‌دهد. تا موجودی افتتاحیه تأیید نشود، این‌ها حرکات ثبت‌شده‌اند نه موجودی."
+              : "Only cash actually put into the Safe increases it. An expense the provider paid directly never changes the Safe. Until an opening balance is approved, these are recorded movements, not a balance."}</p>
             {workspace.safePositions.length === 0 ? <p>{fa ? "هیچ حساب خزانه فعالی نیست." : "No active Treasury account."}</p> : (
               <table className="rates-table"><thead><tr>
                 <th>{fa ? "حساب" : "Account"}</th>
                 <th>{fa ? "حرکات ثبت‌شده" : "Recorded movements"}</th>
                 <th>{fa ? "از تمویل موقت" : "From temporary funding"}</th>
                 <th>{fa ? "بازپرداخت‌ها" : "Repayments"}</th>
-                <th>{fa ? "نقد منفی" : "Negative cash"}</th>
               </tr></thead><tbody>{workspace.safePositions.map((position) => (
                 <tr key={position.treasuryAccountId}>
                   <td>{localizedName(position, fa)}</td>
-                  <td dir="ltr">{position.cashControl
-                    ? money(position.cashControl.recordedCash, position.currencyCode)
-                    : money(position.postedMovementTotal, position.currencyCode)}</td>
+                  <td dir="ltr">{money(position.postedMovementTotal, position.currencyCode)}</td>
                   <td dir="ltr">{money(position.temporaryFundingInflow, position.currencyCode)}</td>
                   <td dir="ltr">{money(position.temporaryFundingSettlementOutflow, position.currencyCode)}</td>
-                  <td>{position.nonNegativeEnforced
-                    ? (fa ? "مسدود (افتتاحیه تأیید شده)" : "Blocked (opening approved)")
-                    : (fa ? "هنوز کنترل نمی‌شود — موجودی افتتاحیه تأیید نشده" : "Not yet enforced — no approved opening balance")}</td>
                 </tr>))}</tbody></table>
             )}
           </section>
@@ -259,18 +271,9 @@ export function TemporaryFundingWorkspace() {
           </section>
         </div>
 
-        {!configured ? (
-          <div className="state-panel" role="status"><span className="state-panel-icon" aria-hidden="true">!</span><div>
-            <h3>{fa ? "تمویل موقت هنوز آماده نیست" : "Temporary funding is not ready yet"}</h3>
-            <ul className="expense-gaps">
-              {workspace.configuration.mapping === null ? <li>{fa ? "حساب بدهی تمویل موقت انتخاب نشده است." : "The temporary funding liability account has not been chosen."}</li> : null}
-              {workspace.configuration.policy === null ? <li>{fa ? "تنظیم تأیید «تمویل موقت» هنوز انجام نشده است (مدیر سیستم)." : "The “Temporary funding” approval setting has not been saved yet (System Administrator)."}</li> : null}
-            </ul></div></div>
-        ) : null}
-
         {workspace.permissions.canConfigure ? <ConfigurePayable workspace={workspace} fa={fa} busy={busy} run={run} /> : null}
 
-        {workspace.permissions.canCreate && configured ? (
+        {workspace.permissions.canRecord && operational ? (
           <section className="module-content-card expense-entry">
             <h2>{fa ? "ثبت تمویل موقت" : "Record temporary funding"}</h2>
             <form className="admin-form expense-form" aria-label={fa ? "ثبت تمویل موقت" : "Record temporary funding"}
@@ -278,8 +281,9 @@ export function TemporaryFundingWorkspace() {
               <fieldset className="admin-status-choice">
                 <legend>{fa ? "تمویل‌کننده چه کرد؟ *" : "What did the provider do? *"}</legend>
                 {(Object.keys(MODE_COPY) as TemporaryFundingMode[]).map((mode) => (
-                  <label key={mode}><input type="radio" name="tf-mode" checked={draft.fundingMode === mode}
-                    onChange={() => update({ fundingMode: mode })} /> {t(MODE_COPY[mode])}</label>))}
+                  <label key={mode}><input type="radio" name="tf-mode" aria-label={t(MODE_COPY[mode])}
+                    checked={draft.fundingMode === mode} onChange={() => update({ fundingMode: mode })} />
+                    {" "}{t(MODE_COPY[mode])} — <strong>{t(MODE_EFFECT[mode])}</strong></label>))}
               </fieldset>
               <label><span>{fa ? "نوع تمویل‌کننده *" : "Provider type *"}</span>
                 <select value={draft.providerKind} onChange={(event) => update({
@@ -292,7 +296,13 @@ export function TemporaryFundingWorkspace() {
                   <option value="">{fa ? "انتخاب کنید" : "Choose"}</option>
                   {parties.map((party) => <option key={party.id} value={party.id}>{party.name}</option>)}
                 </select></label>
-              {draft.fundingMode === "PROVIDER_PAID_EXPENSE" ? <>
+              <label><span>{fa ? "کاربر ABOS خود تمویل‌کننده (اختیاری)" : "Provider's own ABOS user (optional)"}</span>
+                <select value={draft.providerUserAccountId} onChange={(event) => update({ providerUserAccountId: event.target.value })}>
+                  <option value="">—</option>
+                  {workspace.options.users.map((user) => <option key={user.id} value={user.id}>{user.name}</option>)}
+                </select></label>
+              <p className="admin-hint">{fa ? "اگر تمویل‌کننده کاربر سیستم است، او را انتخاب کنید تا هرگز نتواند تمویل خود را تأیید کند." : "If the provider uses ABOS, choose their user so they can never approve their own funding."}</p>
+              {draft.fundingMode === "PROVIDER_PAID_EXPENSE_DIRECTLY" ? <>
                 <label><span>{fa ? "نوع مصرف *" : "Expense type *"}</span>
                   <select value={draft.expenseCategoryId} required onChange={(event) => update({ expenseCategoryId: event.target.value })}>
                     <option value="">{fa ? "انتخاب کنید" : "Choose"}</option>
@@ -304,20 +314,20 @@ export function TemporaryFundingWorkspace() {
                     <option value="">—</option>
                     {workspace.options.parties.map((party) => <option key={party.id} value={party.id}>{party.name}</option>)}
                   </select></label>
-                <p className="admin-hint">{fa ? "صندوق تغییر نمی‌کند؛ مصرف ثبت می‌شود و مبلغ به تمویل‌کننده بدهکار می‌شود." : "The Safe does not change; the expense is recorded and the amount is owed to the provider."}</p>
+                <p className="admin-hint tf-effect">{fa ? "صندوق بدون تغییر: مصرف ثبت می‌شود و مبلغ به تمویل‌کننده بدهکار می‌شود." : "Safe unchanged: the expense is recorded and the amount is owed to the provider."}</p>
               </> : <>
                 <label><span>{fa ? "کدام صندوق؟ *" : "Which Safe? *"}</span>
                   <select value={draft.treasuryAccountId} required onChange={(event) => update({ treasuryAccountId: event.target.value })}>
                     <option value="">{fa ? "انتخاب کنید" : "Choose"}</option>
-                    {safes.map((account) => <option key={account.id} value={account.id}>{localizedName(account, fa)}</option>)}
+                    {workspace.options.safeAccounts.map((account) => <option key={account.id} value={account.id}>{localizedName(account, fa)}</option>)}
                   </select></label>
-                <p className="admin-hint">{fa ? "نقد صندوق افزایش می‌یابد و همان مبلغ به تمویل‌کننده بدهکار می‌شود. مصرف بعدی به‌طور عادی ثبت می‌شود." : "Safe cash increases and the same amount is owed to the provider. A later expense is recorded the normal way."}</p>
+                <p className="admin-hint tf-effect">{fa ? "صندوق تمویل شد: نقد صندوق دقیقاً به همین مبلغ افزایش می‌یابد و همان مبلغ به تمویل‌کننده بدهکار می‌شود." : "Safe funded: Safe cash increases by exactly this amount and the same amount is owed to the provider."}</p>
               </>}
               <label><span>{fa ? "تاریخ *" : "Date *"}</span>
                 <input type="date" value={draft.businessDate} required onChange={(event) => update({ businessDate: event.target.value })} /></label>
               <label><span>{fa ? `مبلغ (${base ?? ""}) *` : `Amount (${base ?? ""}) *`}</span>
-                <input inputMode="decimal" dir="ltr" autoComplete="off" value={draft.originalAmount} placeholder="0.00" required
-                  onChange={(event) => update({ originalAmount: event.target.value })} /></label>
+                <input inputMode="decimal" dir="ltr" autoComplete="off" value={draft.amount} placeholder="0.00" required
+                  onChange={(event) => update({ amount: event.target.value })} /></label>
               <label><span>{fa ? "شماره رسید یا مرجع *" : "Receipt or reference number *"}</span>
                 <input value={draft.reference} maxLength={120} required onChange={(event) => update({ reference: event.target.value })} /></label>
               <label><span>{fa ? "برای چه بود؟ *" : "What was it for? *"}</span>
@@ -334,7 +344,8 @@ export function TemporaryFundingWorkspace() {
           <h2>{fa ? "تمویل‌ها" : "Fundings"}</h2>
           {workspace.fundings.length === 0 ? <p>{fa ? "چیزی برای نمایش نیست." : "Nothing to show yet."}</p> : (
             <ul className="tf-list">{workspace.fundings.map((funding) => (
-              <FundingCard key={funding.id} funding={funding} workspace={workspace} fa={fa} busy={busy} run={run} />))}</ul>
+              <FundingCard key={`${funding.id}-${funding.version}-${funding.settlements.length}`} funding={funding}
+                workspace={workspace} fa={fa} busy={busy} run={run} />))}</ul>
           )}
         </section>
       </>}
@@ -342,30 +353,49 @@ export function TemporaryFundingWorkspace() {
   );
 }
 
-type Run = (body: Record<string, unknown>, done: Copy) => Promise<boolean>;
-
 function ConfigurePayable({ workspace, fa, busy, run }: { workspace: Workspace; fa: boolean; busy: boolean; run: Run }) {
   const current = workspace.configuration.mapping;
   const [ledger, setLedger] = useState("");
+  const [reference, setReference] = useState("");
+  const [sha, setSha] = useState("");
   const [reason, setReason] = useState("");
+  const [identity, setIdentity] = useState(requestIdentity);
+  const fingerprint = async (file: File | undefined) => {
+    if (!file) return;
+    const digest = await crypto.subtle.digest("SHA-256", await file.arrayBuffer());
+    setSha(Array.from(new Uint8Array(digest)).map((byte) => byte.toString(16).padStart(2, "0")).join(""));
+    setIdentity(requestIdentity());
+  };
+  const ready = ledger !== "" && reference.trim() !== "" && SHA256.test(sha) && reason.trim().length >= 3;
   return (
     <section className="module-content-card">
-      <h2>{fa ? "حساب بدهی تمویل موقت" : "Temporary funding liability account"}</h2>
-      <p>{current ? `${current.payableLedgerAccount.code} · ${current.payableLedgerAccount.name} (v${current.version})`
+      <h2>{fa ? "حساب بدهی تمویل موقت" : "Temporary Funding Payable account"}</h2>
+      <p>{current ? `${current.payableLedgerAccount.code} · ${current.payableLedgerAccount.name} (v${current.version}) · ${current.evidenceDocumentReference}`
         : (fa ? "انتخاب نشده" : "Not chosen")}</p>
-      <form className="admin-form" onSubmit={(event) => { event.preventDefault(); void run({
-        action: "configure", payableLedgerAccountId: ledger, expectedVersion: current?.version ?? 0, changeReason: reason
-      }, { en: "Liability account saved.", fa: "حساب بدهی ذخیره شد." }).then((ok) => { if (ok) { setLedger(""); setReason(""); } }); }}>
-        <label><span>{fa ? "حساب بدهی" : "Liability account"}</span>
-          <select value={ledger} onChange={(event) => setLedger(event.target.value)} required>
+      <form className="admin-form" aria-label={fa ? "حساب بدهی تمویل موقت" : "Temporary Funding Payable account"}
+        onSubmit={(event) => { event.preventDefault(); void run({
+          action: "configure-mapping", ledgerAccountId: ledger, evidenceDocumentReference: reference.trim(),
+          evidenceSha256: sha, changeReason: reason.trim(), ...identity
+        }, { en: "Payable account saved with its authorization evidence.", fa: "حساب بدهی همراه با سند صلاحیت ذخیره شد." })
+          .then((ok) => { if (ok) { setLedger(""); setReference(""); setSha(""); setReason(""); setIdentity(requestIdentity()); } }); }}>
+        <label><span>{fa ? "حساب بدهی (کنترل: بدهی تمویل موقت) *" : "Liability account (control: Temporary funding payable) *"}</span>
+          <select value={ledger} onChange={(event) => { setLedger(event.target.value); setIdentity(requestIdentity()); }} required>
             <option value="">{fa ? "انتخاب کنید" : "Choose"}</option>
             {workspace.options.payableLedgerAccounts.map((account) =>
               <option key={account.id} value={account.id}>{account.code} · {account.name}</option>)}
           </select></label>
-        <label><span>{fa ? "دلیل" : "Reason"}</span>
-          <input value={reason} minLength={5} maxLength={500} required onChange={(event) => setReason(event.target.value)} /></label>
-        <button type="submit" className="treasury-button" disabled={busy || ledger === "" || reason.trim().length < 5}>
-          {fa ? "ذخیره" : "Save"}</button>
+        {workspace.options.payableLedgerAccounts.length === 0 ? <p className="admin-hint expense-warning">{fa
+          ? "در جدول حساب‌ها هیچ حساب بدهی فعالی با نوع کنترل «بدهی تمویل موقت» نیست."
+          : "The Chart of Accounts has no active liability account with control type “Temporary funding payable”."}</p> : null}
+        <label><span>{fa ? "مرجع سند صلاحیت *" : "Authorization document reference *"}</span>
+          <input value={reference} maxLength={200} required onChange={(event) => { setReference(event.target.value); setIdentity(requestIdentity()); }} /></label>
+        <label><span>{fa ? "سند صلاحیت (برای اثر انگشت؛ فایل فرستاده نمی‌شود)" : "Authorization document (fingerprinted here; the file is not uploaded)"}</span>
+          <input type="file" onChange={(event) => { void fingerprint(event.target.files?.[0]); }} /></label>
+        <label><span>SHA-256 *</span>
+          <input value={sha} dir="ltr" required pattern="[0-9a-f]{64}" onChange={(event) => { setSha(event.target.value.trim().toLowerCase()); setIdentity(requestIdentity()); }} /></label>
+        <label><span>{fa ? "دلیل *" : "Reason *"}</span>
+          <input value={reason} minLength={3} maxLength={500} required onChange={(event) => { setReason(event.target.value); setIdentity(requestIdentity()); }} /></label>
+        <button type="submit" className="treasury-button" disabled={busy || !ready}>{fa ? "ذخیره" : "Save"}</button>
       </form>
     </section>
   );
@@ -374,21 +404,22 @@ function ConfigurePayable({ workspace, fa, busy, run }: { workspace: Workspace; 
 function FundingCard({ funding, workspace, fa, busy, run }: {
   funding: TemporaryFundingView; workspace: Workspace; fa: boolean; busy: boolean; run: Run;
 }) {
-  const [note, setNote] = useState("");
+  const [reason, setReason] = useState("");
+  const [decisionIdentity] = useState(requestIdentity);
   const [settleAmount, setSettleAmount] = useState("");
   const [settleAccount, setSettleAccount] = useState("");
   const [settleReference, setSettleReference] = useState("");
   const [settleDate, setSettleDate] = useState(kabulToday);
   const [settleIdentity, setSettleIdentity] = useState(requestIdentity);
-  const [reversalIdentity] = useState(requestIdentity);
   const t = (copy: Copy) => (fa ? copy.fa : copy.en);
   const me = workspace.actorUserAccountId;
   const can = workspace.permissions;
-  const noteOk = note.trim().length >= 5;
-  const remaining = Number(funding.outstandingAmount) - Number(funding.pendingSettlementAmount);
-  const reversal = funding.reversal;
+  const reasonOk = reason.trim().length >= 3;
+  const repayable = funding.status === "POSTED"
+    && Number(funding.outstandingAmount) - Number(funding.pendingSettlementAmount) > 0;
   const decide = (decision: "APPROVED" | "REJECTED") => run(
-    { action: "decide", temporaryFundingId: funding.id, expectedVersion: funding.version, decision, note },
+    { action: "decide", temporaryFundingId: funding.id, expectedVersion: funding.version, decision,
+      decisionReason: reason.trim(), ...decisionIdentity },
     decision === "APPROVED"
       ? { en: "Approved and recorded in the books.", fa: "تأیید و در دفاتر ثبت شد." }
       : { en: "Rejected.", fa: "رد شد." });
@@ -399,83 +430,63 @@ function FundingCard({ funding, workspace, fa, busy, run }: {
         <strong>{funding.provider.name}</strong>
         <span className="treasury-chip">{t(KIND_COPY[funding.providerKind])}</span>
         <span className="treasury-chip">{t(MODE_COPY[funding.fundingMode])}</span>
+        <span className="treasury-chip">{t(MODE_EFFECT[funding.fundingMode])}</span>
         <span className="treasury-chip tf-status">{t(STATUS_COPY[funding.lifecycleStatus])}</span>
       </div>
       <p dir="auto">{funding.businessDate} · {funding.reference} · {funding.description}</p>
       <p dir="ltr" className="tf-amounts">{money(funding.amount, funding.currencyCode)}
         {funding.status === "POSTED" ? ` · ${fa ? "باقی‌مانده" : "outstanding"} ${money(funding.outstandingAmount, funding.currencyCode)}` : ""}</p>
-      {funding.fundingMode === "PROVIDER_PAID_EXPENSE" && funding.expenseCategory
+      {funding.expenseCategory
         ? <p className="admin-hint">{fa ? "مصرف: " : "Expense: "}{localizedName(funding.expenseCategory, fa)}{funding.payee ? ` → ${funding.payee.name}` : ""}</p> : null}
-      {funding.fundingMode === "PROVIDER_FUNDED_SAFE" && funding.treasuryAccount
+      {funding.treasuryAccount
         ? <p className="admin-hint">{fa ? "به صندوق: " : "Into: "}{localizedName(funding.treasuryAccount, fa)}</p> : null}
-      {funding.decision ? <p className="admin-hint">{funding.decision.decidedBy}: {funding.decision.note}</p> : null}
+      {funding.decision ? <p className="admin-hint">{funding.decision.decidedBy}: {funding.decision.reason}</p> : null}
 
-      {funding.status === "PENDING_APPROVAL" ? (
-        <div className="tf-actions">
-          <input value={note} placeholder={fa ? "یادداشت تصمیم (حداقل ۵ حرف)" : "Decision note (at least 5 characters)"}
-            onChange={(event) => setNote(event.target.value)} maxLength={500} />
-          {can.canApprove && funding.createdByUserAccountId !== me && funding.providerUserAccountId !== me ? <>
-            <button className="treasury-button gold" disabled={busy || !noteOk} onClick={() => void decide("APPROVED")}>{fa ? "تأیید و ثبت" : "Approve and record"}</button>
-            <button className="treasury-button" disabled={busy || !noteOk} onClick={() => void decide("REJECTED")}>{fa ? "رد" : "Reject"}</button>
-          </> : null}
-          {funding.createdByUserAccountId === me ? (
-            <button className="treasury-button" disabled={busy || !noteOk} onClick={() => void run(
-              { action: "cancel", temporaryFundingId: funding.id, expectedVersion: funding.version, reason: note },
-              { en: "Cancelled.", fa: "لغو شد." })}>{fa ? "لغو" : "Cancel"}</button>) : null}
+      {funding.status === "PENDING_APPROVAL" && can.canApprove && funding.createdByUserAccountId !== me
+        && funding.providerUserAccountId !== me ? (
+          <div className="tf-actions">
+            <input value={reason} aria-label={fa ? "دلیل تصمیم" : "Decision reason"}
+              placeholder={fa ? "دلیل تصمیم" : "Decision reason"} onChange={(event) => setReason(event.target.value)} maxLength={500} />
+            <button className="treasury-button gold" disabled={busy || !reasonOk} onClick={() => void decide("APPROVED")}>{fa ? "تأیید و ثبت" : "Approve and record"}</button>
+            <button className="treasury-button" disabled={busy || !reasonOk} onClick={() => void decide("REJECTED")}>{fa ? "رد" : "Reject"}</button>
+          </div>
+        ) : null}
+
+      {funding.settlements.length > 0 ? (
+        <div>
+          <p className="admin-hint">{fa ? "تاریخچه بازپرداخت" : "Repayment history"}</p>
+          <ul className="tf-settlements">{funding.settlements.map((settlement) => (
+            <SettlementRow key={`${settlement.id}-${settlement.version}`} settlement={settlement} workspace={workspace}
+              fa={fa} busy={busy} run={run} providerUserAccountId={funding.providerUserAccountId} />))}</ul>
         </div>
       ) : null}
 
-      {funding.settlements.length > 0 ? (
-        <ul className="tf-settlements">{funding.settlements.map((settlement) => (
-          <SettlementRow key={settlement.id} settlement={settlement} workspace={workspace} fa={fa} busy={busy} run={run}
-            providerUserAccountId={funding.providerUserAccountId} />))}</ul>
-      ) : null}
-
-      {funding.status === "POSTED" && can.canSettle && remaining > 0 && reversal?.status !== "REQUESTED" ? (
-        <form className="tf-actions" onSubmit={(event) => { event.preventDefault(); void run({
-          action: "settlement-create", temporaryFundingId: funding.id, treasuryAccountId: settleAccount,
-          originalAmount: settleAmount.trim(), businessDate: settleDate, reference: settleReference.trim(), note: null,
-          ...settleIdentity
-        }, { en: "Repayment sent for approval.", fa: "بازپرداخت برای تأیید فرستاده شد." }).then((ok) => {
-          if (ok) { setSettleAmount(""); setSettleReference(""); setSettleIdentity(requestIdentity()); } }); }}>
+      {repayable && can.canSettle ? (
+        <form className="tf-actions" aria-label={fa ? "درخواست بازپرداخت" : "Request repayment"}
+          onSubmit={(event) => { event.preventDefault(); void run({
+            action: "request-settlement", temporaryFundingId: funding.id, expectedFundingVersion: funding.version,
+            treasuryAccountId: settleAccount, amount: { amount: settleAmount.trim(), currency: funding.currencyCode },
+            businessDate: settleDate, reference: settleReference.trim(), note: null, ...settleIdentity
+          }, { en: "Repayment sent for approval.", fa: "بازپرداخت برای تأیید فرستاده شد." }).then((ok) => {
+            if (ok) { setSettleAmount(""); setSettleReference(""); setSettleIdentity(requestIdentity()); } }); }}>
           <strong>{fa ? "بازپرداخت" : "Repay"}</strong>
-          <select value={settleAccount} required onChange={(event) => { setSettleAccount(event.target.value); setSettleIdentity(requestIdentity()); }}>
+          <select value={settleAccount} required aria-label={fa ? "از کدام حساب؟" : "From which account?"}
+            onChange={(event) => { setSettleAccount(event.target.value); setSettleIdentity(requestIdentity()); }}>
             <option value="">{fa ? "از کدام حساب؟" : "From which account?"}</option>
-            {workspace.options.treasuryAccounts.map((account) => <option key={account.id} value={account.id}>{localizedName(account, fa)}</option>)}
+            {workspace.options.settlementSources.map((account) => <option key={account.id} value={account.id}>{localizedName(account, fa)}</option>)}
           </select>
-          <input inputMode="decimal" dir="ltr" placeholder={`≤ ${funding.outstandingAmount}`} value={settleAmount} required
+          <input inputMode="decimal" dir="ltr" aria-label={fa ? "مبلغ بازپرداخت" : "Repayment amount"}
+            placeholder={`≤ ${funding.outstandingAmount}`} value={settleAmount} required
             onChange={(event) => { setSettleAmount(event.target.value); setSettleIdentity(requestIdentity()); }} />
-          <input type="date" value={settleDate} required onChange={(event) => { setSettleDate(event.target.value); setSettleIdentity(requestIdentity()); }} />
-          <input value={settleReference} placeholder={fa ? "مرجع" : "Reference"} maxLength={120} required
+          <input type="date" value={settleDate} required aria-label={fa ? "تاریخ بازپرداخت" : "Repayment date"}
+            onChange={(event) => { setSettleDate(event.target.value); setSettleIdentity(requestIdentity()); }} />
+          <input value={settleReference} aria-label={fa ? "مرجع بازپرداخت" : "Repayment reference"}
+            placeholder={fa ? "مرجع" : "Reference"} maxLength={120} required
             onChange={(event) => { setSettleReference(event.target.value); setSettleIdentity(requestIdentity()); }} />
-          <button type="submit" className="treasury-button" disabled={busy || settleAccount === "" || !AMOUNT.test(settleAmount.trim()) || settleReference.trim() === ""}>
+          <button type="submit" className="treasury-button"
+            disabled={busy || settleAccount === "" || !AMOUNT.test(settleAmount.trim()) || settleReference.trim() === ""}>
             {fa ? "درخواست بازپرداخت" : "Request repayment"}</button>
         </form>
-      ) : null}
-
-      {funding.status === "POSTED" && can.canReverse && funding.settlements.every((s) => s.status === "REJECTED" || s.status === "CANCELLED") ? (
-        reversal?.status === "REQUESTED" ? (
-          <div className="tf-actions">
-            <span>{fa ? `برگشت درخواست شد: ${reversal.reason}` : `Reversal requested: ${reversal.reason}`}</span>
-            {reversal.requestedByUserAccountId !== me && funding.createdByUserAccountId !== me ? <>
-              <input value={note} placeholder={fa ? "یادداشت تصمیم" : "Decision note"} onChange={(event) => setNote(event.target.value)} maxLength={500} />
-              <button className="treasury-button gold" disabled={busy || !noteOk} onClick={() => void run(
-                { action: "reversal-decide", reversalId: reversal.id, expectedVersion: reversal.version, decision: "APPROVED", note },
-                { en: "Reversed with an exact mirror journal.", fa: "با ژورنال قرینه دقیق برگشت داده شد." })}>{fa ? "تأیید برگشت" : "Approve reversal"}</button>
-              <button className="treasury-button" disabled={busy || !noteOk} onClick={() => void run(
-                { action: "reversal-decide", reversalId: reversal.id, expectedVersion: reversal.version, decision: "REJECTED", note },
-                { en: "Reversal rejected.", fa: "برگشت رد شد." })}>{fa ? "رد برگشت" : "Reject reversal"}</button>
-            </> : null}
-          </div>
-        ) : (
-          <div className="tf-actions">
-            <input value={note} placeholder={fa ? "دلیل برگشت (حداقل ۵ حرف)" : "Reason for reversal (at least 5 characters)"}
-              onChange={(event) => setNote(event.target.value)} maxLength={1000} />
-            <button className="treasury-button" disabled={busy || !noteOk} onClick={() => void run({
-              action: "reversal-request", temporaryFundingId: funding.id, reversalDate: kabulToday(), reason: note, ...reversalIdentity
-            }, { en: "Reversal requested.", fa: "برگشت درخواست شد." })}>{fa ? "درخواست برگشت" : "Request reversal"}</button>
-          </div>
-        )
       ) : null}
     </li>
   );
@@ -485,31 +496,27 @@ function SettlementRow({ settlement, workspace, fa, busy, run, providerUserAccou
   settlement: TemporaryFundingSettlementView; workspace: Workspace; fa: boolean; busy: boolean; run: Run;
   providerUserAccountId: string | null;
 }) {
-  const [note, setNote] = useState("");
+  const [reason, setReason] = useState("");
+  const [identity] = useState(requestIdentity);
   const me = workspace.actorUserAccountId;
-  const status: Copy = settlement.status === "POSTED" ? { en: "Repaid", fa: "پرداخت شد" }
-    : settlement.status === "PENDING_APPROVAL" ? { en: "Waiting for approval", fa: "منتظر تأیید" }
-      : settlement.status === "REJECTED" ? { en: "Rejected", fa: "رد شد" } : { en: "Cancelled", fa: "لغو شد" };
+  const status = SETTLEMENT_STATUS_COPY[settlement.status];
   const decide = (decision: "APPROVED" | "REJECTED") => run(
-    { action: "settlement-decide", settlementId: settlement.id, expectedVersion: settlement.version, decision, note },
+    { action: "decide-settlement", settlementId: settlement.id, expectedVersion: settlement.version, decision,
+      decisionReason: reason.trim(), ...identity },
     decision === "APPROVED" ? { en: "Repayment approved and paid.", fa: "بازپرداخت تأیید و پرداخت شد." } : { en: "Repayment rejected.", fa: "بازپرداخت رد شد." });
   return (
     <li>
       <span dir="ltr">{money(settlement.amount, settlement.currencyCode)}</span> · {settlement.businessDate} · {localizedName(settlement.treasuryAccount, fa)}
       {" "}<span className="treasury-chip">{fa ? status.fa : status.en}</span>
-      {settlement.status === "PENDING_APPROVAL" ? (
-        <span className="tf-actions">
-          <input value={note} placeholder={fa ? "یادداشت" : "Note"} onChange={(event) => setNote(event.target.value)} maxLength={500} />
-          {workspace.permissions.canApproveSettlement && settlement.createdByUserAccountId !== me && providerUserAccountId !== me ? <>
-            <button className="treasury-button gold" disabled={busy || note.trim().length < 5} onClick={() => void decide("APPROVED")}>{fa ? "تأیید" : "Approve"}</button>
-            <button className="treasury-button" disabled={busy || note.trim().length < 5} onClick={() => void decide("REJECTED")}>{fa ? "رد" : "Reject"}</button>
-          </> : null}
-          {settlement.createdByUserAccountId === me ? (
-            <button className="treasury-button" disabled={busy || note.trim().length < 5} onClick={() => void run(
-              { action: "settlement-cancel", settlementId: settlement.id, expectedVersion: settlement.version, reason: note },
-              { en: "Repayment cancelled.", fa: "بازپرداخت لغو شد." })}>{fa ? "لغو" : "Cancel"}</button>) : null}
-        </span>
-      ) : null}
+      {settlement.status === "PENDING_APPROVAL" && workspace.permissions.canApproveSettlement
+        && settlement.createdByUserAccountId !== me && providerUserAccountId !== me ? (
+          <span className="tf-actions">
+            <input value={reason} aria-label={fa ? "دلیل تصمیم بازپرداخت" : "Repayment decision reason"}
+              placeholder={fa ? "دلیل" : "Reason"} onChange={(event) => setReason(event.target.value)} maxLength={500} />
+            <button className="treasury-button gold" disabled={busy || reason.trim().length < 3} onClick={() => void decide("APPROVED")}>{fa ? "تأیید بازپرداخت" : "Approve repayment"}</button>
+            <button className="treasury-button" disabled={busy || reason.trim().length < 3} onClick={() => void decide("REJECTED")}>{fa ? "رد" : "Reject"}</button>
+          </span>
+        ) : null}
     </li>
   );
 }

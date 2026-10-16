@@ -162,12 +162,12 @@ export const PERMISSION_COPY: Readonly<Record<string, PermissionCopy>> = {
     label: { en: "View expenses and the daily report", fa: "مشاهده مصارف و گزارش روزانه" },
     allows: { en: "See recorded expenses, daily transactions and the daily financial report, within the projects, departments and cost centers the person works with.", fa: "دیدن مصارف ثبت‌شده، معاملات روزانه و گزارش مالی روزانه، در محدوده پروژه‌ها، بخش‌ها و مراکز هزینه‌ای که شخص با آن‌ها کار می‌کند." }
   },
-  // P2 Temporary Funding (isolated proposal; catalogue version assigned at promotion).
+  // Temporary Funding (migration 0037).
   "finance.temporary-funding.read": {
     label: { en: "View temporary funding", fa: "مشاهده تمویل موقت" },
-    allows: { en: "See who temporarily funded the company, how much is still owed to each provider, and the physical Safe positions kept separate from it.", fa: "دیدن این‌که چه کسی شرکت را به‌طور موقت تمویل کرده، چه مقدار هنوز به هر تمویل‌کننده بدهکار است، و موقعیت نقد فزیکی صندوق که جدا از آن نگه داشته می‌شود." }
+    allows: { en: "See who temporarily funded the company, how much is still owed to each provider, and Safe movements kept separate from it.", fa: "دیدن این‌که چه کسی شرکت را به‌طور موقت تمویل کرده، چه مقدار هنوز به هر تمویل‌کننده بدهکار است، و حرکات صندوق که جدا از آن نگه داشته می‌شود." }
   },
-  "finance.temporary-funding.create": {
+  "finance.temporary-funding.record": {
     label: { en: "Record temporary funding", fa: "ثبت تمویل موقت" },
     allows: { en: "Record that a person or organization paid an expense directly or put cash into the Safe for the company. It is sent for approval and becomes an amount the company owes them.", fa: "ثبت این‌که یک شخص یا سازمان مصرفی را مستقیماً پرداخت کرده یا برای شرکت نقد در صندوق گذاشته است. برای تأیید فرستاده می‌شود و به مبلغی تبدیل می‌شود که شرکت به آن‌ها بدهکار است." }
   },
@@ -185,14 +185,9 @@ export const PERMISSION_COPY: Readonly<Record<string, PermissionCopy>> = {
     allows: { en: "Approve a repayment, which pays the provider and reduces the amount owed. The original expense is never recorded again.", fa: "تأیید بازپرداخت، که به تمویل‌کننده پرداخت می‌کند و مبلغ بدهی را کم می‌کند. مصرف اصلی هرگز دوباره ثبت نمی‌شود." },
     independence: { en: "Never by the person who requested the repayment or by the provider.", fa: "هرگز توسط کسی که بازپرداخت را درخواست کرده یا توسط خود تمویل‌کننده." }
   },
-  "finance.temporary-funding.reverse": {
-    label: { en: "Reverse temporary funding", fa: "برگشت تمویل موقت" },
-    allows: { en: "Request or decide the reversal of a temporary funding that has no repayments, recorded as an exact mirror in the books.", fa: "درخواست یا تصمیم برگشت تمویل موقتی که بازپرداخت ندارد، که به‌صورت قرینه دقیق در دفاتر ثبت می‌شود." },
-    independence: { en: "The decision is never by the requester, the recorder, the original approver or the provider.", fa: "تصمیم هرگز توسط درخواست‌کننده، ثبت‌کننده، تأییدکننده اصلی یا خود تمویل‌کننده گرفته نمی‌شود." }
-  },
   "finance.temporary-funding.configure": {
     label: { en: "Set up temporary funding", fa: "تنظیم تمویل موقت" },
-    allows: { en: "Choose the liability account in the Chart of Accounts where amounts owed to temporary funding providers are recorded.", fa: "انتخاب حساب بدهی در جدول حساب‌ها که مبالغ بدهکار به تمویل‌کنندگان موقت در آن ثبت می‌شود." }
+    allows: { en: "Choose the Temporary Funding Payable liability account, with its authorization document, where amounts owed to providers are recorded.", fa: "انتخاب حساب بدهی تمویل موقت، همراه با سند صلاحیت آن، که مبالغ بدهکار به تمویل‌کنندگان در آن ثبت می‌شود." }
   },
   "finance.expense.approve": {
     label: { en: "Approve expenses", fa: "تأیید مصارف" },

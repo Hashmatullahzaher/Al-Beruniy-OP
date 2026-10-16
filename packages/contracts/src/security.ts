@@ -22,7 +22,13 @@ export type FinancePermission =
   | "finance.capital-receipt.configure"
   | "finance.capital-receipt.prepare"
   | "finance.capital-receipt.approve"
-  | "finance.capital-receipt.post";
+  | "finance.capital-receipt.post"
+  | "finance.temporary-funding.read"
+  | "finance.temporary-funding.record"
+  | "finance.temporary-funding.approve"
+  | "finance.temporary-funding.settle"
+  | "finance.temporary-funding.settle-approve"
+  | "finance.temporary-funding.configure";
 
 export interface ServerActorContext {
   readonly userAccountId: UserAccountId;

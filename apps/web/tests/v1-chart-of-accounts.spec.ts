@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdirSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 import { expect, test, type Page } from "@playwright/test";
@@ -168,7 +168,7 @@ function seedPreview(): Record<string, string> {
 
 function previewEnvironment(): Record<string, string | undefined> {
   const fileEnvironment: Record<string, string> = {};
-  for (const line of readFileSync(resolve(__dirname, "../.env.local"), "utf8").split(/\r?\n/)) {
+  for (const line of (existsSync(resolve(__dirname, "../.env.local")) ? readFileSync(resolve(__dirname, "../.env.local"), "utf8") : "").split(/\r?\n/)) {
     const match = /^([A-Z0-9_]+)=(.*)$/.exec(line.trim());
     if (match?.[1] !== undefined && match[2] !== undefined) fileEnvironment[match[1]] = match[2];
   }

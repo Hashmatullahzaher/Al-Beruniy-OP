@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 import { expect, test, type Page } from "@playwright/test";
@@ -70,8 +70,8 @@ test.describe("V1 workflow approval policy", () => {
     await search.getByRole("link", { name: "Workflow approvals" }).click();
 
     await expect(page.getByRole("heading", { level: 1, name: "Finance workflow approvals" })).toBeVisible();
-    await expect(page.locator(".policy-card")).toHaveCount(7);
-    await expect(page.locator(".policy-card .treasury-chip", { hasText: "Not configured" })).toHaveCount(7);
+    await expect(page.locator(".policy-card")).toHaveCount(8);
+    await expect(page.locator(".policy-card .treasury-chip", { hasText: "Not configured" })).toHaveCount(8);
 
     // Missing policy is explicit. Saving OFF creates v1; changing to ON creates v2 and keeps v1.
     const expense = page.locator(".policy-card").filter({ has: page.getByRole("heading", { name: "Expense", exact: true }) });
@@ -138,7 +138,7 @@ async function signOut(page: Page): Promise<void> {
 
 function seedPreview(): Record<string, string> {
   const fileEnvironment: Record<string, string> = {};
-  for (const line of readFileSync(resolve(__dirname, "../.env.local"), "utf8").split(/\r?\n/)) {
+  for (const line of (existsSync(resolve(__dirname, "../.env.local")) ? readFileSync(resolve(__dirname, "../.env.local"), "utf8") : "").split(/\r?\n/)) {
     const match = /^([A-Z0-9_]+)=(.*)$/.exec(line.trim());
     if (match?.[1] !== undefined && match[2] !== undefined) fileEnvironment[match[1]] = match[2];
   }
