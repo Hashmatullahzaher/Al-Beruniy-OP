@@ -35,6 +35,18 @@ on a ledger account with control type **`TEMPORARY_FUNDING_PAYABLE`**.
 
 A settlement uses the funding's own mapping version. It never creates an expense line and never reposts the original journal.
 
+## 2a. Provider classification
+
+`provider_kind` records only what live Business Party roles prove on the funding date:
+
+| Kind | Rule |
+|---|---|
+| `SHAREHOLDER` | the party holds a current SHAREHOLDER role (takes precedence) |
+| `EMPLOYEE` | otherwise, the party holds a current EMPLOYEE role |
+| `EXTERNAL_OTHER` | any other person or organization |
+
+`business_parties` has no authoritative person/organization attribute, so no such classification is stored. The recorder's `providerKind` must equal the database-derived value (checked by the entry point and the funding insert guard); `INDIVIDUAL`, `ORGANIZATION` and `EMPLOYEE_OFFICER` are not accepted. The UI shows the derived type and does not ask for it.
+
 ## 3. Source discriminators
 
 | Source | `posting_intents.intent_kind` | `source_type` (intent, lines, subledger) | Typed FK |
@@ -52,6 +64,7 @@ A settlement uses the funding's own mapping version. It never creates an expense
 | Table | Purpose |
 |---|---|
 | `temporary_funding_account_mapping_versions` | domain-specific, legal-entity scoped, append-only, sequentially versioned payable mapping |
+| `temporary_funding_provider_identity_versions` | per-provider, append-only, versioned identity profile: `ABOS_USER` + exact user, or `NO_ABOS_USER`; evidence-backed; Super Administrator only |
 | `temporary_fundings` | typed funding source |
 | `temporary_funding_decisions` | one decision per funding |
 | `temporary_funding_settlements` | typed settlement source; records the funding version it was requested against |
@@ -59,7 +72,7 @@ A settlement uses the funding's own mapping version. It never creates an expense
 
 - **Mapping version columns:** the evidence reference, the evidence document reference, the change reason, the actor, a timestamp, correlation and idempotency metadata.
 - **Mapping version controls:** UPDATE and DELETE are refused. Inserting a version freezes the ledger account through `ledger_account_references`.
-- **Funding source:** mode, provider kind, provider party, optional provider user, the Mode A expense fields or the Mode B Safe, amounts, the bound policy and mapping versions, idempotency, status and version.
+- **Funding source:** mode, provider kind, provider party, the **bound provider identity version** and the user it named (copied by the database, never supplied), the Mode A expense fields or the Mode B Safe, amounts, the bound policy and mapping versions, idempotency, status and version.
 - **Same-currency rule:** CHECK(original = base), plus a currency-qualified FK to the Treasury account.
 
 **Shared objects extended (narrow and typed):**
@@ -97,7 +110,7 @@ AP, OTHER and NULL control accounts and the capital account are refused (tested)
 - an audit fact and an outbox fact;
 - the idempotency record.
 
-The mapping evidence is created atomically because no generic evidence-recording entry point exists. Capital mapping evidence has the same gap (see decisions). The UI fingerprints the document in the browser; the file is never uploaded.
+The mapping evidence is created atomically because no generic evidence-recording entry point exists. Capital mapping evidence has the same gap (see decisions). **The referenced file is only fingerprinted (SHA-256) in the browser; it is not uploaded and is not retained in the ABOS document vault by this workflow.** The UI states this next to every evidence field. The same applies to provider identity evidence.
 
 ## 6. Workflow policy binding
 
@@ -115,7 +128,12 @@ The mapping evidence is created atomically because no generic evidence-recording
 - **Actor identity.** Actor and legal entity come only from `identity_actor_context`, which requires a live `PASSWORD_OPERATIONAL` session. `temporary_funding_actor` re-checks the provenance explicitly. Synthetic-developer, forged-token and forged-proof calls fail closed (tested).
 - **Funding decision.** The decider is never the recorder and never the provider's user. This is enforced by the entry point, by a BEFORE INSERT trigger on decisions, and by the journal validator (the poster must be the APPROVED decider).
 - **Settlement decision.** The decider is never the settlement preparer and never the provider's user. It is enforced in the same three places.
-- **Provider user.** No persisted business-party ↔ user link exists. The provider's own ABOS user is therefore recorded with the funding (optional; must be an ACTIVE user with a live grant in the entity) and excluded from every approval.
+- **Provider identity is database-authoritative.** No Business Party ↔ User relationship exists elsewhere in ABOS, so 0037 adds the smallest safe one: `temporary_funding_provider_identity_versions`.
+  - Each version binds legal entity + Business Party + identity mode (`ABOS_USER` with exactly one user, or `NO_ABOS_USER`). It is append-only, versioned against an expected version, idempotent, audited, and backed by evidence (document reference + SHA-256) and a reason. Nothing is inferred or backfilled.
+  - **Authority:** only a Super Administrator — the existing `admin.users.manage` **and** `admin.roles.manage` pair, checked in PostgreSQL from the password session. No Finance permission can set it; the funding recorder cannot supply or override it.
+  - An `ABOS_USER` must be ACTIVE with a live grant in the same legal entity, and may be the current identity of at most one provider (otherwise ambiguous and refused).
+  - `record_temporary_funding` no longer accepts any user field (`providerUserAccountId` is an unsupported field). It resolves the provider's **current** profile; a missing, invalid or ambiguous profile fails closed. The funding stores the exact profile version and its user; a guard refuses any insert that binds a stale, foreign or mismatched profile.
+  - The bound user is refused by the funding decision and the settlement decision (entry point, decision triggers and journal validator). A later profile change never alters an earlier funding's bound identity.
 
 ## 8. Idempotency and concurrency
 
@@ -146,9 +164,10 @@ The mapping evidence is created atomically because no generic evidence-recording
 
 ## 10. Security
 
-**Entry points.** Six SECURITY DEFINER entry points, owned by `abos_v1_operational_finance_owner`:
+**Entry points.** Seven SECURITY DEFINER entry points, owned by `abos_v1_operational_finance_owner`:
 - `temporary_funding_workspace`
 - `configure_temporary_funding_mapping`
+- `configure_temporary_funding_provider_identity` (Super Administrator only)
 - `record_temporary_funding`
 - `decide_temporary_funding`
 - `request_temporary_funding_settlement`
@@ -158,7 +177,7 @@ Each uses `SET search_path = pg_catalog, pg_temp` and fully-qualified objects. P
 
 **Helpers.** All helpers are invoker-rights and executable only by the owner. The posting helpers refuse any other `current_user`.
 
-**Runtime limits.** Runtimes have no table privileges and no SET ROLE. No new role is created. The owner gets column-level INSERT/UPDATE only. The definer inventory test moves from 90 to 96.
+**Runtime limits.** Runtimes have no table privileges and no SET ROLE. No new role is created. The owner gets column-level INSERT/UPDATE only. The definer inventory test moves from 90 to 97.
 
 ## 11. Audit and outbox
 
@@ -173,6 +192,7 @@ Each action writes one audit row and one outbox event (`finance.<action>`):
 | `TEMPORARY_FUNDING_SETTLEMENT_APPROVED` / `_REJECTED` | the settlement decision |
 | `TEMPORARY_FUNDING_SETTLEMENT_POSTED` | the settlement journal posts |
 | `TEMPORARY_FUNDING_MAPPING_CONFIGURED` | a payable mapping version is configured |
+| `TEMPORARY_FUNDING_PROVIDER_IDENTITY_CONFIGURED` | a provider identity version is configured |
 
 A replay writes none.
 
@@ -202,7 +222,7 @@ A replay writes none.
 1. **Reversal policy.** Funding reversal stays unavailable until an owner/accounting policy activates it.
 2. **Opening Safe balances.** An approved opening-balance policy and workflow is needed before any non-negative guard.
 3. **Evidence recording.** There is no generic evidence entry point. P2 records mapping evidence atomically from a document reference and SHA-256. Capital mapping (0036) expects a pre-existing evidence row and has no way to create one.
-4. **Provider identity.** There is no persisted business-party ↔ user link. Provider self-approval prevention relies on the recorded provider user; a future link should make it automatic.
+4. **Provider identity.** 0037's provider identity profile is domain-specific. If ABOS later gains a general Business Party ↔ User relationship, the profile should be derived from it. A Super Administrator who wrongly records `NO_ABOS_USER` for a person who does use ABOS defeats the rule; the evidence, reason and audit trail make that accountable but cannot prevent it.
 5. **Provider registration.** Employees and organizations must already exist as Business Parties.
 6. **FX.** Cross-currency funding needs an exchange and revaluation policy.
 7. **Reporting.** The daily financial report does not yet label temporary funding movements separately.

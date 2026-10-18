@@ -32,7 +32,7 @@ export async function runTemporaryFundingCommand(command: TemporaryFundingComman
 }
 
 const MODES: readonly TemporaryFundingMode[] = ["PROVIDER_PAID_EXPENSE_DIRECTLY", "PROVIDER_FUNDED_SAFE"];
-const KINDS: readonly TemporaryFundingProviderKind[] = ["SHAREHOLDER", "EMPLOYEE_OFFICER", "INDIVIDUAL", "ORGANIZATION"];
+const KINDS: readonly TemporaryFundingProviderKind[] = ["SHAREHOLDER", "EMPLOYEE", "EXTERNAL_OTHER"];
 
 /** Builds exactly one known command from a request body; unknown actions are refused before any database call. */
 export function temporaryFundingCommand(body: Record<string, unknown>): TemporaryFundingCommand {
@@ -66,8 +66,10 @@ export function temporaryFundingCommand(body: Record<string, unknown>): Temporar
         throw new IdentityError("VALIDATION_FAILED", "Choose how the funding was provided and who provided it.");
       }
       return {
+        // The provider's user identity is never taken from the request: PostgreSQL binds the provider's
+        // current Super Administrator identity profile.
         action, fundingMode, providerKind, providerBusinessPartyId: text(body, "providerBusinessPartyId"),
-        providerUserAccountId: nullable("providerUserAccountId"), expenseCategoryId: nullable("expenseCategoryId"),
+        expenseCategoryId: nullable("expenseCategoryId"),
         payeeBusinessPartyId: nullable("payeeBusinessPartyId"), projectId: nullable("projectId"),
         departmentId: nullable("departmentId"), costCenterId: nullable("costCenterId"),
         treasuryAccountId: nullable("treasuryAccountId"), reference: text(body, "reference").trim(),
@@ -91,6 +93,19 @@ export function temporaryFundingCommand(body: Record<string, unknown>): Temporar
         evidenceDocumentReference: text(body, "evidenceDocumentReference").trim(),
         evidenceSha256: text(body, "evidenceSha256").trim().toLowerCase(), changeReason: text(body, "changeReason").trim(),
         idempotencyKey: key(), correlationId: correlation() };
+    case "configure-provider-identity": {
+      const identityMode = text(body, "identityMode");
+      if (identityMode !== "ABOS_USER" && identityMode !== "NO_ABOS_USER") {
+        throw new IdentityError("VALIDATION_FAILED", "Choose whether the provider uses ABOS.");
+      }
+      const expected = body.expectedVersion;
+      return { action, businessPartyId: text(body, "businessPartyId"),
+        expectedVersion: typeof expected === "number" && Number.isInteger(expected) && expected >= 0 ? expected : -1,
+        identityMode, userAccountId: identityMode === "ABOS_USER" ? nullable("userAccountId") : null,
+        evidenceDocumentReference: text(body, "evidenceDocumentReference").trim(),
+        evidenceSha256: text(body, "evidenceSha256").trim().toLowerCase(), changeReason: text(body, "changeReason").trim(),
+        idempotencyKey: key(), correlationId: correlation() };
+    }
     default:
       throw new IdentityError("VALIDATION_FAILED", "Unknown temporary funding action.");
   }
@@ -104,7 +119,19 @@ const FUNDING_REFUSALS: readonly { readonly pattern: RegExp; readonly status: nu
     status: 403, code: "SEGREGATION_OF_DUTIES",
     message: "Someone independent of the person who recorded it, and of the provider, must make this decision." },
   { pattern: /provider kind does not match/i, status: 422, code: "PROVIDER_KIND_MISMATCH",
-    message: "Choose “Shareholder” exactly when the provider is a shareholder of the company on that date." },
+    message: "The provider's roles changed. Reload and record it again." },
+  { pattern: /provider identity is not configured/i, status: 422, code: "PROVIDER_IDENTITY_MISSING",
+    message: "A Super Administrator must first record whether this provider uses ABOS." },
+  { pattern: /provider identity is no longer valid or is ambiguous|current valid identity profile/i, status: 422,
+    code: "PROVIDER_IDENTITY_INVALID", message: "This provider's ABOS identity is no longer valid. A Super Administrator must review it." },
+  { pattern: /already the current identity of another provider/i, status: 409, code: "PROVIDER_IDENTITY_AMBIGUOUS",
+    message: "That ABOS user is already the identity of another provider." },
+  { pattern: /ABOS user must be active with a current grant/i, status: 422, code: "PROVIDER_USER_INVALID",
+    message: "Choose an active ABOS user of this company." },
+  { pattern: /identity mode \(with its user only for ABOS_USER\)/i, status: 422, code: "EVIDENCE_REQUIRED",
+    message: "Choose the provider, whether they use ABOS (and which user), the evidence document, its SHA-256 and a reason." },
+  { pattern: /provider identity changed; reload/i, status: 409, code: "STALE_VERSION",
+    message: "Someone else changed this provider's identity meanwhile. Reload and try again." },
   { pattern: /base-currency only/i, status: 422, code: "BASE_CURRENCY_ONLY",
     message: "Temporary funding can only be recorded in the company's base currency for now." },
   { pattern: /payable mapping is missing|TEMPORARY_FUNDING_PAYABLE liability/i, status: 422, code: "PAYABLE_NOT_CONFIGURED",

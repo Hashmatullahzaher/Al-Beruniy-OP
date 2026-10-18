@@ -42,14 +42,36 @@ test.describe("V1 temporary funding", () => {
     await mapping.getByLabel("Reason *").fill("Synthetic payable account for temporary funding");
     await mapping.getByRole("button", { name: "Save" }).click();
     await expect(page.getByRole("status").filter({ hasText: "Payable account saved" })).toBeVisible();
+    await expect(mapping).toContainText("not kept in the ABOS document vault");
+    await expect(page.getByRole("form", { name: "Provider ABOS identity" })).toHaveCount(0);
+    await signOut(page);
+
+    // Only a Super Administrator records whether each provider uses ABOS; the recorder never supplies it.
+    await signIn(page, "super.admin", accounts["super.admin"]);
+    await page.goto("/finance/temporary-funding");
+    const identity = page.getByRole("form", { name: "Provider ABOS identity" });
+    for (const provider of ["Synthetic Individual", "Synthetic Organization"]) {
+      await identity.getByLabel("Provider *").selectOption({ label: provider });
+      await identity.getByLabel("Does not use ABOS").check();
+      await identity.getByLabel("Evidence document reference *").fill(`SYN-DECLARATION-${provider.split(" ")[1]}`);
+      await identity.getByLabel("SHA-256 *").fill(createHash("sha256").update(provider).digest("hex"));
+      await identity.getByLabel("Reason *").fill("Synthetic provider has no ABOS account");
+      await identity.getByRole("button", { name: "Save identity" }).click();
+      await expect(page.getByRole("status").filter({ hasText: "Provider identity saved" })).toBeVisible();
+      await page.getByRole("button", { name: "Dismiss" }).first().click();
+    }
+    await expect(identity).toContainText("not kept in the ABOS document vault");
     await signOut(page);
 
     // The preparer records a direct payment (Safe unchanged) and Safe funding (Safe funded).
     await signIn(page, "demo.finance.preparer", accounts["demo.finance.preparer"]);
     await page.goto("/finance/temporary-funding");
     const form = page.getByRole("form", { name: "Record temporary funding" });
-    await form.getByLabel("Provider type *").selectOption({ label: "Individual" });
+    await expect(form.getByLabel("Provider type *")).toHaveCount(0);
+    await expect(form.getByLabel(/ABOS user/)).toHaveCount(0);
     await form.getByLabel("Provider *").selectOption({ label: "Synthetic Individual" });
+    await expect(form).toContainText("Type (from company records): Other person or organization");
+    await expect(form).toContainText("Does not use ABOS");
     await form.getByLabel("Expense type *").selectOption({ label: "Synthetic Office Supplies" });
     await expect(form).toContainText("Safe unchanged");
     await form.getByLabel("Date *").fill("2026-09-22");
@@ -60,7 +82,6 @@ test.describe("V1 temporary funding", () => {
     await expect(page.getByRole("status").filter({ hasText: "sent for approval" })).toBeVisible();
     await form.getByLabel("Put cash into the Safe").check();
     await expect(form).toContainText("Safe funded");
-    await form.getByLabel("Provider type *").selectOption({ label: "Organization" });
     await form.getByLabel("Provider *").selectOption({ label: "Synthetic Organization" });
     await form.getByLabel("Which Safe? *").selectOption({ label: "Synthetic Main Safe" });
     await form.getByLabel("Date *").fill("2026-09-22");

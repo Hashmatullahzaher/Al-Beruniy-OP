@@ -52,7 +52,7 @@ const operationalRoutes: ReadonlyArray<{ readonly path: string; readonly icon: A
   { path: "/finance/record-expense", icon: "coins", en: "Record expense", fa: "ثبت مصرف", section: "daily", visible: (can) => can("finance.expense.create") },
   { path: "/finance/transactions", icon: "reports-analytics", en: "Daily transactions", fa: "معاملات روزانه", section: "daily", visible: (can) => can("finance.expense.read") },
   { path: "/finance/treasury", icon: "coins", en: "Treasury", fa: "خزانه", section: "daily", visible: (can) => can("treasury.read") },
-  { path: "/finance/temporary-funding", icon: "coins", en: "Temporary funding", fa: "تمویل موقت", section: "daily", visible: (can) => TEMPORARY_FUNDING_PERMISSIONS.some((permission) => can(permission)) },
+  { path: "/finance/temporary-funding", icon: "coins", en: "Temporary funding", fa: "تمویل موقت", section: "daily", visible: (can) => TEMPORARY_FUNDING_PERMISSIONS.some((permission) => can(permission)) || (can("admin.users.manage") && can("admin.roles.manage")) },
   // Reports.
   { path: "/finance/daily-report", icon: "reports-analytics", en: "Daily financial report", fa: "گزارش مالی روزانه", section: "reports", visible: (can) => can("finance.expense.read") },
   // Accounting (accountants and Finance managers).

@@ -205,7 +205,7 @@ export const migrationCatalog = [
   },
   {
     id: "0037_v1_temporary_funding",
-    checksumSha256: "c6e0b14f4ce56f7f0fb70bbd00c0dbb999658791b525283575b5b298cfef9558",
+    checksumSha256: "b6b9de5be6807cb1c7952da13a58cf7a158d457c379eb1b61eaf8460cf49f285",
     relativePath: "infrastructure/database/migrations/0037_v1_temporary_funding.sql",
   },
 ] as const satisfies readonly MigrationDefinition[];

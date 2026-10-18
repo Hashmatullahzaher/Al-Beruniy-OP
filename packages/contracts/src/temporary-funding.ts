@@ -5,7 +5,12 @@
  */
 
 export type TemporaryFundingMode = "PROVIDER_PAID_EXPENSE_DIRECTLY" | "PROVIDER_FUNDED_SAFE";
-export type TemporaryFundingProviderKind = "SHAREHOLDER" | "EMPLOYEE_OFFICER" | "INDIVIDUAL" | "ORGANIZATION";
+/**
+ * Derived from live Business Party roles on the funding date (SHAREHOLDER, then EMPLOYEE); every other
+ * person or organization is EXTERNAL_OTHER. No unverifiable person/organization type is stored.
+ */
+export type TemporaryFundingProviderKind = "SHAREHOLDER" | "EMPLOYEE" | "EXTERNAL_OTHER";
+export type TemporaryFundingProviderIdentityMode = "ABOS_USER" | "NO_ABOS_USER";
 export type TemporaryFundingStatus = "PENDING_APPROVAL" | "REJECTED" | "POSTED";
 /** Stored status plus derived settlement progress. */
 export type TemporaryFundingLifecycleStatus = TemporaryFundingStatus | "PARTIALLY_SETTLED" | "SETTLED";
@@ -69,6 +74,9 @@ export interface TemporaryFundingView {
   readonly fundingMode: TemporaryFundingMode;
   readonly providerKind: TemporaryFundingProviderKind;
   readonly provider: { readonly id: string; readonly name: string };
+  /** The provider identity profile version bound when the funding was recorded. */
+  readonly providerIdentityVersionId: string;
+  /** The provider's own ABOS user from that profile; excluded from every approval of this funding. */
   readonly providerUserAccountId: string | null;
   readonly expenseCategory: { readonly id: string; readonly code: string; readonly nameEn: string; readonly nameFa: string | null } | null;
   readonly payee: { readonly id: string; readonly name: string } | null;
@@ -135,6 +143,8 @@ export interface TemporaryFundingWorkspace {
     readonly canSettle: boolean;
     readonly canApproveSettlement: boolean;
     readonly canConfigure: boolean;
+    /** Super Administrator (admin.users.manage and admin.roles.manage) only. */
+    readonly canConfigureProviderIdentity: boolean;
   };
   readonly capability: {
     readonly state: "OPERATIONAL" | "NOT_OPERATIONAL";
@@ -162,8 +172,20 @@ export interface TemporaryFundingWorkspace {
     readonly safeAccounts: readonly (NamedAccount & { readonly currencyCode: string })[];
     readonly settlementSources: readonly (NamedAccount & { readonly currencyCode: string })[];
     readonly expenseCategories: readonly { readonly id: string; readonly code: string; readonly nameEn: string; readonly nameFa: string | null }[];
-    readonly parties: readonly { readonly id: string; readonly name: string; readonly shareholder: boolean }[];
-    /** Active users of this company, for recording the provider's own ABOS user (excluded from approvals). */
+    readonly parties: readonly {
+      readonly id: string;
+      readonly name: string;
+      readonly providerKind: TemporaryFundingProviderKind;
+      readonly identity: null | {
+        readonly versionId: string;
+        readonly version: number;
+        readonly mode: TemporaryFundingProviderIdentityMode;
+        readonly userAccountId: string | null;
+        readonly userName: string | null;
+        readonly configuredAt: string;
+      };
+    }[];
+    /** Active users of this company; returned to Super Administrators only, for provider identity profiles. */
     readonly users: readonly { readonly id: string; readonly name: string }[];
     readonly payableLedgerAccounts: readonly { readonly id: string; readonly code: string; readonly name: string }[];
   };
@@ -173,7 +195,6 @@ export interface TemporaryFundingRecord {
   readonly fundingMode: TemporaryFundingMode;
   readonly providerKind: TemporaryFundingProviderKind;
   readonly providerBusinessPartyId: string;
-  readonly providerUserAccountId: string | null;
   readonly expenseCategoryId: string | null;
   readonly payeeBusinessPartyId: string | null;
   readonly projectId: string | null;
@@ -209,6 +230,18 @@ export interface TemporaryFundingSettlementRequest {
   readonly correlationId: string;
 }
 
+export interface TemporaryFundingProviderIdentityConfigure {
+  readonly businessPartyId: string;
+  readonly expectedVersion: number;
+  readonly identityMode: TemporaryFundingProviderIdentityMode;
+  readonly userAccountId: string | null;
+  readonly evidenceDocumentReference: string;
+  readonly evidenceSha256: string;
+  readonly changeReason: string;
+  readonly idempotencyKey: string;
+  readonly correlationId: string;
+}
+
 export interface TemporaryFundingMappingConfigure {
   readonly ledgerAccountId: string;
   readonly evidenceDocumentReference: string;
@@ -224,7 +257,8 @@ export type TemporaryFundingCommand =
   | ({ readonly action: "decide"; readonly temporaryFundingId: string } & TemporaryFundingDecide)
   | ({ readonly action: "request-settlement" } & TemporaryFundingSettlementRequest)
   | ({ readonly action: "decide-settlement"; readonly settlementId: string } & TemporaryFundingDecide)
-  | ({ readonly action: "configure-mapping" } & TemporaryFundingMappingConfigure);
+  | ({ readonly action: "configure-mapping" } & TemporaryFundingMappingConfigure)
+  | ({ readonly action: "configure-provider-identity" } & TemporaryFundingProviderIdentityConfigure);
 
 export type TemporaryFundingAction = TemporaryFundingCommand["action"];
 

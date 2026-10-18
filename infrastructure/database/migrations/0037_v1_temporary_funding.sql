@@ -31,7 +31,7 @@ ALTER TABLE abos.evidence_references
     ('CAPITAL_AGREEMENT', 'FORMAL_REGISTRATION', 'PHYSICAL_CASH_COUNT', 'CASH_RECEIPT',
      'OPENING_RECONCILIATION', 'FINANCE_APPROVAL', 'REVERSAL_REASON',
      'BANK_CONFIRMATION', 'SARAF_CONFIRMATION', 'CONTROLLED_EVIDENCE',
-     'CAPITAL_ACCOUNT_MAPPING', 'TEMPORARY_FUNDING_ACCOUNT_MAPPING'));
+     'CAPITAL_ACCOUNT_MAPPING', 'TEMPORARY_FUNDING_ACCOUNT_MAPPING', 'TEMPORARY_FUNDING_PROVIDER_IDENTITY'));
 
 -- Dedicated control type. Existing accounts are not converted, classified or backfilled.
 ALTER TABLE abos.ledger_accounts DROP CONSTRAINT ledger_accounts_control_account_type_check;
@@ -173,6 +173,127 @@ AFTER INSERT ON abos.temporary_funding_account_mapping_versions
 FOR EACH ROW EXECUTE FUNCTION abos.ledger_account_mark_referenced('payable_ledger_account_id');
 
 -- ---------------------------------------------------------------------------------------------------
+-- Database-authoritative provider identity. No Business Party <-> User relationship exists elsewhere,
+-- so each provider party carries an append-only, versioned identity profile set by a Super
+-- Administrator: ABOS_USER (exactly one user who must never approve the provider's fundings or
+-- settlements) or NO_ABOS_USER. Nothing is inferred or backfilled; a party without a profile cannot
+-- provide temporary funding.
+-- ---------------------------------------------------------------------------------------------------
+CREATE TABLE abos.temporary_funding_provider_identity_versions (
+  id uuid PRIMARY KEY,
+  legal_entity_id uuid NOT NULL REFERENCES abos.legal_entities(id),
+  business_party_id uuid NOT NULL,
+  version integer NOT NULL CHECK (version > 0),
+  identity_mode text NOT NULL CHECK (identity_mode IN ('ABOS_USER', 'NO_ABOS_USER')),
+  user_account_id uuid REFERENCES abos.user_accounts(id),
+  evidence_reference_id uuid NOT NULL,
+  evidence_document_reference text NOT NULL
+    CHECK (length(btrim(evidence_document_reference)) BETWEEN 1 AND 200),
+  change_reason text NOT NULL CHECK (length(btrim(change_reason)) BETWEEN 3 AND 500),
+  configured_by_user_account_id uuid NOT NULL REFERENCES abos.user_accounts(id),
+  configured_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+  correlation_id uuid NOT NULL,
+  idempotency_key text NOT NULL CHECK (length(btrim(idempotency_key)) BETWEEN 8 AND 200),
+  request_fingerprint text NOT NULL CHECK (request_fingerprint ~ '^[0-9a-f]{64}$'),
+  UNIQUE (id, legal_entity_id),
+  UNIQUE (legal_entity_id, business_party_id, version),
+  UNIQUE (legal_entity_id, idempotency_key),
+  UNIQUE (evidence_reference_id),
+  FOREIGN KEY (business_party_id, legal_entity_id) REFERENCES abos.business_parties(id, legal_entity_id),
+  FOREIGN KEY (evidence_reference_id, legal_entity_id)
+    REFERENCES abos.evidence_references(id, legal_entity_id),
+  CHECK ((identity_mode = 'ABOS_USER') = (user_account_id IS NOT NULL))
+);
+
+-- The configured user must be an ACTIVE user with a live grant in the same legal entity.
+CREATE FUNCTION abos.temporary_funding_provider_user_valid(p_entity uuid, p_user uuid)
+RETURNS boolean
+LANGUAGE sql STABLE
+SET search_path = pg_catalog, pg_temp
+AS $valid$
+  SELECT EXISTS (
+    SELECT 1 FROM abos.user_accounts account
+      JOIN abos.user_permission_grants grant_row ON grant_row.user_account_id = account.id
+     WHERE account.id = p_user AND account.status = 'ACTIVE'
+       AND grant_row.legal_entity_id = p_entity AND grant_row.revoked_at IS NULL)
+$valid$;
+
+-- A user may be the current ABOS identity of at most one provider party; anything else is ambiguous.
+CREATE FUNCTION abos.temporary_funding_provider_user_ambiguous(p_entity uuid, p_party uuid, p_user uuid)
+RETURNS boolean
+LANGUAGE sql STABLE
+SET search_path = pg_catalog, pg_temp
+AS $ambiguous$
+  SELECT EXISTS (
+    SELECT 1 FROM abos.temporary_funding_provider_identity_versions current_row
+     WHERE current_row.legal_entity_id = p_entity AND current_row.business_party_id <> p_party
+       AND current_row.user_account_id = p_user
+       AND current_row.version = (SELECT max(other.version) FROM abos.temporary_funding_provider_identity_versions other
+                                   WHERE other.legal_entity_id = current_row.legal_entity_id
+                                     AND other.business_party_id = current_row.business_party_id))
+$ambiguous$;
+
+CREATE FUNCTION abos.guard_temporary_funding_provider_identity()
+RETURNS trigger LANGUAGE plpgsql
+SET search_path = pg_catalog, pg_temp
+AS $guard$
+DECLARE v_latest integer; v_kind text;
+BEGIN
+  SELECT COALESCE(max(version), 0) INTO v_latest
+    FROM abos.temporary_funding_provider_identity_versions
+   WHERE legal_entity_id = NEW.legal_entity_id AND business_party_id = NEW.business_party_id;
+  IF NEW.version <> v_latest + 1 THEN
+    RAISE EXCEPTION 'a provider identity version must follow the latest version' USING ERRCODE = 'check_violation';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM abos.business_parties party WHERE party.id = NEW.business_party_id
+                    AND party.legal_entity_id = NEW.legal_entity_id AND party.status = 'ACTIVE') THEN
+    RAISE EXCEPTION 'the provider is not an active business party in this legal entity' USING ERRCODE = 'check_violation';
+  END IF;
+  IF NEW.identity_mode = 'ABOS_USER' THEN
+    IF NOT abos.temporary_funding_provider_user_valid(NEW.legal_entity_id, NEW.user_account_id) THEN
+      RAISE EXCEPTION 'the provider''s ABOS user must be active with a current grant in this legal entity'
+        USING ERRCODE = 'check_violation';
+    END IF;
+    IF abos.temporary_funding_provider_user_ambiguous(NEW.legal_entity_id, NEW.business_party_id, NEW.user_account_id) THEN
+      RAISE EXCEPTION 'this ABOS user is already the current identity of another provider; provider identity would be ambiguous'
+        USING ERRCODE = 'check_violation';
+    END IF;
+  END IF;
+  SELECT evidence_kind INTO v_kind FROM abos.evidence_references
+   WHERE id = NEW.evidence_reference_id AND legal_entity_id = NEW.legal_entity_id;
+  IF v_kind IS DISTINCT FROM 'TEMPORARY_FUNDING_PROVIDER_IDENTITY' THEN
+    RAISE EXCEPTION 'provider identity requires TEMPORARY_FUNDING_PROVIDER_IDENTITY evidence' USING ERRCODE = 'check_violation';
+  END IF;
+  NEW.configured_at := clock_timestamp();
+  RETURN NEW;
+END
+$guard$;
+CREATE TRIGGER temporary_funding_provider_identity_guard
+BEFORE INSERT ON abos.temporary_funding_provider_identity_versions
+FOR EACH ROW EXECUTE FUNCTION abos.guard_temporary_funding_provider_identity();
+CREATE TRIGGER temporary_funding_provider_identity_no_update_or_delete
+BEFORE UPDATE OR DELETE ON abos.temporary_funding_provider_identity_versions
+FOR EACH ROW EXECUTE FUNCTION abos.prevent_audit_mutation();
+
+-- Provider classification is derived from live Business Party roles on the funding date only:
+-- SHAREHOLDER (current SHAREHOLDER role) takes precedence, then EMPLOYEE (current EMPLOYEE role);
+-- any other person or organization is EXTERNAL_OTHER. No unverifiable person/organization type is stored.
+CREATE FUNCTION abos.temporary_funding_provider_kind(p_party uuid, p_date date)
+RETURNS text
+LANGUAGE sql STABLE
+SET search_path = pg_catalog, pg_temp
+AS $kind$
+  SELECT CASE
+    WHEN EXISTS (SELECT 1 FROM abos.business_party_roles role WHERE role.business_party_id = p_party
+                    AND role.role_code = 'SHAREHOLDER' AND role.effective_from <= p_date
+                    AND (role.effective_to IS NULL OR role.effective_to >= p_date)) THEN 'SHAREHOLDER'
+    WHEN EXISTS (SELECT 1 FROM abos.business_party_roles role WHERE role.business_party_id = p_party
+                    AND role.role_code = 'EMPLOYEE' AND role.effective_from <= p_date
+                    AND (role.effective_to IS NULL OR role.effective_to >= p_date)) THEN 'EMPLOYEE'
+    ELSE 'EXTERNAL_OTHER' END
+$kind$;
+
+-- ---------------------------------------------------------------------------------------------------
 -- Typed sources: fundings, their decisions, settlements and their decisions.
 -- ---------------------------------------------------------------------------------------------------
 CREATE TABLE abos.temporary_fundings (
@@ -181,8 +302,10 @@ CREATE TABLE abos.temporary_fundings (
   funding_mode text NOT NULL
     CHECK (funding_mode IN ('PROVIDER_PAID_EXPENSE_DIRECTLY', 'PROVIDER_FUNDED_SAFE')),
   provider_kind text NOT NULL
-    CHECK (provider_kind IN ('SHAREHOLDER', 'EMPLOYEE_OFFICER', 'INDIVIDUAL', 'ORGANIZATION')),
+    CHECK (provider_kind IN ('SHAREHOLDER', 'EMPLOYEE', 'EXTERNAL_OTHER')),
   provider_business_party_id uuid NOT NULL,
+  -- Bound provider identity: the exact profile version used and the user it named (copied, never supplied).
+  provider_identity_version_id uuid NOT NULL,
   provider_user_account_id uuid REFERENCES abos.user_accounts(id),
   operational_expense_category_id uuid,
   payee_business_party_id uuid,
@@ -213,6 +336,8 @@ CREATE TABLE abos.temporary_fundings (
   UNIQUE (id, legal_entity_id),
   UNIQUE (legal_entity_id, idempotency_key),
   FOREIGN KEY (provider_business_party_id, legal_entity_id) REFERENCES abos.business_parties(id, legal_entity_id),
+  FOREIGN KEY (provider_identity_version_id, legal_entity_id)
+    REFERENCES abos.temporary_funding_provider_identity_versions(id, legal_entity_id),
   FOREIGN KEY (payee_business_party_id, legal_entity_id) REFERENCES abos.business_parties(id, legal_entity_id),
   FOREIGN KEY (operational_expense_category_id, legal_entity_id)
     REFERENCES abos.operational_expense_categories(id, legal_entity_id),
@@ -246,6 +371,7 @@ CREATE FUNCTION abos.guard_temporary_funding()
 RETURNS trigger LANGUAGE plpgsql
 SET search_path = pg_catalog, pg_temp
 AS $guard$
+DECLARE v_identity abos.temporary_funding_provider_identity_versions%ROWTYPE;
 BEGIN
   IF TG_OP = 'DELETE' THEN
     RAISE EXCEPTION 'temporary funding records are permanent' USING ERRCODE = 'check_violation';
@@ -255,10 +381,29 @@ BEGIN
       RAISE EXCEPTION 'temporary funding starts as PENDING_APPROVAL version 1 without a journal'
         USING ERRCODE = 'check_violation';
     END IF;
+    -- The bound identity must be the provider's current valid profile and exactly its user.
+    SELECT * INTO v_identity FROM abos.temporary_funding_provider_identity_versions
+     WHERE id = NEW.provider_identity_version_id AND legal_entity_id = NEW.legal_entity_id;
+    IF NOT FOUND OR v_identity.business_party_id <> NEW.provider_business_party_id
+       OR v_identity.user_account_id IS DISTINCT FROM NEW.provider_user_account_id
+       OR v_identity.version <> (SELECT max(other.version) FROM abos.temporary_funding_provider_identity_versions other
+                                  WHERE other.legal_entity_id = NEW.legal_entity_id
+                                    AND other.business_party_id = NEW.provider_business_party_id)
+       OR (v_identity.identity_mode = 'ABOS_USER' AND (
+             NOT abos.temporary_funding_provider_user_valid(NEW.legal_entity_id, NEW.provider_user_account_id)
+             OR abos.temporary_funding_provider_user_ambiguous(NEW.legal_entity_id, NEW.provider_business_party_id,
+                                                               NEW.provider_user_account_id))) THEN
+      RAISE EXCEPTION 'temporary funding must bind the provider''s current valid identity profile'
+        USING ERRCODE = 'check_violation';
+    END IF;
+    IF NEW.provider_kind IS DISTINCT FROM abos.temporary_funding_provider_kind(NEW.provider_business_party_id, NEW.business_date) THEN
+      RAISE EXCEPTION 'the provider kind does not match the provider''s roles on the funding date'
+        USING ERRCODE = 'check_violation';
+    END IF;
     RETURN NEW;
   END IF;
   IF (NEW.id, NEW.legal_entity_id, NEW.funding_mode, NEW.provider_kind, NEW.provider_business_party_id,
-      NEW.provider_user_account_id, NEW.operational_expense_category_id, NEW.payee_business_party_id,
+      NEW.provider_identity_version_id, NEW.provider_user_account_id, NEW.operational_expense_category_id, NEW.payee_business_party_id,
       NEW.project_id, NEW.department_id, NEW.cost_center_id, NEW.operational_treasury_account_id,
       NEW.reference, NEW.description, NEW.note, NEW.business_date, NEW.original_amount,
       NEW.original_currency_code, NEW.base_amount, NEW.base_currency_code, NEW.workflow_policy_version_id,
@@ -266,7 +411,7 @@ BEGIN
       NEW.created_by_user_account_id, NEW.created_at)
      IS DISTINCT FROM
      (OLD.id, OLD.legal_entity_id, OLD.funding_mode, OLD.provider_kind, OLD.provider_business_party_id,
-      OLD.provider_user_account_id, OLD.operational_expense_category_id, OLD.payee_business_party_id,
+      OLD.provider_identity_version_id, OLD.provider_user_account_id, OLD.operational_expense_category_id, OLD.payee_business_party_id,
       OLD.project_id, OLD.department_id, OLD.cost_center_id, OLD.operational_treasury_account_id,
       OLD.reference, OLD.description, OLD.note, OLD.business_date, OLD.original_amount,
       OLD.original_currency_code, OLD.base_amount, OLD.base_currency_code, OLD.workflow_policy_version_id,
@@ -1292,6 +1437,7 @@ AS $json$
   SELECT jsonb_build_object(
     'id', funding.id, 'fundingMode', funding.funding_mode, 'providerKind', funding.provider_kind,
     'provider', jsonb_build_object('id', provider.id, 'name', provider.display_name),
+    'providerIdentityVersionId', funding.provider_identity_version_id,
     'providerUserAccountId', funding.provider_user_account_id,
     'expenseCategory', CASE WHEN category.id IS NULL THEN NULL ELSE jsonb_build_object(
       'id', category.id, 'code', category.category_code, 'nameEn', category.name_en, 'nameFa', category.name_fa) END,
@@ -1557,13 +1703,21 @@ LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, pg_temp
 AS $workspace$
 DECLARE v_context jsonb; v_entity uuid; v_permissions jsonb; v_base text; v_policy record; v_mapping record;
+  v_super boolean;
 BEGIN
   v_context := abos.temporary_funding_actor(p_identity_proof, p_runtime_token_sha256, p_token_sha256,
     ARRAY['finance.temporary-funding.read', 'finance.temporary-funding.record',
           'finance.temporary-funding.approve', 'finance.temporary-funding.settle',
-          'finance.temporary-funding.settle-approve', 'finance.temporary-funding.configure']);
+          'finance.temporary-funding.settle-approve', 'finance.temporary-funding.configure',
+          'admin.users.manage']);
   v_entity := (v_context ->> 'legalEntityId')::uuid;
   v_permissions := COALESCE(v_context -> 'permissions', '[]'::jsonb);
+  v_super := v_permissions ? 'admin.users.manage' AND v_permissions ? 'admin.roles.manage';
+  IF NOT v_super AND NOT v_permissions ?| ARRAY['finance.temporary-funding.read', 'finance.temporary-funding.record',
+       'finance.temporary-funding.approve', 'finance.temporary-funding.settle',
+       'finance.temporary-funding.settle-approve', 'finance.temporary-funding.configure'] THEN
+    RAISE EXCEPTION 'current authority is missing finance.temporary-funding.read' USING ERRCODE = 'insufficient_privilege';
+  END IF;
   SELECT base_currency_code INTO v_base FROM abos.legal_entities
    WHERE id = v_entity AND currency_policy_status = 'APPROVED';
   SELECT id, version, approval_required INTO v_policy FROM abos.finance_workflow_policy_versions
@@ -1588,7 +1742,8 @@ BEGIN
       'canApprove', v_permissions ? 'finance.temporary-funding.approve',
       'canSettle', v_permissions ? 'finance.temporary-funding.settle',
       'canApproveSettlement', v_permissions ? 'finance.temporary-funding.settle-approve',
-      'canConfigure', v_permissions ? 'finance.temporary-funding.configure'),
+      'canConfigure', v_permissions ? 'finance.temporary-funding.configure',
+      'canConfigureProviderIdentity', v_super),
     'capability', jsonb_build_object(
       'state', CASE WHEN v_base IS NOT NULL AND v_policy.approval_required IS TRUE AND v_mapping.valid IS TRUE
                     THEN 'OPERATIONAL' ELSE 'NOT_OPERATIONAL' END,
@@ -1693,17 +1848,23 @@ BEGIN
         WHERE category.legal_entity_id = v_entity AND category.status = 'ACTIVE'), '[]'::jsonb),
       'parties', COALESCE((SELECT jsonb_agg(jsonb_build_object(
           'id', party.id, 'name', party.display_name,
-          'shareholder', EXISTS (SELECT 1 FROM abos.business_party_roles role
-                                  WHERE role.business_party_id = party.id AND role.role_code = 'SHAREHOLDER'
-                                    AND role.effective_from <= current_date
-                                    AND (role.effective_to IS NULL OR role.effective_to >= current_date)))
+          'providerKind', abos.temporary_funding_provider_kind(party.id, current_date),
+          'identity', CASE WHEN identity.id IS NULL THEN NULL ELSE jsonb_build_object(
+            'versionId', identity.id, 'version', identity.version, 'mode', identity.identity_mode,
+            'userAccountId', identity.user_account_id, 'userName', identity_user.display_name,
+            'configuredAt', identity.configured_at) END)
           ORDER BY party.display_name, party.id)
         FROM abos.business_parties party
+        LEFT JOIN LATERAL (
+          SELECT * FROM abos.temporary_funding_provider_identity_versions version_row
+           WHERE version_row.legal_entity_id = v_entity AND version_row.business_party_id = party.id
+           ORDER BY version_row.version DESC LIMIT 1) identity ON true
+        LEFT JOIN abos.user_accounts identity_user ON identity_user.id = identity.user_account_id
         WHERE party.legal_entity_id = v_entity AND party.status = 'ACTIVE'), '[]'::jsonb),
       'users', COALESCE((SELECT jsonb_agg(jsonb_build_object('id', account.id, 'name', account.display_name)
           ORDER BY account.display_name, account.id)
         FROM abos.user_accounts account
-        WHERE account.status = 'ACTIVE' AND EXISTS (
+        WHERE v_super AND account.status = 'ACTIVE' AND EXISTS (
           SELECT 1 FROM abos.user_permission_grants grant_row
            WHERE grant_row.user_account_id = account.id AND grant_row.legal_entity_id = v_entity
              AND grant_row.revoked_at IS NULL)), '[]'::jsonb),
@@ -1782,6 +1943,83 @@ BEGIN
 END
 $configure$;
 
+-- Provider identity profile: Super Administrator only (admin.users.manage AND admin.roles.manage),
+-- evidence-backed, versioned against the expected current version, idempotent and audited.
+CREATE FUNCTION abos.configure_temporary_funding_provider_identity(
+  p_identity_proof text, p_runtime_token_sha256 text, p_token_sha256 text, p_payload jsonb
+) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = pg_catalog, pg_temp
+AS $identity$
+DECLARE
+  v_context jsonb; v_actor uuid; v_entity uuid; v_party uuid; v_mode text; v_user uuid; v_expected integer;
+  v_reference text; v_sha text; v_reason text; v_key text; v_correlation uuid; v_scope text; v_replay jsonb;
+  v_fingerprint text; v_current integer; v_id uuid := gen_random_uuid(); v_evidence uuid := gen_random_uuid();
+  v_result jsonb;
+BEGIN
+  v_context := abos.temporary_funding_actor(p_identity_proof, p_runtime_token_sha256, p_token_sha256,
+    ARRAY['admin.users.manage']);
+  IF NOT COALESCE(v_context -> 'permissions', '[]'::jsonb) ? 'admin.roles.manage' THEN
+    RAISE EXCEPTION 'current authority is missing admin.roles.manage' USING ERRCODE = 'insufficient_privilege';
+  END IF;
+  v_actor := (v_context ->> 'userAccountId')::uuid;
+  v_entity := (v_context ->> 'legalEntityId')::uuid;
+  IF p_payload IS NULL OR jsonb_typeof(p_payload) <> 'object' OR EXISTS (
+    SELECT 1 FROM jsonb_object_keys(p_payload) key
+     WHERE key NOT IN ('businessPartyId', 'expectedVersion', 'identityMode', 'userAccountId',
+       'evidenceDocumentReference', 'evidenceSha256', 'changeReason', 'idempotencyKey', 'correlationId')) THEN
+    RAISE EXCEPTION 'provider identity request contains unsupported fields' USING ERRCODE = 'invalid_parameter_value';
+  END IF;
+  BEGIN
+    v_party := (p_payload ->> 'businessPartyId')::uuid;
+    v_expected := (p_payload ->> 'expectedVersion')::integer;
+    v_user := NULLIF(p_payload ->> 'userAccountId', '')::uuid;
+    v_correlation := (p_payload ->> 'correlationId')::uuid;
+  EXCEPTION WHEN others THEN
+    RAISE EXCEPTION 'a complete provider identity request is required' USING ERRCODE = 'invalid_parameter_value';
+  END;
+  v_mode := p_payload ->> 'identityMode';
+  v_reference := NULLIF(btrim(p_payload ->> 'evidenceDocumentReference'), '');
+  v_sha := lower(btrim(p_payload ->> 'evidenceSha256'));
+  v_reason := NULLIF(btrim(p_payload ->> 'changeReason'), '');
+  v_key := btrim(p_payload ->> 'idempotencyKey');
+  IF v_party IS NULL OR v_expected IS NULL OR v_expected < 0 OR v_mode IS NULL
+     OR v_mode NOT IN ('ABOS_USER', 'NO_ABOS_USER') OR (v_mode = 'ABOS_USER') <> (v_user IS NOT NULL)
+     OR v_reference IS NULL OR length(v_reference) > 200 OR v_sha IS NULL OR v_sha !~ '^[0-9a-f]{64}$'
+     OR v_reason IS NULL OR length(v_reason) NOT BETWEEN 3 AND 500 THEN
+    RAISE EXCEPTION 'provider, identity mode (with its user only for ABOS_USER), evidence reference, evidence SHA-256 and a change reason are required'
+      USING ERRCODE = 'invalid_parameter_value';
+  END IF;
+  v_fingerprint := abos.temporary_funding_fingerprint(p_payload, NULL, v_actor);
+  v_scope := 'temporary-funding:provider-identity:' || v_entity::text || ':' || v_actor::text;
+  v_replay := abos.temporary_funding_idempotency_begin(v_scope, v_key, v_fingerprint, v_correlation);
+  IF v_replay IS NOT NULL THEN RETURN v_replay; END IF;
+  PERFORM pg_advisory_xact_lock(hashtextextended('temporary-funding-provider-identity:' || v_entity::text, 0));
+  SELECT COALESCE(max(version), 0) INTO v_current FROM abos.temporary_funding_provider_identity_versions
+   WHERE legal_entity_id = v_entity AND business_party_id = v_party;
+  IF v_current <> v_expected THEN
+    RAISE EXCEPTION 'provider identity changed; reload and try again' USING ERRCODE = 'serialization_failure';
+  END IF;
+  INSERT INTO abos.evidence_references
+    (id, legal_entity_id, document_id, evidence_kind, evidence_version, sha256, completed_at)
+  VALUES (v_evidence, v_entity, v_id, 'TEMPORARY_FUNDING_PROVIDER_IDENTITY', 1, v_sha, clock_timestamp());
+  INSERT INTO abos.temporary_funding_provider_identity_versions
+    (id, legal_entity_id, business_party_id, version, identity_mode, user_account_id, evidence_reference_id,
+     evidence_document_reference, change_reason, configured_by_user_account_id, correlation_id, idempotency_key,
+     request_fingerprint)
+  VALUES (v_id, v_entity, v_party, v_current + 1, v_mode, v_user, v_evidence, v_reference, v_reason, v_actor,
+          v_correlation, v_key, v_fingerprint);
+  v_result := jsonb_build_object('providerIdentityVersionId', v_id, 'businessPartyId', v_party,
+    'version', v_current + 1, 'identityMode', v_mode, 'userAccountId', v_user, 'evidenceReferenceId', v_evidence,
+    'replayed', false);
+  PERFORM abos.temporary_funding_audit(v_actor, v_entity, v_correlation, 'TEMPORARY_FUNDING_PROVIDER_IDENTITY_CONFIGURED',
+    'TEMPORARY_FUNDING_PROVIDER_IDENTITY', v_id, v_result || jsonb_build_object('changeReason', v_reason,
+      'evidenceDocumentReference', v_reference));
+  PERFORM abos.temporary_funding_idempotency_complete(v_scope, v_key, 'TEMPORARY_FUNDING_PROVIDER_IDENTITY', v_id, v_result);
+  RETURN v_result;
+END
+$identity$;
+
 CREATE FUNCTION abos.record_temporary_funding(
   p_identity_proof text, p_runtime_token_sha256 text, p_token_sha256 text, p_payload jsonb
 ) RETURNS jsonb
@@ -1789,11 +2027,12 @@ LANGUAGE plpgsql SECURITY DEFINER
 SET search_path = pg_catalog, pg_temp
 AS $record$
 DECLARE
-  v_context jsonb; v_actor uuid; v_entity uuid; v_mode text; v_kind text; v_provider uuid; v_provider_user uuid;
+  v_context jsonb; v_actor uuid; v_entity uuid; v_mode text; v_kind text; v_provider uuid;
+  v_identity abos.temporary_funding_provider_identity_versions%ROWTYPE;
   v_category uuid; v_payee uuid; v_project uuid; v_department uuid; v_cost_center uuid; v_treasury uuid;
   v_reference text; v_description text; v_note text; v_date date; v_amount numeric; v_currency text;
   v_base text; v_key text; v_correlation uuid; v_fingerprint text; v_scope text; v_replay jsonb;
-  v_policy uuid; v_mapping uuid; v_shareholder boolean; v_ledger record;
+  v_policy uuid; v_mapping uuid; v_ledger record;
   v_id uuid := gen_random_uuid(); v_result jsonb;
 BEGIN
   v_context := abos.temporary_funding_actor(p_identity_proof, p_runtime_token_sha256, p_token_sha256,
@@ -1802,7 +2041,7 @@ BEGIN
   v_entity := (v_context ->> 'legalEntityId')::uuid;
   IF p_payload IS NULL OR jsonb_typeof(p_payload) <> 'object' OR EXISTS (
     SELECT 1 FROM jsonb_object_keys(p_payload) key
-     WHERE key NOT IN ('fundingMode', 'providerKind', 'providerBusinessPartyId', 'providerUserAccountId',
+     WHERE key NOT IN ('fundingMode', 'providerKind', 'providerBusinessPartyId',
        'expenseCategoryId', 'payeeBusinessPartyId', 'projectId', 'departmentId', 'costCenterId',
        'treasuryAccountId', 'reference', 'description', 'note', 'businessDate', 'amount',
        'idempotencyKey', 'correlationId')) THEN
@@ -1810,7 +2049,6 @@ BEGIN
   END IF;
   BEGIN
     v_provider := (p_payload ->> 'providerBusinessPartyId')::uuid;
-    v_provider_user := NULLIF(p_payload ->> 'providerUserAccountId', '')::uuid;
     v_category := NULLIF(p_payload ->> 'expenseCategoryId', '')::uuid;
     v_payee := NULLIF(p_payload ->> 'payeeBusinessPartyId', '')::uuid;
     v_project := NULLIF(p_payload ->> 'projectId', '')::uuid;
@@ -1831,7 +2069,7 @@ BEGIN
   v_note := NULLIF(btrim(p_payload ->> 'note'), '');
   v_key := btrim(p_payload ->> 'idempotencyKey');
   IF v_mode IS NULL OR v_mode NOT IN ('PROVIDER_PAID_EXPENSE_DIRECTLY', 'PROVIDER_FUNDED_SAFE')
-     OR v_kind IS NULL OR v_kind NOT IN ('SHAREHOLDER', 'EMPLOYEE_OFFICER', 'INDIVIDUAL', 'ORGANIZATION')
+     OR v_kind IS NULL OR v_kind NOT IN ('SHAREHOLDER', 'EMPLOYEE', 'EXTERNAL_OTHER')
      OR v_provider IS NULL OR v_date IS NULL OR v_currency IS NULL
      OR v_reference IS NULL OR length(v_reference) > 120
      OR v_description IS NULL OR length(v_description) NOT BETWEEN 3 AND 500
@@ -1857,23 +2095,23 @@ BEGIN
     RAISE EXCEPTION 'the funding provider is not an active business party in this legal entity'
       USING ERRCODE = 'check_violation';
   END IF;
-  -- A shareholder's funding is always visible as a shareholder's; it is still a payable, never capital.
-  v_shareholder := EXISTS (SELECT 1 FROM abos.business_party_roles role
-                            WHERE role.business_party_id = v_provider AND role.role_code = 'SHAREHOLDER'
-                              AND role.effective_from <= v_date
-                              AND (role.effective_to IS NULL OR role.effective_to >= v_date));
-  IF (v_kind = 'SHAREHOLDER') <> v_shareholder THEN
-    RAISE EXCEPTION 'the provider kind does not match the provider''s shareholder role on the funding date'
+  -- Classification is only what live roles prove: SHAREHOLDER, then EMPLOYEE, else EXTERNAL_OTHER. A
+  -- shareholder's funding is always visible as a shareholder's; it is still a payable, never capital.
+  IF v_kind IS DISTINCT FROM abos.temporary_funding_provider_kind(v_provider, v_date) THEN
+    RAISE EXCEPTION 'the provider kind does not match the provider''s roles on the funding date'
       USING ERRCODE = 'check_violation';
   END IF;
-  -- No persisted business-party/user link exists yet: the provider's own ABOS user, when there is one,
-  -- is recorded with the funding and is then excluded from every approval of it.
-  IF v_provider_user IS NOT NULL AND NOT EXISTS (
-    SELECT 1 FROM abos.user_accounts account
-      JOIN abos.user_permission_grants grant_row ON grant_row.user_account_id = account.id
-     WHERE account.id = v_provider_user AND account.status = 'ACTIVE'
-       AND grant_row.legal_entity_id = v_entity AND grant_row.revoked_at IS NULL) THEN
-    RAISE EXCEPTION 'the provider''s user account is not active in this legal entity' USING ERRCODE = 'check_violation';
+  -- The provider's identity comes only from its current Super Administrator profile, never the request.
+  SELECT * INTO v_identity FROM abos.temporary_funding_provider_identity_versions
+   WHERE legal_entity_id = v_entity AND business_party_id = v_provider ORDER BY version DESC LIMIT 1;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'provider identity is not configured for this business party' USING ERRCODE = 'check_violation';
+  END IF;
+  IF v_identity.identity_mode = 'ABOS_USER' AND (
+       NOT abos.temporary_funding_provider_user_valid(v_entity, v_identity.user_account_id)
+       OR abos.temporary_funding_provider_user_ambiguous(v_entity, v_provider, v_identity.user_account_id)) THEN
+    RAISE EXCEPTION 'provider identity is no longer valid or is ambiguous; a Super Administrator must review it'
+      USING ERRCODE = 'check_violation';
   END IF;
   IF v_mode = 'PROVIDER_PAID_EXPENSE_DIRECTLY' THEN
     SELECT ledger.requires_project, ledger.requires_department, ledger.requires_cost_center INTO v_ledger
@@ -1913,13 +2151,14 @@ BEGIN
   v_mapping := abos.temporary_funding_current_mapping(v_entity);
 
   INSERT INTO abos.temporary_fundings
-    (id, legal_entity_id, funding_mode, provider_kind, provider_business_party_id, provider_user_account_id,
+    (id, legal_entity_id, funding_mode, provider_kind, provider_business_party_id, provider_identity_version_id,
+     provider_user_account_id,
      operational_expense_category_id, payee_business_party_id, project_id, department_id, cost_center_id,
      operational_treasury_account_id, reference, description, note, business_date, original_amount,
      original_currency_code, base_amount, base_currency_code, workflow_policy_version_id, mapping_version_id,
      correlation_id, idempotency_key, request_fingerprint, status, version, created_by_user_account_id)
   VALUES
-    (v_id, v_entity, v_mode, v_kind, v_provider, v_provider_user, v_category, v_payee, v_project, v_department,
+    (v_id, v_entity, v_mode, v_kind, v_provider, v_identity.id, v_identity.user_account_id, v_category, v_payee, v_project, v_department,
      v_cost_center, v_treasury, v_reference, v_description, v_note, v_date, v_amount, v_currency, v_amount, v_base,
      v_policy, v_mapping, v_correlation, v_key, v_fingerprint, 'PENDING_APPROVAL', 1, v_actor);
   v_result := jsonb_build_object('funding', abos.temporary_funding_json(v_id), 'replayed', false);
@@ -2198,8 +2437,12 @@ $decide$;
 -- ---------------------------------------------------------------------------------------------------
 GRANT SELECT ON abos.temporary_fundings, abos.temporary_funding_decisions, abos.temporary_funding_settlements,
   abos.temporary_funding_settlement_decisions, abos.temporary_funding_account_mapping_versions,
-  abos.journal_reversal_links
+  abos.temporary_funding_provider_identity_versions, abos.journal_reversal_links
 TO abos_v1_operational_finance_owner;
+GRANT INSERT (id, legal_entity_id, business_party_id, version, identity_mode, user_account_id, evidence_reference_id,
+  evidence_document_reference, change_reason, configured_by_user_account_id, correlation_id, idempotency_key,
+  request_fingerprint)
+  ON abos.temporary_funding_provider_identity_versions TO abos_v1_operational_finance_owner;
 GRANT SELECT (status) ON abos.user_accounts TO abos_v1_operational_finance_owner;
 GRANT SELECT (user_account_id, legal_entity_id, revoked_at)
   ON abos.user_permission_grants TO abos_v1_operational_finance_owner;
@@ -2210,7 +2453,7 @@ GRANT INSERT (id, legal_entity_id, version, payable_ledger_account_id, evidence_
   request_fingerprint)
   ON abos.temporary_funding_account_mapping_versions TO abos_v1_operational_finance_owner;
 GRANT INSERT (id, legal_entity_id, funding_mode, provider_kind, provider_business_party_id,
-  provider_user_account_id, operational_expense_category_id, payee_business_party_id, project_id, department_id,
+  provider_identity_version_id, provider_user_account_id, operational_expense_category_id, payee_business_party_id, project_id, department_id,
   cost_center_id, operational_treasury_account_id, reference, description, note, business_date, original_amount,
   original_currency_code, base_amount, base_currency_code, workflow_policy_version_id, mapping_version_id,
   correlation_id, idempotency_key, request_fingerprint, status, version, created_by_user_account_id)
@@ -2236,6 +2479,11 @@ GRANT INSERT (temporary_funding_id, temporary_funding_settlement_id)
   ON abos.subledger_entries TO abos_v1_operational_finance_owner;
 
 REVOKE ALL ON FUNCTION
+  abos.guard_temporary_funding_provider_identity(),
+  abos.temporary_funding_provider_user_valid(uuid, uuid),
+  abos.temporary_funding_provider_user_ambiguous(uuid, uuid, uuid),
+  abos.temporary_funding_provider_kind(uuid, date),
+  abos.configure_temporary_funding_provider_identity(text, text, text, jsonb),
   abos.guard_temporary_funding_mapping_version(), abos.guard_temporary_funding(),
   abos.guard_temporary_funding_decision(), abos.guard_temporary_funding_settlement(),
   abos.guard_temporary_funding_settlement_decision(), abos.refuse_temporary_funding_reversal_link(),
@@ -2258,6 +2506,9 @@ REVOKE ALL ON FUNCTION
 FROM PUBLIC;
 
 GRANT EXECUTE ON FUNCTION
+  abos.temporary_funding_provider_user_valid(uuid, uuid),
+  abos.temporary_funding_provider_user_ambiguous(uuid, uuid, uuid),
+  abos.temporary_funding_provider_kind(uuid, date),
   abos.temporary_funding_actor(text, text, text, text[]), abos.temporary_funding_amount(text),
   abos.temporary_funding_idempotency_begin(text, text, text, uuid),
   abos.temporary_funding_idempotency_complete(text, text, text, uuid, jsonb),
@@ -2273,6 +2524,8 @@ ALTER FUNCTION abos.temporary_funding_workspace(text, text, text) OWNER TO abos_
 ALTER FUNCTION abos.configure_temporary_funding_mapping(text, text, text, jsonb)
   OWNER TO abos_v1_operational_finance_owner;
 ALTER FUNCTION abos.record_temporary_funding(text, text, text, jsonb) OWNER TO abos_v1_operational_finance_owner;
+ALTER FUNCTION abos.configure_temporary_funding_provider_identity(text, text, text, jsonb)
+  OWNER TO abos_v1_operational_finance_owner;
 ALTER FUNCTION abos.decide_temporary_funding(text, text, text, uuid, jsonb)
   OWNER TO abos_v1_operational_finance_owner;
 ALTER FUNCTION abos.request_temporary_funding_settlement(text, text, text, jsonb)
@@ -2283,6 +2536,7 @@ ALTER FUNCTION abos.decide_temporary_funding_settlement(text, text, text, uuid, 
 GRANT EXECUTE ON FUNCTION
   abos.temporary_funding_workspace(text, text, text),
   abos.configure_temporary_funding_mapping(text, text, text, jsonb),
+  abos.configure_temporary_funding_provider_identity(text, text, text, jsonb),
   abos.record_temporary_funding(text, text, text, jsonb),
   abos.decide_temporary_funding(text, text, text, uuid, jsonb),
   abos.request_temporary_funding_settlement(text, text, text, jsonb),
@@ -2290,5 +2544,6 @@ GRANT EXECUTE ON FUNCTION
 TO abos_e1_runtime;
 
 REVOKE ALL ON abos.temporary_fundings, abos.temporary_funding_decisions, abos.temporary_funding_settlements,
-  abos.temporary_funding_settlement_decisions, abos.temporary_funding_account_mapping_versions
+  abos.temporary_funding_settlement_decisions, abos.temporary_funding_account_mapping_versions,
+  abos.temporary_funding_provider_identity_versions
 FROM PUBLIC, abos_v1_identity_runtime, abos_e1_runtime, abos_e1_treasury_runtime;

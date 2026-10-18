@@ -537,6 +537,9 @@ export class SandboxAuthenticator {
           [command.settlementId, JSON.stringify({ ...payload, settlementId: undefined })]);
       case "configure-mapping":
         return call("SELECT abos.configure_temporary_funding_mapping($1,$2,$3,$4::jsonb) AS value", [JSON.stringify(payload)]);
+      case "configure-provider-identity":
+        return call("SELECT abos.configure_temporary_funding_provider_identity($1,$2,$3,$4::jsonb) AS value",
+          [JSON.stringify(payload)]);
     }
   }
 

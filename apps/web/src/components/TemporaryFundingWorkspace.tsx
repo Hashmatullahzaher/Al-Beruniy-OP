@@ -4,6 +4,7 @@ import type {
   TemporaryFundingCapabilityReason,
   TemporaryFundingLifecycleStatus,
   TemporaryFundingMode,
+  TemporaryFundingProviderIdentityMode,
   TemporaryFundingProviderKind,
   TemporaryFundingResult,
   TemporaryFundingSettlementView,
@@ -35,9 +36,18 @@ const MODE_EFFECT: Readonly<Record<TemporaryFundingMode, Copy>> = {
 
 const KIND_COPY: Readonly<Record<TemporaryFundingProviderKind, Copy>> = {
   SHAREHOLDER: { en: "Shareholder", fa: "سهامدار" },
-  EMPLOYEE_OFFICER: { en: "Employee or officer", fa: "کارمند یا مسئول" },
-  INDIVIDUAL: { en: "Individual", fa: "شخص" },
-  ORGANIZATION: { en: "Organization", fa: "سازمان" }
+  EMPLOYEE: { en: "Employee", fa: "کارمند" },
+  EXTERNAL_OTHER: { en: "Other person or organization", fa: "شخص یا سازمان دیگر" }
+};
+
+const IDENTITY_MODE_COPY: Readonly<Record<TemporaryFundingProviderIdentityMode, Copy>> = {
+  ABOS_USER: { en: "Uses ABOS as", fa: "از ABOS استفاده می‌کند به‌عنوان" },
+  NO_ABOS_USER: { en: "Does not use ABOS", fa: "از ABOS استفاده نمی‌کند" }
+};
+
+const VAULT_NOTE: Copy = {
+  en: "The file is only fingerprinted (SHA-256) in your browser. It is not uploaded and is not kept in the ABOS document vault; keep the original safely.",
+  fa: "فایل فقط در مرورگر شما اثر انگشت (SHA-256) گرفته می‌شود. فرستاده نمی‌شود و در گنجینه اسناد ABOS نگه داشته نمی‌شود؛ اصل آن را با احتیاط نگه دارید."
 };
 
 const STATUS_COPY: Readonly<Record<TemporaryFundingLifecycleStatus, Copy>> = {
@@ -72,7 +82,11 @@ const CAPABILITY_COPY: Readonly<Record<TemporaryFundingCapabilityReason, Copy>> 
 const ERROR_FA: Readonly<Record<string, string>> = {
   OVER_SETTLEMENT: "این بازپرداخت بیشتر از مبلغی است که هنوز به تمویل‌کننده بدهکار هستیم.",
   SEGREGATION_OF_DUTIES: "این تصمیم باید توسط کسی گرفته شود که از ثبت‌کننده و از تمویل‌کننده مستقل است.",
-  PROVIDER_KIND_MISMATCH: "«سهامدار» را فقط وقتی انتخاب کنید که تمویل‌کننده در آن تاریخ سهامدار شرکت باشد.",
+  PROVIDER_KIND_MISMATCH: "نقش‌های تمویل‌کننده تغییر کرده است. دوباره بارگذاری کنید و آن را ثبت کنید.",
+  PROVIDER_IDENTITY_MISSING: "ابتدا مدیر ارشد باید ثبت کند که آیا این تمویل‌کننده از ABOS استفاده می‌کند.",
+  PROVIDER_IDENTITY_INVALID: "هویت ABOS این تمویل‌کننده دیگر معتبر نیست. مدیر ارشد باید آن را بررسی کند.",
+  PROVIDER_IDENTITY_AMBIGUOUS: "این کاربر ABOS قبلاً هویت تمویل‌کننده دیگری است.",
+  PROVIDER_USER_INVALID: "یک کاربر فعال ABOS این شرکت را انتخاب کنید.",
   BASE_CURRENCY_ONLY: "فعلاً تمویل موقت فقط به واحد پول پایه شرکت ثبت می‌شود.",
   PAYABLE_NOT_CONFIGURED: "ابتدا یک حساب بدهی تمویل موقت فعال به واحد پول پایه انتخاب کنید.",
   EVIDENCE_REQUIRED: "مرجع سند صلاحیت، اثر انگشت SHA-256 آن و دلیل را وارد کنید.",
@@ -102,9 +116,7 @@ function requestIdentity() {
 
 interface Draft {
   fundingMode: TemporaryFundingMode;
-  providerKind: TemporaryFundingProviderKind;
   providerBusinessPartyId: string;
-  providerUserAccountId: string;
   expenseCategoryId: string;
   payeeBusinessPartyId: string;
   treasuryAccountId: string;
@@ -116,8 +128,7 @@ interface Draft {
 }
 
 const EMPTY_DRAFT = (): Draft => ({
-  fundingMode: "PROVIDER_PAID_EXPENSE_DIRECTLY", providerKind: "INDIVIDUAL", providerBusinessPartyId: "",
-  providerUserAccountId: "", expenseCategoryId: "", payeeBusinessPartyId: "", treasuryAccountId: "",
+  fundingMode: "PROVIDER_PAID_EXPENSE_DIRECTLY", providerBusinessPartyId: "", expenseCategoryId: "", payeeBusinessPartyId: "", treasuryAccountId: "",
   businessDate: kabulToday(), amount: "", reference: "", description: "", note: ""
 });
 
@@ -180,18 +191,19 @@ export function TemporaryFundingWorkspace() {
   };
   const base = workspace?.baseCurrency ?? null;
   const operational = workspace?.capability.state === "OPERATIONAL";
-  const parties = (workspace?.options.parties ?? []).filter((party) =>
-    draft.providerKind === "SHAREHOLDER" ? party.shareholder : !party.shareholder);
+  // Only providers whose identity a Super Administrator has recorded can fund; their type comes from company records.
+  const parties = (workspace?.options.parties ?? []).filter((party) => party.identity !== null);
+  const provider = parties.find((party) => party.id === draft.providerBusinessPartyId);
   const amountValid = AMOUNT.test(draft.amount.trim()) && /[1-9]/.test(draft.amount);
-  const ready = operational && base !== null && draft.providerBusinessPartyId !== "" && amountValid
+  const ready = operational && base !== null && provider !== undefined && amountValid
     && draft.reference.trim() !== "" && draft.description.trim().length >= 3
     && (draft.fundingMode === "PROVIDER_PAID_EXPENSE_DIRECTLY" ? draft.expenseCategoryId !== "" : draft.treasuryAccountId !== "");
 
   const submit = async () => {
-    if (!ready || base === null) return;
+    if (!ready || base === null || provider === undefined) return;
     const ok = await run({
-      action: "record", fundingMode: draft.fundingMode, providerKind: draft.providerKind,
-      providerBusinessPartyId: draft.providerBusinessPartyId, providerUserAccountId: draft.providerUserAccountId || null,
+      action: "record", fundingMode: draft.fundingMode, providerKind: provider.providerKind,
+      providerBusinessPartyId: provider.id,
       expenseCategoryId: draft.fundingMode === "PROVIDER_PAID_EXPENSE_DIRECTLY" ? draft.expenseCategoryId : null,
       payeeBusinessPartyId: draft.fundingMode === "PROVIDER_PAID_EXPENSE_DIRECTLY" ? draft.payeeBusinessPartyId || null : null,
       treasuryAccountId: draft.fundingMode === "PROVIDER_FUNDED_SAFE" ? draft.treasuryAccountId : null,
@@ -272,6 +284,8 @@ export function TemporaryFundingWorkspace() {
         </div>
 
         {workspace.permissions.canConfigure ? <ConfigurePayable workspace={workspace} fa={fa} busy={busy} run={run} /> : null}
+        {workspace.permissions.canConfigureProviderIdentity
+          ? <ConfigureProviderIdentity workspace={workspace} fa={fa} busy={busy} run={run} /> : null}
 
         {workspace.permissions.canRecord && operational ? (
           <section className="module-content-card expense-entry">
@@ -285,23 +299,19 @@ export function TemporaryFundingWorkspace() {
                     checked={draft.fundingMode === mode} onChange={() => update({ fundingMode: mode })} />
                     {" "}{t(MODE_COPY[mode])} — <strong>{t(MODE_EFFECT[mode])}</strong></label>))}
               </fieldset>
-              <label><span>{fa ? "نوع تمویل‌کننده *" : "Provider type *"}</span>
-                <select value={draft.providerKind} onChange={(event) => update({
-                  providerKind: event.target.value as TemporaryFundingProviderKind, providerBusinessPartyId: "" })}>
-                  {(Object.keys(KIND_COPY) as TemporaryFundingProviderKind[]).map((kind) =>
-                    <option key={kind} value={kind}>{t(KIND_COPY[kind])}</option>)}
-                </select></label>
               <label><span>{fa ? "تمویل‌کننده *" : "Provider *"}</span>
                 <select value={draft.providerBusinessPartyId} required onChange={(event) => update({ providerBusinessPartyId: event.target.value })}>
                   <option value="">{fa ? "انتخاب کنید" : "Choose"}</option>
                   {parties.map((party) => <option key={party.id} value={party.id}>{party.name}</option>)}
                 </select></label>
-              <label><span>{fa ? "کاربر ABOS خود تمویل‌کننده (اختیاری)" : "Provider's own ABOS user (optional)"}</span>
-                <select value={draft.providerUserAccountId} onChange={(event) => update({ providerUserAccountId: event.target.value })}>
-                  <option value="">—</option>
-                  {workspace.options.users.map((user) => <option key={user.id} value={user.id}>{user.name}</option>)}
-                </select></label>
-              <p className="admin-hint">{fa ? "اگر تمویل‌کننده کاربر سیستم است، او را انتخاب کنید تا هرگز نتواند تمویل خود را تأیید کند." : "If the provider uses ABOS, choose their user so they can never approve their own funding."}</p>
+              {provider ? <p className="admin-hint">{fa ? "نوع (از سوابق شرکت): " : "Type (from company records): "}
+                <strong>{t(KIND_COPY[provider.providerKind])}</strong>{" · "}
+                {provider.identity?.mode === "ABOS_USER"
+                  ? `${t(IDENTITY_MODE_COPY.ABOS_USER)} ${provider.identity.userName ?? ""} — ${fa ? "هرگز نمی‌تواند این تمویل را تأیید کند" : "can never approve this funding"}`
+                  : t(IDENTITY_MODE_COPY.NO_ABOS_USER)}</p> : null}
+              {parties.length === 0 ? <p className="admin-hint expense-warning">{fa
+                ? "تمویل‌کنندگان پس از آن نشان داده می‌شوند که مدیر ارشد ثبت کند آیا از ABOS استفاده می‌کنند."
+                : "Providers appear here after a Super Administrator records whether they use ABOS."}</p> : null}
               {draft.fundingMode === "PROVIDER_PAID_EXPENSE_DIRECTLY" ? <>
                 <label><span>{fa ? "نوع مصرف *" : "Expense type *"}</span>
                   <select value={draft.expenseCategoryId} required onChange={(event) => update({ expenseCategoryId: event.target.value })}>
@@ -353,6 +363,73 @@ export function TemporaryFundingWorkspace() {
   );
 }
 
+async function sha256Hex(file: File): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", await file.arrayBuffer());
+  return Array.from(new Uint8Array(digest)).map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+/** Super Administrator only: whether a provider uses ABOS, and as which user (never approves their funding). */
+function ConfigureProviderIdentity({ workspace, fa, busy, run }: { workspace: Workspace; fa: boolean; busy: boolean; run: Run }) {
+  const t = (copy: Copy) => (fa ? copy.fa : copy.en);
+  const [partyId, setPartyId] = useState("");
+  const [mode, setMode] = useState<TemporaryFundingProviderIdentityMode>("NO_ABOS_USER");
+  const [userId, setUserId] = useState("");
+  const [reference, setReference] = useState("");
+  const [sha, setSha] = useState("");
+  const [reason, setReason] = useState("");
+  const [identity, setIdentity] = useState(requestIdentity);
+  const party = workspace.options.parties.find((item) => item.id === partyId);
+  const touch = () => setIdentity(requestIdentity());
+  const ready = party !== undefined && (mode === "NO_ABOS_USER" || userId !== "") && reference.trim() !== ""
+    && SHA256.test(sha) && reason.trim().length >= 3;
+  return (
+    <section className="module-content-card">
+      <h2>{fa ? "هویت ABOS تمویل‌کنندگان" : "Provider ABOS identities"}</h2>
+      <p className="admin-hint">{fa
+        ? "فقط مدیر ارشد. کاربری که اینجا برای تمویل‌کننده ثبت می‌شود هرگز نمی‌تواند تمویل یا بازپرداخت آن تمویل‌کننده را تأیید کند. تغییر بعدی، تمویل‌های قبلی را تغییر نمی‌دهد."
+        : "Super Administrator only. The user recorded here for a provider can never approve that provider's fundings or repayments. A later change never alters earlier fundings."}</p>
+      <form className="admin-form" aria-label={fa ? "هویت ABOS تمویل‌کننده" : "Provider ABOS identity"}
+        onSubmit={(event) => { event.preventDefault(); if (!party) return; void run({
+          action: "configure-provider-identity", businessPartyId: party.id, expectedVersion: party.identity?.version ?? 0,
+          identityMode: mode, userAccountId: mode === "ABOS_USER" ? userId : null, evidenceDocumentReference: reference.trim(),
+          evidenceSha256: sha, changeReason: reason.trim(), ...identity
+        }, { en: "Provider identity saved.", fa: "هویت تمویل‌کننده ذخیره شد." }).then((ok) => {
+          if (ok) { setReference(""); setSha(""); setReason(""); setIdentity(requestIdentity()); } }); }}>
+        <label><span>{fa ? "تمویل‌کننده *" : "Provider *"}</span>
+          <select value={partyId} required onChange={(event) => { setPartyId(event.target.value); touch(); }}>
+            <option value="">{fa ? "انتخاب کنید" : "Choose"}</option>
+            {workspace.options.parties.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+          </select></label>
+        {party ? <p className="admin-hint">{party.identity
+          ? `${fa ? "فعلی" : "Current"} (v${party.identity.version}): ${t(IDENTITY_MODE_COPY[party.identity.mode])}${party.identity.userName ? ` ${party.identity.userName}` : ""}`
+          : (fa ? "هنوز ثبت نشده است." : "Not recorded yet.")}</p> : null}
+        <fieldset className="admin-status-choice">
+          <legend>{fa ? "آیا تمویل‌کننده از ABOS استفاده می‌کند؟ *" : "Does the provider use ABOS? *"}</legend>
+          <label><input type="radio" name="tf-identity-mode" aria-label={fa ? "از ABOS استفاده نمی‌کند" : "Does not use ABOS"}
+            checked={mode === "NO_ABOS_USER"} onChange={() => { setMode("NO_ABOS_USER"); touch(); }} /> {t(IDENTITY_MODE_COPY.NO_ABOS_USER)}</label>
+          <label><input type="radio" name="tf-identity-mode" aria-label={fa ? "از ABOS استفاده می‌کند" : "Uses ABOS"}
+            checked={mode === "ABOS_USER"} onChange={() => { setMode("ABOS_USER"); touch(); }} /> {fa ? "از ABOS استفاده می‌کند" : "Uses ABOS"}</label>
+        </fieldset>
+        {mode === "ABOS_USER" ? <label><span>{fa ? "کاربر ABOS تمویل‌کننده *" : "Provider's ABOS user *"}</span>
+          <select value={userId} required onChange={(event) => { setUserId(event.target.value); touch(); }}>
+            <option value="">{fa ? "انتخاب کنید" : "Choose"}</option>
+            {workspace.options.users.map((user) => <option key={user.id} value={user.id}>{user.name}</option>)}
+          </select></label> : null}
+        <label><span>{fa ? "مرجع سند شاهد *" : "Evidence document reference *"}</span>
+          <input value={reference} maxLength={200} required onChange={(event) => { setReference(event.target.value); touch(); }} /></label>
+        <p className="admin-hint">{fa ? VAULT_NOTE.fa : VAULT_NOTE.en}</p>
+        <label><span>{fa ? "سند شاهد (فقط اثر انگشت)" : "Evidence document (fingerprint only)"}</span>
+          <input type="file" onChange={(event) => { const file = event.target.files?.[0]; if (file) void sha256Hex(file).then((value) => { setSha(value); touch(); }); }} /></label>
+        <label><span>SHA-256 *</span>
+          <input value={sha} dir="ltr" required pattern="[0-9a-f]{64}" onChange={(event) => { setSha(event.target.value.trim().toLowerCase()); touch(); }} /></label>
+        <label><span>{fa ? "دلیل *" : "Reason *"}</span>
+          <input value={reason} minLength={3} maxLength={500} required onChange={(event) => { setReason(event.target.value); touch(); }} /></label>
+        <button type="submit" className="treasury-button" disabled={busy || !ready}>{fa ? "ذخیره هویت" : "Save identity"}</button>
+      </form>
+    </section>
+  );
+}
+
 function ConfigurePayable({ workspace, fa, busy, run }: { workspace: Workspace; fa: boolean; busy: boolean; run: Run }) {
   const current = workspace.configuration.mapping;
   const [ledger, setLedger] = useState("");
@@ -362,8 +439,7 @@ function ConfigurePayable({ workspace, fa, busy, run }: { workspace: Workspace; 
   const [identity, setIdentity] = useState(requestIdentity);
   const fingerprint = async (file: File | undefined) => {
     if (!file) return;
-    const digest = await crypto.subtle.digest("SHA-256", await file.arrayBuffer());
-    setSha(Array.from(new Uint8Array(digest)).map((byte) => byte.toString(16).padStart(2, "0")).join(""));
+    setSha(await sha256Hex(file));
     setIdentity(requestIdentity());
   };
   const ready = ledger !== "" && reference.trim() !== "" && SHA256.test(sha) && reason.trim().length >= 3;
@@ -389,7 +465,8 @@ function ConfigurePayable({ workspace, fa, busy, run }: { workspace: Workspace; 
           : "The Chart of Accounts has no active liability account with control type “Temporary funding payable”."}</p> : null}
         <label><span>{fa ? "مرجع سند صلاحیت *" : "Authorization document reference *"}</span>
           <input value={reference} maxLength={200} required onChange={(event) => { setReference(event.target.value); setIdentity(requestIdentity()); }} /></label>
-        <label><span>{fa ? "سند صلاحیت (برای اثر انگشت؛ فایل فرستاده نمی‌شود)" : "Authorization document (fingerprinted here; the file is not uploaded)"}</span>
+        <p className="admin-hint">{fa ? VAULT_NOTE.fa : VAULT_NOTE.en}</p>
+        <label><span>{fa ? "سند صلاحیت (فقط اثر انگشت)" : "Authorization document (fingerprint only)"}</span>
           <input type="file" onChange={(event) => { void fingerprint(event.target.files?.[0]); }} /></label>
         <label><span>SHA-256 *</span>
           <input value={sha} dir="ltr" required pattern="[0-9a-f]{64}" onChange={(event) => { setSha(event.target.value.trim().toLowerCase()); setIdentity(requestIdentity()); }} /></label>

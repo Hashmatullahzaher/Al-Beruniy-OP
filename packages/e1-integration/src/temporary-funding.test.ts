@@ -26,7 +26,7 @@ const MARKER = SYNTHETIC_AUTH_CONFIGURATION.runtimeMarker;
 const LOGIN = { name: "abos_v1_temporary_funding_test_login", password: "synthetic-temporary-funding-runtime-only-2026" };
 const DATE = "2026-09-22";
 const MIGRATION_0036_CHECKSUM = "669c8afb6938d135800d6c96c74110038c21dded2312f2055517f2a736493a3d";
-const FUNDING_TABLES = ["temporary_fundings", "temporary_funding_decisions", "temporary_funding_settlements",
+const FUNDING_TABLES = ["temporary_funding_provider_identity_versions", "temporary_fundings", "temporary_funding_decisions", "temporary_funding_settlements",
   "temporary_funding_settlement_decisions", "temporary_funding_account_mapping_versions"] as const;
 
 interface SessionArgs { readonly proof: string; readonly runtimeDigest: string; readonly tokenDigest: string }
@@ -43,7 +43,7 @@ interface Settlement { readonly id: string; readonly status: string; readonly ve
 interface Sessions {
   readonly creator: SessionArgs; readonly approver: SessionArgs; readonly secondApprover: SessionArgs;
   readonly settler: SessionArgs; readonly settleApprover: SessionArgs; readonly configurer: SessionArgs;
-  readonly outsider: SessionArgs;
+  readonly outsider: SessionArgs; readonly identityAdmin: SessionArgs;
 }
 
 interface Fixture {
@@ -369,7 +369,7 @@ if (databaseUrl() === undefined) {
           /current authority is missing finance.temporary-funding.record/);
         // The provider's own user can never approve the provider's funding or settlement.
         const officer = await record(fixture, fixture.sessions.creator, { ...modeA(fixture, "30.00"),
-          providerKind: "EMPLOYEE_OFFICER", providerBusinessPartyId: fixture.employeePartyId, providerUserAccountId: fixture.world.approverId });
+          providerKind: "EMPLOYEE", providerBusinessPartyId: fixture.employeePartyId });
         await assert.rejects(() => decide(fixture, fixture.sessions.approver, officer.id, officer.version, "APPROVED"),
           /recorder or the funding provider cannot decide/);
         const posted = await decide(fixture, fixture.sessions.secondApprover, officer.id, officer.version, "APPROVED");
@@ -415,7 +415,7 @@ if (databaseUrl() === undefined) {
         const definers = await harness.pool.query<{ name: string; owner: string; config: string[] }>(`
           SELECT proname AS name, pg_get_userbyid(proowner) AS owner, proconfig AS config FROM pg_proc
            WHERE pronamespace = 'abos'::regnamespace AND prosecdef AND proname ~ 'temporary_funding' ORDER BY proname`);
-        assert.equal(definers.rows.length, 6);
+        assert.equal(definers.rows.length, 7);
         assert.ok(definers.rows.every((row) => row.owner === "abos_v1_operational_finance_owner"
           && row.config.includes("search_path=pg_catalog, pg_temp")), JSON.stringify(definers.rows));
         assert.equal(await scalar(harness, `SELECT count(*) FROM pg_proc WHERE pronamespace = 'abos'::regnamespace
@@ -428,7 +428,7 @@ if (databaseUrl() === undefined) {
       try {
         await assert.rejects(() => record(fixture, fixture.sessions.creator, { ...modeA(fixture, "5.00"), amount: { amount: "5.00", currency: "AFN" } }),
           /base-currency only/);
-        await assert.rejects(() => record(fixture, fixture.sessions.creator, { ...modeA(fixture, "5.00"), providerKind: "INDIVIDUAL",
+        await assert.rejects(() => record(fixture, fixture.sessions.creator, { ...modeA(fixture, "5.00"), providerKind: "EXTERNAL_OTHER",
           providerBusinessPartyId: fixture.shareholderPartyId }), /provider kind does not match/);
         await assert.rejects(() => record(fixture, fixture.sessions.creator, { ...modeA(fixture, "5.00"), providerKind: "SHAREHOLDER" }),
           /provider kind does not match/);
@@ -480,6 +480,139 @@ if (databaseUrl() === undefined) {
           [...args(fixture.sessions.approver), created.expense.id, created.expense.version, "Synthetic approval note"]);
         assert.equal(posted.expense.status, "POSTED");
         assert.equal(await safeMovement(harness, fixture.safeId), "-890.00");
+      } finally { await fixture.close(); }
+    });
+
+    test("provider identity: never from the request, required, bound per funding, and enforced on approvals", async () => {
+      const fixture = await setupFixture(harness);
+      try {
+        const { world, sessions } = fixture;
+        // (1)(9) The request cannot supply or forge the provider's user identity or its profile version.
+        await assert.rejects(() => record(fixture, sessions.creator, { ...modeA(fixture, "5.00"), providerUserAccountId: world.intentCreatorId }),
+          /unsupported fields/);
+        await assert.rejects(() => record(fixture, sessions.creator, { ...modeA(fixture, "5.00"),
+          providerUserAccountId: world.treasuryApproverId }), /unsupported fields/);
+        await assert.rejects(() => record(fixture, sessions.creator, { ...modeA(fixture, "5.00"),
+          providerIdentityVersionId: randomUUID() }), /unsupported fields/);
+        // (2) A provider without an identity profile cannot fund.
+        const unconfigured = randomUUID();
+        await harness.executor.query(`INSERT INTO abos.business_parties (id, legal_entity_id, display_name, external_reference, status)
+          VALUES ($1,$2,'Synthetic Unconfigured Lender',$3,'ACTIVE')`, [unconfigured, world.legalEntityId, `SYN-${unconfigured.slice(0, 8)}`]);
+        await assert.rejects(() => record(fixture, sessions.creator, { ...modeA(fixture, "5.00"), providerBusinessPartyId: unconfigured }),
+          /provider identity is not configured/);
+        // (3)(4)(5) The bound ABOS user (approver) is refused for funding and settlement; an independent approver succeeds.
+        const funding = await record(fixture, sessions.creator, { ...modeA(fixture, "40.00"), providerKind: "EMPLOYEE",
+          providerBusinessPartyId: fixture.employeePartyId });
+        const bound = await harness.pool.query<{ user: string | null; version: number }>(`SELECT funding.provider_user_account_id AS user,
+            identity.version FROM abos.temporary_fundings funding JOIN abos.temporary_funding_provider_identity_versions identity
+            ON identity.id = funding.provider_identity_version_id WHERE funding.id = $1`, [funding.id]);
+        assert.deepEqual(bound.rows[0], { user: world.approverId, version: 1 });
+        // (6) A later identity change does not change this funding's bound identity.
+        await configureIdentity(fixture.executor, sessions.identityAdmin, fixture.employeePartyId, 1, null);
+        await assert.rejects(() => decide(fixture, sessions.approver, funding.id, funding.version, "APPROVED"),
+          /recorder or the funding provider cannot decide/);
+        const posted = await decide(fixture, sessions.secondApprover, funding.id, funding.version, "APPROVED");
+        await grant(harness, world, world.approverId, "finance.temporary-funding.settle-approve");
+        const settlement = await requestSettlement(fixture, settlementBody(fixture, posted, "10.00"));
+        await assert.rejects(() => decideSettlement(fixture, sessions.approver, settlement.settlement.id, 1, "APPROVED"),
+          /settlement preparer or the funding provider cannot decide/);
+        const settled = await decideSettlement(fixture, sessions.settleApprover, settlement.settlement.id, 1, "APPROVED");
+        assert.equal(settled.funding.lifecycleStatus, "PARTIALLY_SETTLED");
+        // A funding recorded after the change binds the new profile (no ABOS user), so the approver is independent there.
+        const later = await record(fixture, sessions.creator, { ...modeA(fixture, "7.00"), providerKind: "EMPLOYEE",
+          providerBusinessPartyId: fixture.employeePartyId });
+        assert.equal((await decide(fixture, sessions.approver, later.id, later.version, "APPROVED")).status, "POSTED");
+        // Superuser cannot bind a stale profile version either.
+        await assert.rejects(() => harness.pool.query(`INSERT INTO abos.temporary_fundings
+            (id, legal_entity_id, funding_mode, provider_kind, provider_business_party_id, provider_identity_version_id,
+             provider_user_account_id, operational_expense_category_id, reference, description, business_date, original_amount,
+             original_currency_code, base_amount, base_currency_code, workflow_policy_version_id, mapping_version_id, correlation_id,
+             idempotency_key, request_fingerprint, status, version, created_by_user_account_id)
+          SELECT gen_random_uuid(), legal_entity_id, funding_mode, provider_kind, provider_business_party_id,
+                 provider_identity_version_id, NULL, operational_expense_category_id, 'SYN-FORGED', 'Forged binding', business_date,
+                 1, 'USD', 1, 'USD', workflow_policy_version_id, mapping_version_id, gen_random_uuid(), 'forged-binding-key',
+                 repeat('d', 64), 'PENDING_APPROVAL', 1, created_by_user_account_id
+            FROM abos.temporary_fundings WHERE id = $1`, [funding.id]), /current valid identity profile/);
+        // Profiles are append-only.
+        await assert.rejects(() => harness.pool.query(`UPDATE abos.temporary_funding_provider_identity_versions
+          SET user_account_id = NULL, identity_mode = 'NO_ABOS_USER' WHERE business_party_id = $1`, [fixture.employeePartyId]));
+      } finally { await fixture.close(); }
+    });
+
+    test("provider identity authority: Super Administrator only; wrong-entity, revoked and ambiguous users refused", async () => {
+      const fixture = await setupFixture(harness);
+      try {
+        const { world, sessions } = fixture;
+        const lender = randomUUID();
+        await harness.executor.query(`INSERT INTO abos.business_parties (id, legal_entity_id, display_name, external_reference, status)
+          VALUES ($1,$2,'Synthetic Lender',$3,'ACTIVE')`, [lender, world.legalEntityId, `SYN-${lender.slice(0, 8)}`]);
+        // Not a Finance permission: a funding recorder or payable configurer cannot set identities.
+        await assert.rejects(() => configureIdentity(fixture.executor, sessions.creator, lender, 0, null),
+          /current authority is missing admin.users.manage/);
+        await assert.rejects(() => configureIdentity(fixture.executor, sessions.configurer, lender, 0, null),
+          /current authority is missing admin.users.manage/);
+        await grant(harness, world, world.treasuryReconcilerId, "admin.users.manage");
+        await assert.rejects(() => configureIdentity(fixture.executor, sessions.outsider, lender, 0, null),
+          /current authority is missing admin.roles.manage/);
+        // (7) A user from another legal entity (no grant here) is refused.
+        const other = await seedSyntheticWorld(harness.executor, { withoutSandboxAuthorization: true });
+        await grant(harness, other, other.approverId, "finance.temporary-funding.read");
+        await assert.rejects(() => configureIdentity(fixture.executor, sessions.identityAdmin, lender, 0, other.approverId),
+          /must be active with a current grant in this legal entity/);
+        // (8) A user whose grants are revoked, or who is disabled, is refused; and a profile that becomes invalid fails closed.
+        await harness.executor.query(`UPDATE abos.user_permission_grants SET revoked_at = clock_timestamp()
+          WHERE user_account_id = $1 AND legal_entity_id = $2`, [world.reverserId, world.legalEntityId]);
+        await assert.rejects(() => configureIdentity(fixture.executor, sessions.identityAdmin, lender, 0, world.reverserId),
+          /must be active with a current grant in this legal entity/);
+        const configured = await configureIdentity(fixture.executor, sessions.identityAdmin, lender, 0, world.cashierId);
+        assert.equal(configured.version, 1);
+        await assert.rejects(() => configureIdentity(fixture.executor, sessions.identityAdmin, lender, 0, null), /changed; reload/);
+        // Ambiguity: the same user cannot be the current identity of two providers.
+        await assert.rejects(() => configureIdentity(fixture.executor, sessions.identityAdmin, fixture.individualPartyId, 1, world.cashierId),
+          /already the current identity of another provider/);
+        await harness.executor.query("UPDATE abos.user_accounts SET status = 'DISABLED', disabled_at = clock_timestamp() WHERE id = $1",
+          [world.cashierId]);
+        await assert.rejects(() => record(fixture, sessions.creator, { ...modeA(fixture, "5.00"), providerBusinessPartyId: lender }),
+          /no longer valid or is ambiguous/);
+        assert.equal(await auditCount(harness, "TEMPORARY_FUNDING_PROVIDER_IDENTITY_CONFIGURED"), 5, "four fixture profiles and one here");
+      } finally { await fixture.close(); }
+    });
+
+    test("provider classification is only what live roles prove", async () => {
+      const fixture = await setupFixture(harness);
+      try {
+        const { world, sessions } = fixture;
+        // (10) EMPLOYEE requires a current EMPLOYEE role on the business date.
+        await assert.rejects(() => record(fixture, sessions.creator, { ...modeA(fixture, "5.00"), providerKind: "EMPLOYEE" }),
+          /provider kind does not match/);
+        const future = randomUUID();
+        await harness.executor.query(`INSERT INTO abos.business_parties (id, legal_entity_id, display_name, external_reference, status)
+          VALUES ($1,$2,'Synthetic Future Employee',$3,'ACTIVE')`, [future, world.legalEntityId, `SYN-${future.slice(0, 8)}`]);
+        await harness.executor.query(`INSERT INTO abos.business_party_roles (business_party_id, role_code, effective_from)
+          VALUES ($1,'EMPLOYEE','2026-12-01')`, [future]);
+        await configureIdentity(fixture.executor, sessions.identityAdmin, future, 0, null);
+        await assert.rejects(() => record(fixture, sessions.creator, { ...modeA(fixture, "5.00"), providerKind: "EMPLOYEE",
+          providerBusinessPartyId: future }), /provider kind does not match/);
+        const external = await record(fixture, sessions.creator, { ...modeA(fixture, "5.00"), providerKind: "EXTERNAL_OTHER",
+          providerBusinessPartyId: future });
+        assert.equal(external.status, "PENDING_APPROVAL");
+        // (11) SHAREHOLDER requires a current SHAREHOLDER role; a shareholder is never recorded as anything else.
+        await assert.rejects(() => record(fixture, sessions.creator, { ...modeA(fixture, "5.00"), providerKind: "SHAREHOLDER" }),
+          /provider kind does not match/);
+        await assert.rejects(() => record(fixture, sessions.creator, { ...modeA(fixture, "5.00"), providerKind: "EMPLOYEE",
+          providerBusinessPartyId: fixture.shareholderPartyId }), /provider kind does not match/);
+        // (12) No unverifiable person/organization classification is accepted or stored.
+        for (const kind of ["INDIVIDUAL", "ORGANIZATION", "EMPLOYEE_OFFICER"]) {
+          await assert.rejects(() => record(fixture, sessions.creator, { ...modeA(fixture, "5.00"), providerKind: kind }),
+            /complete valid temporary funding request/, kind);
+        }
+        const kinds = await harness.pool.query<{ definition: string }>(`SELECT pg_get_constraintdef(oid) AS definition FROM pg_constraint
+          WHERE conrelid = 'abos.temporary_fundings'::regclass AND pg_get_constraintdef(oid) LIKE '%provider_kind%'`);
+        assert.match(kinds.rows[0]?.definition ?? "", /SHAREHOLDER.*EMPLOYEE.*EXTERNAL_OTHER/);
+        assert.doesNotMatch(kinds.rows[0]?.definition ?? "", /INDIVIDUAL|ORGANIZATION/);
+        const organization = await record(fixture, sessions.creator, modeB(fixture, "8.00"));
+        assert.equal((await harness.pool.query<{ kind: string }>("SELECT provider_kind AS kind FROM abos.temporary_fundings WHERE id = $1",
+          [organization.id])).rows[0]?.kind, "EXTERNAL_OTHER");
       } finally { await fixture.close(); }
     });
 
@@ -564,7 +697,8 @@ async function setupFixture(harness: Harness): Promise<Fixture> {
     [world.treasuryApproverId, "finance.temporary-funding.approve"],
     [world.cashierId, "finance.temporary-funding.settle"], [world.cashierId, "finance.temporary-funding.read"],
     [world.counterId, "finance.temporary-funding.settle-approve"],
-    [world.treasuryManagerId, "finance.temporary-funding.configure"]
+    [world.treasuryManagerId, "finance.temporary-funding.configure"],
+    [world.countConfirmerId, "admin.users.manage"], [world.countConfirmerId, "admin.roles.manage"]
   ] as const) await grant(harness, world, userId, permission);
   await ensureLogin(harness);
   const connection = restricted();
@@ -575,8 +709,13 @@ async function setupFixture(harness: Harness): Promise<Fixture> {
     settler: await sessionFor(harness, world, world.cashierId),
     settleApprover: await sessionFor(harness, world, world.counterId),
     configurer: await sessionFor(harness, world, world.treasuryManagerId),
-    outsider: await sessionFor(harness, world, world.treasuryReconcilerId)
+    outsider: await sessionFor(harness, world, world.treasuryReconcilerId),
+    identityAdmin: await sessionFor(harness, world, world.countConfirmerId)
   };
+  for (const [partyId, userId] of [[shareholderPartyId, null], [individualPartyId, null], [organizationPartyId, null],
+    [employeePartyId, world.approverId]] as const) {
+    await configureIdentity(connection.executor, sessions.identityAdmin, partyId, 0, userId);
+  }
   const configured = await call<{ mappingVersionId: string; version: number }>(connection.executor,
     "SELECT abos.configure_temporary_funding_mapping($1,$2,$3,$4::jsonb) AS value",
     [...args(sessions.configurer), JSON.stringify({ ledgerAccountId: payableLedgerId,
@@ -628,15 +767,23 @@ async function evidenceRow(harness: Harness, world: SyntheticWorld, kind: string
 // Entry-point calls (restricted runtime only)
 // ---------------------------------------------------------------------------------------------------
 
+async function configureIdentity(executor: PostgresExecutor, session: SessionArgs, businessPartyId: string,
+  expectedVersion: number, userAccountId: string | null): Promise<{ providerIdentityVersionId: string; version: number; replayed: boolean }> {
+  return call(executor, "SELECT abos.configure_temporary_funding_provider_identity($1,$2,$3,$4::jsonb) AS value",
+    [...args(session), JSON.stringify({ businessPartyId, expectedVersion, identityMode: userAccountId === null ? "NO_ABOS_USER" : "ABOS_USER",
+      userAccountId, evidenceDocumentReference: "SYN-IDENTITY-DECLARATION", evidenceSha256: "c".repeat(64),
+      changeReason: "Synthetic provider identity", idempotencyKey: `pid-${randomUUID()}`, correlationId: randomUUID() })]);
+}
+
 function modeA(fixture: Fixture, amount: string): Record<string, unknown> {
-  return { fundingMode: "PROVIDER_PAID_EXPENSE_DIRECTLY", providerKind: "INDIVIDUAL", providerBusinessPartyId: fixture.individualPartyId,
+  return { fundingMode: "PROVIDER_PAID_EXPENSE_DIRECTLY", providerKind: "EXTERNAL_OTHER", providerBusinessPartyId: fixture.individualPartyId,
     expenseCategoryId: fixture.categoryId, payeeBusinessPartyId: fixture.payeePartyId, reference: `TF-${randomUUID().slice(0, 8)}`,
     description: "Provider paid a synthetic supplier directly", businessDate: DATE, amount: { amount, currency: "USD" },
     idempotencyKey: `tf-${randomUUID()}`, correlationId: randomUUID() };
 }
 
 function modeB(fixture: Fixture, amount: string): Record<string, unknown> {
-  return { fundingMode: "PROVIDER_FUNDED_SAFE", providerKind: "ORGANIZATION", providerBusinessPartyId: fixture.organizationPartyId,
+  return { fundingMode: "PROVIDER_FUNDED_SAFE", providerKind: "EXTERNAL_OTHER", providerBusinessPartyId: fixture.organizationPartyId,
     treasuryAccountId: fixture.safeId, reference: `TF-${randomUUID().slice(0, 8)}`, description: "Provider placed synthetic cash in the Safe",
     businessDate: DATE, amount: { amount, currency: "USD" }, idempotencyKey: `tf-${randomUUID()}`, correlationId: randomUUID() };
 }
