@@ -120,6 +120,24 @@ export async function shareholderFinanceCapabilityResponse(request?: Request): P
 }
 
 /**
+ * Configuration must remain reachable after 0036 is installed but before the operational
+ * prerequisites are complete. The restricted database function still derives the live actor and
+ * legal entity and requires finance.capital-receipt.configure; this check only distinguishes an
+ * absent schema from an intentionally NOT_OPERATIONAL configuration state.
+ */
+export async function shareholderFinanceSchemaUnavailableResponse(request?: Request): Promise<Response | undefined> {
+  const correlationId = request?.headers.get("x-correlation-id")?.trim() || randomUUID();
+  try {
+    const capability = await shareholderFinanceCapability();
+    if (capability.schemaInstalled) return undefined;
+    return Response.json({ ok: false, error: { code: capability.state, message: capability.reason,
+      retryable: false }, capability, correlationId }, { status: 503, headers: { "cache-control": "no-store" } });
+  } catch (error) {
+    return operationalFinanceErrorResponse(error);
+  }
+}
+
+/**
  * Keep every operational bridge route closed when 0036 is unavailable. This check intentionally
  * runs before body parsing so review-mode routes cannot accidentally expose a partial in-memory
  * implementation; the database entry point still performs its own live permission checks.
