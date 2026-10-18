@@ -32,6 +32,7 @@ const TREASURY_LOGIN = { name: "abos_v1_capital_treasury_test_login", password: 
 interface SessionArgs { readonly proof: string; readonly runtimeDigest: string; readonly tokenDigest: string }
 interface BridgeFixture {
   world: SyntheticWorld; contributionId: string; treasuryId: string;
+  expenseCategoryId: string;
   mappingEvidenceId: string; receiptEvidenceId: string; custodyEvidenceId: string; approvalEvidenceId: string;
   recorder: SessionArgs; verifier: SessionArgs; preparer: SessionArgs; approver: SessionArgs;
   finance: PostgresExecutor; treasury: PostgresExecutor;
@@ -208,6 +209,83 @@ if (databaseUrl() === undefined) {
       assert.deepEqual(result.rows[0], { count: "2", types: ["OPERATIONAL_TREASURY", "SHAREHOLDER_CAPITAL"], total: "0" });
     });
 
+    test("posted capital funds the same Treasury source and a normal expense spends from it", async () => {
+      const state = requiredWorkflow(workflow);
+      const declarationBefore = await harness.pool.query<{
+        contribution_type: string; record_status: string; receipt_status: string;
+        amount: string; currency_code: string; description: string; version: number;
+      }>(`SELECT contribution_type,record_status,receipt_status,amount::text,currency_code,description,version
+             FROM abos.shareholder_contributions WHERE id=$1`, [fixture.contributionId]);
+      assert.equal(declarationBefore.rows[0]?.record_status, "DECLARED");
+
+      const funded = await harness.pool.query<{ amount: string }>(`
+        SELECT sum(original_amount)::text AS amount FROM abos.subledger_entries
+         WHERE operational_treasury_account_id=$1`, [fixture.treasuryId]);
+      assert.equal(funded.rows[0]?.amount, "25000", "capital receipt increases the selected Safe");
+
+      const expense = await callJson<{ expense: { id: string; journalId: string; status: string } }>(
+        fixture.finance, "operational_expense_create", fixture.preparer, [{
+          treasuryAccountId: fixture.treasuryId,
+          expenseCategoryId: fixture.expenseCategoryId,
+          payeeBusinessPartyId: null,
+          projectId: null,
+          departmentId: null,
+          costCenterId: null,
+          reference: `SYN-SPEND-CAPITAL-${randomUUID().slice(0, 8)}`,
+          description: "Synthetic same-Safe expense after capital receipt",
+          note: "Disposable PostgreSQL acceptance only",
+          businessDate: "2026-09-22",
+          originalAmount: "125.50",
+          currencyCode: "USD",
+          exchangeRateId: null,
+          idempotencyKey: `spend-${randomUUID()}`,
+          correlationId: randomUUID()
+        }]);
+      assert.equal(expense.expense.status, "POSTED");
+
+      const treasury = await harness.pool.query<{ balance: string; entries: string }>(`
+        SELECT sum(original_amount)::text AS balance,count(*)::text AS entries
+          FROM abos.subledger_entries WHERE operational_treasury_account_id=$1`, [fixture.treasuryId]);
+      assert.deepEqual(treasury.rows[0], { balance: "24874.50", entries: "2" });
+
+      const expenseJournal = await harness.pool.query<{
+        lines: string; debit: string; credit: string; capital_entries: string; treasury_entries: string;
+      }>(`SELECT
+          (SELECT count(*)::text FROM abos.journal_lines WHERE journal_id=$1) AS lines,
+          (SELECT sum(base_debit)::text FROM abos.journal_lines WHERE journal_id=$1) AS debit,
+          (SELECT sum(base_credit)::text FROM abos.journal_lines WHERE journal_id=$1) AS credit,
+          (SELECT count(*)::text FROM abos.subledger_entries entry
+             JOIN abos.journal_lines line ON line.id=entry.journal_line_id
+            WHERE line.journal_id=$1 AND entry.subledger_type='SHAREHOLDER_CAPITAL') AS capital_entries,
+          (SELECT count(*)::text FROM abos.subledger_entries entry
+             JOIN abos.journal_lines line ON line.id=entry.journal_line_id
+            WHERE line.journal_id=$1 AND entry.subledger_type='OPERATIONAL_TREASURY') AS treasury_entries`,
+        [expense.expense.journalId]);
+      assert.deepEqual(expenseJournal.rows[0], {
+        lines: "2", debit: "125.50", credit: "125.50", capital_entries: "0", treasury_entries: "1"
+      });
+
+      const sharedLedger = await harness.pool.query<{ capital_cash: string; expense_cash: string }>(`
+        SELECT
+          (SELECT ledger_account_id::text FROM abos.journal_lines
+            WHERE journal_id=$1 AND base_debit>0) AS capital_cash,
+          (SELECT ledger_account_id::text FROM abos.journal_lines
+            WHERE journal_id=$2 AND base_credit>0) AS expense_cash`, [state.journalId, expense.expense.journalId]);
+      assert.equal(sharedLedger.rows[0]?.capital_cash, sharedLedger.rows[0]?.expense_cash,
+        "capital debit and expense credit use the exact same Safe ledger");
+
+      const declarationAfter = await harness.pool.query<{
+        contribution_type: string; record_status: string; receipt_status: string;
+        amount: string; currency_code: string; description: string; version: number;
+      }>(`SELECT contribution_type,record_status,receipt_status,amount::text,currency_code,description,version
+             FROM abos.shareholder_contributions WHERE id=$1`, [fixture.contributionId]);
+      assert.deepEqual(declarationAfter.rows, declarationBefore.rows,
+        "spending cash does not rewrite or contaminate the shareholder declaration");
+      const trace = await callJson<{ contribution: { postedAmount: { amount: string } } }>(
+        fixture.finance, "shareholder_capital_trace", fixture.preparer, [fixture.contributionId], false);
+      assert.equal(trace.contribution.postedAmount.amount, "25000");
+    });
+
     test("entity-qualified source destination evidence approval and journal links reject cross-entity data", async () => {
       const state = requiredWorkflow(workflow);
       const second = await seedSyntheticWorld(harness.executor, { withoutSandboxAuthorization: true });
@@ -292,6 +370,7 @@ if (databaseUrl() === undefined) {
 async function setupFixture(harness: Harness, finance: PostgresExecutor, treasury: PostgresExecutor): Promise<BridgeFixture> {
   const world = await seedSyntheticWorld(harness.executor);
   const contributionId = randomUUID(); const treasuryId = randomUUID(); const policyId = randomUUID();
+  const expenseLedgerId = randomUUID(); const expenseCategoryId = randomUUID(); const expensePolicyId = randomUUID();
   const mappingEvidenceId = await evidence(harness.executor, world, "CAPITAL_ACCOUNT_MAPPING");
   const receiptEvidenceId = await evidence(harness.executor, world, "CASH_RECEIPT");
   const custodyEvidenceId = await evidence(harness.executor, world, "PHYSICAL_CASH_COUNT");
@@ -311,13 +390,29 @@ async function setupFixture(harness: Harness, finance: PostgresExecutor, treasur
     (id,legal_entity_id,workflow_type,version,approval_required,configured_by_user_account_id,change_reason)
     VALUES ($1,$2,'SHAREHOLDER_CAPITAL_RECEIPT',1,true,$3,'Synthetic bridge requires independent approval')`,
     [policyId, world.legalEntityId, world.bootstrapUserId]);
+  await harness.executor.query(`INSERT INTO abos.ledger_accounts
+    (id,legal_entity_id,account_code,account_name,account_type,posting_allowed,account_currency_code,status)
+    VALUES ($1,$2,$3,'Synthetic Capital-Funded Expense','EXPENSE',true,'USD','ACTIVE')`,
+    [expenseLedgerId, world.legalEntityId, `SYN-CAP-EXP-${expenseLedgerId.slice(0, 8)}`]);
+  await harness.executor.query(`INSERT INTO abos.operational_expense_categories
+    (id,legal_entity_id,category_code,name_en,ledger_account_id,status,version,
+     created_by_user_account_id,last_changed_by_user_account_id)
+    VALUES ($1,$2,$3,'Synthetic capital-funded operations',$4,'ACTIVE',1,$5,$5)`,
+    [expenseCategoryId, world.legalEntityId, `SYN-CAP-${expenseCategoryId.slice(0, 8)}`,
+      expenseLedgerId, world.bootstrapUserId]);
+  await harness.executor.query(`INSERT INTO abos.finance_workflow_policy_versions
+    (id,legal_entity_id,workflow_type,version,approval_required,configured_by_user_account_id,change_reason)
+    VALUES ($1,$2,'EXPENSE',1,false,$3,'Synthetic direct-post expense after capital funding')`,
+    [expensePolicyId, world.legalEntityId, world.bootstrapUserId]);
   await grant(harness.executor, world, world.treasuryManagerId, ["shareholder.capital-receipt.record", "shareholder.capital-receipt.read"]);
   await grant(harness.executor, world, world.treasuryApproverId, ["treasury.capital-receipt.verify", "shareholder.capital-receipt.read"]);
   await grant(harness.executor, world, world.intentCreatorId,
-    ["finance.capital-receipt.configure", "finance.capital-receipt.prepare", "shareholder.capital-receipt.read"]);
+    ["finance.capital-receipt.configure", "finance.capital-receipt.prepare", "shareholder.capital-receipt.read",
+      "finance.expense.create", "finance.expense.read"]);
   await grant(harness.executor, world, world.approverId,
     ["finance.capital-receipt.approve", "finance.capital-receipt.post", "shareholder.capital-receipt.read"]);
-  return { world, contributionId, treasuryId, mappingEvidenceId, receiptEvidenceId, custodyEvidenceId, approvalEvidenceId,
+  return { world, contributionId, treasuryId, expenseCategoryId,
+    mappingEvidenceId, receiptEvidenceId, custodyEvidenceId, approvalEvidenceId,
     recorder: await sessionFor(harness, world, world.treasuryManagerId), verifier: await sessionFor(harness, world, world.treasuryApproverId),
     preparer: await sessionFor(harness, world, world.intentCreatorId), approver: await sessionFor(harness, world, world.approverId), finance, treasury };
 }
