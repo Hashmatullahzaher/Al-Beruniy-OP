@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
 import test, { after, before, describe } from "node:test";
 import pg from "pg";
 
@@ -42,7 +43,7 @@ if (databaseUrl() === undefined) {
 
         const initial = await identity.financeWorkflowPolicies(admin);
         assert.equal(initial.canManage, false, "Super Administrator does not receive policy authority implicitly");
-        assert.equal(initial.policies.length, 8, "seven 0025 workflow types plus TEMPORARY_FUNDING (0037)");
+        assert.equal(initial.policies.length, 9, "canonical workflows include TEMPORARY_FUNDING and CHART_OF_ACCOUNTS");
         assert.ok(initial.policies.every((policy) => !policy.configured && policy.approvalRequired === null));
 
         const policyRole = await identity.createRole(admin, {
@@ -75,7 +76,7 @@ if (databaseUrl() === undefined) {
         assert.equal(editorSession.permissions.some((permission) => permission.startsWith("finance.")), false);
 
         const off = await identity.setFinanceWorkflowPolicy(editorToken, {
-          workflowType: "EXPENSE", approvalRequired: false, expectedVersion: 0,
+          ...commandIds(), workflowType: "EXPENSE", approvalRequired: false, expectedVersion: 0,
           changeReason: "Owner approved direct posting for normal Al-Beruniy expenses."
         });
         const expenseV1 = off.policies.find((policy) => policy.workflowType === "EXPENSE");
@@ -85,7 +86,7 @@ if (databaseUrl() === undefined) {
         assert.equal(expenseV1?.history.length, 1);
 
         const on = await identity.setFinanceWorkflowPolicy(editorToken, {
-          workflowType: "EXPENSE", approvalRequired: true, expectedVersion: 1,
+          ...commandIds(), workflowType: "EXPENSE", approvalRequired: true, expectedVersion: 1,
           changeReason: "Temporary independent approval requested by the owner."
         });
         const expenseV2 = on.policies.find((policy) => policy.workflowType === "EXPENSE");
@@ -93,14 +94,14 @@ if (databaseUrl() === undefined) {
         assert.equal(expenseV2?.version, 2);
         assert.deepEqual(expenseV2?.history.map((item) => item.approvalRequired), [true, false]);
         await rejects("STALE_VERSION", () => identity.setFinanceWorkflowPolicy(editorToken, {
-          workflowType: "EXPENSE", approvalRequired: false, expectedVersion: 1,
+          ...commandIds(), workflowType: "EXPENSE", approvalRequired: false, expectedVersion: 1,
           changeReason: "This update started from an obsolete version."
         }));
         await rejects("VALIDATION_FAILED", () => identity.setFinanceWorkflowPolicy(editorToken, {
-          workflowType: "UNKNOWN", approvalRequired: false, expectedVersion: 0, changeReason: "Invalid workflow."
+          ...commandIds(), workflowType: "UNKNOWN", approvalRequired: false, expectedVersion: 0, changeReason: "Invalid workflow."
         }));
         await rejects("PERMISSION_DENIED", () => identity.setFinanceWorkflowPolicy(readerToken, {
-          workflowType: "OTHER_INCOME", approvalRequired: false, expectedVersion: 0,
+          ...commandIds(), workflowType: "OTHER_INCOME", approvalRequired: false, expectedVersion: 0,
           changeReason: "Reader must not configure company policy."
         }));
         assert.equal((await identity.financeWorkflowPolicies(readerToken)).canManage, false);
@@ -166,7 +167,7 @@ if (databaseUrl() === undefined) {
           clientAddress: CLIENT
         })).token;
         const otherOff = await identity.setFinanceWorkflowPolicy(otherEditorToken, {
-          workflowType: "EXPENSE",
+          ...commandIds(), workflowType: "EXPENSE",
           approvalRequired: false,
           expectedVersion: 0,
           changeReason: "The other legal entity independently selected direct expense posting."
@@ -266,6 +267,7 @@ if (databaseUrl() === undefined) {
           ORDER BY table_name, privilege_type`
       );
       assert.deepEqual(tableGrants.rows, [
+        { table_name: "finance_workflow_policy_commands", privilege_type: "SELECT" },
         { table_name: "finance_workflow_policy_versions", privilege_type: "SELECT" },
         { table_name: "finance_workflow_types", privilege_type: "SELECT" }
       ]);
@@ -301,6 +303,13 @@ if (databaseUrl() === undefined) {
         { table_name: "audit_records", column_name: "id" },
         { table_name: "audit_records", column_name: "legal_entity_id" },
         { table_name: "audit_records", column_name: "metadata" },
+        { table_name: "finance_workflow_policy_commands", column_name: "actor_user_account_id" },
+        { table_name: "finance_workflow_policy_commands", column_name: "correlation_id" },
+        { table_name: "finance_workflow_policy_commands", column_name: "idempotency_key" },
+        { table_name: "finance_workflow_policy_commands", column_name: "legal_entity_id" },
+        { table_name: "finance_workflow_policy_commands", column_name: "policy_version_id" },
+        { table_name: "finance_workflow_policy_commands", column_name: "request_fingerprint" },
+        { table_name: "finance_workflow_policy_commands", column_name: "response_snapshot" },
         { table_name: "finance_workflow_policy_versions", column_name: "approval_required" },
         { table_name: "finance_workflow_policy_versions", column_name: "change_reason" },
         { table_name: "finance_workflow_policy_versions", column_name: "configured_by_user_account_id" },
@@ -332,7 +341,8 @@ if (databaseUrl() === undefined) {
             AND function.proname = ANY(ARRAY[
               'finance_workflow_policy_actor',
               'finance_workflow_policy_workspace',
-              'finance_workflow_policy_set'
+              'finance_workflow_policy_set',
+              'finance_workflow_policy_set_command'
             ])
             AND privilege.grantee = 0
             AND privilege.privilege_type = 'EXECUTE'`
@@ -342,7 +352,7 @@ if (databaseUrl() === undefined) {
       const identityExecution = (await harness.executor.query<{
         actor: boolean;
         workspace: boolean;
-        policy_set: boolean;
+        policy_set: boolean; policy_command: boolean;
         can_assume_owner: boolean;
       }>(
         `SELECT
@@ -355,13 +365,15 @@ if (databaseUrl() === undefined) {
            pg_catalog.has_function_privilege(
              'abos_v1_identity_runtime',
              'abos.finance_workflow_policy_set(text,text,text,text,boolean,integer,text)', 'EXECUTE') AS policy_set,
+           pg_catalog.has_function_privilege('abos_v1_identity_runtime',
+             'abos.finance_workflow_policy_set_command(text,text,text,jsonb)', 'EXECUTE') AS policy_command,
            pg_catalog.pg_has_role(
              'abos_v1_identity_runtime', 'abos_v1_workflow_policy_owner', 'MEMBER') AS can_assume_owner`
       )).rows[0];
       assert.deepEqual(identityExecution, {
         actor: false,
         workspace: true,
-        policy_set: true,
+        policy_set: false, policy_command: true,
         can_assume_owner: false
       });
 
@@ -432,3 +444,5 @@ async function rejects(code: IdentityErrorCode, run: () => Promise<unknown>): Pr
     return true;
   });
 }
+
+function commandIds() { return { idempotencyKey: `policy-test-${randomUUID()}`, correlationId: randomUUID() }; }
