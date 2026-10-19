@@ -169,12 +169,49 @@ export const shareholderCapitalMappingConfigureSchema = z.object({
   changeReason: z.string().trim().min(3).max(500)
 }).strict();
 
+export const SHAREHOLDER_CAPITAL_EVIDENCE_KINDS = [
+  "CAPITAL_ACCOUNT_MAPPING", "CASH_RECEIPT", "PHYSICAL_CASH_COUNT", "BANK_CONFIRMATION",
+  "SARAF_CONFIRMATION", "CONTROLLED_EVIDENCE", "FINANCE_APPROVAL"
+] as const;
+
+export type ShareholderCapitalEvidenceKind = (typeof SHAREHOLDER_CAPITAL_EVIDENCE_KINDS)[number];
+
+export const shareholderCapitalEvidenceRegisterSchema = z.object({
+  evidenceKind: z.enum(SHAREHOLDER_CAPITAL_EVIDENCE_KINDS),
+  subjectId: opaqueUuidSchema.nullable(),
+  documentReference: z.string().trim().min(1).max(200),
+  sha256: z.string().trim().toLowerCase().regex(/^[0-9a-f]{64}$/)
+}).strict();
+
+export interface ShareholderCapitalEvidenceRegistrationResult {
+  readonly evidenceReferenceId: string;
+  readonly evidenceKind: ShareholderCapitalEvidenceKind;
+  readonly documentReference: string;
+  readonly sha256: string;
+  readonly replayed: boolean;
+}
+
+export interface ShareholderCapitalConfiguration {
+  readonly accounts: readonly {
+    readonly id: string;
+    readonly code: string;
+    readonly name: string;
+    readonly currency: SupportedCurrency;
+  }[];
+  readonly mapping: {
+    readonly mappingVersionId: string;
+    readonly version: number;
+    readonly ledgerAccountId: string;
+  } | null;
+}
+
 export type ShareholderCapitalReceiptRecordRequest = z.infer<typeof shareholderCapitalReceiptRecordSchema>;
 export type ShareholderCapitalCustodyDecisionRequest = z.infer<typeof shareholderCapitalCustodyDecisionSchema>;
 export type ShareholderCapitalPostingPrepareRequest = z.infer<typeof shareholderCapitalPostingPrepareSchema>;
 export type ShareholderCapitalPostingDecisionRequest = z.infer<typeof shareholderCapitalPostingDecisionSchema>;
 export type ShareholderCapitalPostingPostRequest = z.infer<typeof shareholderCapitalPostingPostSchema>;
 export type ShareholderCapitalMappingConfigureRequest = z.infer<typeof shareholderCapitalMappingConfigureSchema>;
+export type ShareholderCapitalEvidenceRegisterRequest = z.infer<typeof shareholderCapitalEvidenceRegisterSchema>;
 
 export type ShareholderFinanceCapabilityState = "NOT_OPERATIONAL" | "SCHEMA_NOT_AVAILABLE" | "OPERATIONAL";
 
@@ -229,6 +266,30 @@ export interface ShareholderCapitalReceiptTrace {
   readonly receiptVersion: number;
   readonly postingIntentVersion: number | null;
   readonly journalId: JournalId | null;
+  readonly paymentReference?: string | null;
+  readonly evidenceReferenceId?: string | null;
+  readonly recorderUserAccountId?: string | null;
+  readonly recorderName?: string | null;
+  readonly recordedAt?: string | null;
+  readonly verifierName?: string | null;
+  readonly verifiedAt?: string | null;
+  readonly custodyReason?: string | null;
+  readonly verificationKind?: Exclude<ShareholderCapitalEvidenceKind, "CAPITAL_ACCOUNT_MAPPING" | "CASH_RECEIPT" | "FINANCE_APPROVAL"> | null;
+  readonly preparerName?: string | null;
+  readonly preparedAt?: string | null;
+  readonly accountingEffectiveDate?: string | null;
+  readonly approverName?: string | null;
+  readonly approverUserAccountId?: string | null;
+  readonly approvedAt?: string | null;
+  readonly approvalReason?: string | null;
+  readonly policyVersion?: number | null;
+  readonly mappingVersion?: number | null;
+  readonly mappingVersionId?: string | null;
+  readonly debitAccount?: { readonly id: string; readonly code: string; readonly name: string } | null;
+  readonly creditAccount?: { readonly id: string; readonly code: string; readonly name: string } | null;
+  readonly receiptEvidence?: { readonly reference: string; readonly sha256: string; readonly kind: ShareholderCapitalEvidenceKind } | null;
+  readonly custodyEvidence?: { readonly reference: string; readonly sha256: string; readonly kind: ShareholderCapitalEvidenceKind } | null;
+  readonly approvalEvidence?: { readonly reference: string; readonly sha256: string; readonly kind: ShareholderCapitalEvidenceKind } | null;
 }
 
 export interface ShareholderCapitalContributionTrace {

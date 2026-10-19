@@ -31,7 +31,7 @@ const MARKER = SYNTHETIC_AUTH_CONFIGURATION.runtimeMarker;
 const OWNERS = [
   "abos_e1_treasury_owner", "abos_e1_finance_owner", "abos_e1_shareholder_owner",
   "abos_v1_operational_finance_owner", "abos_v1_company_dashboard_owner", "abos_v1_shareholder_setup_owner",
-  "abos_v1_shareholder_capital_owner"
+  "abos_v1_shareholder_capital_owner", "abos_v1_capital_evidence_owner"
 ] as const;
 const FUNCTION_OWNERS = [...OWNERS, "abos_v1_identity_owner", "abos_v1_workflow_policy_owner"] as const;
 const LOGINS = {
@@ -62,7 +62,7 @@ if (databaseUrl() === undefined) {
                 p.proconfig AS config, has_function_privilege('public', p.oid, 'EXECUTE') AS public_execute
            FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace JOIN pg_roles r ON r.oid = p.proowner
           WHERE n.nspname = 'abos' AND p.prosecdef ORDER BY 1`);
-      assert.equal(rows.rows.length, 97, "every restricted entry point, including the operational shareholder-capital bridge and the seven 0037 temporary funding entry points, is accounted for");
+      assert.equal(rows.rows.length, 100, "every restricted entry point through the 0038 shareholder-capital activation is accounted for");
       for (const fn of rows.rows) {
         assert.ok((FUNCTION_OWNERS as readonly string[]).includes(fn.owner), `${fn.signature} is owned by ${fn.owner}`);
         assert.equal(fn.superuser, false, fn.signature);
@@ -153,6 +153,10 @@ if (databaseUrl() === undefined) {
         post_shareholder_capital_receipt: "abos_v1_operational_finance_owner",
         shareholder_capital_capability: "abos_v1_operational_finance_owner",
         shareholder_capital_trace: "abos_v1_operational_finance_owner",
+        // 0038: source-bound evidence registration plus truthful configuration status.
+        register_shareholder_capital_evidence: "abos_v1_capital_evidence_owner",
+        guard_shareholder_capital_evidence_binding: "abos_v1_capital_evidence_owner",
+        shareholder_capital_configuration: "abos_v1_operational_finance_owner",
         // 0037: temporary funding (provider payable; base currency; no reversal).
         temporary_funding_workspace: "abos_v1_operational_finance_owner",
         configure_temporary_funding_mapping: "abos_v1_operational_finance_owner",
@@ -198,6 +202,17 @@ if (databaseUrl() === undefined) {
       for (const identity of ["user_credentials", "access_roles", "user_role_assignments", "login_attempts"]) {
         for (const owner of OWNERS) assert.equal(await can(owner, identity, "SELECT"), false, `${owner} cannot read ${identity}`);
       }
+      for (const table of ["journals", "journal_lines", "posting_intents", "posting_approvals", "subledger_entries",
+        "shareholder_capital_receipts", "shareholder_capital_receipt_custody_verifications",
+        "shareholder_capital_account_mapping_versions", "shareholder_contributions"]) {
+        assert.equal(await can("abos_v1_capital_evidence_owner", table, "INSERT"), false,
+          `capital evidence owner cannot insert ${table}`);
+        assert.equal(await can("abos_v1_capital_evidence_owner", table, "UPDATE"), false,
+          `capital evidence owner cannot update ${table}`);
+      }
+      assert.equal(await can("abos_v1_capital_evidence_owner", "shareholder_capital_evidence_registrations", "SELECT"), true);
+      assert.equal(await can("abos_v1_capital_evidence_owner", "shareholder_capital_evidence_registrations", "INSERT"), true);
+      assert.equal(await can("abos_v1_capital_evidence_owner", "shareholder_capital_evidence_registrations", "UPDATE"), false);
       const memberships = await harness.executor.query<{ member: string; role: string }>(
         `SELECT m.rolname AS member, g.rolname AS role FROM pg_auth_members a
            JOIN pg_roles m ON m.oid = a.member JOIN pg_roles g ON g.oid = a.roleid

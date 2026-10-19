@@ -3,9 +3,9 @@ import { createHash, createHmac, randomUUID } from "node:crypto";
 import test, { after, before, describe } from "node:test";
 import pg from "pg";
 
-import type { SqlExecutor } from "@abos/database";
+import { applyMigrations, type SqlExecutor } from "@abos/database";
 import { PostgresExecutor } from "@abos/persistence";
-import { identityDatabaseProof } from "@abos/sandbox-auth";
+import { identityDatabaseProof, SandboxAuthenticator } from "@abos/sandbox-auth";
 
 import { grant } from "./currency-fixtures.ts";
 import {
@@ -33,7 +33,7 @@ interface SessionArgs { readonly proof: string; readonly runtimeDigest: string; 
 interface BridgeFixture {
   world: SyntheticWorld; contributionId: string; treasuryId: string;
   expenseCategoryId: string;
-  mappingEvidenceId: string; receiptEvidenceId: string; custodyEvidenceId: string; approvalEvidenceId: string;
+  mappingEvidenceId: string;
   recorder: SessionArgs; verifier: SessionArgs; preparer: SessionArgs; approver: SessionArgs;
   finance: PostgresExecutor; treasury: PostgresExecutor;
 }
@@ -60,6 +60,67 @@ if (databaseUrl() === undefined) {
     });
     after(async () => {
       await financeConnection?.close(); await treasuryConnection?.close(); await harness?.close();
+    });
+
+    test("exact 0037 to 0038 runner upgrade preserves every existing table and performs zero business backfill", async () => {
+      await withClusterLock(harness.pool, async () => {
+        const client = await harness.pool.connect();
+        try {
+          await client.query("BEGIN");
+          await client.query("DROP SCHEMA IF EXISTS abos CASCADE");
+          const migrations = await loadMigrations();
+          const index = migrations.findIndex(m => m.id === "0038_v1_shareholder_capital_activation");
+          assert.equal(migrations[index - 1]?.id, "0037_v1_temporary_funding");
+          assert.equal(migrations[index - 1]?.checksumSha256,
+            "b6b9de5be6807cb1c7952da13a58cf7a158d457c379eb1b61eaf8460cf49f285");
+          const tx: SqlExecutor = {
+            query: async <Row extends object>(sql: string, parameters: readonly unknown[] = []) => {
+              const result = await client.query(sql, [...parameters]);
+              return { rows: result.rows as Row[], rowCount: result.rowCount ?? 0 };
+            }, transaction: async work => work(tx)
+          };
+          // Reconstruct the historical 0037 registry exactly. The current runner intentionally
+          // refuses partial catalogs; the actual 0037 -> 0038 upgrade below uses that runner.
+          await client.query(`CREATE SCHEMA abos; CREATE TABLE abos.schema_migrations (
+            migration_id text PRIMARY KEY, checksum_sha256 text NOT NULL CHECK(checksum_sha256 ~ '^[0-9a-f]{64}$'),
+            applied_at timestamptz NOT NULL DEFAULT clock_timestamp())`);
+          for (const predecessor of migrations.slice(0, index)) {
+            await client.query(predecessor.sql);
+            await client.query("INSERT INTO abos.schema_migrations(migration_id,checksum_sha256) VALUES($1,$2)",
+              [predecessor.id, predecessor.checksumSha256]);
+          }
+          await client.query("SELECT set_config('abos.runtime_marker',$1,true)", [MARKER]);
+          const world = await seedSyntheticWorld(tx, { withoutSandboxAuthorization: true });
+          await client.query(`INSERT INTO abos.shareholder_contributions
+            (id,legal_entity_id,shareholder_profile_id,contribution_type,business_date,description,record_status,
+             receipt_status,valuation_status,amount,currency_code,version,created_by_user_account_id,
+             declared_by_user_account_id,declared_at)
+            VALUES ($1,$2,$3,'CASH','2026-09-22','Preserved pre-0038 declaration','DECLARED',
+              'NOT_RECEIVED','NOT_APPLICABLE',50000,'USD',1,$4,$4,clock_timestamp())`,
+          [randomUUID(), world.legalEntityId, world.shareholderProfileId, world.bootstrapUserId]);
+          const tables = (await client.query<{ tablename: string }>(
+            "SELECT tablename FROM pg_tables WHERE schemaname='abos' AND tablename<>'schema_migrations' ORDER BY tablename")).rows;
+          const snapshot = async () => {
+            const rows: unknown[] = [];
+            for (const { tablename } of tables) {
+              assert.match(tablename, /^[a-z_]+$/);
+              rows.push([tablename, (await client.query(`SELECT count(*)::text AS count,
+                md5(COALESCE(string_agg(to_jsonb(t)::text,'' ORDER BY to_jsonb(t)::text),'')) AS hash
+                FROM abos.${tablename} t`)).rows[0]]);
+            }
+            return rows;
+          };
+          const before = await snapshot();
+          const priorChecksums = await client.query("SELECT migration_id,checksum_sha256 FROM abos.schema_migrations ORDER BY migration_id");
+          assert.deepEqual(await applyMigrations(tx, migrations), ["0038_v1_shareholder_capital_activation"]);
+          assert.deepEqual(await snapshot(), before, "all existing business/security metadata rows are byte-for-byte preserved");
+          assert.deepEqual((await client.query("SELECT migration_id,checksum_sha256 FROM abos.schema_migrations WHERE migration_id<>'0038_v1_shareholder_capital_activation' ORDER BY migration_id")).rows,
+            priorChecksums.rows);
+          assert.equal((await client.query("SELECT count(*)::int AS n FROM abos.shareholder_capital_evidence_registrations")).rows[0]?.n, 0);
+          assert.deepEqual(await applyMigrations(tx, migrations), [], "repeated migration runner is a no-op");
+          assert.deepEqual(await snapshot(), before);
+        } finally { await client.query("ROLLBACK"); client.release(); }
+      });
     });
 
     test("upgrade from 0035 preserves business rows and creates zero receipt backfill", async () => {
@@ -143,19 +204,30 @@ if (databaseUrl() === undefined) {
 
     test("same-currency shareholder receipt follows receipt to custody to approval to posting", async () => {
       fixture = await setupFixture(harness, financeConnection.executor, treasuryConnection.executor);
+      await assert.rejects(() => callJson(fixture.treasury, "record_shareholder_capital_receipt", fixture.recorder, [{
+        contributionId: fixture.contributionId, expectedContributionVersion: 1,
+        amount: { amount: "1", currency: "USD" }, receiptDate: "2026-09-21",
+        treasuryDestinationId: fixture.treasuryId, paymentReference: "SYN-BEFORE-DECLARATION",
+        evidenceReferenceId: null, idempotencyKey: `early-${randomUUID()}`, correlationId: randomUUID()
+      }]), /cannot precede the declaration/i);
       const recordKey = `record-${randomUUID()}`;
       const recordPayload = {
         contributionId: fixture.contributionId, expectedContributionVersion: 1,
-        amount: { amount: "25000", currency: "USD" }, receiptDate: "2026-09-22",
+        amount: { amount: "25000", currency: "USD" }, receiptDate: "2026-09-23",
         treasuryDestinationId: fixture.treasuryId, paymentReference: "SYN-CAPITAL-RECEIPT",
-        evidenceReferenceId: fixture.receiptEvidenceId, idempotencyKey: recordKey, correlationId: randomUUID()
+        evidenceReferenceId: null, idempotencyKey: recordKey, correlationId: randomUUID()
       };
       const recorded = await callJson<{ receipt: { receiptId: string }; replayed: boolean }>(
         fixture.treasury, "record_shareholder_capital_receipt", fixture.recorder, [recordPayload]);
       const receiptId = recorded.receipt.receiptId; assert.equal(recorded.replayed, false);
+      const recorderAfterReceipt = await sessionFor(harness, fixture.world, fixture.world.treasuryManagerId);
+      await assert.rejects(() => registerEvidence(fixture.treasury, recorderAfterReceipt,
+        "PHYSICAL_CASH_COUNT", receiptId, "Recorder must not verify own receipt"), /independent custody subject/i);
+      const custodyEvidenceId = await registerEvidence(fixture.treasury, fixture.verifier,
+        "PHYSICAL_CASH_COUNT", receiptId, "Synthetic independent physical count");
       await callJson(fixture.treasury, "verify_shareholder_capital_receipt_custody", fixture.verifier, [receiptId, {
         expectedReceiptVersion: 1, decision: "VERIFIED", verificationKind: "PHYSICAL_CASH_COUNT",
-        evidenceReferenceId: fixture.custodyEvidenceId, decisionReason: null,
+        evidenceReferenceId: custodyEvidenceId, decisionReason: null,
         idempotencyKey: `verify-${randomUUID()}`, correlationId: randomUUID()
       }]);
       await callJson(fixture.finance, "configure_shareholder_capital_mapping", fixture.preparer, [{
@@ -163,13 +235,29 @@ if (databaseUrl() === undefined) {
         changeReason: "Synthetic test mapping for paid-in capital",
         idempotencyKey: `mapping-${randomUUID()}`, correlationId: randomUUID()
       }]);
+      await assert.rejects(() => callJson(fixture.finance, "prepare_shareholder_capital_posting", fixture.preparer, [receiptId, {
+        expectedReceiptVersion: 1, accountingEffectiveDate: "2026-09-24",
+        idempotencyKey: `prepare-wrong-date-${randomUUID()}`, correlationId: randomUUID()
+      }]), /must equal the receipt date/i);
       const prepared = await callJson<{ postingIntentId: string; version: number }>(
         fixture.finance, "prepare_shareholder_capital_posting", fixture.preparer, [receiptId, {
-          expectedReceiptVersion: 1, accountingEffectiveDate: "2026-09-22",
+          expectedReceiptVersion: 1, accountingEffectiveDate: "2026-09-23",
           idempotencyKey: `prepare-${randomUUID()}`, correlationId: randomUUID()
         }]);
+      await assert.rejects(() => registerEvidence(fixture.finance, fixture.preparer,
+        "FINANCE_APPROVAL", prepared.postingIntentId, "Preparer must not approve own posting"),
+      /independent capital approval subject/i);
+      for (const [actorId, session] of [[fixture.world.treasuryManagerId, fixture.recorder],
+        [fixture.world.treasuryApproverId, fixture.verifier]] as const) {
+        await grant(harness.executor, fixture.world, actorId, ["finance.capital-receipt.approve"]);
+        await assert.rejects(() => registerEvidence(fixture.finance, session,
+          "FINANCE_APPROVAL", prepared.postingIntentId, "Custody participants cannot approve"),
+        /independent capital approval subject/i);
+      }
+      const approvalEvidenceId = await registerEvidence(fixture.finance, fixture.approver,
+        "FINANCE_APPROVAL", prepared.postingIntentId, "Synthetic independent Finance approval");
       await callJson(fixture.finance, "decide_shareholder_capital_posting", fixture.approver, [prepared.postingIntentId, {
-        expectedIntentVersion: 1, decision: "APPROVED", evidenceReferenceId: fixture.approvalEvidenceId,
+        expectedIntentVersion: 1, decision: "APPROVED", evidenceReferenceId: approvalEvidenceId,
         decisionReason: "Synthetic independent Finance approval",
         idempotencyKey: `approve-${randomUUID()}`, correlationId: randomUUID()
       }]);
@@ -182,6 +270,69 @@ if (databaseUrl() === undefined) {
       const trace = await callJson<{ contribution: { status: string; postedAmount: { amount: string } } }>(
         fixture.finance, "shareholder_capital_trace", fixture.preparer, [fixture.contributionId], false);
       assert.equal(trace.contribution.status, "POSTED"); assert.equal(trace.contribution.postedAmount.amount, "25000");
+      const dates = await harness.pool.query<{ declaration_date: string; receipt_date: string }>(`
+        SELECT contribution.business_date::text AS declaration_date, receipt.receipt_date::text AS receipt_date
+          FROM abos.shareholder_contributions contribution
+          JOIN abos.shareholder_capital_receipts receipt ON receipt.contribution_id=contribution.id
+         WHERE contribution.id=$1`, [fixture.contributionId]);
+      assert.deepEqual(dates.rows[0], { declaration_date: "2026-09-22", receipt_date: "2026-09-23" });
+    });
+
+    test("capital evidence registrations are source-bound immutable and exact-purpose", async () => {
+      const state = requiredWorkflow(workflow);
+      const rows = await harness.pool.query<{
+        evidence_kind: string; contribution_id: string | null; receipt_id: string | null;
+        posting_intent_id: string | null; registered_by_user_account_id: string;
+      }>(`SELECT evidence_kind,contribution_id::text,receipt_id::text,posting_intent_id::text,
+                 registered_by_user_account_id::text
+            FROM abos.shareholder_capital_evidence_registrations ORDER BY registered_at,evidence_kind`);
+      assert.equal(rows.rows.filter((row) => row.evidence_kind === "CAPITAL_ACCOUNT_MAPPING").length, 1);
+      assert.ok(rows.rows.some((row) => row.evidence_kind === "PHYSICAL_CASH_COUNT"
+        && row.receipt_id === state.receiptId && row.registered_by_user_account_id === fixture.world.treasuryApproverId));
+      assert.ok(rows.rows.some((row) => row.evidence_kind === "FINANCE_APPROVAL"
+        && row.posting_intent_id === state.intentId && row.registered_by_user_account_id === fixture.world.approverId));
+      assert.ok(rows.rows.every((row) => row.contribution_id === null), "receipt evidence is optional in this flow");
+      await assert.rejects(() => harness.pool.query(
+        "UPDATE abos.shareholder_capital_evidence_registrations SET document_reference=document_reference"), /append-only/i);
+      await assert.rejects(() => harness.pool.query(
+        "DELETE FROM abos.shareholder_capital_evidence_registrations"), /append-only/i);
+      await assert.rejects(() => callJson(fixture.finance, "configure_shareholder_capital_mapping", fixture.preparer, [{
+        ledgerAccountId: fixture.world.capitalLedgerAccountId, evidenceReferenceId: fixture.mappingEvidenceId,
+        changeReason: "Attempted mapping evidence reuse", idempotencyKey: `reuse-${randomUUID()}`, correlationId: randomUUID()
+      }]), /duplicate key|unique constraint/i);
+    });
+
+    test("capital evidence registration is idempotent and rejects permission runtime and payload forgery", async () => {
+      const idempotencyKey = `evidence-stable-${randomUUID()}`;
+      const payload = {
+        evidenceKind: "CAPITAL_ACCOUNT_MAPPING", subjectId: null,
+        documentReference: "Synthetic stable mapping authority",
+        sha256: createHash("sha256").update("stable-mapping-authority").digest("hex"),
+        idempotencyKey, correlationId: randomUUID()
+      };
+      const first = await callJson<{ evidenceReferenceId: string; replayed: boolean }>(
+        fixture.finance, "register_shareholder_capital_evidence", fixture.preparer, [payload]);
+      const replay = await callJson<{ evidenceReferenceId: string; replayed: boolean }>(
+        fixture.finance, "register_shareholder_capital_evidence", fixture.preparer,
+        [{ ...payload, correlationId: randomUUID() }]);
+      assert.equal(replay.evidenceReferenceId, first.evidenceReferenceId); assert.equal(replay.replayed, true);
+      await assert.rejects(() => callJson(fixture.finance, "register_shareholder_capital_evidence", fixture.preparer, [{
+        ...payload, documentReference: "Changed authority", correlationId: randomUUID()
+      }]), /idempotency key was already used/i);
+      await assert.rejects(() => callJson(fixture.finance, "register_shareholder_capital_evidence", fixture.recorder, [{
+        ...payload, idempotencyKey: `wrong-permission-${randomUUID()}`, correlationId: randomUUID()
+      }]), /current authorized password session/i);
+      await assert.rejects(() => callJson(fixture.treasury, "register_shareholder_capital_evidence", fixture.verifier, [{
+        ...payload, idempotencyKey: `wrong-runtime-${randomUUID()}`, correlationId: randomUUID()
+      }]), /runtime credential/i);
+      await assert.rejects(() => callJson(fixture.finance, "register_shareholder_capital_evidence", fixture.preparer, [{
+        ...payload, actorUserAccountId: fixture.world.approverId,
+        idempotencyKey: `forged-${randomUUID()}`, correlationId: randomUUID()
+      }]), /unsupported fields/i);
+      await assert.rejects(() => callJson(fixture.finance, "register_shareholder_capital_evidence", fixture.preparer, [{
+        ...payload, subjectId: fixture.contributionId,
+        idempotencyKey: `mapping-subject-${randomUUID()}`, correlationId: randomUUID()
+      }]), /exact subject/i);
     });
 
     test("one receipt produces one intent and one journal", async () => {
@@ -234,7 +385,7 @@ if (databaseUrl() === undefined) {
           reference: `SYN-SPEND-CAPITAL-${randomUUID().slice(0, 8)}`,
           description: "Synthetic same-Safe expense after capital receipt",
           note: "Disposable PostgreSQL acceptance only",
-          businessDate: "2026-09-22",
+          businessDate: "2026-09-24",
           originalAmount: "125.50",
           currencyCode: "USD",
           exchangeRateId: null,
@@ -355,14 +506,99 @@ if (databaseUrl() === undefined) {
       assert.deepEqual(sourceTypes.rows, [{ source_type: "SHAREHOLDER_CAPITAL_CONTRIBUTION_RECEIPT" }]);
       await assert.rejects(() => callJson(fixture.treasury, "record_shareholder_capital_receipt", fixture.recorder, [{
         contributionId: fixture.contributionId, expectedContributionVersion: 1,
-        amount: { amount: "1", currency: "AFN" }, receiptDate: "2026-09-22",
+        amount: { amount: "1", currency: "AFN" }, receiptDate: "2026-09-23",
         treasuryDestinationId: fixture.treasuryId, paymentReference: "SYN-CROSS-CURRENCY",
-        evidenceReferenceId: fixture.receiptEvidenceId, idempotencyKey: `fx-${randomUUID()}`, correlationId: randomUUID()
+        evidenceReferenceId: null, idempotencyKey: `fx-${randomUUID()}`, correlationId: randomUUID()
       }]), /same-currency Treasury destination/i);
       const entryPoints = await harness.pool.query<{ count: string }>(`
         SELECT count(*)::text AS count FROM pg_proc WHERE pronamespace='abos'::regnamespace
           AND proname ~ 'shareholder_capital_(refund|reversal|in_kind|credit)'`);
       assert.equal(entryPoints.rows[0]?.count, "0");
+    });
+
+    test("evidence owner has no financial DML and capital readers need no master-data or private-document authority", async () => {
+      const privileges = await harness.pool.query<{ name: string; writes: boolean }>(`
+        SELECT tablename AS name,
+          has_any_column_privilege('abos_v1_capital_evidence_owner','abos.'||tablename,'INSERT,UPDATE')
+          OR has_table_privilege('abos_v1_capital_evidence_owner','abos.'||tablename,'DELETE,TRUNCATE') AS writes
+        FROM pg_tables WHERE schemaname='abos'
+          AND tablename NOT IN ('evidence_references','shareholder_capital_evidence_registrations')`);
+      assert.ok(privileges.rows.every(p => !p.writes), JSON.stringify(privileges.rows.filter(p => p.writes)));
+      for (const executor of [fixture.finance, fixture.treasury]) {
+        await assert.rejects(() => executor.query("SELECT * FROM abos.shareholder_capital_evidence_registrations"), /permission denied/i);
+        await assert.rejects(() => executor.query("SET ROLE abos_v1_capital_evidence_owner"), /permission denied/i);
+      }
+      // This persona has only bridge reads/actions for shareholder data, not shareholder.read.
+      const workspace = await callJson<{ permissions: { canManage: boolean; canReadAgreementDocuments: boolean } }>(
+        fixture.finance, "shareholder_setup_workspace", fixture.verifier, [], false);
+      assert.equal(workspace.permissions.canManage, false);
+      assert.equal(workspace.permissions.canReadAgreementDocuments, false);
+      const contributions = await callJson<{ shareholders: readonly { id: string }[] }>(
+        fixture.finance, "shareholder_contributions_workspace", fixture.verifier, [], false);
+      assert.ok(contributions.shareholders.some(s => s.id === fixture.world.shareholderProfileId));
+      await assert.rejects(() => callJson(fixture.finance, "shareholder_setup_create_shareholder", fixture.verifier, [{
+        displayName: "Forbidden master data", externalReference: null, shareholderSince: "2026-09-22",
+        idempotencyKey: `forbidden-${randomUUID()}`, correlationId: randomUUID()
+      }]), /missing|permission/i);
+    });
+
+    test("all allowed evidence kinds stay in their lanes; invalid, cross-entity and forged metadata create nothing", async () => {
+      const state = requiredWorkflow(workflow);
+      for (const kind of ["BANK_CONFIRMATION", "SARAF_CONFIRMATION", "CONTROLLED_EVIDENCE", "PHYSICAL_CASH_COUNT"]) {
+        await registerEvidence(fixture.treasury, fixture.verifier, kind, state.receiptId, `Synthetic ${kind} metadata`);
+      }
+      await registerEvidence(fixture.treasury, fixture.recorder, "CASH_RECEIPT", fixture.contributionId, "Synthetic optional receipt metadata");
+      const payload = { evidenceKind: "CAPITAL_ACCOUNT_MAPPING", subjectId: null,
+        documentReference: "Synthetic attack metadata", sha256: "a".repeat(64),
+        idempotencyKey: `attack-${randomUUID()}`, correlationId: randomUUID() };
+      const before = await harness.pool.query("SELECT count(*)::text AS n FROM abos.shareholder_capital_evidence_registrations");
+      for (const changed of [{ sha256: "invalid" }, { evidenceKind: "ARBITRARY" },
+        { actor: randomUUID() }, { legalEntityId: randomUUID() }, { evidenceId: randomUUID() }, { completed_at: "2026-09-22" }]) {
+        await assert.rejects(() => callJson(fixture.finance, "register_shareholder_capital_evidence", fixture.preparer,
+          [{ ...payload, ...changed }]), /unsupported|SHA-256|invalid/i);
+      }
+      await assert.rejects(() => registerEvidence(fixture.finance, fixture.verifier,
+        "PHYSICAL_CASH_COUNT", state.receiptId, "Wrong runtime"), /runtime credential/i);
+      await assert.rejects(() => registerEvidence(fixture.treasury, fixture.verifier,
+        "PHYSICAL_CASH_COUNT", randomUUID(), "Wrong entity subject"), /unavailable in this legal entity/i);
+      assert.deepEqual((await harness.pool.query("SELECT count(*)::text AS n FROM abos.shareholder_capital_evidence_registrations")).rows, before.rows);
+      const key = `concurrent-evidence-${randomUUID()}`;
+      const results = await Promise.all(Array.from({ length: 3 }, () => callJson<{ evidenceReferenceId: string }>(
+        fixture.finance, "register_shareholder_capital_evidence", fixture.preparer,
+        [{ ...payload, idempotencyKey: key, correlationId: randomUUID() }])));
+      assert.equal(new Set(results.map(r => r.evidenceReferenceId)).size, 1);
+    });
+
+    test("evidence replays recheck revoked permission and reject revoked expired and synthetic sessions", async () => {
+      const payload = { evidenceKind: "CAPITAL_ACCOUNT_MAPPING", subjectId: null,
+        documentReference: "Synthetic authorization proof", sha256: "b".repeat(64),
+        idempotencyKey: `auth-${randomUUID()}`, correlationId: randomUUID() };
+      await callJson(fixture.finance, "register_shareholder_capital_evidence", fixture.preparer, [payload]);
+      await harness.pool.query(`UPDATE abos.user_permission_grants SET revoked_at=clock_timestamp()
+        WHERE user_account_id=$1 AND legal_entity_id=$2 AND permission_code='finance.capital-receipt.configure'`,
+      [fixture.world.intentCreatorId, fixture.world.legalEntityId]);
+      try {
+        await assert.rejects(() => callJson(fixture.finance, "register_shareholder_capital_evidence", fixture.preparer, [payload]), /authorized password session/i);
+      } finally {
+        await harness.pool.query(`UPDATE abos.user_permission_grants SET revoked_at=NULL
+          WHERE user_account_id=$1 AND legal_entity_id=$2 AND permission_code='finance.capital-receipt.configure'`,
+        [fixture.world.intentCreatorId, fixture.world.legalEntityId]);
+      }
+      for (const mode of ["revoked", "expired"] as const) {
+        const session = await sessionFor(harness, fixture.world, fixture.world.intentCreatorId);
+        await harness.pool.query(mode === "revoked"
+          ? "UPDATE abos.sandbox_sessions SET revoked_at=clock_timestamp() WHERE runtime_token_sha256=$1"
+          : "UPDATE abos.sandbox_sessions SET issued_at=statement_timestamp()-interval '2 hours',expires_at=statement_timestamp()-interval '90 minutes' WHERE runtime_token_sha256=$1",
+        [session.runtimeDigest]);
+        await assert.rejects(() => callJson(fixture.finance, "register_shareholder_capital_evidence", session, [payload]), /authorized password session/i);
+      }
+      const synthetic = await new SandboxAuthenticator(harness.executor, SYNTHETIC_AUTH_CONFIGURATION).issueSession({
+        userAccountId: fixture.world.intentCreatorId as never, legalEntityId: fixture.world.legalEntityId as never
+      });
+      const syntheticArgs = { proof: fixture.preparer.proof,
+        runtimeDigest: createHash("sha256").update(synthetic.token).digest("hex"),
+        tokenDigest: createHmac("sha256", SYNTHETIC_AUTH_CONFIGURATION.signingSecret).update(synthetic.token).digest("hex") };
+      await assert.rejects(() => callJson(fixture.finance, "register_shareholder_capital_evidence", syntheticArgs, [payload]), /authorized password session/i);
     });
   });
 }
@@ -371,10 +607,6 @@ async function setupFixture(harness: Harness, finance: PostgresExecutor, treasur
   const world = await seedSyntheticWorld(harness.executor);
   const contributionId = randomUUID(); const treasuryId = randomUUID(); const policyId = randomUUID();
   const expenseLedgerId = randomUUID(); const expenseCategoryId = randomUUID(); const expensePolicyId = randomUUID();
-  const mappingEvidenceId = await evidence(harness.executor, world, "CAPITAL_ACCOUNT_MAPPING");
-  const receiptEvidenceId = await evidence(harness.executor, world, "CASH_RECEIPT");
-  const custodyEvidenceId = await evidence(harness.executor, world, "PHYSICAL_CASH_COUNT");
-  const approvalEvidenceId = await evidence(harness.executor, world, "FINANCE_APPROVAL");
   await harness.executor.query(`INSERT INTO abos.shareholder_contributions
     (id,legal_entity_id,shareholder_profile_id,contribution_type,business_date,description,record_status,receipt_status,
      valuation_status,amount,currency_code,version,created_by_user_account_id,declared_by_user_account_id,declared_at)
@@ -404,26 +636,38 @@ async function setupFixture(harness: Harness, finance: PostgresExecutor, treasur
     (id,legal_entity_id,workflow_type,version,approval_required,configured_by_user_account_id,change_reason)
     VALUES ($1,$2,'EXPENSE',1,false,$3,'Synthetic direct-post expense after capital funding')`,
     [expensePolicyId, world.legalEntityId, world.bootstrapUserId]);
-  await grant(harness.executor, world, world.treasuryManagerId, ["shareholder.capital-receipt.record", "shareholder.capital-receipt.read"]);
+  await grant(harness.executor, world, world.treasuryManagerId, ["shareholder.capital-receipt.record",
+    "treasury.capital-receipt.verify", "shareholder.capital-receipt.read"]);
   await grant(harness.executor, world, world.treasuryApproverId, ["treasury.capital-receipt.verify", "shareholder.capital-receipt.read"]);
   await grant(harness.executor, world, world.intentCreatorId,
-    ["finance.capital-receipt.configure", "finance.capital-receipt.prepare", "shareholder.capital-receipt.read",
+    ["finance.capital-receipt.configure", "finance.capital-receipt.prepare", "finance.capital-receipt.approve",
+      "shareholder.capital-receipt.read",
       "finance.expense.create", "finance.expense.read"]);
   await grant(harness.executor, world, world.approverId,
     ["finance.capital-receipt.approve", "finance.capital-receipt.post", "shareholder.capital-receipt.read"]);
+  const recorder = await sessionFor(harness, world, world.treasuryManagerId);
+  const verifier = await sessionFor(harness, world, world.treasuryApproverId);
+  const preparer = await sessionFor(harness, world, world.intentCreatorId);
+  const approver = await sessionFor(harness, world, world.approverId);
+  const mappingEvidenceId = await registerEvidence(finance, preparer,
+    "CAPITAL_ACCOUNT_MAPPING", null, "Synthetic paid-in-capital mapping authority");
   return { world, contributionId, treasuryId, expenseCategoryId,
-    mappingEvidenceId, receiptEvidenceId, custodyEvidenceId, approvalEvidenceId,
-    recorder: await sessionFor(harness, world, world.treasuryManagerId), verifier: await sessionFor(harness, world, world.treasuryApproverId),
-    preparer: await sessionFor(harness, world, world.intentCreatorId), approver: await sessionFor(harness, world, world.approverId), finance, treasury };
+    mappingEvidenceId, recorder, verifier, preparer, approver, finance, treasury };
 }
 
-async function evidence(database: SqlExecutor, world: SyntheticWorld, kind: string): Promise<string> {
-  const id = randomUUID();
-  await database.query(`INSERT INTO abos.evidence_references
-    (id,legal_entity_id,document_id,evidence_kind,evidence_version,sha256,completed_at)
-    VALUES ($1,$2,gen_random_uuid(),$3,1,$4,clock_timestamp())`,
-    [id, world.legalEntityId, kind, createHash("sha256").update(id).digest("hex")]);
-  return id;
+async function registerEvidence(
+  executor: PostgresExecutor, session: SessionArgs, evidenceKind: string, subjectId: string | null,
+  documentReference: string
+): Promise<string> {
+  const sha256 = createHash("sha256").update(`${evidenceKind}:${subjectId ?? "mapping"}:${documentReference}`).digest("hex");
+  const result = await callJson<{ evidenceReferenceId: string; evidenceKind: string; replayed: boolean }>(
+    executor, "register_shareholder_capital_evidence", session, [{
+      evidenceKind, subjectId, documentReference, sha256,
+      idempotencyKey: `evidence-${randomUUID()}`, correlationId: randomUUID()
+    }]);
+  assert.equal(result.evidenceKind, evidenceKind);
+  assert.equal(result.replayed, false);
+  return result.evidenceReferenceId;
 }
 
 async function ensureLogin(harness: Harness, login: { name: string; password: string }, runtimeRole: string): Promise<void> {

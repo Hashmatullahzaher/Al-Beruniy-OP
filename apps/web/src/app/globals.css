@@ -1728,6 +1728,9 @@ button.review-context { border: 0; border-inline-start: 1px solid rgba(102, 142,
 .capital-receipt { display: grid; gap: 5px; padding: 10px; border: 1px solid rgba(60, 130, 176, .25); border-radius: 6px; background: rgba(3, 17, 29, .52); }
 .capital-receipt header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .capital-receipt p { margin: 0; color: #9fb4c3; font-size: 11px; }
+.capital-receipt .shareholder-figures { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.capital-receipt .shareholder-figures dd small { display: block; margin-top: 4px; color: #9fb4c3; font-size: 11px; font-weight: 400; }
+@media (max-width: 700px) { .capital-receipt .shareholder-figures { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .contribution-legacy { display: grid; gap: 5px; padding: 9px 11px; border: 1px dashed rgba(224, 180, 79, .35); border-radius: 6px; background: rgba(71, 53, 19, .12); }
 .contribution-legacy p { margin: 0; color: var(--abos-gold-300); font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; }
 .contribution-legacy ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; }

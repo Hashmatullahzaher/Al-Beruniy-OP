@@ -23,7 +23,10 @@ export async function shareholderSetupWorkspace(): Promise<ShareholderSetupWorks
   const executor = financeHandoffRuntime().executor;
   const authenticator = restrictedFinanceAuthenticator();
   const workspace = await authenticator.shareholderSetupWorkspace(executor, token);
-  const files = await authenticator.agreementDocuments(executor, token);
+  // Capital operators may read the contribution workspace without obtaining private agreement
+  // document access. Keep the document endpoint's existing independent permission boundary.
+  const files = workspace.permissions.canManage || workspace.permissions.canReadAgreementDocuments === true
+    ? await authenticator.agreementDocuments(executor, token) : [];
   const byEvidence = new Map(files.map(file => [file.agreementEvidenceId, file]));
   return {
     ...workspace,

@@ -10,7 +10,7 @@ import { AccessGate, api, errorText, formatWhen } from "@/components/AdminUsersW
 import { AppIcon } from "@/components/AppIcon";
 import { exactDecimal } from "@/components/ExchangeRatesWorkspace";
 import { useLocale } from "@/components/LocaleProvider";
-import { ShareholderCapitalBoundary, useShareholderCapitalBridge } from "@/components/ShareholderCapitalBridge";
+import { ShareholderCapitalBoundary, ShareholderCapitalConfigurationPanel, useShareholderCapitalBridge } from "@/components/ShareholderCapitalBridge";
 import { ShareholderContributionsView } from "@/components/ShareholderContributionsView";
 import { ShareholderRequestWorkspace } from "@/components/ShareholderRequestWorkspace";
 import { StageZeroPageHeader } from "@/components/StageZeroWorkspace";
@@ -193,6 +193,7 @@ export function ShareholderSetupWorkspace() {
         description={{ en: "Shareholders and what each has contributed or committed. Capital agreements, installments and capital requests are under Advanced.", fa: "سهامداران و آنچه هر کدام آورده یا تعهد کرده است. قراردادهای سرمایه، اقساط و درخواست‌های سرمایه در «جزئیات پیشرفته» هستند." }} />
 
       <ShareholderCapitalBoundary fa={fa} bridge={capitalBridge} />
+      <ShareholderCapitalConfigurationPanel fa={fa} bridge={capitalBridge} />
 
       {message ? <div className={`treasury-message ${message.tone === "ok" ? "success" : "error"}`} role="status"><AppIcon name={message.tone === "ok" ? "shield" : "alert"} size={16} /><span>{message.text}</span><button onClick={() => setMessage(null)} aria-label={fa ? "بستن" : "Dismiss"}>×</button></div> : null}
 

@@ -116,7 +116,7 @@ export interface ShareholderSetupAgreement {
 
 export interface ShareholderSetupWorkspace {
   readonly legalEntity: { readonly id: string; readonly name: string; readonly baseCurrency: string | null } | null;
-  readonly permissions: { readonly canManage: boolean; readonly canCreateRequests: boolean };
+  readonly permissions: { readonly canManage: boolean; readonly canCreateRequests: boolean; readonly canReadAgreementDocuments?: boolean };
   readonly today: string;
   readonly receiptPathOperational: boolean;
   /** No policy row means REQUIRED; the owner-approved Al-Beruniy policy is OPTIONAL. */

@@ -29,6 +29,9 @@ import type {
   AgreementDocumentPrepareResult,
   AgreementDocumentRecord,
   ShareholderCapitalCustodyDecisionRequest,
+  ShareholderCapitalConfiguration,
+  ShareholderCapitalEvidenceRegisterRequest,
+  ShareholderCapitalEvidenceRegistrationResult,
   ShareholderCapitalMappingConfigureRequest,
   ShareholderCapitalPostingDecisionRequest,
   ShareholderCapitalPostingPostRequest,
@@ -653,6 +656,20 @@ export class SandboxAuthenticator {
     return this.operationalFinanceFunction(executor,
       "SELECT abos.configure_shareholder_capital_mapping($1,$2,$3,$4::jsonb) AS value", token,
       [JSON.stringify(input)], "Capital mapping configuration returned no result");
+  }
+
+  async shareholderCapitalConfiguration(executor: SqlExecutor, token: string): Promise<ShareholderCapitalConfiguration> {
+    return this.operationalFinanceFunction<ShareholderCapitalConfiguration>(executor,
+      "SELECT abos.shareholder_capital_configuration($1,$2,$3) AS value", token, [],
+      "Shareholder capital configuration is unavailable");
+  }
+
+  async registerShareholderCapitalEvidence(executor: SqlExecutor, token: string,
+    input: ShareholderCapitalEvidenceRegisterRequest & { readonly idempotencyKey: string; readonly correlationId: string }
+  ): Promise<ShareholderCapitalEvidenceRegistrationResult> {
+    return this.operationalFinanceFunction<ShareholderCapitalEvidenceRegistrationResult>(executor,
+      "SELECT abos.register_shareholder_capital_evidence($1,$2,$3,$4::jsonb) AS value", token,
+      [JSON.stringify(input)], "Shareholder capital evidence registration returned no result");
   }
 
   async recordShareholderCapitalReceipt(executor: SqlExecutor, token: string,

@@ -4,6 +4,9 @@ const port = Number(process.env.ABOS_E2E_PORT ?? 3187);
 
 export default defineConfig({
   testDir: "./tests",
+  outputDir: "./test-results/general",
+  // This authenticated suite owns a separate, non-review server configuration and disposable DB.
+  testIgnore: "v1-shareholder-capital-activation.spec.ts",
   expect: { timeout: 15_000 },
   fullyParallel: true,
   forbidOnly: Boolean(process.env.CI),

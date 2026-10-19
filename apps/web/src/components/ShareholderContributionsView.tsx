@@ -358,7 +358,9 @@ function ContributionRow({ c, view, fa, t, canManage, capitalBridge, form, setFo
           <small className="contribution-sub">{c.businessDate}{c.reference ? ` · ${c.reference}` : ""}</small></td>
         <td data-label={fa ? "مبلغ یا ارزش" : "Amount or value"} dir="ltr">{value}</td>
         <td data-label={fa ? "اعلام" : "Declaration"}><em className="treasury-chip">{t(RECORD_COPY[c.recordStatus] ?? { en: c.recordStatus, fa: c.recordStatus })}</em></td>
-        <td data-label={fa ? "دریافت" : "Receipt"}>{t(RECEIPT_COPY[c.receiptStatus] ?? { en: c.receiptStatus, fa: c.receiptStatus })}</td>
+        <td data-label={fa ? "دریافت" : "Receipt"}>{capitalBridge.capability?.state === "OPERATIONAL" && c.type === "CASH" && c.recordStatus === "DECLARED"
+          ? (fa ? "جریان واقعی در پایین" : "Live workflow below")
+          : t(RECEIPT_COPY[c.receiptStatus] ?? { en: c.receiptStatus, fa: c.receiptStatus })}</td>
         <td data-label={fa ? "ارزیابی" : "Valuation"}>{t(VALUATION_COPY[c.valuationStatus] ?? { en: c.valuationStatus, fa: c.valuationStatus })}</td>
         <td data-label="">{canManage && c.editable && !editing && !cancelling ? (
           <span className="shareholder-row-actions">

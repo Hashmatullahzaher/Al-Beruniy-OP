@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import type {
   ShareholderCapitalCustodyDecisionRequest,
+  ShareholderCapitalEvidenceRegisterRequest,
   ShareholderCapitalMappingConfigureRequest,
   ShareholderCapitalPostingDecisionRequest,
   ShareholderCapitalPostingPostRequest,
@@ -60,6 +61,25 @@ export async function configureCapitalMapping(request: Request, input: Sharehold
   const finance = financeHandoffRuntime();
   return restrictedFinanceAuthenticator().configureShareholderCapitalMapping(
     finance.executor, await token(), { ...input, ...commandMeta(request) });
+}
+
+export async function capitalConfiguration() {
+  const finance = financeHandoffRuntime();
+  return restrictedFinanceAuthenticator().shareholderCapitalConfiguration(
+    finance.executor, await token());
+}
+
+export async function registerCapitalEvidence(request: Request, input: ShareholderCapitalEvidenceRegisterRequest) {
+  const meta = commandMeta(request);
+  if (input.evidenceKind === "CAPITAL_ACCOUNT_MAPPING" || input.evidenceKind === "FINANCE_APPROVAL") {
+    const finance = financeHandoffRuntime();
+    return restrictedFinanceAuthenticator().registerShareholderCapitalEvidence(
+      finance.executor, await token(), { ...input, ...meta });
+  }
+  const runtime = treasuryRuntime();
+  const authenticator = new SandboxAuthenticator(runtime.executor, runtime.configuration);
+  return authenticator.registerShareholderCapitalEvidence(
+    runtime.executor, await token(), { ...input, ...meta });
 }
 
 export async function recordCapitalReceipt(request: Request, input: ShareholderCapitalReceiptRecordRequest) {

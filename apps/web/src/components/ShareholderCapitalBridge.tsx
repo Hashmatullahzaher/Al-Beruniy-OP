@@ -1,315 +1,128 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
-
 import type {
-  ShareholderCapitalContributionTrace,
-  ShareholderCapitalPostingCommandResult,
-  ShareholderCapitalReceiptCommandResult,
-  ShareholderCapitalReceiptTrace,
-  ShareholderCapitalTraceReadModel,
-  ShareholderContribution,
-  ShareholderFinanceCapability
+  ShareholderCapitalConfiguration, ShareholderCapitalContributionTrace,
+  ShareholderCapitalEvidenceKind, ShareholderCapitalEvidenceRegistrationResult,
+  ShareholderCapitalPostingCommandResult, ShareholderCapitalReceiptCommandResult,
+  ShareholderCapitalReceiptTrace, ShareholderCapitalTraceReadModel,
+  ShareholderContribution, ShareholderFinanceCapability
 } from "@abos/contracts";
-
 import { AppIcon } from "@/components/AppIcon";
 import { exactDecimal } from "@/components/ExchangeRatesWorkspace";
+import { useSession } from "@/components/SessionProvider";
 
-type OperationalCapability = ShareholderFinanceCapability;
+type ApiEnvelope<T> = { readonly ok: true; readonly data: T } | { readonly ok: false; readonly error?: { readonly code?: string; readonly message?: string }; readonly capability?: ShareholderFinanceCapability };
+type EvidenceDraft = { readonly reference: string; readonly file: File | null };
+export interface CapitalBridgeState { readonly loading: boolean; readonly capability: ShareholderFinanceCapability | null; readonly error: string | null; readonly reload: () => Promise<void> }
 
-export interface CapitalBridgeState {
-  readonly loading: boolean;
-  readonly capability: OperationalCapability | null;
-  readonly error: string | null;
-  readonly reload: () => Promise<void>;
+async function envelope<T>(response: Response): Promise<ApiEnvelope<T>> {
+  try { return await response.json() as ApiEnvelope<T>; }
+  catch { return { ok: false, error: { message: "The server returned an unreadable response." } }; }
 }
+function errorText(value: ApiEnvelope<unknown>, fa: boolean) { return value.ok ? "" : value.error?.message ?? (fa ? "درخواست انجام نشد." : "The request failed; nothing was changed."); }
+function headers(key: string): HeadersInit { return { "Content-Type": "application/json", "Idempotency-Key": key, "X-Correlation-Id": crypto.randomUUID() }; }
+function keyFor(keys: Map<string, string>, fingerprint: string) { const found = keys.get(fingerprint); if (found) return found; const key = crypto.randomUUID(); keys.set(fingerprint, key); return key; }
+async function fileHash(file: File) { const digest = await crypto.subtle.digest("SHA-256", await file.arrayBuffer()); return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join(""); }
+function kabulToday() { return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kabul", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date()); }
+function money(amount: string, currency: string) { return `${currency} ${exactDecimal(amount)}`; }
+function when(value: string | null | undefined) { return value ? new Date(value).toLocaleString() : "—"; }
 
-type ApiEnvelope<T> = { readonly ok: true; readonly data: T } | {
-  readonly ok: false;
-  readonly error?: { readonly code?: string; readonly message?: string };
-  readonly capability?: OperationalCapability;
-};
-
-async function readEnvelope<T>(response: Response): Promise<ApiEnvelope<T>> {
+async function registerEvidence(kind: ShareholderCapitalEvidenceKind, subjectId: string | null, draft: EvidenceDraft, keys: Map<string, string>): Promise<ApiEnvelope<ShareholderCapitalEvidenceRegistrationResult>> {
+  if (!draft.file || !draft.reference.trim()) return { ok: false, error: { message: "Choose the supporting file and enter its document reference." } } as ApiEnvelope<ShareholderCapitalEvidenceRegistrationResult>;
+  if (draft.file.size > 20 * 1024 * 1024) return { ok: false, error: { message: "The selected file is larger than the 20 MB local hashing limit." } } as ApiEnvelope<ShareholderCapitalEvidenceRegistrationResult>;
   try {
-    return await response.json() as ApiEnvelope<T>;
+    const body = { evidenceKind: kind, subjectId, documentReference: draft.reference.trim(), sha256: await fileHash(draft.file) };
+    const fingerprint = `evidence:${JSON.stringify(body)}`;
+    // Retain this key across the parent command. If its response is lost, the same evidence ID
+    // and parent payload are replayed instead of producing a second business command.
+    return await envelope<ShareholderCapitalEvidenceRegistrationResult>(await fetch("/api/v1/shareholder/capital-evidence", { method: "POST", headers: headers(keyFor(keys, fingerprint)), body: JSON.stringify(body) }));
   } catch {
-    return { ok: false, error: { code: "INVALID_RESPONSE", message: "The server returned an unreadable response." } };
+    return { ok: false, error: { message: "The file fingerprint could not be calculated. Choose the file again and retry." } };
   }
 }
 
+function EvidenceSummary({ fa, label, evidence }: { readonly fa: boolean; readonly label: string; readonly evidence: { readonly reference: string; readonly sha256: string; readonly kind: ShareholderCapitalEvidenceKind } | null | undefined }) {
+  if (!evidence) return null;
+  return <details className="admin-hint"><summary>{label}: {evidence.reference}</summary><span>{fa ? "نوع" : "Kind"}: {evidence.kind}</span><br /><code dir="ltr">SHA-256 {evidence.sha256}</code></details>;
+}
+
+function EvidenceFields({ fa, value, optional = false, onChange }: { readonly fa: boolean; readonly value: EvidenceDraft; readonly optional?: boolean; readonly onChange: (value: EvidenceDraft) => void }) {
+  return <><label><span>{fa ? `مرجع سند${optional ? " (اختیاری)" : ""}` : `Evidence reference${optional ? " (optional)" : ""}`}</span><input required={!optional} maxLength={200} value={value.reference} onChange={(event) => onChange({ ...value, reference: event.target.value })} /></label><label><span>{fa ? `فایل برای اثر انگشت${optional ? " (اختیاری)" : ""}` : `File for fingerprint${optional ? " (optional)" : ""}`}</span><input required={!optional} type="file" onChange={(event) => onChange({ ...value, file: event.target.files?.[0] ?? null })} /></label></>;
+}
+
 export function useShareholderCapitalBridge(): CapitalBridgeState {
-  const [loading, setLoading] = useState(true);
-  const [capability, setCapability] = useState<OperationalCapability | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  const reload = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    setCapability(null);
-    try {
-      const response = await fetch("/api/v1/shareholder/capital-bridge/capability", { cache: "no-store" });
-      const body = await readEnvelope<OperationalCapability>(response);
-      if (body.ok) setCapability(body.data);
-      else if (body.capability) setCapability(body.capability);
-      else {
-        setCapability(null);
-        setError(body.error?.message ?? "The capital receipt capability could not be checked.");
-      }
-    } catch {
-      setCapability(null);
-      setError("The capital receipt capability could not be checked.");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
+  const [loading, setLoading] = useState(true); const [capability, setCapability] = useState<ShareholderFinanceCapability | null>(null); const [error, setError] = useState<string | null>(null);
+  const reload = useCallback(async () => { setLoading(true); setError(null); try { const body = await envelope<ShareholderFinanceCapability>(await fetch("/api/v1/shareholder/capital-bridge/capability", { cache: "no-store" })); if (body.ok) setCapability(body.data); else if (body.capability) setCapability(body.capability); else { setCapability(null); setError(body.error?.message ?? "The capital receipt capability could not be checked."); } } catch { setCapability(null); setError("The capital receipt capability could not be checked."); } finally { setLoading(false); } }, []);
   useEffect(() => {
     let current = true;
-    void fetch("/api/v1/shareholder/capital-bridge/capability", { cache: "no-store" })
-      .then((response) => readEnvelope<OperationalCapability>(response))
-      .then((body) => {
-        if (!current) return;
-        if (body.ok) setCapability(body.data);
-        else if (body.capability) setCapability(body.capability);
-        else setError(body.error?.message ?? "The capital receipt capability could not be checked.");
-        setLoading(false);
-      })
-      .catch(() => {
-        if (!current) return;
-        setError("The capital receipt capability could not be checked.");
-        setLoading(false);
-      });
+    void fetch("/api/v1/shareholder/capital-bridge/capability", { cache: "no-store" }).then(envelope<ShareholderFinanceCapability>).then((body) => {
+      if (!current) return;
+      if (body.ok) setCapability(body.data); else if (body.capability) setCapability(body.capability); else { setCapability(null); setError(body.error?.message ?? "The capital receipt capability could not be checked."); }
+    }).catch(() => { if (current) { setCapability(null); setError("The capital receipt capability could not be checked."); } }).finally(() => { if (current) setLoading(false); });
     return () => { current = false; };
   }, []);
   return { loading, capability, error, reload };
 }
 
 export function ShareholderCapitalBoundary({ fa, bridge }: { readonly fa: boolean; readonly bridge: CapitalBridgeState }) {
-  const { loading, capability, error } = bridge;
-  const operational = capability?.state === "OPERATIONAL" && capability.mutationAvailable;
-  const unavailable = capability?.state === "SCHEMA_NOT_AVAILABLE" || capability === null;
-  const title = loading
-    ? (fa ? "بررسی مسیر دریافت سرمایه" : "CHECKING CAPITAL RECEIPT PATH")
-    : operational
-      ? (fa ? "مسیر عملیاتی سرمایه نقدی" : "OPERATIONAL CASH CAPITAL PATH")
-      : unavailable
-        ? (fa ? "مسیر دریافت سرمایه در دسترس نیست" : "CAPITAL RECEIPT PATH UNAVAILABLE")
-        : (fa ? "تنظیمات سرمایه تکمیل نیست" : "CAPITAL CONFIGURATION REQUIRED");
-  const detail = loading
-    ? (fa ? "وضعیت پایگاه داده و صلاحیت‌های زنده در حال بررسی است." : "Checking the live database capability and permissions.")
-    : operational
-      ? (fa
-        ? "دریافت نقدی هم‌ارز می‌تواند از اعلام آورده تا تأیید تحویل خزانه، تصویب مالی و ثبت دفتری پیش برود. هر مرحله دوباره در سرور و پایگاه داده بررسی می‌شود."
-        : "Same-currency cash receipts can progress from declaration through Treasury custody verification, Finance approval and posting. Every step is re-authorized by the server and database.")
-      : unavailable
-        ? (error ?? capability?.reason ?? (fa ? "ساختار هماهنگ پایگاه داده نصب نشده است." : "The coordinated database capability is not installed."))
-        : (fa
-          ? `پیش از دریافت، پالیسی تصویب و حساب سرمایه پرداخت‌شده باید توسط مالی تنظیم شود. ${capability?.reason ?? ""}`
-          : `Finance must configure the approval policy and paid-in-capital account before a receipt can be recorded. ${capability?.reason ?? ""}`);
-
-  return <section className={`finance-boundary-banner capital-live-boundary ${operational ? "operational" : "blocked"}`} data-testid="receipt-not-operational" role="status">
-    <span><AppIcon name={operational ? "coins" : "shield"} size={22} /></span>
-    <div><p>{title}</p><strong>{detail}</strong></div>
-    <em>{operational ? (fa ? "عملیاتی" : "Operational") : loading ? (fa ? "در حال بررسی" : "Checking") : (fa ? "بدون عملیات" : "No actions")}</em>
-  </section>;
+  const operational = bridge.capability?.state === "OPERATIONAL" && bridge.capability.mutationAvailable;
+  const title = bridge.loading ? (fa ? "بررسی مسیر دریافت سرمایه" : "CHECKING CAPITAL RECEIPT PATH") : operational ? (fa ? "مسیر عملیاتی سرمایه نقدی" : "OPERATIONAL CASH CAPITAL PATH") : bridge.capability?.schemaInstalled ? (fa ? "تنظیمات سرمایه تکمیل نیست" : "CAPITAL CONFIGURATION REQUIRED") : (fa ? "مسیر دریافت سرمایه در دسترس نیست" : "CAPITAL RECEIPT PATH UNAVAILABLE");
+  const detail = bridge.loading ? (fa ? "وضعیت زنده در حال بررسی است." : "Checking the live database capability and permissions.") : operational ? (fa ? "دریافت، تحویل خزانه، تصویب مالی و ثبت دفتری مراحل جداگانه‌اند." : "Receipt, Treasury custody, Finance approval and posting are separate authorized steps.") : bridge.error ?? bridge.capability?.reason ?? (fa ? "قابلیت نصب نشده است." : "The capability is not installed.");
+  return <section className={`finance-boundary-banner capital-live-boundary ${operational ? "operational" : "blocked"}`} role="status"><span><AppIcon name={operational ? "coins" : "shield"} size={22} /></span><div><p>{title}</p><strong>{detail}</strong></div><em>{operational ? (fa ? "عملیاتی" : "Operational") : (fa ? "بدون عملیات" : "No actions")}</em></section>;
 }
 
-type ReceiptWithVersion = ShareholderCapitalReceiptTrace;
-interface TraceWithVersions extends Omit<ShareholderCapitalTraceReadModel, "contribution"> {
-  readonly contribution: Omit<ShareholderCapitalContributionTrace, "receipts"> & { readonly receipts: readonly ReceiptWithVersion[] };
+export function ShareholderCapitalConfigurationPanel({ fa, bridge }: { readonly fa: boolean; readonly bridge: CapitalBridgeState }) {
+  const allowed = bridge.capability?.schemaInstalled === true && bridge.capability.permissions?.includes("finance.capital-receipt.configure") === true;
+  const [view, setView] = useState<ShareholderCapitalConfiguration | null>(null); const [open, setOpen] = useState(false); const [ledger, setLedger] = useState(""); const [reason, setReason] = useState(""); const [evidence, setEvidence] = useState<EvidenceDraft>({ reference: "", file: null }); const [message, setMessage] = useState<string | null>(null); const [busy, setBusy] = useState(false); const keys = useRef(new Map<string, string>());
+  const load = useCallback(async () => { if (!allowed) return; const result = await envelope<ShareholderCapitalConfiguration>(await fetch("/api/v1/finance/shareholder-capital-configuration", { cache: "no-store" })); if (result.ok) { setView(result.data); setLedger((old) => old || result.data.accounts[0]?.id || ""); } else setMessage(errorText(result, fa)); }, [allowed, fa]);
+  useEffect(() => {
+    if (!allowed) return;
+    let current = true;
+    void fetch("/api/v1/finance/shareholder-capital-configuration", { cache: "no-store" }).then(envelope<ShareholderCapitalConfiguration>).then((result) => {
+      if (!current) return;
+      if (result.ok) { setView(result.data); setLedger((old) => old || result.data.accounts[0]?.id || ""); } else setMessage(errorText(result, fa));
+    });
+    return () => { current = false; };
+  }, [allowed, fa]);
+  if (!allowed) return null;
+  const submit = async (event: FormEvent) => { event.preventDefault(); setBusy(true); setMessage(null); try { const registered = await registerEvidence("CAPITAL_ACCOUNT_MAPPING", null, evidence, keys.current); if (!registered.ok) { setMessage(errorText(registered, fa)); return; } const body = { ledgerAccountId: ledger, evidenceReferenceId: registered.data.evidenceReferenceId, changeReason: reason.trim() }; const fingerprint = `mapping:${JSON.stringify(body)}`; const result = await envelope<Record<string, unknown>>(await fetch("/api/v1/finance/shareholder-capital-mapping", { method: "POST", headers: headers(keyFor(keys.current, fingerprint)), body: JSON.stringify(body) })); if (!result.ok) { setMessage(errorText(result, fa)); return; } keys.current.delete(fingerprint); setOpen(false); setReason(""); setEvidence({ reference: "", file: null }); setMessage(fa ? "حساب سرمایه تنظیم شد." : "The paid-in-capital account was configured."); await Promise.all([load(), bridge.reload()]); } finally { setBusy(false); } };
+  const mapped = view?.accounts.find((account) => account.id === view.mapping?.ledgerAccountId);
+  return <section className="module-content-card capital-configuration"><div className="module-card-heading"><div><p>{fa ? "تنظیم مالی" : "FINANCE CONFIGURATION"}</p><h2>{fa ? "حساب سرمایه پرداخت‌شده" : "Paid-in capital mapping"}</h2></div><span>{view?.mapping ? `${mapped?.code ?? ""} · ${mapped?.name ?? view.mapping.ledgerAccountId} · v${view.mapping.version}` : (fa ? "تنظیم نشده" : "Not configured")}</span></div><p className="admin-hint">{fa ? "فایل در مرورگر هش می‌شود و بارگذاری نمی‌شود. اثر انگشت اعتبار حقوقی را ثابت نمی‌کند." : "The file is hashed in your browser and is not uploaded. A fingerprint does not prove legal validity."}</p>{!open ? <button className="treasury-button" type="button" onClick={() => setOpen(true)}>{fa ? "تنظیم حساب" : "Configure account"}</button> : <form className="admin-form capital-operation-form" onSubmit={(event) => void submit(event)}><label><span>{fa ? "حساب سرمایه" : "Capital account"}</span><select required value={ledger} onChange={(event) => setLedger(event.target.value)}><option value="">{fa ? "انتخاب حساب" : "Choose account"}</option>{view?.accounts.map((account) => <option key={account.id} value={account.id}>{account.code} · {account.name} · {account.currency}</option>)}</select></label><EvidenceFields fa={fa} value={evidence} onChange={setEvidence} /><label><span>{fa ? "دلیل تنظیم" : "Configuration reason"}</span><input required minLength={3} maxLength={500} value={reason} onChange={(event) => setReason(event.target.value)} /></label><div className="rates-actions"><button className="treasury-button gold" disabled={busy}>{fa ? "ثبت تنظیم" : "Save mapping"}</button><button className="treasury-button" type="button" onClick={() => setOpen(false)}>{fa ? "لغو" : "Cancel"}</button></div></form>}{message ? <p className="admin-hint" role="status">{message}</p> : null}</section>;
 }
 
-type ReceiptForm = {
-  readonly amount: string; readonly destination: string; readonly reference: string; readonly evidence: string;
-};
-type ActionForm = {
-  readonly receiptId: string; readonly kind: "VERIFY" | "PREPARE" | "DECIDE";
-  readonly evidence: string; readonly reason: string; readonly decision: "APPROVED" | "REJECTED";
-  readonly verificationKind: "PHYSICAL_CASH_COUNT" | "BANK_CONFIRMATION" | "SARAF_CONFIRMATION" | "CONTROLLED_EVIDENCE";
-  readonly effectiveDate: string;
-};
+type Trace = Omit<ShareholderCapitalTraceReadModel, "contribution"> & { readonly contribution: Omit<ShareholderCapitalContributionTrace, "receipts"> & { readonly receipts: readonly ShareholderCapitalReceiptTrace[] } };
+type ReceiptForm = { readonly amount: string; readonly receiptDate: string; readonly destination: string; readonly reference: string; readonly evidence: EvidenceDraft };
+type ActionForm = { readonly receiptId: string; readonly kind: "VERIFY" | "PREPARE" | "DECIDE"; readonly evidence: EvidenceDraft; readonly reason: string; readonly decision: "APPROVED" | "REJECTED"; readonly custodyDecision: "VERIFIED" | "REJECTED"; readonly verificationKind: "PHYSICAL_CASH_COUNT" | "BANK_CONFIRMATION" | "SARAF_CONFIRMATION" | "CONTROLLED_EVIDENCE" };
 
-function requestHeaders(idempotencyKey: string): HeadersInit {
-  return { "Content-Type": "application/json", "Idempotency-Key": idempotencyKey, "X-Correlation-Id": crypto.randomUUID() };
-}
-
-function operationError(body: ApiEnvelope<unknown>, fa: boolean): string {
-  if (body.ok) return "";
-  return body.error?.message ?? (fa ? "درخواست انجام نشد؛ هیچ چیزی تغییر نکرد." : "The request failed; nothing was changed.");
-}
-
-function capitalMoney(amount: string, currency: string): string {
-  return `${currency} ${exactDecimal(amount)}`;
-}
-
-export function ShareholderCapitalOperations({ contribution, fa, bridge }: {
-  readonly contribution: ShareholderContribution;
-  readonly fa: boolean;
-  readonly bridge: CapitalBridgeState;
-}) {
-  const capability = bridge.capability;
-  const permissions = capability?.permissions ?? [];
-  const operational = capability?.state === "OPERATIONAL" && capability.mutationAvailable;
-  const canRead = permissions.includes("shareholder.capital-receipt.read");
-  const canRecord = permissions.includes("shareholder.capital-receipt.record");
-  const canVerify = permissions.includes("treasury.capital-receipt.verify");
-  const canPrepare = permissions.includes("finance.capital-receipt.prepare");
-  const canDecide = permissions.includes("finance.capital-receipt.approve");
-  const canPost = permissions.includes("finance.capital-receipt.post");
-  const relevant = canRead || canRecord || canVerify || canPrepare || canDecide || canPost;
-  const [trace, setTrace] = useState<TraceWithVersions | null>(null);
-  const [loadingTrace, setLoadingTrace] = useState(false);
-  const [receiptForm, setReceiptForm] = useState<ReceiptForm | null>(null);
-  const [actionForm, setActionForm] = useState<ActionForm | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<{ readonly tone: "ok" | "error"; readonly text: string } | null>(null);
-  const idempotencyKeys = useRef(new Map<string, string>());
-
-  const loadTrace = useCallback(async () => {
-    if (!operational || !canRead) { setTrace(null); return; }
-    setLoadingTrace(true);
-    const response = await fetch(`/api/v1/finance/shareholder-capital-trace/${contribution.id}`, { cache: "no-store" });
-    const body = await readEnvelope<TraceWithVersions>(response);
-    setLoadingTrace(false);
-    if (body.ok) setTrace(body.data);
-    else setMessage({ tone: "error", text: operationError(body, fa) });
-  }, [canRead, contribution.id, fa, operational]);
-
+export function ShareholderCapitalOperations({ contribution, fa, bridge }: { readonly contribution: ShareholderContribution; readonly fa: boolean; readonly bridge: CapitalBridgeState }) {
+  const session = useSession();
+  const capability = bridge.capability; const permissions = capability?.permissions ?? []; const operational = capability?.state === "OPERATIONAL" && capability.mutationAvailable;
+  const canRead = permissions.includes("shareholder.capital-receipt.read"), canRecord = permissions.includes("shareholder.capital-receipt.record"), canVerify = permissions.includes("treasury.capital-receipt.verify"), canPrepare = permissions.includes("finance.capital-receipt.prepare"), canDecide = permissions.includes("finance.capital-receipt.approve"), canPost = permissions.includes("finance.capital-receipt.post");
+  const [trace, setTrace] = useState<Trace | null>(null); const [loading, setLoading] = useState(true); const [receiptForm, setReceiptForm] = useState<ReceiptForm | null>(null); const [action, setAction] = useState<ActionForm | null>(null); const [busy, setBusy] = useState(false); const [message, setMessage] = useState<{ readonly ok: boolean; readonly text: string } | null>(null); const keys = useRef(new Map<string, string>());
+  const load = useCallback(async () => { if (!operational || !canRead) { setTrace(null); return; } setLoading(true); const result = await envelope<Trace>(await fetch(`/api/v1/finance/shareholder-capital-trace/${contribution.id}`, { cache: "no-store" })); setLoading(false); if (result.ok) setTrace(result.data); else setMessage({ ok: false, text: errorText(result, fa) }); }, [canRead, contribution.id, fa, operational]);
   useEffect(() => {
     if (!operational || !canRead) return;
     let current = true;
-    void fetch(`/api/v1/finance/shareholder-capital-trace/${contribution.id}`, { cache: "no-store" })
-      .then((response) => readEnvelope<TraceWithVersions>(response))
-      .then((body) => {
-        if (!current) return;
-        if (body.ok) setTrace(body.data);
-        else setMessage({ tone: "error", text: operationError(body, fa) });
-      })
-      .catch(() => {
-        if (current) setMessage({ tone: "error", text: fa ? "سابقه دریافت بارگذاری نشد." : "Receipt history could not be loaded." });
-      });
+    void fetch(`/api/v1/finance/shareholder-capital-trace/${contribution.id}`, { cache: "no-store" }).then(envelope<Trace>).then((result) => {
+      if (!current) return;
+      setLoading(false); if (result.ok) setTrace(result.data); else setMessage({ ok: false, text: errorText(result, fa) });
+    });
     return () => { current = false; };
   }, [canRead, contribution.id, fa, operational]);
-  if (!operational || !relevant || contribution.type !== "CASH" || contribution.recordStatus !== "DECLARED" || !contribution.amount || !contribution.currency) return null;
-
-  const run = async <T,>(url: string, bodyValue: unknown, success: string): Promise<T | null> => {
-    setBusy(true); setMessage(null);
-    const canonicalRequest = `${url}:${JSON.stringify(bodyValue)}`;
-    const idempotencyKey = idempotencyKeys.current.get(canonicalRequest) ?? crypto.randomUUID();
-    idempotencyKeys.current.set(canonicalRequest, idempotencyKey);
-    try {
-      const response = await fetch(url, { method: "POST", headers: requestHeaders(idempotencyKey), body: JSON.stringify(bodyValue) });
-      const body = await readEnvelope<T>(response);
-      if (!body.ok) { setMessage({ tone: "error", text: operationError(body, fa) }); return null; }
-      idempotencyKeys.current.delete(canonicalRequest);
-      setMessage({ tone: "ok", text: success });
-      return body.data;
-    } catch {
-      setMessage({ tone: "error", text: fa ? "سرور در دسترس نیست؛ هیچ چیزی تغییر نکرد." : "The server is unavailable; nothing was changed." });
-      return null;
-    } finally { setBusy(false); }
-  };
-
-  const record = async (event: FormEvent) => {
-    event.preventDefault();
-    if (!receiptForm) return;
-    const result = await run<ShareholderCapitalReceiptCommandResult>("/api/v1/shareholder/capital-receipts", {
-      contributionId: contribution.id, expectedContributionVersion: contribution.version,
-      amount: { amount: receiptForm.amount, currency: contribution.currency }, receiptDate: contribution.businessDate,
-      treasuryDestinationId: receiptForm.destination, paymentReference: receiptForm.reference.trim() || null,
-      evidenceReferenceId: receiptForm.evidence.trim() || null
-    }, fa ? "دریافت ثبت شد؛ هنوز تحویل خزانه تأیید یا ثبت دفتری نشده است." : "Receipt recorded. Custody is not yet verified and nothing has been posted.");
-    if (result) { setReceiptForm(null); await loadTrace(); }
-  };
-
-  const act = async (receipt: ReceiptWithVersion, form: ActionForm) => {
-    if (form.kind === "VERIFY") {
-      const result = await run<ShareholderCapitalReceiptCommandResult>(`/api/v1/treasury/shareholder-capital-receipts/${receipt.receiptId}/verify`, {
-        expectedReceiptVersion: receipt.receiptVersion, decision: "VERIFIED", verificationKind: form.verificationKind,
-        evidenceReferenceId: form.evidence, decisionReason: null
-      }, fa ? "تحویل خزانه به‌صورت مستقل تأیید شد." : "Treasury custody was independently verified.");
-      if (result) { setActionForm(null); await loadTrace(); }
-      return;
-    }
-    if (form.kind === "PREPARE") {
-      const result = await run<ShareholderCapitalPostingCommandResult>(`/api/v1/finance/shareholder-capital-receipts/${receipt.receiptId}/prepare`, {
-        expectedReceiptVersion: receipt.receiptVersion, accountingEffectiveDate: form.effectiveDate
-      }, fa ? "سند ثبت برای تصویب مالی آماده شد؛ هنوز ثبت دفتری نشده است." : "Posting was prepared for Finance approval. Nothing has been posted yet.");
-      if (result) { setActionForm(null); await loadTrace(); }
-      return;
-    }
-    if (!receipt.postingIntentId || receipt.postingIntentVersion === null) return;
-    const result = await run<ShareholderCapitalPostingCommandResult>(`/api/v1/finance/shareholder-capital-postings/${receipt.postingIntentId}/decision`, {
-      expectedIntentVersion: receipt.postingIntentVersion, decision: form.decision, evidenceReferenceId: form.evidence,
-      decisionReason: form.reason
-    }, form.decision === "APPROVED"
-      ? (fa ? "ثبت توسط مالی تصویب شد؛ هنوز ژورنال ایجاد نشده است." : "Finance approved the posting. No journal has been created yet.")
-      : (fa ? "ثبت توسط مالی رد شد؛ هیچ ژورنالی ایجاد نشد." : "Finance rejected the posting. No journal was created."));
-    if (result) { setActionForm(null); await loadTrace(); }
-  };
-
-  const post = async (receipt: ReceiptWithVersion) => {
-    if (!receipt.postingIntentId || receipt.postingIntentVersion === null) return;
-    const result = await run<ShareholderCapitalPostingCommandResult>(`/api/v1/finance/shareholder-capital-postings/${receipt.postingIntentId}/post`, {
-      expectedIntentVersion: receipt.postingIntentVersion
-    }, fa ? "دریافت در دفتر کل ثبت شد." : "The receipt was posted to the General Ledger.");
-    if (result) await loadTrace();
-  };
-
+  if (!operational || !(canRead || canRecord || canVerify || canPrepare || canDecide || canPost) || contribution.type !== "CASH" || contribution.recordStatus !== "DECLARED" || !contribution.amount || !contribution.currency) return null;
+  const run = async <T,>(url: string, value: unknown, success: string) => { setBusy(true); setMessage(null); const fingerprint = `${url}:${JSON.stringify(value)}`; try { const result = await envelope<T>(await fetch(url, { method: "POST", headers: headers(keyFor(keys.current, fingerprint)), body: JSON.stringify(value) })); if (!result.ok) { setMessage({ ok: false, text: errorText(result, fa) }); return null; } keys.current.delete(fingerprint); setMessage({ ok: true, text: success }); return result.data; } finally { setBusy(false); } };
+  const record = async (event: FormEvent) => { event.preventDefault(); if (!receiptForm) return; let evidenceReferenceId: string | null = null; if (receiptForm.evidence.file || receiptForm.evidence.reference.trim()) { const evidenceResult = await registerEvidence("CASH_RECEIPT", contribution.id, receiptForm.evidence, keys.current); if (!evidenceResult.ok) { setMessage({ ok: false, text: errorText(evidenceResult, fa) }); return; } evidenceReferenceId = evidenceResult.data.evidenceReferenceId; } const result = await run<ShareholderCapitalReceiptCommandResult>("/api/v1/shareholder/capital-receipts", { contributionId: contribution.id, expectedContributionVersion: contribution.version, amount: { amount: receiptForm.amount, currency: contribution.currency }, receiptDate: receiptForm.receiptDate, treasuryDestinationId: receiptForm.destination, paymentReference: receiptForm.reference.trim() || null, evidenceReferenceId }, fa ? "دریافت ثبت شد؛ هنوز ثبت دفتری نشده است." : "Receipt recorded. Nothing has been posted."); if (result) { setReceiptForm(null); await load(); } };
+  const decide = async (receipt: ShareholderCapitalReceiptTrace, form: ActionForm) => { if (form.kind === "PREPARE") { const result = await run<ShareholderCapitalPostingCommandResult>(`/api/v1/finance/shareholder-capital-receipts/${receipt.receiptId}/prepare`, { expectedReceiptVersion: receipt.receiptVersion, accountingEffectiveDate: receipt.receiptDate }, fa ? "ثبت برای تصویب آماده شد." : "Posting was prepared for approval."); if (result) { setAction(null); await load(); } return; } const kind: ShareholderCapitalEvidenceKind = form.kind === "VERIFY" ? form.verificationKind : "FINANCE_APPROVAL"; const subjectId = form.kind === "VERIFY" ? receipt.receiptId : receipt.postingIntentId; const evidenceResult = await registerEvidence(kind, subjectId, form.evidence, keys.current); if (!evidenceResult.ok) { setMessage({ ok: false, text: errorText(evidenceResult, fa) }); return; } if (form.kind === "VERIFY") { const result = await run<ShareholderCapitalReceiptCommandResult>(`/api/v1/treasury/shareholder-capital-receipts/${receipt.receiptId}/verify`, { expectedReceiptVersion: receipt.receiptVersion, decision: form.custodyDecision, verificationKind: form.verificationKind, evidenceReferenceId: evidenceResult.data.evidenceReferenceId, decisionReason: form.custodyDecision === "REJECTED" ? form.reason : null }, form.custodyDecision === "VERIFIED" ? (fa ? "تحویل تأیید شد." : "Custody verified.") : (fa ? "تحویل رد شد." : "Custody rejected.")); if (result) { setAction(null); await load(); } return; } if (!receipt.postingIntentId || receipt.postingIntentVersion === null) return; const result = await run<ShareholderCapitalPostingCommandResult>(`/api/v1/finance/shareholder-capital-postings/${receipt.postingIntentId}/decision`, { expectedIntentVersion: receipt.postingIntentVersion, decision: form.decision, evidenceReferenceId: evidenceResult.data.evidenceReferenceId, decisionReason: form.reason }, form.decision === "APPROVED" ? (fa ? "ثبت تصویب شد." : "Posting approved.") : (fa ? "ثبت رد شد." : "Posting rejected.")); if (result) { setAction(null); await load(); } };
+  const post = async (receipt: ShareholderCapitalReceiptTrace) => { if (!receipt.postingIntentId || receipt.postingIntentVersion === null) return; const result = await run<ShareholderCapitalPostingCommandResult>(`/api/v1/finance/shareholder-capital-postings/${receipt.postingIntentId}/post`, { expectedIntentVersion: receipt.postingIntentVersion }, fa ? "دریافت در دفتر کل ثبت شد." : "The receipt was posted to the General Ledger."); if (result) await load(); };
+  const newAction = (receipt: ShareholderCapitalReceiptTrace, kind: ActionForm["kind"]): ActionForm => ({ receiptId: receipt.receiptId, kind, evidence: { reference: "", file: null }, reason: "", decision: "APPROVED", custodyDecision: "VERIFIED", verificationKind: "PHYSICAL_CASH_COUNT" });
   const receipts = trace?.contribution.receipts ?? [];
-  return <div className="capital-operations" aria-label={fa ? "عملیات واقعی دریافت سرمایه" : "Operational capital receipt actions"}>
-    <div className="capital-operations-head"><div><p>{fa ? "مسیر واقعی سرمایه نقدی" : "LIVE CASH CAPITAL WORKFLOW"}</p>
-      <strong>{fa ? "اعلام آورده، دریافت نقدی نیست. هر مرحله مستقل ثبت می‌شود." : "A declaration is not a cash receipt. Each stage is recorded independently."}</strong></div>
-      {canRead ? <button type="button" className="treasury-button quiet" disabled={loadingTrace || busy} onClick={() => void loadTrace()}>{fa ? "تازه‌سازی" : "Refresh"}</button> : null}</div>
-    {message ? <div className={`treasury-message ${message.tone === "ok" ? "success" : "error"}`} role="status"><span>{message.text}</span><button type="button" onClick={() => setMessage(null)} aria-label={fa ? "بستن" : "Dismiss"}>×</button></div> : null}
-    {canRecord && receiptForm === null ? <button type="button" className="treasury-button gold" onClick={() => setReceiptForm({ amount: contribution.amount ?? "", destination: "", reference: "", evidence: "" })}>{fa ? "ثبت دریافت واقعی" : "Record actual receipt"}</button> : null}
-    {receiptForm ? <form className="admin-form capital-operation-form" onSubmit={(event) => void record(event)}>
-      <h3>{fa ? "جزئیات دریافت نقدی" : "Cash receipt details"}</h3>
-      <label><span>{fa ? "مبلغ" : "Amount"}</span><input dir="ltr" inputMode="decimal" required value={receiptForm.amount} onChange={(event) => setReceiptForm({ ...receiptForm, amount: event.target.value })} /></label>
-      <label><span>{fa ? "حساب دریافت‌کننده خزانه" : "Treasury receiving account"}</span>
-        <select required value={receiptForm.destination} onChange={(event) => setReceiptForm({ ...receiptForm, destination: event.target.value })}>
-          <option value="">{fa ? "انتخاب حساب" : "Choose account"}</option>
-          {(capability?.treasuryDestinations ?? []).map((destination) => (
-            <option key={destination.id} value={destination.id}>{destination.name} · {destination.currency}</option>
-          ))}
-        </select>
-      </label>
-      <label><span>{fa ? "مرجع پرداخت (اختیاری)" : "Payment reference (optional)"}</span><input maxLength={120} value={receiptForm.reference} onChange={(event) => setReceiptForm({ ...receiptForm, reference: event.target.value })} /></label>
-      <label><span>{fa ? "شناسه سند دریافت (اختیاری)" : "Receipt evidence ID (optional)"}</span><input dir="ltr" pattern="[0-9a-fA-F-]{36}" value={receiptForm.evidence} onChange={(event) => setReceiptForm({ ...receiptForm, evidence: event.target.value })} /></label>
-      <p className="admin-hint">{fa ? `تاریخ دریافت ${contribution.businessDate} و واحد پول ${contribution.currency} از اعلام آورده گرفته می‌شود.` : `Receipt date ${contribution.businessDate} and currency ${contribution.currency} come from the declaration.`}</p>
-      <div className="rates-actions"><button className="treasury-button gold" type="submit" disabled={busy}>{fa ? "ثبت دریافت" : "Record receipt"}</button><button className="treasury-button" type="button" onClick={() => setReceiptForm(null)}>{fa ? "لغو" : "Cancel"}</button></div>
-    </form> : null}
-    {canRead && loadingTrace ? <p className="admin-hint">{fa ? "در حال بارگذاری سابقه دریافت…" : "Loading receipt history…"}</p> : null}
-    {canRead && !loadingTrace && receipts.length === 0 ? <p className="admin-hint">{fa ? "هنوز دریافت واقعی ثبت نشده است." : "No actual receipt has been recorded yet."}</p> : null}
-    {receipts.map((receipt) => {
-      const action = actionForm?.receiptId === receipt.receiptId ? actionForm : null;
-      const status = receipt.postingState === "POSTED" ? (fa ? "ثبت‌شده" : "Posted") : receipt.approvalState === "APPROVED" ? (fa ? "تصویب‌شده مالی" : "Finance approved") : receipt.custodyState === "VERIFIED" ? (fa ? "تحویل خزانه تأییدشده" : "Custody verified") : (fa ? "منتظر تأیید تحویل" : "Awaiting custody verification");
-      return <article className="capital-receipt" key={receipt.receiptId}><header><strong dir="ltr">{capitalMoney(receipt.amount.amount, receipt.amount.currency)}</strong><em className="treasury-chip">{status}</em></header>
-        <p>{receipt.receiptDate} · {receipt.treasuryDestinationName}</p>
-        <div className="shareholder-row-actions">
-          {canVerify && receipt.custodyState === "PENDING_VERIFICATION" ? <button className="treasury-button" type="button" onClick={() => setActionForm({ receiptId: receipt.receiptId, kind: "VERIFY", evidence: "", reason: "", decision: "APPROVED", verificationKind: "PHYSICAL_CASH_COUNT", effectiveDate: contribution.businessDate })}>{fa ? "تأیید تحویل خزانه" : "Verify custody"}</button> : null}
-          {canPrepare && receipt.custodyState === "VERIFIED" && !receipt.postingIntentId ? <button className="treasury-button" type="button" onClick={() => setActionForm({ receiptId: receipt.receiptId, kind: "PREPARE", evidence: "", reason: "", decision: "APPROVED", verificationKind: "PHYSICAL_CASH_COUNT", effectiveDate: contribution.businessDate })}>{fa ? "آماده‌سازی ثبت" : "Prepare posting"}</button> : null}
-          {canDecide && receipt.postingIntentId && receipt.approvalState === "PENDING" ? <button className="treasury-button" type="button" onClick={() => setActionForm({ receiptId: receipt.receiptId, kind: "DECIDE", evidence: "", reason: "", decision: "APPROVED", verificationKind: "PHYSICAL_CASH_COUNT", effectiveDate: contribution.businessDate })}>{fa ? "بازبینی مالی" : "Finance review"}</button> : null}
-          {canPost && receipt.postingIntentId && receipt.approvalState === "APPROVED" && receipt.postingState === "NOT_POSTED" ? <button className="treasury-button gold" type="button" disabled={busy} onClick={() => void post(receipt)}>{fa ? "ثبت در دفتر کل" : "Post to General Ledger"}</button> : null}
-        </div>
-        {action?.kind === "VERIFY" ? <form className="admin-form capital-operation-form compact" onSubmit={(event) => { event.preventDefault(); void act(receipt, action); }}>
-          <label><span>{fa ? "نوع تأیید" : "Verification method"}</span><select value={action.verificationKind} onChange={(event) => setActionForm({ ...action, verificationKind: event.target.value as ActionForm["verificationKind"] })}><option value="PHYSICAL_CASH_COUNT">{fa ? "شمارش فزیکی نقد" : "Physical cash count"}</option><option value="BANK_CONFIRMATION">{fa ? "تأیید بانک" : "Bank confirmation"}</option><option value="SARAF_CONFIRMATION">{fa ? "تأیید صراف" : "Saraf confirmation"}</option><option value="CONTROLLED_EVIDENCE">{fa ? "سند کنترول‌شده" : "Controlled evidence"}</option></select></label>
-          <label><span>{fa ? "شناسه سند تأیید" : "Verification evidence ID"}</span><input dir="ltr" required pattern="[0-9a-fA-F-]{36}" value={action.evidence} onChange={(event) => setActionForm({ ...action, evidence: event.target.value })} /></label>
-          <div className="rates-actions"><button className="treasury-button gold" type="submit" disabled={busy}>{fa ? "تأیید مستقل" : "Verify independently"}</button><button className="treasury-button" type="button" onClick={() => setActionForm(null)}>{fa ? "لغو" : "Cancel"}</button></div>
-        </form> : null}
-        {action?.kind === "PREPARE" ? <form className="admin-form capital-operation-form compact" onSubmit={(event) => { event.preventDefault(); void act(receipt, action); }}>
-          <label><span>{fa ? "تاریخ مؤثر حسابداری" : "Accounting effective date"}</span><input type="date" required value={action.effectiveDate} onChange={(event) => setActionForm({ ...action, effectiveDate: event.target.value })} /></label>
-          <p className="admin-hint">{fa ? "حساب‌ها، دوره و پالیسی از تنظیمات تأییدشده پایگاه داده گرفته می‌شود." : "Accounts, period and policy are resolved from approved database configuration."}</p>
-          <div className="rates-actions"><button className="treasury-button gold" type="submit" disabled={busy}>{fa ? "آماده‌سازی" : "Prepare"}</button><button className="treasury-button" type="button" onClick={() => setActionForm(null)}>{fa ? "لغو" : "Cancel"}</button></div>
-        </form> : null}
-        {action?.kind === "DECIDE" ? <form className="admin-form capital-operation-form compact" onSubmit={(event) => { event.preventDefault(); void act(receipt, action); }}>
-          <label><span>{fa ? "تصمیم" : "Decision"}</span><select value={action.decision} onChange={(event) => setActionForm({ ...action, decision: event.target.value as ActionForm["decision"] })}><option value="APPROVED">{fa ? "تصویب" : "Approve"}</option><option value="REJECTED">{fa ? "رد" : "Reject"}</option></select></label>
-          <label><span>{fa ? "شناسه سند بازبینی" : "Review evidence ID"}</span><input dir="ltr" required pattern="[0-9a-fA-F-]{36}" value={action.evidence} onChange={(event) => setActionForm({ ...action, evidence: event.target.value })} /></label>
-          <label><span>{fa ? "یادداشت تصمیم" : "Decision note"}</span><input required minLength={3} maxLength={500} value={action.reason} onChange={(event) => setActionForm({ ...action, reason: event.target.value })} /></label>
-          <div className="rates-actions"><button className="treasury-button gold" type="submit" disabled={busy}>{fa ? "ثبت تصمیم" : "Record decision"}</button><button className="treasury-button" type="button" onClick={() => setActionForm(null)}>{fa ? "لغو" : "Cancel"}</button></div>
-        </form> : null}
-      </article>;
-    })}
+  return <div className="capital-operations"><div className="capital-operations-head"><div><p>{fa ? "مسیر واقعی سرمایه نقدی" : "LIVE CASH CAPITAL WORKFLOW"}</p><strong>{fa ? "اعلام آورده، دریافت نقدی نیست." : "A declaration is not a cash receipt."}</strong></div>{canRead ? <button className="treasury-button quiet" disabled={loading || busy} onClick={() => void load()}>{fa ? "تازه‌سازی" : "Refresh"}</button> : null}</div>{message ? <div className={`treasury-message ${message.ok ? "success" : "error"}`} role="status">{message.text}</div> : null}{canRecord && !receiptForm ? <button className="treasury-button gold" onClick={() => setReceiptForm({ amount: contribution.amount ?? "", receiptDate: [kabulToday(), contribution.businessDate].sort().reverse()[0]!, destination: "", reference: "", evidence: { reference: "", file: null } })}>{fa ? "ثبت دریافت واقعی" : "Record actual receipt"}</button> : null}
+    {receiptForm ? <form className="admin-form capital-operation-form" onSubmit={(event) => void record(event)}><h3>{fa ? "جزئیات دریافت نقدی" : "Cash receipt details"}</h3><label><span>{fa ? "مبلغ واقعی" : "Actual amount"}</span><input dir="ltr" required inputMode="decimal" value={receiptForm.amount} onChange={(event) => setReceiptForm({ ...receiptForm, amount: event.target.value })} /></label><label><span>{fa ? "تاریخ واقعی دریافت" : "Actual receipt date"}</span><input type="date" min={contribution.businessDate} required value={receiptForm.receiptDate} onChange={(event) => setReceiptForm({ ...receiptForm, receiptDate: event.target.value })} /></label><label><span>{fa ? "حساب خزانه" : "Treasury destination"}</span><select required value={receiptForm.destination} onChange={(event) => setReceiptForm({ ...receiptForm, destination: event.target.value })}><option value="">{fa ? "انتخاب حساب" : "Choose account"}</option>{capability?.treasuryDestinations?.map((destination) => <option key={destination.id} value={destination.id}>{destination.name} · {destination.currency}</option>)}</select></label><label><span>{fa ? "مرجع پرداخت (اختیاری)" : "Payment reference (optional)"}</span><input maxLength={120} value={receiptForm.reference} onChange={(event) => setReceiptForm({ ...receiptForm, reference: event.target.value })} /></label><EvidenceFields fa={fa} optional value={receiptForm.evidence} onChange={(evidence) => setReceiptForm({ ...receiptForm, evidence })} /><p className="admin-hint">{fa ? "تاریخ دریافت نمی‌تواند پیش از اعلام باشد. فایل فقط در مرورگر هش می‌شود." : "Receipt cannot predate declaration. The file is only hashed in the browser."}</p><div className="rates-actions"><button className="treasury-button gold" disabled={busy}>{fa ? "ثبت دریافت" : "Record receipt"}</button><button type="button" className="treasury-button" onClick={() => setReceiptForm(null)}>{fa ? "لغو" : "Cancel"}</button></div></form> : null}
+    {loading ? <p className="admin-hint">{fa ? "در حال بارگذاری…" : "Loading receipt history…"}</p> : null}{!loading && canRead && receipts.length === 0 ? <p className="admin-hint">{fa ? "هنوز دریافت واقعی ثبت نشده است." : "No actual receipt has been recorded yet."}</p> : null}
+    {receipts.map((receipt) => { const active = action?.receiptId === receipt.receiptId ? action : null; const status = receipt.postingState === "POSTED" ? (fa ? "ثبت‌شده" : "Posted") : receipt.approvalState === "REJECTED" ? (fa ? "ردشده مالی" : "Finance rejected") : receipt.approvalState === "APPROVED" ? (fa ? "تصویب‌شده" : "Approved") : receipt.custodyState === "REJECTED" ? (fa ? "تحویل ردشده" : "Custody rejected") : receipt.custodyState === "VERIFIED" ? (fa ? "تحویل تأییدشده" : "Custody verified") : (fa ? "منتظر تحویل" : "Awaiting custody"); const sameApprover = Boolean(receipt.approverUserAccountId && receipt.approverUserAccountId === session.user?.userAccountId); return <article className="capital-receipt" key={receipt.receiptId}><header><strong dir="ltr">{money(receipt.amount.amount, receipt.amount.currency)}</strong><em className="treasury-chip">{status}</em></header><p>{fa ? "تاریخ دریافت" : "Receipt date"} {receipt.receiptDate} · {receipt.treasuryDestinationName}</p><dl className="shareholder-figures"><div><dt>{fa ? "ثبت‌کننده" : "Recorder"}</dt><dd>{receipt.recorderName ?? "—"}<small>{when(receipt.recordedAt)}</small></dd></div><div><dt>{fa ? "تأییدکننده تحویل" : "Verifier"}</dt><dd>{receipt.verifierName ?? "—"}<small>{when(receipt.verifiedAt)}</small></dd></div><div><dt>{fa ? "آماده‌کننده" : "Preparer"}</dt><dd>{receipt.preparerName ?? "—"}<small>{when(receipt.preparedAt)}</small></dd></div><div><dt>{fa ? "تصویب‌کننده" : "Approver"}</dt><dd>{receipt.approverName ?? "—"}<small>{when(receipt.approvedAt)}</small></dd></div></dl><p className="admin-hint">{receipt.paymentReference ? `${fa ? "مرجع" : "Reference"}: ${receipt.paymentReference} · ` : ""}{fa ? "پالیسی" : "Policy"} v{receipt.policyVersion ?? "—"} · {fa ? "نقشه" : "Mapping"} v{receipt.mappingVersion ?? "—"}</p><EvidenceSummary fa={fa} label={fa ? "سند دریافت" : "Receipt evidence"} evidence={receipt.receiptEvidence} /><EvidenceSummary fa={fa} label={fa ? "سند تحویل" : "Custody evidence"} evidence={receipt.custodyEvidence} /><EvidenceSummary fa={fa} label={fa ? "سند تصویب" : "Approval evidence"} evidence={receipt.approvalEvidence} />{receipt.custodyReason || receipt.approvalReason ? <p className="admin-hint">{receipt.custodyReason ?? receipt.approvalReason}</p> : null}{receipt.debitAccount || receipt.creditAccount ? <p className="admin-hint" dir="ltr">Dr {receipt.debitAccount ? `${receipt.debitAccount.code} · ${receipt.debitAccount.name}` : "—"} / Cr {receipt.creditAccount ? `${receipt.creditAccount.code} · ${receipt.creditAccount.name}` : "—"}</p> : null}{receipt.journalId ? <p className="admin-hint" dir="ltr">Journal {receipt.journalId}</p> : null}{canPost && receipt.approvalState === "APPROVED" && !sameApprover ? <p className="admin-hint">{fa ? "فقط کاربر مالی که این ثبت را تصویب کرده می‌تواند ثبت نهایی را انجام دهد." : "Final posting is restricted to the Finance user who approved this posting."}</p> : null}<div className="shareholder-row-actions">{canVerify && receipt.custodyState === "PENDING_VERIFICATION" ? <button className="treasury-button" onClick={() => setAction(newAction(receipt, "VERIFY"))}>{fa ? "بازبینی تحویل" : "Review custody"}</button> : null}{canPrepare && receipt.custodyState === "VERIFIED" && !receipt.postingIntentId ? <button className="treasury-button" onClick={() => setAction(newAction(receipt, "PREPARE"))}>{fa ? "آماده‌سازی ثبت" : "Prepare posting"}</button> : null}{canDecide && receipt.postingIntentId && receipt.approvalState === "PENDING" ? <button className="treasury-button" onClick={() => setAction(newAction(receipt, "DECIDE"))}>{fa ? "بازبینی مالی" : "Finance review"}</button> : null}{canPost && sameApprover && receipt.postingIntentId && receipt.approvalState === "APPROVED" && receipt.postingState === "NOT_POSTED" ? <button className="treasury-button gold" disabled={busy} onClick={() => void post(receipt)}>{fa ? "ثبت در دفتر کل" : "Post to General Ledger"}</button> : null}</div>
+      {active?.kind === "VERIFY" ? <form className="admin-form capital-operation-form compact" onSubmit={(event) => { event.preventDefault(); void decide(receipt, active); }}><label><span>{fa ? "تصمیم تحویل" : "Custody decision"}</span><select value={active.custodyDecision} onChange={(event) => setAction({ ...active, custodyDecision: event.target.value as ActionForm["custodyDecision"] })}><option value="VERIFIED">{fa ? "تأیید" : "Verify"}</option><option value="REJECTED">{fa ? "رد" : "Reject"}</option></select></label><label><span>{fa ? "نوع سند" : "Evidence kind"}</span><select value={active.verificationKind} onChange={(event) => setAction({ ...active, verificationKind: event.target.value as ActionForm["verificationKind"] })}><option value="PHYSICAL_CASH_COUNT">{fa ? "شمارش فزیکی" : "Physical cash count"}</option><option value="BANK_CONFIRMATION">{fa ? "تأیید بانک" : "Bank confirmation"}</option><option value="SARAF_CONFIRMATION">{fa ? "تأیید صراف" : "Saraf confirmation"}</option><option value="CONTROLLED_EVIDENCE">{fa ? "سند کنترول‌شده" : "Controlled evidence"}</option></select></label><EvidenceFields fa={fa} value={active.evidence} onChange={(evidence) => setAction({ ...active, evidence })} />{active.custodyDecision === "REJECTED" ? <label><span>{fa ? "دلیل رد" : "Rejection reason"}</span><input required minLength={3} maxLength={500} value={active.reason} onChange={(event) => setAction({ ...active, reason: event.target.value })} /></label> : null}<p className="admin-hint">{fa ? "اثر انگشت اعتبار حقوقی را ثابت نمی‌کند." : "A fingerprint does not prove legal validity."}</p><div className="rates-actions"><button className="treasury-button gold" disabled={busy}>{active.custodyDecision === "VERIFIED" ? (fa ? "تأیید مستقل" : "Verify independently") : (fa ? "ثبت رد" : "Reject custody")}</button><button type="button" className="treasury-button" onClick={() => setAction(null)}>{fa ? "لغو" : "Cancel"}</button></div></form> : null}
+      {active?.kind === "PREPARE" ? <form className="admin-form capital-operation-form compact" onSubmit={(event) => { event.preventDefault(); void decide(receipt, active); }}><label><span>{fa ? "تاریخ مؤثر" : "Accounting effective date"}</span><input type="date" readOnly value={receipt.receiptDate} /></label><p className="admin-hint">{fa ? "تاریخ ثبت دقیقاً تاریخ دریافت است." : "The posting date is the actual receipt date."}</p><div className="rates-actions"><button className="treasury-button gold" disabled={busy}>{fa ? "آماده‌سازی" : "Prepare"}</button><button type="button" className="treasury-button" onClick={() => setAction(null)}>{fa ? "لغو" : "Cancel"}</button></div></form> : null}
+      {active?.kind === "DECIDE" ? <form className="admin-form capital-operation-form compact" onSubmit={(event) => { event.preventDefault(); void decide(receipt, active); }}><label><span>{fa ? "تصمیم" : "Decision"}</span><select value={active.decision} onChange={(event) => setAction({ ...active, decision: event.target.value as ActionForm["decision"] })}><option value="APPROVED">{fa ? "تصویب" : "Approve"}</option><option value="REJECTED">{fa ? "رد" : "Reject"}</option></select></label><EvidenceFields fa={fa} value={active.evidence} onChange={(evidence) => setAction({ ...active, evidence })} /><label><span>{fa ? "یادداشت تصمیم" : "Decision note"}</span><input required minLength={3} maxLength={500} value={active.reason} onChange={(event) => setAction({ ...active, reason: event.target.value })} /></label><p className="admin-hint">{fa ? "تصویب‌کننده مستقل، ثبت نهایی را نیز انجام می‌دهد." : "The independent approver also performs final posting."}</p><div className="rates-actions"><button className="treasury-button gold" disabled={busy}>{fa ? "ثبت تصمیم" : "Record decision"}</button><button type="button" className="treasury-button" onClick={() => setAction(null)}>{fa ? "لغو" : "Cancel"}</button></div></form> : null}</article>; })}
   </div>;
 }

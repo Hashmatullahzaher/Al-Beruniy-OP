@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit",
     "test:smoke": "playwright test --grep @smoke",
     "test:e2e": "playwright test",
+    "test:capital": "playwright test --config=playwright.capital.config.ts",
     "clean": "node -e \"require('fs').rmSync('.next',{recursive:true,force:true})\""
   },
   "dependencies": {

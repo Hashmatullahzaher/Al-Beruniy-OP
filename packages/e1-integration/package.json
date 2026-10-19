@@ -13,6 +13,8 @@
     "sandbox:seed": "node --experimental-strip-types scripts/dev-sandbox.ts seed",
     "sandbox:sessions": "node --experimental-strip-types scripts/dev-sandbox.ts sessions",
     "preview:seed": "node --experimental-strip-types scripts/preview-seed.ts",
+    "preview:capital-bootstrap": "node --experimental-strip-types scripts/capital-browser-bootstrap.ts",
+    "preview:capital-configure": "node --experimental-strip-types scripts/capital-activation-preview.ts",
     "local:setup": "node --experimental-strip-types scripts/local-review.ts setup",
     "local:status": "node --experimental-strip-types scripts/local-review.ts status",
     "local:reset": "node --experimental-strip-types scripts/local-review.ts reset"
