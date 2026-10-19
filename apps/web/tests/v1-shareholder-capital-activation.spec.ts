@@ -79,7 +79,7 @@ test("@smoke 0038: independent operators move declared capital into the Safe, po
   form = capital.locator("form.capital-operation-form.compact");
   await expect(form.getByLabel("Accounting effective date")).toHaveValue("2026-09-22");
   await form.getByRole("button", { name: "Prepare", exact: true }).click();
-  await expect(capital.getByRole("status")).toContainText("Posting was prepared for approval.");
+  await expect(capital.getByRole("status")).toContainText("Posting prepared under its bound policy. Nothing has been posted.");
   await signOut(page);
 
   // Independent Finance approver makes the decision and, under the current contract, explicitly
@@ -133,6 +133,147 @@ test("@smoke 0038: independent operators move declared capital into the Safe, po
     .toContainText("Expense recorded: 125.50 USD from Synthetic Capital Safe.");
 
   await assertDatabaseOutcome(fixture, files);
+});
+
+test("0039: authenticated Admin switches Capital OFF; independent custody and explicit preparer posting remain enforced", async ({ page }, testInfo) => {
+  test.setTimeout(600_000);
+  const { accounts, fixture } = seedCapitalPreview();
+  const files = evidenceFiles(testInfo);
+  // Fixture grants only, on the exact disposable DB. Policy changes and all financial operations
+  // below use real password sessions, the application UI and restricted database credentials.
+  const ownerUrl = previewEnvironment().ABOS_DATABASE_URL;
+  const address = new URL(ownerUrl ?? "");
+  expect(address.hostname).toBe("127.0.0.1");
+  expect(address.port).toBe("55442");
+  expect(address.pathname).toBe("/abos_capital_browser_preview_0038");
+  const owner = new pg.Client({ connectionString: ownerUrl });
+  await owner.connect();
+  try {
+    await owner.query(`INSERT INTO abos.user_permission_grants
+      (user_account_id,legal_entity_id,permission_code,granted_by_user_account_id)
+      SELECT target.id,$1,permission.code,administrator.id
+      FROM (VALUES('super.admin','admin.finance-workflow.manage'),
+        ('demo.finance.preparer','finance.capital-receipt.post')) permission(login,code)
+      JOIN abos.user_accounts target ON target.login_identifier=permission.login
+      CROSS JOIN abos.user_accounts administrator
+      WHERE administrator.login_identifier='super.admin' ON CONFLICT DO NOTHING`, [fixture.entity]);
+    await signIn(page, "super.admin", accounts["super.admin"]);
+    await page.goto("/admin/finance-workflows");
+    let policy = page.locator(".policy-card").filter({ has: page.getByRole("heading", { name: "Shareholder capital receipt", exact: true }) });
+    await expect(policy.locator(".treasury-chip")).toHaveText("Approval ON");
+    await expect(policy.locator("footer")).toContainText("Version 1");
+    await policy.locator(".policy-toggle input").uncheck();
+    await policy.getByLabel("Reason for this change").fill("Synthetic owner direction: no separate Capital approval required");
+    await policy.getByRole("button", { name: "Save new version" }).click();
+    await expect(policy.locator(".treasury-chip")).toHaveText("Approval OFF");
+    await expect(policy.locator("footer")).toContainText("Version 2");
+    expect((await owner.query("SELECT count(*)::int AS n FROM abos.shareholder_capital_receipts WHERE legal_entity_id=$1", [fixture.entity])).rows[0]?.n).toBe(0);
+    expect((await owner.query("SELECT count(*)::int AS n FROM abos.journals WHERE legal_entity_id=$1", [fixture.entity])).rows[0]?.n).toBe(0);
+    await signOut(page);
+
+    await signIn(page, "demo.finance.preparer", accounts["demo.finance.preparer"]);
+    const permissions = await page.evaluate(async () => (await (await fetch("/api/v1/auth/me")).json() as { data: { permissions: string[] } }).data.permissions);
+    expect(permissions).toContain("finance.capital-receipt.post");
+    expect(permissions).toContain("finance.capital-receipt.prepare");
+    expect(permissions).not.toContain("finance.capital-receipt.approve");
+    await page.goto("/shareholders");
+    const mapping = page.locator("section.capital-configuration");
+    await mapping.getByRole("button", { name: "Configure account" }).click();
+    await mapping.getByLabel("Capital account").selectOption({ label: "3010-USD · Synthetic Paid-in Share Capital · USD" });
+    await mapping.getByLabel("Evidence reference").fill("SYN-CAPITAL-OFF-MAPPING-0039");
+    await mapping.getByLabel("File for fingerprint").setInputFiles(files.mapping.path);
+    await mapping.getByLabel("Configuration reason").fill("Disposable authenticated approval-OFF mapping proof");
+    await mapping.getByRole("button", { name: "Save mapping" }).click();
+    await expect(page.getByText("OPERATIONAL CASH CAPITAL PATH")).toBeVisible();
+    await signOut(page);
+
+    await signIn(page, "demo.cashier", accounts["demo.cashier"]);
+    let capital = await capitalWorkflow(page);
+    await capital.getByRole("button", { name: "Record actual receipt" }).click();
+    let form = capital.getByRole("heading", { name: "Cash receipt details" }).locator("..");
+    await form.getByLabel("Actual amount").fill("50000");
+    await form.getByLabel("Actual receipt date").fill("2026-09-22");
+    await form.getByLabel("Treasury destination").selectOption({ label: "Synthetic Capital Safe · USD" });
+    await form.getByLabel("Payment reference (optional)").fill("SYN-CAPITAL-OFF-0039");
+    await form.getByLabel("Evidence reference (optional)").fill("SYN-CASH-OFF-0039");
+    await form.getByLabel("File for fingerprint (optional)").setInputFiles(files.receipt.path);
+    await form.getByRole("button", { name: "Record receipt" }).click();
+    await expect(capital.getByRole("status")).toContainText("Receipt recorded. Nothing has been posted.");
+    await expect(capital.getByRole("button", { name: "Prepare posting" })).toHaveCount(0);
+    await expect(capital.getByRole("button", { name: "Review custody" })).toHaveCount(0);
+    await signOut(page);
+
+    // Approval OFF does not remove the separate Treasury custody control.
+    await signIn(page, "demo.verifier", accounts["demo.verifier"]);
+    capital = await capitalWorkflow(page);
+    await capital.getByRole("button", { name: "Review custody" }).click();
+    form = capital.locator("form.capital-operation-form.compact");
+    await form.getByLabel("Custody decision").selectOption("VERIFIED");
+    await form.getByLabel("Evidence kind").selectOption("PHYSICAL_CASH_COUNT");
+    await form.getByLabel("Evidence reference").fill("SYN-INDEPENDENT-CUSTODY-OFF-0039");
+    await form.getByLabel("File for fingerprint").setInputFiles(files.custody.path);
+    await form.getByRole("button", { name: "Verify independently" }).click();
+    await expect(capital.getByRole("status")).toContainText("Custody verified.");
+    await signOut(page);
+
+    await signIn(page, "demo.finance.preparer", accounts["demo.finance.preparer"]);
+    capital = await capitalWorkflow(page);
+    await capital.getByRole("button", { name: "Prepare posting" }).click();
+    form = capital.locator("form.capital-operation-form.compact");
+    await expect(form.getByLabel("Accounting effective date")).toHaveValue("2026-09-22");
+    await form.getByRole("button", { name: "Prepare", exact: true }).click();
+    await expect(capital.getByRole("status")).toContainText("Posting prepared under its bound policy. Nothing has been posted.");
+    await expect(capital.locator("article.capital-receipt")).toContainText("Ready to post; approval not required");
+    await expect(capital.getByRole("button", { name: "Finance review" })).toHaveCount(0);
+    await expect(capital.getByRole("button", { name: "Finalize and post to General Ledger" })).toBeVisible();
+    await signOut(page);
+
+    // New operations follow ON v3; this already-prepared intent must retain its OFF v2 binding.
+    await signIn(page, "super.admin", accounts["super.admin"]);
+    await page.goto("/admin/finance-workflows");
+    policy = page.locator(".policy-card").filter({ has: page.getByRole("heading", { name: "Shareholder capital receipt", exact: true }) });
+    await policy.locator(".policy-toggle input").check();
+    await policy.getByLabel("Reason for this change").fill("Synthetic future operations require independent approval again");
+    await policy.getByRole("button", { name: "Save new version" }).click();
+    await expect(policy.locator("footer")).toContainText("Version 3");
+    await expect(policy.locator(".treasury-chip")).toHaveText("Approval ON");
+    await policy.getByText("Version history").click();
+    await expect(policy.locator(".policy-history li")).toHaveCount(3);
+    await signOut(page);
+
+    await signIn(page, "demo.finance.preparer", accounts["demo.finance.preparer"]);
+    capital = await capitalWorkflow(page);
+    await expect(capital.locator("article.capital-receipt")).toContainText("Policy v2");
+    await expect(capital.getByRole("button", { name: "Finance review" })).toHaveCount(0);
+    await capital.getByRole("button", { name: "Finalize and post to General Ledger" }).click();
+    await expect(capital.getByRole("status")).toContainText("posted to the General Ledger");
+    await expect(capital.locator("article.capital-receipt")).toContainText("Not required; no approval performed");
+    await expect(capital.locator("article.capital-receipt")).toContainText("Synthetic Count Confirmer");
+    await page.screenshot({ path: testInfo.outputPath("capital-approval-off-posted.png"), fullPage: true });
+    await page.setViewportSize({ width: 1024, height: 900 });
+    await page.getByRole("button", { name: "Switch to Dari" }).click();
+    await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
+    await expect(capital.locator("article.capital-receipt")).toContainText("لازم نیست؛ تأییدی انجام نشده");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
+
+    const outcome = (await owner.query(`SELECT i.status,p.version,p.approval_required,
+      (SELECT count(*)::int FROM abos.posting_approvals a WHERE a.posting_intent_id=i.id) AS approvals,
+      (SELECT count(*)::int FROM abos.shareholder_capital_receipt_custody_verifications c WHERE c.shareholder_capital_receipt_id=i.shareholder_capital_receipt_id AND c.decision='VERIFIED') AS custody,
+      (SELECT count(*)::int FROM abos.journals j WHERE j.posting_intent_id=i.id) AS journals,
+      (SELECT count(*)::int FROM abos.journal_lines l WHERE l.source_type='SHAREHOLDER_CAPITAL_CONTRIBUTION_RECEIPT' AND l.source_id=i.shareholder_capital_receipt_id) AS lines,
+      (SELECT count(*)::int FROM abos.subledger_entries s WHERE s.shareholder_capital_receipt_id=i.shareholder_capital_receipt_id) AS subledgers,
+      (SELECT count(*)::int FROM abos.shareholder_capital_evidence_registrations e WHERE e.legal_entity_id=i.legal_entity_id AND e.evidence_kind='FINANCE_APPROVAL') AS approval_evidence
+      FROM abos.posting_intents i JOIN abos.finance_workflow_policy_versions p ON p.id=i.finance_workflow_policy_version_id
+      JOIN abos.shareholder_capital_receipts r ON r.id=i.shareholder_capital_receipt_id
+      WHERE r.contribution_id=$1`, [fixture.contribution])).rows;
+    expect(outcome).toHaveLength(1);
+    expect(outcome[0]).toMatchObject({ status: "POSTED", version: 2, approval_required: false, approvals: 0, custody: 1, journals: 1, lines: 2, subledgers: 2, approval_evidence: 0 });
+    expect((await owner.query("SELECT version,approval_required FROM abos.finance_workflow_policy_versions WHERE legal_entity_id=$1 AND workflow_type='SHAREHOLDER_CAPITAL_RECEIPT' ORDER BY version", [fixture.entity])).rows)
+      .toEqual([{ version: 1, approval_required: true }, { version: 2, approval_required: false }, { version: 3, approval_required: true }]);
+    expect((await owner.query("SELECT count(*)::int AS n FROM abos.finance_workflow_policy_commands WHERE legal_entity_id=$1", [fixture.entity])).rows[0]?.n).toBe(2);
+  } finally {
+    await owner.end();
+  }
 });
 
 async function capitalWorkflow(page: Page): Promise<Locator> {
