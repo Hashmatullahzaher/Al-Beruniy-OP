@@ -69,9 +69,9 @@ test.describe("V1 workflow approval policy", () => {
     await expect(search.getByRole("link")).toHaveText(["Workflow approvals"]);
     await search.getByRole("link", { name: "Workflow approvals" }).click();
 
-    await expect(page.getByRole("heading", { level: 1, name: "Finance workflow approvals" })).toBeVisible();
-    await expect(page.locator(".policy-card")).toHaveCount(8);
-    await expect(page.locator(".policy-card .treasury-chip", { hasText: "Not configured" })).toHaveCount(8);
+    await expect(page.getByRole("heading", { level: 1, name: "Workflow approvals" })).toBeVisible();
+    await expect(page.locator(".policy-card")).toHaveCount(9);
+    await expect(page.locator(".policy-card .treasury-chip", { hasText: "Not configured" })).toHaveCount(9);
 
     // Missing policy is explicit. Saving OFF creates v1; changing to ON creates v2 and keeps v1.
     const expense = page.locator(".policy-card").filter({ has: page.getByRole("heading", { name: "Expense", exact: true }) });
@@ -109,7 +109,9 @@ test.describe("V1 workflow approval policy", () => {
           workflowType: "EXPENSE",
           approvalRequired: false,
           expectedVersion: 2,
-          changeReason: "Unauthorized synthetic attempt"
+          changeReason: "Unauthorized synthetic attempt",
+          idempotencyKey: crypto.randomUUID(),
+          correlationId: crypto.randomUUID()
         })
       });
       return { readStatus: readable.status, canManage: workspace.data.canManage, mutationStatus: mutation.status };

@@ -11,7 +11,7 @@ import { errorResponse, json } from "@/server/treasury";
 export type AccountType = "ASSET" | "LIABILITY" | "EQUITY" | "REVENUE" | "EXPENSE";
 export type ControlType = "CASH" | "SARAF" | "SHAREHOLDER_CAPITAL" | "SHAREHOLDER_LOAN" | "AR" | "AP" | "OTHER"
   | "TEMPORARY_FUNDING_PAYABLE";
-export type ReviewState = "PENDING_REVIEW" | "REVIEWED" | "FLAGGED";
+export type ReviewState = "PENDING_REVIEW" | "REVIEWED" | "FLAGGED" | "NOT_REQUIRED";
 
 export interface DuplicateWarning {
   readonly accountId: string; readonly code: string; readonly name: string; readonly nameFa: string | null;
@@ -33,6 +33,8 @@ export interface LedgerAccountView {
   readonly reviewState: ReviewState | null; readonly reviewReason: "CREATED" | "CHANGED" | null;
   readonly createdBy: string | null; readonly lastChangedBy: string | null; readonly lastChangedAt: string | null;
   readonly lastReviewedBy: string | null; readonly lastReviewedAt: string | null; readonly lastReviewNote: string | null;
+  readonly approvalPolicyVersion?: number | null; readonly approvalRequired?: boolean;
+  readonly policyReleasedBy?: string | null; readonly policyReleasedAt?: string | null; readonly policyReleaseReason?: string | null;
   readonly duplicateWarnings: readonly DuplicateWarning[]; readonly viewerIsParticipant: boolean; readonly usage: AccountUsage;
   readonly reviews: readonly { readonly decision: "REVIEWED" | "FLAGGED"; readonly note: string | null; readonly version: number; readonly reviewer: string; readonly decidedAt: string }[];
 }
@@ -44,6 +46,7 @@ export interface ChartOfAccountsView {
   readonly currencies: readonly { readonly code: string; readonly name: string }[];
   readonly accounts: readonly LedgerAccountView[];
   readonly reviewQueue: number;
+  readonly approvalPolicy?: { readonly version: number; readonly approvalRequired: boolean; readonly configured: boolean };
 }
 
 /** The fields a person may set. Absent keys are left unchanged on an edit. */
@@ -107,6 +110,14 @@ export async function setAccountStatus(accountId: string, expectedVersion: numbe
 
 export async function reviewAccount(accountId: string, expectedVersion: number, decision: string, note: string | null): Promise<{ account: LedgerAccountView }> {
   return call("SELECT abos.finance_ledger_account_review($1, $2, $3, $4, $5) AS value", [await financeToken(), accountId, expectedVersion, decision, note]);
+}
+
+/** Policy-based release is not a review decision. The database validates the current OFF policy. */
+export async function reevaluateAccount(accountId: string, command: {
+  readonly expectedVersion: number; readonly reason: string; readonly idempotencyKey: string; readonly correlationId: string;
+}): Promise<{ account: LedgerAccountView; replayed: boolean }> {
+  return call("SELECT abos.finance_account_policy_reevaluate($1, $2, $3::jsonb) AS value",
+    [await financeToken(), accountId, JSON.stringify(command)]);
 }
 
 export function accountNotFound() {

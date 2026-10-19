@@ -1,7 +1,7 @@
 "use client";
 
 import { toDariDigits } from "@abos/calendar";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { AccessGate, api, errorText, formatWhen } from "@/components/AdminUsersWorkspace";
 import { AppIcon } from "@/components/AppIcon";
@@ -11,9 +11,8 @@ import type { Copy } from "@/lib/access-copy";
 import type { AccountType, ChartOfAccountsView, ControlType, DuplicateWarning, LedgerAccountView } from "@/server/chart-of-accounts";
 
 /**
- * User-managed Chart of Accounts (V1 backlog #10). No chart is shipped: people with the manage
- * permission add accounts, which are usable at once and wait in the Finance Manager's review list.
- * The database decides everything; this screen explains and asks.
+ * User-managed Chart of Accounts. The database applies the effective review policy and validates
+ * every change; policy-based release is shown separately from an independent review decision.
  */
 
 const TYPES: Readonly<Record<AccountType, Copy>> = {
@@ -36,7 +35,8 @@ const CONTROLS: Readonly<Record<ControlType, Copy>> = {
 const REVIEW_COPY: Readonly<Record<string, Copy>> = {
   PENDING_REVIEW: { en: "Awaiting review", fa: "در انتظار بازبینی" },
   REVIEWED: { en: "Reviewed", fa: "بازبینی شد" },
-  FLAGGED: { en: "Flagged for correction", fa: "نیاز به اصلاح" }
+  FLAGGED: { en: "Flagged for correction", fa: "نیاز به اصلاح" },
+  NOT_REQUIRED: { en: "Approval not required", fa: "تأیید لازم نیست" }
 };
 const REASON_COPY: Readonly<Record<string, Copy>> = {
   SAME_NAME: { en: "same name", fa: "نام یکسان" },
@@ -159,12 +159,14 @@ export function ChartOfAccountsWorkspace() {
       <StageZeroPageHeader icon="finance"
         eyebrow={{ en: `Finance · ${view?.legalEntity.name ?? ""}`, fa: `مالی · ${view?.legalEntity.name ?? ""}` }}
         title={{ en: "Chart of Accounts", fa: "جدول حساب‌ها" }}
-        description={{ en: "The company's own accounts. Permitted people add accounts that can be used at once; the Finance Manager reviews each new or changed account.", fa: "حساب‌های خود شرکت. افراد مجاز حساب‌هایی اضافه می‌کنند که فوراً قابل استفاده‌اند؛ مدیر مالی هر حساب جدید یا تغییر یافته را بازبینی می‌کند." }} />
+        description={{ en: "Manage the company’s accounts. New and changed accounts follow the effective approval policy and ordinary account validations.", fa: "حساب‌های شرکت را مدیریت کنید. حساب‌های جدید و تغییر یافته از سیاست تأیید جاری و اعتبارسنجی معمول پیروی می‌کنند." }} />
 
       <section className="finance-boundary-banner"><span><AppIcon name="shield" size={22} /></span><div>
         <p>{fa ? "هیچ جدول حساب ثابتی ارائه نمی‌شود" : "NO FIXED CHART IS SHIPPED"}</p>
-        <strong>{fa ? "طبقه‌بندی و شماره‌گذاری حساب‌ها هنوز توسط مدیر مالی تصویب نشده است؛ کدها آزاد هستند و پنج نوع حساب تنها طبقه‌بندی ساختاری است. همه داده‌ها آزمایشی‌اند." : "Account classes and a numbering convention are not yet approved by the Finance Manager: codes are free text and the five account types are the only structural classification. All data is synthetic."}</strong>
+        <strong>{fa ? "کد و نام حساب را افراد مجاز تعیین می‌کنند. خاموش بودن تأیید، بررسی نوع حساب، واحد پول، ساختار و صلاحیت را غیرفعال نمی‌کند." : "Permitted users choose account codes and names. Approval OFF does not disable account type, currency, hierarchy or permission checks."}</strong>
       </div><em>{fa ? "واحد پول پایه" : "Base currency"} · {view?.legalEntity.baseCurrency ?? "—"}</em></section>
+
+      {view?.approvalPolicy ? <p className="admin-hint">{fa ? "تأیید جدول حساب‌ها" : "Chart of Accounts approval"}: <strong>{view.approvalPolicy.approvalRequired ? (fa ? "روشن" : "ON") : (fa ? "خاموش" : "OFF")}</strong> · v{view.approvalPolicy.version}{!view.approvalPolicy.configured ? (fa ? " · پیش‌فرض محافظتی" : " · Protective default") : ""}</p> : null}
 
       {message ? <div className={`treasury-message ${message.tone === "ok" ? "success" : "error"}`} role="status"><AppIcon name={message.tone === "ok" ? "shield" : "alert"} size={16} /><span>{message.text}</span><button onClick={() => setMessage(null)} aria-label={fa ? "بستن" : "Dismiss"}>×</button></div> : null}
 
@@ -202,10 +204,10 @@ export function ChartOfAccountsWorkspace() {
           <div className="module-content-card admin-detail">
             {selected === "new" && view.canManage ? (
               <AccountForm key="new" view={view} account={null} fa={fa} t={t} onCancel={() => setSelected(null)} onError={fail}
-                onSaved={(id) => saved({ en: "Account created. It can be used now and waits in the review list.", fa: "حساب ایجاد شد. اکنون قابل استفاده است و در فهرست بازبینی قرار دارد." }, id)} />
+                onSaved={(id) => saved({ en: "Account created under the current approval policy.", fa: "حساب طبق سیاست تأیید جاری ایجاد شد." }, id)} />
             ) : current && editing && view.canManage ? (
               <AccountForm key={`${current.id}-${current.version}`} view={view} account={current} fa={fa} t={t} onCancel={() => setEditing(false)} onError={fail}
-                onSaved={(id) => saved({ en: "Account saved. The change waits in the review list.", fa: "حساب ذخیره شد. تغییر در فهرست بازبینی قرار دارد." }, id)} />
+                onSaved={(id) => saved({ en: "Account saved under the current approval policy.", fa: "حساب طبق سیاست تأیید جاری ذخیره شد." }, id)} />
             ) : current ? (
               <AccountDetail key={`${current.id}-${current.version}-${current.status}`} view={view} account={current} fa={fa} t={t} num={num} onEdit={() => setEditing(true)} onError={fail}
                 onChanged={(text) => saved(text, current.id)} />
@@ -383,6 +385,9 @@ function AccountDetail({ view, account, fa, t, num, onEdit, onChanged, onError }
         {account.lastChangedBy ? <div><dt>{fa ? "آخرین تغییر" : "Last changed"}</dt><dd>{account.lastChangedBy}{account.lastChangedAt ? ` · ${formatWhen(account.lastChangedAt, fa ? "fa" : "en")}` : ""}</dd></div> : null}
       </dl>
       {account.description ? <p className="admin-hint">{account.description}</p> : null}
+      {account.approvalPolicyVersion != null ? <p className="admin-hint">{fa ? "سیاست مرتبط" : "Bound policy"} v{account.approvalPolicyVersion} · {account.approvalRequired === false ? (fa ? "تأیید لازم نیست" : "Approval not required") : (fa ? "تأیید لازم است" : "Approval required")}</p> : null}
+      {account.policyReleasedAt ? <p className="admin-hint">{fa ? "آزادسازی طبق سیاست، بدون تأیید: " : "Released under policy without approval: "}{account.policyReleasedBy ?? "—"} · {formatWhen(account.policyReleasedAt, fa ? "fa" : "en")}{account.policyReleaseReason ? ` · ${account.policyReleaseReason}` : ""}</p> : null}
+      <PolicyReevaluation view={view} account={account} fa={fa} onError={onError} onChanged={onChanged} />
       <section className="admin-section">
         <h3>{fa ? "استفاده و حفاظت" : "Use and protection"}</h3>
         {usage.inUse ? <p className="admin-hint coa-locked"><AppIcon name="key" size={14} /> {fa ? "در حال استفاده — کد، نوع، واحد پول و نوع کنترل ثابت است: " : "In use — code, type, currency and control type are fixed: "}{uses.join(" · ")}</p>
@@ -409,6 +414,33 @@ function AccountDetail({ view, account, fa, t, num, onEdit, onChanged, onError }
       ) : null}
     </div>
   );
+}
+
+function PolicyReevaluation({ view, account, fa, onChanged, onError }: {
+  readonly view: ChartOfAccountsView; readonly account: LedgerAccountView; readonly fa: boolean;
+  readonly onChanged: (text: Copy) => Promise<void>; readonly onError: (error: { code: string; message: string }) => void;
+}) {
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const retry = useRef<{ fingerprint: string; idempotencyKey: string; correlationId: string } | null>(null);
+  if (!view.canManage || !view.approvalPolicy?.configured || view.approvalPolicy.approvalRequired || account.reviewState !== "PENDING_REVIEW") return null;
+  const release = async () => {
+    const fingerprint = JSON.stringify([account.id, account.version, reason.trim()]);
+    if (retry.current?.fingerprint !== fingerprint) retry.current = { fingerprint, idempotencyKey: crypto.randomUUID(), correlationId: crypto.randomUUID() };
+    setBusy(true);
+    const result = await api<{ account: LedgerAccountView }>(`/api/v1/finance/accounts/${account.id}/reevaluate`, "POST", {
+      expectedVersion: account.version, reason: reason.trim(), idempotencyKey: retry.current.idempotencyKey, correlationId: retry.current.correlationId
+    });
+    setBusy(false);
+    if (!result.ok) { onError(result.error); return; }
+    retry.current = null;
+    await onChanged({ en: "Account revalidated and released under approval OFF. No approval was recorded.", fa: "حساب اعتبارسنجی و طبق سیاست خاموش آزاد شد. هیچ تأییدی ثبت نشد." });
+  };
+  return <section className="admin-section coa-policy-release"><h3>{fa ? "ارزیابی دوباره طبق سیاست جاری" : "Re-evaluate under current policy"}</h3>
+    <p className="admin-hint">{fa ? "تأیید اکنون خاموش است. همه اعتبارسنجی‌ها دوباره بررسی می‌شود؛ تاریخچه محفوظ می‌ماند و تأیید ساختگی ثبت نمی‌شود." : "Approval is currently OFF. All normal validations run again; creation history is preserved and no approval decision is invented."}</p>
+    <label className="coa-reason"><span>{fa ? "دلیل آزادسازی طبق سیاست" : "Reason for policy-based release"}</span><input maxLength={500} minLength={5} required value={reason} onChange={(event) => setReason(event.target.value)} /></label>
+    <button className="treasury-button gold" type="button" disabled={busy || reason.trim().length < 5} onClick={() => void release()}>{busy ? (fa ? "در حال بررسی…" : "Revalidating…") : (fa ? "ارزیابی دوباره طبق سیاست جاری" : "Re-evaluate under current policy")}</button>
+  </section>;
 }
 
 function ReviewList({ view, queue, fa, t, onDecided, onError }: {
@@ -440,6 +472,7 @@ function ReviewList({ view, queue, fa, t, onDecided, onError }: {
           <p className="admin-hint">{t(TYPES[account.type])} · {account.currency ?? (fa ? "چند واحد پول" : "multi-currency")}{account.controlType ? ` · ${t(CONTROLS[account.controlType])}` : ""} · {account.postingAllowed ? (fa ? "ثبت مجاز" : "accepts postings") : (fa ? "فقط گروه" : "group only")}
             {" · "}{account.reviewReason === "CHANGED" ? (fa ? "تغییر یافته توسط " : "changed by ") : (fa ? "ایجاد شده توسط " : "created by ")}{account.lastChangedBy ?? account.createdBy ?? "—"}</p>
           {account.lastReviewNote && account.reviewState === "FLAGGED" ? <p className="coa-error">{fa ? "یادداشت بازبین: " : "Reviewer's note: "}{account.lastReviewNote}</p> : null}
+          <PolicyReevaluation view={view} account={account} fa={fa} onError={onError} onChanged={onDecided} />
           {account.duplicateWarnings.length > 0 ? <>
             <p className="admin-hint">{fa ? "هشدارهایی که هنگام ذخیره نشان داده و تایید شد:" : "Warnings shown and confirmed when it was saved:"}</p>
             <WarningList warnings={account.duplicateWarnings} fa={fa} t={t} />

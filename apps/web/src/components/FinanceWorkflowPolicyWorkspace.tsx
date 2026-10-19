@@ -4,7 +4,7 @@ import type {
   FinanceWorkflowPolicy,
   FinanceWorkflowPolicyWorkspace as PolicyWorkspace
 } from "@abos/contracts";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { AccessGate, api, errorText } from "@/components/AdminUsersWorkspace";
 import { AppIcon } from "@/components/AppIcon";
@@ -24,6 +24,7 @@ export function FinanceWorkflowPolicyWorkspace() {
   const [gate, setGate] = useState<"signed-out" | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
+  const commands = useRef(new Map<string, { idempotencyKey: string; correlationId: string }>());
 
   const apply = useCallback((result: Awaited<ReturnType<typeof api<PolicyWorkspace>>>) => {
     if (!result.ok) {
@@ -52,17 +53,26 @@ export function FinanceWorkflowPolicyWorkspace() {
     if (!draft) return;
     setBusy(policy.workflowType);
     setMessage(null);
+    // A lost response can be retried with the same command; changed inputs get a new command.
+    const fingerprint = JSON.stringify([policy.workflowType, policy.version, draft.approvalRequired, draft.changeReason.trim()]);
+    let command = commands.current.get(fingerprint);
+    if (!command) {
+      command = { idempotencyKey: crypto.randomUUID(), correlationId: crypto.randomUUID() };
+      commands.current.set(fingerprint, command);
+    }
     const result = await api<PolicyWorkspace>("/api/v1/admin/finance-workflows", "PUT", {
       workflowType: policy.workflowType,
       approvalRequired: draft.approvalRequired,
       expectedVersion: policy.version,
-      changeReason: draft.changeReason
+      changeReason: draft.changeReason.trim(),
+      ...command
     });
     setBusy(null);
     if (!result.ok) {
       setMessage({ tone: "error", text: errorText(result.error, locale) });
       return;
     }
+    commands.current.delete(fingerprint);
     apply(result);
     setMessage({
       tone: "ok",
@@ -83,7 +93,7 @@ export function FinanceWorkflowPolicyWorkspace() {
       <StageZeroPageHeader
         icon="shield"
         eyebrow={{ en: "Company configuration", fa: "پیکربندی شرکت" }}
-        title={{ en: "Finance workflow approvals", fa: "تأیید جریان‌های مالی" }}
+        title={{ en: "Workflow approvals", fa: "تنظیم تأیید جریان‌ها" }}
         description={{
           en: "Choose which transaction types need an independent approval. Every change creates a permanent policy version.",
           fa: "مشخص کنید کدام نوع معامله به تأیید مستقل نیاز دارد. هر تغییر یک نسخه دایمی سیاست می‌سازد."
@@ -97,8 +107,8 @@ export function FinanceWorkflowPolicyWorkspace() {
       </div> : null}
 
       <section className="module-content-card policy-boundary" aria-label={fa ? "معنای تنظیم" : "Policy meaning"}>
-        <div><strong>{fa ? "خاموش" : "OFF"}</strong><p>{fa ? "کاربر مجاز معامله را پس از اعتبارسنجی مستقیماً نهایی می‌کند." : "An authorized user finalizes the transaction directly after validation."}</p></div>
-        <div><strong>{fa ? "روشن" : "ON"}</strong><p>{fa ? "یک کاربر مجاز دیگر باید پیش از ثبت نهایی تأیید کند." : "A different authorized user must approve before final posting."}</p></div>
+        <div><strong>{fa ? "خاموش" : "OFF"}</strong><p>{fa ? "تأیید جداگانه لازم نیست. دیگر کنترل‌های اعتبارسنجی و حسابداری همچنان برقرار است." : "Records do not require a separate approval step. Other validation and accounting controls remain enforced."}</p></div>
+        <div><strong>{fa ? "روشن" : "ON"}</strong><p>{fa ? "تأیید جداگانه مطابق قواعد تفکیک وظایف این جریان لازم است." : "A separate approval step is required according to the workflow’s segregation-of-duties rules."}</p></div>
         <p>{fa ? "این تنظیم کنترل‌های خزانه، دسترسی، توازن ژورنال، دوره مالی، شواهد، برگشت و حسابرسی را غیرفعال نمی‌کند." : "This setting never disables Treasury custody, access control, journal balance, period, evidence, reversal or audit controls."}</p>
       </section>
 
@@ -124,11 +134,11 @@ export function FinanceWorkflowPolicyWorkspace() {
                     onChange={(event) => setDrafts({ ...drafts, [policy.workflowType]: { ...draft, approvalRequired: event.target.checked } })}
                     aria-describedby={`policy-help-${policy.workflowType}`}
                   />
-                  <span>{draft.approvalRequired ? (fa ? "تأیید مستقل لازم است" : "Independent approval required") : (fa ? "ثبت مستقیم پس از اعتبارسنجی" : "Post directly after validation")}</span>
+                  <span>{fa ? "تأیید لازم است" : "Approval required"}: <strong>{draft.approvalRequired ? (fa ? "روشن" : "ON") : (fa ? "خاموش" : "OFF")}</strong></span>
                 </label>
                 <small id={`policy-help-${policy.workflowType}`}>{draft.approvalRequired ?
-                  (fa ? "ثبت‌کننده نمی‌تواند معامله خودش را تأیید کند." : "The person who enters the transaction cannot approve it.") :
-                  (fa ? "فقط کاربری که اجازه این معامله را دارد می‌تواند آن را نهایی کند." : "Only a user permitted for this transaction can finalize it.")}</small>
+                  (fa ? "بازبینی مستقل طبق قواعد این جریان لازم است." : "Independent review follows this workflow’s existing rules.") :
+                  (fa ? "تأیید جداگانه لازم نیست؛ تحویل خزانه، شواهد، صلاحیت و دوره مالی همچنان کنترل می‌شود." : "No separate approval is required; custody, evidence, permissions and accounting-period controls still apply.")}</small>
                 <label>
                   <span>{fa ? "دلیل تغییر" : "Reason for this change"}</span>
                   <textarea
@@ -150,6 +160,8 @@ export function FinanceWorkflowPolicyWorkspace() {
                 <span>{policy.configuredBy ? `${fa ? "توسط" : "by"} ${policy.configuredBy}` : (fa ? "هنوز ثبت نشده" : "Not set yet")}</span>
                 {policy.configuredAt ? <time dateTime={policy.configuredAt} dir="ltr">{new Date(policy.configuredAt).toLocaleString(fa ? "fa-AF" : "en-GB")}</time> : null}
               </footer>
+              {policy.changeReason ? <p className="admin-hint"><strong>{fa ? "دلیل آخرین تغییر: " : "Latest change reason: "}</strong>{policy.changeReason}</p> : null}
+              <p className="admin-hint">{fa ? "نسخه مرتبط با معامله‌های در جریان محفوظ می‌ماند؛ تغییر سیاست، معامله‌های تکمیل‌شده را بازنویسی نمی‌کند." : "Transactions retain their bound policy version. Changing this setting does not rewrite completed transactions."}</p>
               {policy.history.length > 0 ? <details className="policy-history">
                 <summary>{fa ? "تاریخچه نسخه‌ها" : "Version history"}</summary>
                 <ol>{policy.history.map((item) => <li key={item.policyVersionId}>

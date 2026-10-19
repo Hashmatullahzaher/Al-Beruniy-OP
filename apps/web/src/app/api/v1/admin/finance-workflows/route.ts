@@ -30,7 +30,9 @@ export async function PUT(request: Request) {
       workflowType: typeof body.workflowType === "string" ? body.workflowType : "",
       approvalRequired: body.approvalRequired,
       expectedVersion: body.expectedVersion,
-      changeReason: body.changeReason
+      changeReason: body.changeReason,
+      idempotencyKey: body.idempotencyKey,
+      correlationId: body.correlationId
     });
     return json({ ok: true, data });
   } catch (error) {
