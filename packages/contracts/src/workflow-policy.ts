@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 export const FINANCE_WORKFLOW_TYPES = [
+  "CHART_OF_ACCOUNTS",
   "SHAREHOLDER_CAPITAL_RECEIPT",
   "CUSTOMER_RECEIPT",
   "OTHER_INCOME",
@@ -18,7 +19,9 @@ export const financeWorkflowTypeSchema = z.enum(FINANCE_WORKFLOW_TYPES);
 export const financeWorkflowPolicyUpdateSchema = z.object({
   approvalRequired: z.boolean(),
   expectedVersion: z.number().int().min(0),
-  changeReason: z.string().trim().min(5).max(500)
+  changeReason: z.string().trim().min(5).max(500),
+  idempotencyKey: z.string().trim().min(8).max(200),
+  correlationId: z.uuid()
 }).strict();
 
 export interface FinanceWorkflowPolicyHistoryItem {
@@ -45,6 +48,7 @@ export interface FinanceWorkflowPolicy {
 }
 
 export interface FinanceWorkflowPolicyWorkspace {
+  readonly replayed?: boolean;
   readonly legalEntityId: string;
   readonly canManage: boolean;
   readonly policies: readonly FinanceWorkflowPolicy[];

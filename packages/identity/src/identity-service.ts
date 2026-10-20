@@ -508,12 +508,16 @@ export class IdentityService {
     readonly approvalRequired: unknown;
     readonly expectedVersion: unknown;
     readonly changeReason: unknown;
+    readonly idempotencyKey: unknown;
+    readonly correlationId: unknown;
   }): Promise<FinanceWorkflowPolicyWorkspace> {
     const workflow = financeWorkflowTypeSchema.safeParse(input.workflowType);
     const update = financeWorkflowPolicyUpdateSchema.safeParse({
       approvalRequired: input.approvalRequired,
       expectedVersion: input.expectedVersion,
-      changeReason: input.changeReason
+      changeReason: input.changeReason,
+      idempotencyKey: input.idempotencyKey,
+      correlationId: input.correlationId
     });
     assertIdentity(workflow.success, "VALIDATION_FAILED", "Choose a supported finance workflow.", { field: "workflowType" });
     assertIdentity(update.success, "VALIDATION_FAILED", "Choose On or Off, use the current version, and enter a 5–500 character reason.");
@@ -1213,13 +1217,13 @@ function translateDatabaseError(error: unknown): unknown {
   if (code === "42501" && /sign in with an active account/.test(message)) {
     return new IdentityError("AUTHENTICATION_REQUIRED", "Your session has ended. Sign in again.");
   }
-  if (code === "42501" && /current authority is missing/.test(message)) {
+  if (code === "42501" && /current authority is missing|internal bootstrap actors|real operational password session/.test(message)) {
     return new IdentityError("PERMISSION_DENIED", "You do not have permission to manage finance workflows.");
   }
   if (code === "23514" && /workflow policy changed/.test(message)) {
     return new IdentityError("STALE_VERSION", "Someone else changed this workflow. Reload it and try again.");
   }
-  if (code === "22023" && /workflow|approval flag/.test(message)) {
+  if (code === "22023" && /workflow|approval flag|policy command/.test(message)) {
     return new IdentityError("VALIDATION_FAILED", "The workflow policy change is not valid.");
   }
   if (code === "23514" && /last active super administrator/.test(message)) {

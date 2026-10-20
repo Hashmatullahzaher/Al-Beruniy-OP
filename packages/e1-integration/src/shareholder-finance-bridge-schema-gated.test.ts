@@ -62,7 +62,7 @@ if (databaseUrl() === undefined) {
       await financeConnection?.close(); await treasuryConnection?.close(); await harness?.close();
     });
 
-    test("exact 0037 to 0038 runner upgrade preserves every existing table and performs zero business backfill", async () => {
+    test("0037 through current runner upgrade preserves historical business rows and performs zero business backfill", async () => {
       await withClusterLock(harness.pool, async () => {
         const client = await harness.pool.connect();
         try {
@@ -104,17 +104,24 @@ if (databaseUrl() === undefined) {
             const rows: unknown[] = [];
             for (const { tablename } of tables) {
               assert.match(tablename, /^[a-z_]+$/);
+              // Compare original fields. 0039 adds protective governance metadata and one
+              // canonical workflow catalogue label; its independent upgrade test checks both.
+              const row = tablename === "ledger_account_governance"
+                ? "(to_jsonb(t)-ARRAY['finance_workflow_policy_version_id','approval_required','policy_released_by_user_account_id','policy_released_at','policy_release_reason']::text[])"
+                : "to_jsonb(t)";
+              const filter = tablename === "finance_workflow_types" ? "WHERE workflow_type<>'CHART_OF_ACCOUNTS'" : "";
               rows.push([tablename, (await client.query(`SELECT count(*)::text AS count,
-                md5(COALESCE(string_agg(to_jsonb(t)::text,'' ORDER BY to_jsonb(t)::text),'')) AS hash
-                FROM abos.${tablename} t`)).rows[0]]);
+                md5(COALESCE(string_agg(${row}::text,'' ORDER BY ${row}::text),'')) AS hash
+                FROM abos.${tablename} t ${filter}`)).rows[0]]);
             }
             return rows;
           };
           const before = await snapshot();
           const priorChecksums = await client.query("SELECT migration_id,checksum_sha256 FROM abos.schema_migrations ORDER BY migration_id");
-          assert.deepEqual(await applyMigrations(tx, migrations), ["0038_v1_shareholder_capital_activation"]);
+          const expected = migrations.slice(index).map(migration => migration.id);
+          assert.deepEqual(await applyMigrations(tx, migrations), expected);
           assert.deepEqual(await snapshot(), before, "all existing business/security metadata rows are byte-for-byte preserved");
-          assert.deepEqual((await client.query("SELECT migration_id,checksum_sha256 FROM abos.schema_migrations WHERE migration_id<>'0038_v1_shareholder_capital_activation' ORDER BY migration_id")).rows,
+          assert.deepEqual((await client.query("SELECT migration_id,checksum_sha256 FROM abos.schema_migrations WHERE NOT(migration_id=ANY($1::text[])) ORDER BY migration_id", [expected])).rows,
             priorChecksums.rows);
           assert.equal((await client.query("SELECT count(*)::int AS n FROM abos.shareholder_capital_evidence_registrations")).rows[0]?.n, 0);
           assert.deepEqual(await applyMigrations(tx, migrations), [], "repeated migration runner is a no-op");

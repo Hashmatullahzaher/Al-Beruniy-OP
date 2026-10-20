@@ -89,12 +89,15 @@ if (databaseUrl() === undefined) {
       }
       const dev = await new SandboxAuthenticator(harness.executor, SYNTHETIC_AUTH_CONFIGURATION).issueSession({
         userAccountId: f.world.reverserId as never, legalEntityId: f.world.legalEntityId as never });
-      await assert.rejects(() => policy(fromToken(dev.token), "CHART_OF_ACCOUNTS", false, 0), /password|operational|session/i);
-      await grant(harness.executor, f.world, f.world.bootstrapUserId, ["admin.finance-workflow.manage"]);
+      await assert.rejects(() => policy(fromToken(dev.token), "CHART_OF_ACCOUNTS", false, 0), /password|operational|session|active account/i);
+      // Simulate a leaked credential/session on the internal actor namespace. The fixture has
+      // genuine admin authority already, so this proves the namespace guard independently.
+      const original = await harness.pool.query("SELECT login_identifier FROM abos.user_accounts WHERE id=$1", [f.world.reverserId]);
       await harness.pool.query("UPDATE abos.user_accounts SET login_identifier=$1 WHERE id=$2",
-        [`system.local-bootstrap.${randomUUID()}`, f.world.bootstrapUserId]);
-      const bootstrap = await session(harness, f.world, f.world.bootstrapUserId);
-      await assert.rejects(() => policy(bootstrap, "CHART_OF_ACCOUNTS", false, 0), /bootstrap|real user|administrat|system/i);
+        [`system.local-bootstrap.${randomUUID()}`, f.world.reverserId]);
+      await assert.rejects(() => policy(f.admin, "CHART_OF_ACCOUNTS", false, 0), /bootstrap|real user|administrat|system/i);
+      await harness.pool.query("UPDATE abos.user_accounts SET login_identifier=$1 WHERE id=$2",
+        [original.rows[0]?.login_identifier, f.world.reverserId]);
       await harness.pool.query("DELETE FROM abos.user_permission_grants WHERE user_account_id=$1 AND permission_code='admin.finance-workflow.manage'", [f.world.reverserId]);
       await assert.rejects(() => policy(f.admin, "CHART_OF_ACCOUNTS", false, 0), /authority|permission/i);
       await assert.rejects(() => command(finance.executor, "finance_workflow_policy_set_command", f.admin,
@@ -115,7 +118,7 @@ if (databaseUrl() === undefined) {
 
     test("policy entity is session-derived; foreign company versions remain isolated", async () => {
       const f = await setup(); await policy(f.admin, "CHART_OF_ACCOUNTS", false, 0);
-      const other = await seedSyntheticWorld(harness.executor);
+      const other = await seedSyntheticWorld(harness.executor, { withoutSandboxAuthorization: true });
       await grant(harness.executor, other, other.reverserId, ["admin.finance-workflow.manage"]);
       const otherAdmin = await session(harness, other, other.reverserId);
       await policy(otherAdmin, "CHART_OF_ACCOUNTS", true, 0);
@@ -144,7 +147,29 @@ if (databaseUrl() === undefined) {
       const direct = await create(f.creator, "SYN-NEW-OFF"); assert.equal(direct.account.reviewState, "NOT_REQUIRED");
       await assert.rejects(() => create(f.creator, "SYN-BAD-OFF", { type: "LIABILITY", controlType: "CASH" }), /CASH|account type/i);
       await policy(f.admin, "CHART_OF_ACCOUNTS", true, 2);
-      assert.equal((await create(f.creator, "SYN-NEW-ON")).account.reviewState, "PENDING_REVIEW");
+      assert.equal((await create(f.creator, "SYN-NEW-ON", { name: "Distinct on-policy fixture" })).account.reviewState, "PENDING_REVIEW");
+      await assertNoPosting(harness);
+    });
+
+    test("capital-control account release preserves creator and denies stale, foreign and unauthorized releases", async () => {
+      const f = await setup(); await policy(f.admin, "CHART_OF_ACCOUNTS", true, 0);
+      const changed = await value<{ account: Account }>(finance.executor,
+        "SELECT abos.finance_ledger_account_update($1,$2,0,$3::jsonb,false) AS value",
+        [f.creator.token, f.world.capitalLedgerAccountId, JSON.stringify({ nameFa: "سرمایه آزمایشی" })]);
+      assert.equal(changed.account.reviewState, "PENDING_REVIEW");
+      await policy(f.admin, "CHART_OF_ACCOUNTS", false, 1);
+      const release = (actor: Session, id: string, expectedVersion: number) => value<{ account: Account }>(finance.executor,
+        "SELECT abos.finance_account_policy_reevaluate($1,$2,$3::jsonb) AS value",
+        [actor.token, id, JSON.stringify({ expectedVersion, reason: "Explicit synthetic equity policy release", ...ids() })]);
+      await assert.rejects(() => release(f.creator, f.world.capitalLedgerAccountId, 99), /changed|version/i);
+      await assert.rejects(() => release(f.recorder, f.world.capitalLedgerAccountId, 1), /authority|permission/i);
+      await assert.rejects(() => release(f.creator, randomUUID(), 1), /not found/i);
+      const result = await release(f.creator, f.world.capitalLedgerAccountId, changed.account.version);
+      assert.equal(result.account.reviewState, "NOT_REQUIRED");
+      assert.equal(result.account.approvalRequired, false);
+      assert.deepEqual(result.account.reviews, []);
+      const log = await harness.pool.query("SELECT metadata->>'approvalOccurred' AS approved FROM abos.audit_records WHERE action='LEDGER_ACCOUNT_RELEASED_UNDER_POLICY'");
+      assert.deepEqual(log.rows, [{ approved: "false" }]);
       await assertNoPosting(harness);
     });
 
@@ -166,6 +191,16 @@ if (databaseUrl() === undefined) {
       const prepared = await prepare();
       const intent = await harness.pool.query("SELECT i.status,p.approval_required FROM abos.posting_intents i JOIN abos.finance_workflow_policy_versions p ON p.id=i.finance_workflow_policy_version_id WHERE i.id=$1", [prepared.postingIntentId]);
       assert.deepEqual(intent.rows[0], { status: "VALIDATED", approval_required: false });
+      await assert.rejects(() => register(finance.executor, f.approver, "FINANCE_APPROVAL", prepared.postingIntentId), /approval|bound|pending/i);
+      await assert.rejects(() => command(finance.executor, "decide_shareholder_capital_posting", f.approver,
+        [prepared.postingIntentId, { expectedIntentVersion: prepared.version, decision: "APPROVED",
+          evidenceReferenceId: evidence, decisionReason: "Synthetic refused approval under OFF", ...ids() }]), /no separate approval requirement/i);
+      await assert.rejects(() => command(finance.executor, "post_shareholder_capital_receipt", f.approver,
+        [prepared.postingIntentId, { expectedIntentVersion: prepared.version, ...ids() }]), /authority|prepare|preparer/i);
+      await harness.pool.query("UPDATE abos.user_permission_grants SET revoked_at=clock_timestamp() WHERE user_account_id=$1 AND permission_code='finance.capital-receipt.prepare'", [f.world.intentCreatorId]);
+      await assert.rejects(() => command(finance.executor, "post_shareholder_capital_receipt", f.creator,
+        [prepared.postingIntentId, { expectedIntentVersion: prepared.version, ...ids() }]), /authority|prepare|permission/i);
+      await harness.pool.query("UPDATE abos.user_permission_grants SET revoked_at=NULL WHERE user_account_id=$1 AND permission_code='finance.capital-receipt.prepare'", [f.world.intentCreatorId]);
       await policy(f.admin, "SHAREHOLDER_CAPITAL_RECEIPT", true, 1);
       await harness.pool.query("UPDATE abos.accounting_periods SET status='PENDING' WHERE id=$1", [f.world.accountingPeriodId]);
       const postPayload = { expectedIntentVersion: prepared.version, ...ids() };
@@ -194,7 +229,7 @@ if (databaseUrl() === undefined) {
       await policy(f.admin, "SHAREHOLDER_CAPITAL_RECEIPT", false, 1);
       await assert.rejects(() => command(finance.executor, "post_shareholder_capital_receipt", f.creator,
         [p.postingIntentId, { expectedIntentVersion: p.version, ...ids() }]), /approved|approval|ready|status/i);
-      await assertNoPosting(harness);
+      await assertNoPosting(harness, 1);
     });
   });
 }
@@ -220,9 +255,9 @@ async function command<T = unknown>(db: PostgresExecutor, fn: string, s: Session
   for (const arg of args) { const json = typeof arg === "object" && arg !== null; params.push(json ? JSON.stringify(arg) : arg); placeholders.push(`$${params.length}${json ? "::jsonb" : ""}`); }
   return value<T>(db, `SELECT abos.${fn}(${placeholders.join(",")}) AS value`, params);
 }
-async function assertNoPosting(h: Harness) {
+async function assertNoPosting(h: Harness, intents = 0) {
   const rows = await h.pool.query("SELECT (SELECT count(*) FROM abos.journals)::int AS journals,(SELECT count(*) FROM abos.journal_lines)::int AS lines,(SELECT count(*) FROM abos.posting_intents)::int AS intents");
-  assert.deepEqual(rows.rows[0], { journals: 0, lines: 0, intents: 0 });
+  assert.deepEqual(rows.rows[0], { journals: 0, lines: 0, intents });
 }
 async function register(db: PostgresExecutor, actor: Session, evidenceKind: string, subjectId: string | null) {
   const result = await command<{ evidenceReferenceId: string }>(db, "register_shareholder_capital_evidence", actor,

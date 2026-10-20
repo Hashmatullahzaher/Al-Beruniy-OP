@@ -116,9 +116,17 @@ if (databaseUrl() === undefined) {
       await refusedDomain(manager.safes.blockAccount(manager.actor, afn), "PERMISSION_DENIED");
       await approver.safes.blockAccount(approver.actor, afn);
       assert.equal((await approver.treasury["repository"].findAccount(world.legalEntityId as LegalEntityId, afn))?.status, "BLOCKED");
-      const events = await harness.executor.query<{ to_status: string }>(
-        "SELECT to_status FROM abos.treasury_events WHERE aggregate_type='CASH_ACCOUNT' AND aggregate_id=$1 ORDER BY occurred_at", [afn]);
-      assert.deepEqual(events.rows.map((row) => row.to_status), ["DRAFT", "RECONCILED", "APPROVED", "ACTIVE", "BLOCKED"]);
+      const events = await harness.executor.query<{ from_status: string | null; to_status: string; snapshot_status: string }>(
+        "SELECT from_status,to_status,row_after->>'activation_status' AS snapshot_status FROM abos.treasury_events WHERE aggregate_type='CASH_ACCOUNT' AND aggregate_id=$1", [afn]);
+      // clock_timestamp() is a wall clock, not a sequence. VM/host clock corrections must not
+      // reorder the asserted lifecycle. Prove every immutable transition and snapshot exactly once.
+      assert.equal(events.rows.length, 5);
+      let previous: string | null = null;
+      for (const next of ["DRAFT", "RECONCILED", "APPROVED", "ACTIVE", "BLOCKED"]) {
+        const transition = events.rows.filter(row => row.from_status === previous);
+        assert.deepEqual(transition, [{ from_status: previous, to_status: next, snapshot_status: next }]);
+        previous = next;
+      }
     });
 
     test("a safe account only links an active CASH ledger account in its own currency", async () => {

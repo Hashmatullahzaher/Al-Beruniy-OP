@@ -11,7 +11,7 @@ import { isoDateSchema, opaqueUuidSchema } from "./runtime-schemas.ts";
  * This contract intentionally has no database adapter: migration 0036 remains a proposal.
  */
 export type CapitalReceiptState = "RECORDED" | "CANCELLED";
-export type CapitalReceiptApprovalState = "PENDING" | "APPROVED" | "REJECTED";
+export type CapitalReceiptApprovalState = "PENDING" | "APPROVED" | "REJECTED" | "NOT_REQUIRED";
 export type CapitalReceiptPostingState = "NOT_POSTED" | "POSTED" | "REVERSED";
 
 export interface CapitalContributionDeclaration {
@@ -216,6 +216,7 @@ export type ShareholderCapitalEvidenceRegisterRequest = z.infer<typeof sharehold
 export type ShareholderFinanceCapabilityState = "NOT_OPERATIONAL" | "SCHEMA_NOT_AVAILABLE" | "OPERATIONAL";
 
 export interface ShareholderFinanceCapability {
+  readonly approvalRequired?: boolean | null;
   readonly state: ShareholderFinanceCapabilityState;
   readonly schemaInstalled: boolean;
   readonly mutationAvailable: boolean;
@@ -253,6 +254,8 @@ export type ShareholderCapitalCustodyState = "NOT_RECEIVED" | "PENDING_VERIFICAT
 export type ShareholderCapitalTraceStatus = "DECLARED" | "RECEIVED" | "VERIFIED" | "APPROVED" | "POSTED";
 
 export interface ShareholderCapitalReceiptTrace {
+  readonly approvalRequired?: boolean | null;
+  readonly preparerUserAccountId?: string | null;
   readonly receiptId: string;
   readonly contributionId: string;
   readonly amount: Money;

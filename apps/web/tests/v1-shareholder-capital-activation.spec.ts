@@ -156,7 +156,9 @@ test("0039: authenticated Admin switches Capital OFF; independent custody and ex
         ('demo.finance.preparer','finance.capital-receipt.post')) permission(login,code)
       JOIN abos.user_accounts target ON target.login_identifier=permission.login
       CROSS JOIN abos.user_accounts administrator
-      WHERE administrator.login_identifier='super.admin' ON CONFLICT DO NOTHING`, [fixture.entity]);
+      WHERE administrator.display_name='Sandbox Bootstrap'
+        AND NOT EXISTS(SELECT 1 FROM abos.user_credentials c WHERE c.user_account_id=administrator.id)
+      ON CONFLICT DO NOTHING`, [fixture.entity]);
     await signIn(page, "super.admin", accounts["super.admin"]);
     await page.goto("/admin/finance-workflows");
     let policy = page.locator(".policy-card").filter({ has: page.getByRole("heading", { name: "Shareholder capital receipt", exact: true }) });

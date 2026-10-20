@@ -8,7 +8,7 @@ const port = Number(process.env.ABOS_CAPITAL_E2E_PORT ?? 3190);
  */
 export default defineConfig({
   testDir: "./tests",
-  testMatch: ["v1-shareholder-capital-activation.spec.ts", "v1-temporary-funding.spec.ts"],
+  testMatch: ["v1-shareholder-capital-activation.spec.ts", "v1-temporary-funding.spec.ts", "v1-workflow-policy.spec.ts"],
   outputDir: "./test-results/capital",
   expect: { timeout: 20_000 },
   fullyParallel: false,

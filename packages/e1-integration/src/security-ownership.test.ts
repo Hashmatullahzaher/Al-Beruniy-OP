@@ -62,7 +62,7 @@ if (databaseUrl() === undefined) {
                 p.proconfig AS config, has_function_privilege('public', p.oid, 'EXECUTE') AS public_execute
            FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace JOIN pg_roles r ON r.oid = p.proowner
           WHERE n.nspname = 'abos' AND p.prosecdef ORDER BY 1`);
-      assert.equal(rows.rows.length, 100, "every restricted entry point through the 0038 shareholder-capital activation is accounted for");
+      assert.equal(rows.rows.length, 102, "every restricted entry point through the 0039 approval controls is accounted for");
       for (const fn of rows.rows) {
         assert.ok((FUNCTION_OWNERS as readonly string[]).includes(fn.owner), `${fn.signature} is owned by ${fn.owner}`);
         assert.equal(fn.superuser, false, fn.signature);
@@ -157,6 +157,8 @@ if (databaseUrl() === undefined) {
         register_shareholder_capital_evidence: "abos_v1_capital_evidence_owner",
         guard_shareholder_capital_evidence_binding: "abos_v1_capital_evidence_owner",
         shareholder_capital_configuration: "abos_v1_operational_finance_owner",
+        finance_workflow_policy_set_command: "abos_v1_workflow_policy_owner",
+        finance_account_policy_reevaluate: "abos_e1_finance_owner",
         // 0037: temporary funding (provider payable; base currency; no reversal).
         temporary_funding_workspace: "abos_v1_operational_finance_owner",
         configure_temporary_funding_mapping: "abos_v1_operational_finance_owner",
