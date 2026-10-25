@@ -305,8 +305,8 @@ export async function seedSyntheticWorld(
   );
   await q(
     `INSERT INTO abos.business_party_roles (business_party_id, role_code, effective_from)
-     VALUES ($1, 'SHAREHOLDER', current_date - 30)`,
-    [world.businessPartyId]
+     VALUES ($1, 'SHAREHOLDER', $2::date - 30)`,
+    [world.businessPartyId, world.accountingEffectiveDate]
   );
   await q(
     `INSERT INTO abos.shareholder_profiles (id, legal_entity_id, business_party_id, status)

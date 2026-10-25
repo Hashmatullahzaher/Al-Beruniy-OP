@@ -46,7 +46,7 @@ test.describe("V1 shareholder contributions", () => {
     await signOut(page);
 
     await signIn(page, "demo.treasury.manager", accounts["demo.treasury.manager"]);
-    await page.goto("/shareholders");
+    await page.goto("/shareholders/legacy");
     const simple = page.getByRole("region", { name: "Shareholders and contributions" });
     await expect(simple).toBeVisible();
     await expect(page.getByRole("tablist", { name: "Shareholder areas" })).toHaveCount(0, { timeout: 2_000 });

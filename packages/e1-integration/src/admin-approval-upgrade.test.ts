@@ -10,7 +10,7 @@ import { seedSyntheticWorld, SYNTHETIC_AUTH_CONFIGURATION } from "./synthetic-wo
 
 const PREDECESSOR = "0038_v1_shareholder_capital_activation";
 const MIGRATION = "0039_v1_admin_approval_controls";
-const NEW_TABLES = ["finance_workflow_policy_commands", "ledger_account_policy_releases"] as const;
+const NEW_TABLES = ["finance_workflow_policy_commands", "ledger_account_policy_releases", "direct_capital_receipts", "direct_capital_receipt_allocations"] as const;
 const NEW_GOVERNANCE_COLUMNS = [
   "finance_workflow_policy_version_id", "approval_required", "policy_released_by_user_account_id",
   "policy_released_at", "policy_release_reason"
@@ -19,7 +19,7 @@ const NEW_GOVERNANCE_COLUMNS = [
 if (databaseUrl() === undefined) {
   test("0039 Admin approval controls historical upgrade", () => assert.fail(MISSING_DATABASE_MESSAGE));
 } else {
-  describe("0038 to 0039 Admin approval controls historical upgrade", () => {
+  describe("0038 through 0040 approval controls and direct-capital zero-backfill upgrade", () => {
     let harness: Harness;
     before(async () => { harness = await openHarness(SYNTHETIC_AUTH_CONFIGURATION.runtimeMarker); });
     after(async () => { await harness?.close(); });
@@ -94,17 +94,17 @@ if (databaseUrl() === undefined) {
           const beforeRegistry = (await client.query("SELECT * FROM abos.schema_migrations ORDER BY migration_id")).rows;
           const governanceBefore = (await client.query("SELECT to_jsonb(g) AS row FROM abos.ledger_account_governance g ORDER BY ledger_account_id")).rows;
           assert.equal(governanceBefore.length, 3);
-          assert.deepEqual(await applyMigrations(tx, migrations), [MIGRATION]);
+          assert.deepEqual(await applyMigrations(tx, migrations), [MIGRATION, "0040_v1_direct_shareholder_capital"]);
           const afterTables = await tableNames(client);
           assert.deepEqual(afterTables.filter((name) => !beforeTables.includes(name)), [...NEW_TABLES].sort());
           assert.deepEqual(await snapshots(client, beforeTables), beforeBusiness,
             "all historical columns in every business/security table are byte-for-byte preserved");
-          assert.deepEqual((await client.query("SELECT * FROM abos.schema_migrations WHERE migration_id<>$1 ORDER BY migration_id", [MIGRATION])).rows,
+          assert.deepEqual((await client.query("SELECT * FROM abos.schema_migrations WHERE migration_id<>ALL($1::text[]) ORDER BY migration_id", [[MIGRATION, "0040_v1_direct_shareholder_capital"]])).rows,
             beforeRegistry, "all 0001-0038 registry values, checksums and timestamps are unchanged");
           const upgraded = (await client.query("SELECT checksum_sha256 FROM abos.schema_migrations WHERE migration_id=$1", [MIGRATION])).rows;
           assert.equal(upgraded.length, 1, "0039 recorded exactly once");
           assert.equal(upgraded[0]?.checksum_sha256, migrations[index]?.checksumSha256);
-          assert.equal(Number((await client.query("SELECT count(*) AS n FROM abos.schema_migrations")).rows[0]?.n), beforeRegistry.length + 1);
+          assert.equal(Number((await client.query("SELECT count(*) AS n FROM abos.schema_migrations")).rows[0]?.n), beforeRegistry.length + 2);
           assert.deepEqual((await client.query(`SELECT to_jsonb(g)-$1::text[] AS row
             FROM abos.ledger_account_governance g ORDER BY ledger_account_id`, [NEW_GOVERNANCE_COLUMNS])).rows, governanceBefore);
           const governanceAdded = (await client.query(`SELECT approval_required,finance_workflow_policy_version_id,
@@ -153,8 +153,11 @@ async function snapshots(client: pg.PoolClient, tables: readonly string[]): Prom
     assert.match(table, /^[a-z_]+$/);
     // New governance columns have separately asserted protective defaults. The single workflow
     // catalogue row is schema metadata, not a policy or authorization for any real company.
-    const projection = table === "ledger_account_governance" ? "to_jsonb(t)-$1::text[]" : "to_jsonb(t)";
-    const parameters = table === "ledger_account_governance" ? [NEW_GOVERNANCE_COLUMNS] : [];
+    const addedColumns = table === "ledger_account_governance" ? [...NEW_GOVERNANCE_COLUMNS]
+      : table === "shareholder_profiles" ? ["ownership_percentage", "capital_note", "capital_document_agreement_id"]
+      : ["posting_intents", "subledger_entries"].includes(table) ? ["direct_capital_receipt_id"] : [];
+    const projection = addedColumns.length ? "to_jsonb(t)-$1::text[]" : "to_jsonb(t)";
+    const parameters = addedColumns.length ? [addedColumns] : [];
     const filter = table === "finance_workflow_types" ? " WHERE workflow_type<>'CHART_OF_ACCOUNTS'" : "";
     const row = (await client.query(`SELECT count(*)::text AS count,
       md5(COALESCE(string_agg((${projection})::text,'' ORDER BY (${projection})::text),'')) AS hash

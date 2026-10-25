@@ -27,7 +27,7 @@ test("@smoke 0038: independent operators move declared capital into the Safe, po
   // Finance configures the exact paid-in-capital account. Configuration remains reachable while
   // the overall capability is still NOT_OPERATIONAL; evidence is hashed from a selected local file.
   await signIn(page, "demo.finance.preparer", accounts["demo.finance.preparer"]);
-  await page.goto("/shareholders");
+  await page.goto("/shareholders/legacy");
   const mapping = page.locator("section.capital-configuration");
   await expect(mapping).toContainText("Paid-in capital mapping");
   await mapping.getByRole("button", { name: "Configure account" }).click();
@@ -178,7 +178,7 @@ test("0039: authenticated Admin switches Capital OFF; independent custody and ex
     expect(permissions).toContain("finance.capital-receipt.post");
     expect(permissions).toContain("finance.capital-receipt.prepare");
     expect(permissions).not.toContain("finance.capital-receipt.approve");
-    await page.goto("/shareholders");
+    await page.goto("/shareholders/legacy");
     const mapping = page.locator("section.capital-configuration");
     await mapping.getByRole("button", { name: "Configure account" }).click();
     await mapping.getByLabel("Capital account").selectOption({ label: "3010-USD · Synthetic Paid-in Share Capital · USD" });
@@ -279,7 +279,7 @@ test("0039: authenticated Admin switches Capital OFF; independent custody and ex
 });
 
 async function capitalWorkflow(page: Page): Promise<Locator> {
-  await page.goto("/shareholders");
+  await page.goto("/shareholders/legacy");
   const holder = page.locator("article.contribution-card", { hasText: "Synthetic Shareholder One" });
   const workflow = holder.locator(".capital-operations");
   await expect(workflow).toBeVisible();

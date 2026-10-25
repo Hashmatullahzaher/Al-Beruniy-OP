@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 
-import { ShareholderSetupWorkspace } from "@/components/ShareholderSetupWorkspace";
+import { DirectShareholderCapitalWorkspace } from "@/components/DirectShareholderCapitalWorkspace";
 
-export const metadata: Metadata = { title: "Shareholders", description: "Shareholders, capital agreements, installments and capital requests." };
+export const metadata: Metadata = { title: "Shareholders", description: "Shareholder capital, receipts and outstanding balances." };
 export const dynamic = "force-dynamic";
 
 export default function ShareholdersPage() {
-  return <ShareholderSetupWorkspace />;
+  return <DirectShareholderCapitalWorkspace />;
 }

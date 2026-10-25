@@ -2,6 +2,9 @@ import { createHash, createHmac, randomBytes, randomUUID, timingSafeEqual } from
 import type { SqlExecutor } from "@abos/database";
 import { sandboxGateFingerprint, TREASURY_PERMISSIONS } from "@abos/contracts";
 import type {
+  DirectCapitalWorkspace,
+  DirectCapitalResult,
+  DirectShareholderCommand,
   CostCenterId,
   DepartmentId,
   FinancePermission,
@@ -504,6 +507,26 @@ export class SandboxAuthenticator {
       [],
       "Shareholder contributions are unavailable"
     );
+  }
+
+  /** Atomic direct capital lane; proofs are generated server-side, never accepted from a browser. */
+  async directCapitalWorkspace(executor: SqlExecutor, token: string): Promise<DirectCapitalWorkspace> {
+    return this.operationalFinanceFunction<DirectCapitalWorkspace>(executor,
+      "SELECT abos.direct_shareholder_capital_workspace($1,$2,$3) AS value", token, [], "Capital workspace is unavailable");
+  }
+
+  async directCapitalCommand(executor: SqlExecutor, token: string, command: DirectShareholderCommand): Promise<DirectCapitalResult> {
+    const { action, ...payload } = command;
+    const sql = action === "create-shareholder"
+      ? "SELECT abos.direct_shareholder_create($1,$2,$3,$4::jsonb) AS value"
+      : "SELECT abos.direct_shareholder_receive($1,$2,$3,$4::jsonb) AS value";
+    return this.operationalFinanceFunction<DirectCapitalResult>(executor, sql, token, [JSON.stringify(payload)], "Capital transaction is unavailable");
+  }
+
+  async directCapitalDocumentHolder(executor: SqlExecutor, token: string, shareholderProfileId: string): Promise<{ readonly capitalAgreementId: string }> {
+    return this.operationalFinanceFunction(executor,
+      "SELECT abos.direct_shareholder_document_holder($1,$2,$3,$4::jsonb) AS value", token,
+      [JSON.stringify({ shareholderProfileId })], "Shareholder document is unavailable");
   }
 
   /** Temporary Funding (0037): providers, Safe movements and fundings of the actor's company. */
