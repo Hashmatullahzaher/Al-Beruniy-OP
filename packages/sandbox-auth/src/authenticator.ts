@@ -639,25 +639,26 @@ export class SandboxAuthenticator {
     );
   }
 
-  /** Options for recording an expense on one business date (read only). */
   /**
-   * Open the month that covers a date, if it is merely pending inside a generated financial year.
-   * A closed month, or a date no month covers, is still refused by PostgreSQL.
+   * Record an expense, opening the month that covers its date first when that month is merely
+   * pending inside a generated financial year. One database transaction: a refused expense leaves
+   * the month untouched. A closed month, or a date no month covers, is still refused by PostgreSQL.
    */
-  async ensureOpenAccountingPeriod(
+  async recordOperationalExpense(
     executor: SqlExecutor,
     token: string,
-    date: string
-  ): Promise<{ readonly accountingPeriodId: string; readonly periodName: string }> {
-    return this.operationalFinanceFunction(
+    input: OperationalExpenseCreate
+  ): Promise<OperationalExpenseMutationResult> {
+    return this.operationalFinanceFunction<OperationalExpenseMutationResult>(
       executor,
-      "SELECT abos.operational_period_ensure_open($1,$2,$3,$4::date) AS value",
+      "SELECT abos.operational_expense_record($1,$2,$3,$4::jsonb) AS value",
       token,
-      [date],
-      "The accounting period is unavailable"
+      [JSON.stringify(input)],
+      "Operational expense creation returned no result"
     );
   }
 
+  /** Options for recording an expense on one business date (read only). */
   async operationalExpenseEntryOptions(
     executor: SqlExecutor,
     token: string,

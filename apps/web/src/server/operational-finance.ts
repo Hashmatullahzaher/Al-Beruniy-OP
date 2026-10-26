@@ -148,13 +148,14 @@ export async function createOperationalExpense(
   input: OperationalExpenseCreate
 ): Promise<OperationalExpenseMutationResult> {
   const finance = financeHandoffRuntime();
-  const token = await operationalFinanceToken();
-  const { authenticator } = operationalFinanceRuntime();
   // Money in before money out should not also mean opening a month by hand. A month that is merely
-  // pending inside the financial year is opened first, audited, and only then is the expense
-  // recorded. A closed month is still refused, and an open month is left exactly as it is.
-  await authenticator.ensureOpenAccountingPeriod(finance.executor, token, input.businessDate);
-  return authenticator.createOperationalExpense(finance.executor, token, input);
+  // pending inside the financial year is opened in the same transaction as the expense, so a refused
+  // expense leaves it untouched. A closed month is still refused; an open month is left as it is.
+  return operationalFinanceRuntime().authenticator.recordOperationalExpense(
+    finance.executor,
+    await operationalFinanceToken(),
+    input
+  );
 }
 
 export async function approveOperationalExpense(

@@ -83,8 +83,14 @@ month, a pending month with no financial year behind it, and a date no period co
 reopens closed books, and never invents a period or a financial year.
 
 The capital lane calls it directly. The expense lane checks for an open period before it writes
-anything, so `abos.operational_period_ensure_open` (gated on `finance.expense.create` and an
-operational password session) is called by the expense request first, then the expense is recorded.
+anything, so `abos.operational_expense_record` (gated on `finance.expense.create` and an operational
+password session) opens the month and calls `operational_expense_create` in **one transaction**: a
+refused expense leaves the month exactly as it was, with no audit row claiming otherwise. Months open
+only on a posting that commits.
+
+"Not in the future" is judged on the Kabul calendar day (`abos.business_today()`), the same calendar
+the form uses to date a save; the database itself runs in UTC. A per-company timezone belongs to
+configuration later.
 No existing function was rewritten for this. The expense form no longer blocks on a closed month; it
 says what will happen, and a genuinely closed month is refused on save.
 
@@ -96,9 +102,11 @@ The privileges this needs already existed: 0027 granted the operational finance 
 The owner asked for accounting logic, not a hard gate. The expense form shows what the chosen account
 holds on record for that date, and if the expense is larger it warns with the figure and asks the
 person to confirm before saving. The account can then show a real negative balance rather than hiding
-one. The figure comes from the existing Daily Report projection, so it respects reporting permission
-and live project, department and cost-center scope; without that permission there is no warning
-rather than a false one. Foreign-currency expenses are not compared.
+one. The figure comes from the Daily Report projection, whose Safe balance now counts **every** posted
+Treasury movement of the account (expense, capital, temporary funding and whatever comes next),
+withholding only lines carrying a project, department or cost centre outside the reader's live scope,
+exactly as the General Ledger does. Without reporting permission there is no warning rather than a
+false one. Foreign-currency expenses are not compared.
 
 ## 7. What left the interface
 

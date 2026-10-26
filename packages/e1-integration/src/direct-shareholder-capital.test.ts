@@ -518,6 +518,13 @@ if (databaseUrl() === undefined) {
       const posted = await receive(f, s.shareholderProfileId, { fundingMethod: "HAWALA",
         providerName: "Synthetic Saraf Mahmood", paymentReference: "HAWALA-77421", amount: "12000" });
       assert.equal(posted.status, "POSTED");
+      // The daily report's Safe balance counts every posted movement, not only what a reader may name.
+      await grant(h.executor, f.world, f.world.cashierId, ["finance.expense.read"]);
+      const cashier = await session(f.world, f.world.cashierId);
+      const report = await runtime.query<{ value: { treasuryMovements: { treasuryAccountId: string; after: string }[] } }>(
+        "SELECT abos.operational_finance_daily_report($1,$2,$3,$4::date) AS value", [cashier.proof, cashier.runtimeDigest, cashier.tokenDigest, "2026-09-23"]);
+      assert.equal(report.rows[0]?.value.treasuryMovements.find(x => x.treasuryAccountId === f.safe)?.after, "12000",
+        "a reader without shareholder permissions still sees the Safe's true recorded balance");
       const row = await h.pool.query(`SELECT funding_method,provider_name,payment_reference,
         operational_treasury_account_id::text AS safe,debit_ledger_account_id::text AS debit
         FROM abos.direct_capital_receipts WHERE id=$1`, [posted.receiptId]);
@@ -610,7 +617,21 @@ if (databaseUrl() === undefined) {
       await assert.rejects(() => receive(f, s.shareholderProfileId, { receiptDate: "2026-08-11" }), /period|reopen|cannot/i);
     });
 
-    test("the expense lane opens a pending month through its own entry point and refuses a closed one", async () => {
+    test("a save dated on the Kabul business day is judged on that calendar, and tomorrow is refused", async () => {
+      const f = await fixture(); const s = await create(f);
+      const clock = (await h.pool.query(`SELECT abos.business_today()::text AS kabul,
+        ((now() AT TIME ZONE 'Asia/Kabul')::date)::text AS expected`)).rows[0] as { kabul: string; expected: string };
+      assert.equal(clock.kabul, clock.expected, "the business day is the Kabul calendar date, not the server's UTC date");
+      const tomorrow = (await h.pool.query("SELECT (abos.business_today()+1)::text AS d")).rows[0]?.d as string;
+      await assert.rejects(() => receive(f, s.shareholderProfileId, { receiptDate: tomorrow }), /date|valid/i);
+      // The entry point compares against the same helper, so an in-window save (00:00-04:30 Kabul,
+      // when UTC is still yesterday) is never refused as future-dated.
+      const body = (await h.pool.query("SELECT pg_get_functiondef('abos.direct_shareholder_receive(text,text,text,jsonb)'::regprocedure) AS d")).rows[0]?.d as string;
+      assert.match(body, /day>abos\.business_today\(\)/);
+      assert.doesNotMatch(body, /day>current_date/);
+    });
+
+    test("the expense lane opens a pending month only when the expense actually commits, and refuses a closed one", async () => {
       const f = await fixture();
       await grant(h.executor, f.world, f.world.intentCreatorId, ["finance.expense.create", "finance.expense.read"]);
       const fiscalYear = randomUUID(); const october = randomUUID();
@@ -629,27 +650,35 @@ if (databaseUrl() === undefined) {
         VALUES($1,$2,'SYN-PERIOD','Synthetic auto-open expense',$3,'ACTIVE',1,$4,$4)`, [category, f.world.legalEntityId, ledger, f.world.bootstrapUserId]);
       await h.pool.query(`INSERT INTO abos.finance_workflow_policy_versions(id,legal_entity_id,workflow_type,version,approval_required,configured_by_user_account_id,change_reason)
         VALUES($1,$2,'EXPENSE',1,false,$3,'Synthetic auto-open expense policy')`, [randomUUID(), f.world.legalEntityId, f.world.bootstrapUserId]);
-      const expense = (extra: object = {}) => call<{ expense: { status: string } }>("operational_expense_create", f.actor, {
+      const expense = (entryPoint: string, extra: object = {}) => call<{ expense: { status: string } }>(entryPoint, f.actor, {
         treasuryAccountId: f.safe, expenseCategoryId: category, payeeBusinessPartyId: null, projectId: null,
         departmentId: null, costCenterId: null, reference: `SYN-PERIOD-${randomUUID()}`,
         description: "Synthetic expense on an unopened month", note: null, businessDate: "2026-10-05",
         originalAmount: "25", currencyCode: "USD", exchangeRateId: null, ...keys(), ...extra });
-      // Without the period step the expense lane still refuses, exactly as before.
-      await assert.rejects(() => expense(), /period|open/i);
-      const opened = await call<{ accountingPeriodId: string; periodName: string }>(
-        "operational_period_ensure_open", f.actor, undefined, runtime, "2026-10-05");
-      assert.equal(opened.accountingPeriodId, october); assert.equal(opened.periodName, "2026-10");
-      assert.equal((await h.pool.query("SELECT status FROM abos.accounting_periods WHERE id=$1", [october])).rows[0]?.status, "OPEN");
+      const periodStatus = async () => (await h.pool.query("SELECT status FROM abos.accounting_periods WHERE id=$1", [october])).rows[0]?.status;
+      const audits = async () => (await h.pool.query("SELECT count(*)::int AS n FROM abos.audit_records WHERE action='ACCOUNTING_PERIOD_OPENED'")).rows[0]?.n as number;
+      // The plain entry point still refuses, exactly as before: nothing opens a month by accident.
+      await assert.rejects(() => expense("operational_expense_create"), /period|open/i);
+      assert.equal(await periodStatus(), "PENDING");
+      // An expense that is refused leaves the month exactly as it was, with no audit row claiming otherwise.
+      const before = await audits();
+      await assert.rejects(() => expense("operational_expense_record", { expenseCategoryId: randomUUID() }), /categor|mapping|active|not found/i);
+      assert.equal(await periodStatus(), "PENDING", "a refused expense does not open the month");
+      assert.equal(await audits(), before, "and writes no period-opened audit row");
       // Capital first, so the Safe actually holds the money this expense pays out.
       const s = await create(f);
       await receive(f, s.shareholderProfileId, { receiptDate: "2026-10-05", amount: "500" });
-      assert.equal((await expense()).expense.status, "POSTED");
+      assert.equal((await expense("operational_expense_record")).expense.status, "POSTED");
+      assert.equal(await periodStatus(), "OPEN", "the first valid posting opened the month");
+      assert.equal(await audits(), before + 1);
+      assert.equal((await expense("operational_expense_record")).expense.status, "POSTED");
+      assert.equal(await audits(), before + 1, "an already open month is not reopened");
       await h.pool.query("UPDATE abos.accounting_periods SET status='CLOSED',closed_by_user_account_id=$2,closed_at=clock_timestamp() WHERE id=$1",
         [october, f.world.bootstrapUserId]);
-      await assert.rejects(() => call("operational_period_ensure_open", f.actor, undefined, runtime, "2026-10-05"), /period|reopen|cannot/i);
-      // Opening a month is Finance work: expense authority is required, and a synthetic session is not.
+      await assert.rejects(() => expense("operational_expense_record"), /period|reopen|cannot/i);
+      // Recording an expense is Finance work: expense authority is required, and a synthetic session is not.
       const reader = await session(f.world, f.world.cashierId);
-      await assert.rejects(() => call("operational_period_ensure_open", reader, undefined, runtime, "2026-09-10"), denied);
+      await assert.rejects(() => call("operational_expense_record", reader, { businessDate: "2026-09-10" }), denied);
     });
 
     test("runtime cannot bypass the functions with direct table DML or privileged helper execution", async () => {

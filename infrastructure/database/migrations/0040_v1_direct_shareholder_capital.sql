@@ -252,21 +252,34 @@ BEGIN
  RETURN chosen;
 END $$;
 
+-- The business day the company is in. The database runs in UTC; the people run in Kabul, and the
+-- form dates a save with the Kabul calendar date, so "not in the future" must be judged on the same
+-- calendar or every save between midnight and 04:30 Kabul time is refused as future-dated. A
+-- per-company timezone setting belongs to configuration later; until then this is the one rule.
+CREATE FUNCTION abos.business_today() RETURNS date
+LANGUAGE sql STABLE SET search_path=pg_catalog,pg_temp AS $$
+ SELECT (now() AT TIME ZONE 'Asia/Kabul')::date
+$$;
+
 -- A one-person company should not meet a period error for an ordinary save. An existing OPEN period
 -- is used as before. Otherwise the PENDING period that already covers the date, inside a generated
 -- fiscal year, is opened and audited. A SOFT_CLOSED, CLOSED or absent period is still refused: this
--- never reopens closed books and never invents a period or a fiscal year.
+-- never reopens closed books and never invents a period or a fiscal year. The common case (the month
+-- is already open) takes no lock; the entity-wide period lock is taken only to open one, and the
+-- period is re-read under it.
 CREATE FUNCTION abos.open_period_for_business_date(p_entity uuid,p_actor uuid,p_date date) RETURNS uuid
 LANGUAGE plpgsql SET search_path=pg_catalog,pg_temp AS $$
 DECLARE period abos.accounting_periods%ROWTYPE; before_state jsonb;
 BEGIN
- PERFORM pg_advisory_xact_lock(hashtextextended('abos-periods:'||p_entity::text,0));
  SELECT * INTO period FROM abos.accounting_periods
   WHERE legal_entity_id=p_entity AND p_date BETWEEN starts_on AND ends_on
   ORDER BY starts_on DESC LIMIT 1;
  IF NOT FOUND THEN
   RAISE EXCEPTION 'no accounting period covers %; generate the financial year first',p_date USING ERRCODE='check_violation';
  END IF;
+ IF period.status='OPEN' THEN RETURN period.id; END IF;
+ PERFORM pg_advisory_xact_lock(hashtextextended('abos-periods:'||p_entity::text,0));
+ SELECT * INTO period FROM abos.accounting_periods WHERE id=period.id AND legal_entity_id=p_entity;
  IF period.status='OPEN' THEN RETURN period.id; END IF;
  IF period.status<>'PENDING' OR period.fiscal_year_id IS NULL THEN
   RAISE EXCEPTION 'the accounting period covering % is %; it cannot be reopened automatically',p_date,period.status
@@ -280,30 +293,32 @@ BEGIN
   entity_type,entity_id,before_state,after_state,metadata)
  VALUES(gen_random_uuid(),p_actor,p_entity,gen_random_uuid(),'ACCOUNTING_PERIOD_OPENED','ACCOUNTING_PERIOD',
   period.id,before_state,(SELECT to_jsonb(p) FROM abos.accounting_periods p WHERE p.id=period.id),
-  jsonb_build_object('source','v1-direct-capital','reason','opened automatically to record a dated transaction'));
+  jsonb_build_object('source','v1-auto-open','reason','opened automatically to record a dated transaction'));
  RETURN period.id;
 END $$;
 
--- One save. The shareholder, an optional agreed total and the money they are putting in now all
--- commit together or not at all. An agreed total is optional and creates the same non-financial
--- declaration as before; with none, the shareholder's capital is simply what they contribute.
 -- The same rule for the ordinary expense lane, which checks for an open period before it inserts
--- anything. The web request opens the month first, then records the expense, so a one-person company
--- never meets a period error for an ordinary save. It opens nothing a person could not open by hand.
-CREATE FUNCTION abos.operational_period_ensure_open(p_proof text,p_runtime text,p_token text,p_date date)
+-- anything. This wrapper opens the month and records the expense in ONE transaction: if the expense
+-- is refused for any reason, the month stays exactly as it was and no audit row claims otherwise.
+-- It opens nothing a person could not open by hand, and only on a posting that actually commits.
+CREATE FUNCTION abos.operational_expense_record(p_proof text,p_runtime text,p_token text,p_payload jsonb)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
-DECLARE c jsonb; entity uuid; actor uuid; period uuid;
+DECLARE c jsonb; entity uuid; actor uuid; day date;
 BEGIN
  c:=abos.operational_finance_actor(p_proof,p_runtime,p_token,'finance.expense.create');
  IF c->>'sessionProvenance' IS DISTINCT FROM 'PASSWORD_OPERATIONAL' THEN
   RAISE EXCEPTION 'an operational password session is required' USING ERRCODE='insufficient_privilege'; END IF;
  entity:=(c->>'legalEntityId')::uuid; actor:=(c->>'userAccountId')::uuid;
- IF p_date IS NULL THEN RAISE EXCEPTION 'a date is required' USING ERRCODE='invalid_parameter_value'; END IF;
- period:=abos.open_period_for_business_date(entity,actor,p_date);
- RETURN jsonb_build_object('accountingPeriodId',period,
-  'periodName',(SELECT period_name FROM abos.accounting_periods WHERE id=period));
+ day:=NULLIF(p_payload->>'businessDate','')::date;
+ IF day IS NULL THEN RAISE EXCEPTION 'a business date is required' USING ERRCODE='invalid_parameter_value'; END IF;
+ PERFORM abos.open_period_for_business_date(entity,actor,day);
+ RETURN abos.operational_expense_create(p_proof,p_runtime,p_token,p_payload);
 END $$;
-ALTER FUNCTION abos.operational_period_ensure_open(text,text,text,date) OWNER TO abos_v1_operational_finance_owner;
+ALTER FUNCTION abos.operational_expense_record(text,text,text,jsonb) OWNER TO abos_v1_operational_finance_owner;
+
+-- One save. The shareholder, an optional agreed total and the money they are putting in now all
+-- commit together or not at all. An agreed total is optional and creates the same non-financial
+-- declaration as before; with none, the shareholder's capital is simply what they contribute.
 
 CREATE FUNCTION abos.direct_shareholder_add(p_proof text,p_runtime text,p_token text,p_payload jsonb)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
@@ -381,7 +396,7 @@ BEGIN
  IF method NOT IN('CASH','HAWALA','ASSET','BILL_PAYMENT') THEN
   RAISE EXCEPTION 'unknown funding method %',method USING ERRCODE='invalid_parameter_value'; END IF;
  cash_bearing:=method IN('CASH','HAWALA');
- IF profile IS NULL OR day IS NULL OR day>current_date
+ IF profile IS NULL OR day IS NULL OR day>abos.business_today()
   OR length(p_payload->>'paymentReference')>120 OR length(p_payload->>'note')>1000 THEN
   RAISE EXCEPTION 'a valid shareholder, date and reference are required' USING ERRCODE='invalid_parameter_value'; END IF;
  -- Each method requires exactly its own fields, so one cannot be smuggled through another.
@@ -744,8 +759,9 @@ BEGIN
 END $$;
 ALTER FUNCTION abos.direct_shareholder_capital_workspace(text,text,text) OWNER TO abos_v1_operational_finance_owner;
 
-REVOKE ALL ON FUNCTION abos.operational_period_ensure_open(text,text,text,date) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION abos.operational_period_ensure_open(text,text,text,date) TO abos_e1_runtime;
+REVOKE ALL ON FUNCTION abos.operational_expense_record(text,text,text,jsonb),abos.business_today() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION abos.operational_expense_record(text,text,text,jsonb) TO abos_e1_runtime;
+GRANT EXECUTE ON FUNCTION abos.business_today() TO abos_v1_operational_finance_owner;
 REVOKE ALL ON FUNCTION abos.direct_capital_actor(text,text,text,boolean),abos.direct_capital_equity(uuid,text),
  abos.direct_capital_asset_account(uuid,text),abos.direct_capital_expense_account(uuid,text,uuid),
  abos.open_period_for_business_date(uuid,uuid,date),
@@ -1181,7 +1197,10 @@ BEGIN
         AND expense.business_date = p_report_date
         AND abos.operational_expense_actor_in_scope(expense.id, v_entity_id, v_actor_id)),
     -- Operational Treasury movements from posted subledger entries only, in each account's own
-    -- currency; "before" is every movement dated earlier, "day" is the report date.
+    -- currency; "before" is every movement dated earlier, "day" is the report date. A balance is
+    -- the sum of EVERY posted movement of the account, whatever recorded it (expense, capital,
+    -- temporary funding, and whatever comes next); only lines carrying a project, department or
+    -- cost centre outside the reader's live scope are withheld, exactly as the General Ledger does.
     'treasuryMovements', COALESCE((SELECT pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object(
         'treasuryAccountId', account.id, 'nameEn', account.name_en, 'nameFa', account.name_fa,
         'currency', account.currency_code, 'status', account.status,
@@ -1195,17 +1214,20 @@ BEGIN
           FROM abos.subledger_entries entry
           JOIN abos.journal_lines line ON line.id = entry.journal_line_id
           JOIN abos.journals journal ON journal.id = line.journal_id AND journal.status = 'POSTED'
-          LEFT JOIN abos.operational_expenses expense
-            ON expense.id = entry.source_id AND expense.legal_entity_id = entry.legal_entity_id
          WHERE entry.operational_treasury_account_id = account.id
            AND entry.legal_entity_id = v_entity_id
            AND entry.processing_model = 'OPERATIONAL_V1'
-
+           AND entry.subledger_type = 'OPERATIONAL_TREASURY'
            AND journal.accounting_effective_date <= p_report_date
-           AND ((entry.source_type='OPERATIONAL_EXPENSE'
-                 AND abos.operational_expense_actor_in_scope(expense.id,v_entity_id,v_actor_id))
-                OR (entry.source_type='DIRECT_SHAREHOLDER_CAPITAL'
-                    AND (v_actor_context->'permissions') ?| ARRAY['shareholder.capital-receipt.read','shareholder.setup.manage']))) movements
+           AND (line.project_id IS NULL OR EXISTS (SELECT 1 FROM abos.user_scope_grants g
+                 WHERE g.user_account_id = v_actor_id AND g.legal_entity_id = v_entity_id
+                   AND g.scope_kind = 'PROJECT' AND g.scope_id = line.project_id AND g.revoked_at IS NULL))
+           AND (line.department_id IS NULL OR EXISTS (SELECT 1 FROM abos.user_scope_grants g
+                 WHERE g.user_account_id = v_actor_id AND g.legal_entity_id = v_entity_id
+                   AND g.scope_kind = 'DEPARTMENT' AND g.scope_id = line.department_id AND g.revoked_at IS NULL))
+           AND (line.cost_center_id IS NULL OR EXISTS (SELECT 1 FROM abos.user_scope_grants g
+                 WHERE g.user_account_id = v_actor_id AND g.legal_entity_id = v_entity_id
+                   AND g.scope_kind = 'COST_CENTER' AND g.scope_id = line.cost_center_id AND g.revoked_at IS NULL))) movements
       WHERE account.legal_entity_id = v_entity_id), '[]'::jsonb));
 END
 $report$;

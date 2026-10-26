@@ -160,7 +160,7 @@ if (databaseUrl() === undefined) {
         finance_workflow_policy_set_command: "abos_v1_workflow_policy_owner",
         finance_account_policy_reevaluate: "abos_e1_finance_owner",
         direct_shareholder_add: "abos_v1_shareholder_setup_owner",
-        operational_period_ensure_open: "abos_v1_operational_finance_owner",
+        operational_expense_record: "abos_v1_operational_finance_owner",
         direct_shareholder_document_holder: "abos_v1_shareholder_setup_owner",
         direct_shareholder_receive: "abos_v1_operational_finance_owner",
         direct_shareholder_capital_workspace: "abos_v1_operational_finance_owner",
