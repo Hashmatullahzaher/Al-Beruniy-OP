@@ -274,6 +274,11 @@ if (databaseUrl() === undefined) {
           { line: 2, type: "TEMPORARY_FUNDING_PAYABLE", party: fixture.organizationPartyId, funding: posted.id, settlement: null, treasury: null, amount: "400.00", currency: "USD" }
         ]);
         assert.equal(await safeMovement(harness, fixture.safeId), "400.00");
+        // The Safe balance the daily report shows includes the funding: a balance counts every source.
+        await grant(harness, fixture.world, fixture.world.intentCreatorId, "finance.expense.read");
+        const report = await call<{ treasuryMovements: { treasuryAccountId: string; after: string }[] }>(fixture.executor,
+          "SELECT abos.operational_finance_daily_report($1,$2,$3,$4::date) AS value", [...args(fixture.sessions.creator), DATE]);
+        assert.equal(report.treasuryMovements.find((x) => x.treasuryAccountId === fixture.safeId)?.after, "400.00");
         await assert.rejects(() => record(fixture, fixture.sessions.creator, { ...modeB(fixture, "5.00"), treasuryAccountId: fixture.bankId }),
           /Treasury account on a CASH asset account is required/, "Mode B funds a Safe, cash box or petty cash only");
       } finally { await fixture.close(); }

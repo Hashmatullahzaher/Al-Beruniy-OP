@@ -104,11 +104,15 @@ if (databaseUrl() === undefined) {
             const rows: unknown[] = [];
             for (const { tablename } of tables) {
               assert.match(tablename, /^[a-z_]+$/);
-              // Compare original fields. 0039 adds protective governance metadata and one
-              // canonical workflow catalogue label; its independent upgrade test checks both.
+              // Compare original fields. Later migrations add governance metadata and nullable
+              // direct-capital links; exclude only those new columns, never historical values.
               const row = tablename === "ledger_account_governance"
                 ? "(to_jsonb(t)-ARRAY['finance_workflow_policy_version_id','approval_required','policy_released_by_user_account_id','policy_released_at','policy_release_reason']::text[])"
-                : "to_jsonb(t)";
+                : tablename === "shareholder_profiles"
+                  ? "(to_jsonb(t)-ARRAY['capital_note','capital_document_agreement_id']::text[])"
+                  : ["posting_intents", "subledger_entries"].includes(tablename)
+                    ? "(to_jsonb(t)-'direct_capital_receipt_id')"
+                    : "to_jsonb(t)";
               const filter = tablename === "finance_workflow_types" ? "WHERE workflow_type<>'CHART_OF_ACCOUNTS'" : "";
               rows.push([tablename, (await client.query(`SELECT count(*)::text AS count,
                 md5(COALESCE(string_agg(${row}::text,'' ORDER BY ${row}::text),'')) AS hash

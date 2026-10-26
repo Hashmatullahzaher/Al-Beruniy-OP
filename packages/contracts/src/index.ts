@@ -7,6 +7,7 @@ export * from "./capital-status.ts";
 export * from "./contract-version.ts";
 export * from "./sandbox.ts";
 export * from "./dimensions.ts";
+export * from "./direct-shareholder-capital.ts";
 export * from "./evidence.ts";
 export * from "./events.ts";
 export * from "./finance.ts";

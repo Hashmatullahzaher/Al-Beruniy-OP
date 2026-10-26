@@ -59,6 +59,8 @@ test.describe("V1 shareholder setup", () => {
     await signIn(page, "demo.treasury.manager", accounts["demo.treasury.manager"]);
     await page.getByRole("navigation", { name: "Operations" }).getByRole("link", { name: "Shareholder capital" }).click();
     await expect(page).toHaveURL(/\/shareholders$/);
+    // Existing draft-agreement behavior is preserved at the explicit legacy URL.
+    await page.goto("/shareholders/legacy");
     // 0035: the simple contributions view is the default; agreements and requests live under Advanced.
     await expect(page.getByRole("region", { name: "Shareholders and contributions" })).toBeVisible();
     await expect(page.getByRole("tablist", { name: "Shareholder areas" })).toHaveCount(0);
@@ -248,7 +250,7 @@ test.describe("V1 shareholder setup", () => {
       document: (await fetch(documentUrl ?? "")).status
     }), firstView);
     expect(status).toEqual({ read: 403, write: 403, document: 403 });
-    await page.goto("/shareholders");
+    await page.goto("/shareholders/legacy");
     await expect(page.getByRole("heading", { name: "You do not have access" }).first()).toBeVisible();
     expect(await partyCount("Refused")).toBe(0);
   });

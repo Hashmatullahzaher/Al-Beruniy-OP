@@ -1899,6 +1899,8 @@ button.review-context { border: 0; border-inline-start: 1px solid rgba(102, 142,
 .expense-entry { display: grid; gap: 12px; }
 .expense-form { max-width: 720px; }
 .expense-warning { color: #edd18d; }
+.expense-overspend-accept { display: inline-flex; align-items: center; gap: 8px; margin-inline-start: 4px; }
+.expense-overspend-accept input { inline-size: 16px; block-size: 16px; }
 .expense-gaps { margin: 4px 0 0; padding-inline-start: 18px; color: var(--abos-slate-200); font-size: 12px; line-height: 1.6; }
 .register-range { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
 .register-range label { min-width: 160px; }

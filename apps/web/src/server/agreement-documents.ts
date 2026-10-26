@@ -21,7 +21,7 @@ function storage(): PrivateDocumentStorage {
   return configuredStorage;
 }
 
-export async function uploadAgreementDocument(request: Request): Promise<Response> {
+export async function uploadAgreementDocument(request: Request, directShareholder = false): Promise<Response> {
   let candidateStorageId: string | null = null;
   let candidateWritten = false;
   try {
@@ -37,11 +37,12 @@ export async function uploadAgreementDocument(request: Request): Promise<Respons
     const token = await sessionToken();
     const form = await boundedMultipartForm(request, AGREEMENT_DOCUMENT_MAX_BYTES + MULTIPART_OVERHEAD_BYTES);
     const file = form.get("file");
-    const capitalAgreementId = field(form, "capitalAgreementId");
+    let capitalAgreementId = field(form, "capitalAgreementId");
+    const shareholderProfileId = directShareholder ? field(form, "shareholderProfileId") : null;
     const documentReference = field(form, "documentReference");
     const documentDate = field(form, "documentDate");
     const idempotencyKey = field(form, "idempotencyKey");
-    if (!(file instanceof File) || !capitalAgreementId || !documentReference || !documentDate || !idempotencyKey) {
+    if (!(file instanceof File) || !(directShareholder ? shareholderProfileId : capitalAgreementId) || !documentReference || !documentDate || !idempotencyKey) {
       return documentError("VALIDATION_FAILED", "Choose a file and enter its agreement details.", 422);
     }
     if (file.size > AGREEMENT_DOCUMENT_MAX_BYTES) {
@@ -49,8 +50,14 @@ export async function uploadAgreementDocument(request: Request): Promise<Respons
     }
     const finance = financeHandoffRuntime();
     const authenticator = restrictedFinanceAuthenticator();
-    await authenticator.prepareAgreementDocument(finance.executor, token, capitalAgreementId);
     const bytes = new Uint8Array(await file.arrayBuffer());
+    // Validate actual bytes before creating even an optional non-financial attachment holder.
+    storage().validate(file.name, bytes);
+    if (directShareholder && shareholderProfileId) {
+      capitalAgreementId = (await authenticator.directCapitalDocumentHolder(finance.executor, token, shareholderProfileId)).capitalAgreementId;
+    }
+    if (!capitalAgreementId) return documentError("VALIDATION_FAILED", "Choose a shareholder.", 422);
+    await authenticator.prepareAgreementDocument(finance.executor, token, capitalAgreementId);
     candidateStorageId = randomUUID();
     const stored = await storage().write(candidateStorageId, file.name, bytes);
     candidateWritten = true;

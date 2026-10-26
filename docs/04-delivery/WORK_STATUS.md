@@ -7,6 +7,8 @@
 
 Agents must update the relevant row when status changes. `DONE` requires evidence and, for high-risk packages, an independent reviewer.
 
+**2026-10-25 — direct Shareholder Capital, isolated owner-review checkpoint:** `codex/v1-direct-shareholder-capital`, based on `817974a9947bdab967f0f1a0f7a1fc4d25bb777b`. Owner-authorized 0040 implements single-action same/base-currency CASH receipt with atomic Safe/GL/shareholder effects and optional private documents. Full disposable PostgreSQL 250/250; units 168/168; lint/typecheck/build/smoke pass; general serial browser 53 passed/22 expected skips; real-password browser financial/document flow and tablet/Dari check both pass. Independent static security re-review PASS. Status REVIEW; no push/deployment/live database changes. Report: [V1_DIRECT_SHAREHOLDER_CAPITAL_0040_REVIEW.md](V1_DIRECT_SHAREHOLDER_CAPITAL_0040_REVIEW.md).
+
 **2026-09-30 — authorized V1 operational gate separation slice:** migration 0032 is complete on `codex/v1-operational-gate-separation`, based on `3bae2bec2f19b0bb337e6b326f5778414ac84990`, for a lease-protected checkpoint update of `origin/v1/integration`. Final disposable validation: PostgreSQL security/integration 173/173; unit/migration 133/133; strict typecheck 12/12 tasks; lint zero warnings; production build 11/11 tasks; smoke 7/7; serial browser 34 passed/18 expected gated skips; password/PostgreSQL browser 12/12; developer-token legacy Treasury browser 6/6. No preserved-database connection, no real shareholder creation, and no real posting authority. Exact mapping and evidence: [V1_OPERATIONAL_GATE_SEPARATION_REPORT.md](V1_OPERATIONAL_GATE_SEPARATION_REPORT.md).
 
 | Phase | Work Package | Scope | Status | Agent | Branch | Commit / PR | Reviewer | Evidence / Notes | Updated |

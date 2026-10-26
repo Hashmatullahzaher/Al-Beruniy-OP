@@ -148,7 +148,10 @@ export async function createOperationalExpense(
   input: OperationalExpenseCreate
 ): Promise<OperationalExpenseMutationResult> {
   const finance = financeHandoffRuntime();
-  return operationalFinanceRuntime().authenticator.createOperationalExpense(
+  // Money in before money out should not also mean opening a month by hand. A month that is merely
+  // pending inside the financial year is opened in the same transaction as the expense, so a refused
+  // expense leaves it untouched. A closed month is still refused; an open month is left as it is.
+  return operationalFinanceRuntime().authenticator.recordOperationalExpense(
     finance.executor,
     await operationalFinanceToken(),
     input

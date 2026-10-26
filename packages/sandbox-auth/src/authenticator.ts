@@ -2,6 +2,9 @@ import { createHash, createHmac, randomBytes, randomUUID, timingSafeEqual } from
 import type { SqlExecutor } from "@abos/database";
 import { sandboxGateFingerprint, TREASURY_PERMISSIONS } from "@abos/contracts";
 import type {
+  DirectCapitalWorkspace,
+  DirectCapitalResult,
+  DirectShareholderCommand,
   CostCenterId,
   DepartmentId,
   FinancePermission,
@@ -506,6 +509,26 @@ export class SandboxAuthenticator {
     );
   }
 
+  /** Atomic direct capital lane; proofs are generated server-side, never accepted from a browser. */
+  async directCapitalWorkspace(executor: SqlExecutor, token: string): Promise<DirectCapitalWorkspace> {
+    return this.operationalFinanceFunction<DirectCapitalWorkspace>(executor,
+      "SELECT abos.direct_shareholder_capital_workspace($1,$2,$3) AS value", token, [], "Capital workspace is unavailable");
+  }
+
+  async directCapitalCommand(executor: SqlExecutor, token: string, command: DirectShareholderCommand): Promise<DirectCapitalResult> {
+    const { action, ...payload } = command;
+    const sql = action === "add-shareholder"
+      ? "SELECT abos.direct_shareholder_add($1,$2,$3,$4::jsonb) AS value"
+      : "SELECT abos.direct_shareholder_receive($1,$2,$3,$4::jsonb) AS value";
+    return this.operationalFinanceFunction<DirectCapitalResult>(executor, sql, token, [JSON.stringify(payload)], "Capital transaction is unavailable");
+  }
+
+  async directCapitalDocumentHolder(executor: SqlExecutor, token: string, shareholderProfileId: string): Promise<{ readonly capitalAgreementId: string }> {
+    return this.operationalFinanceFunction(executor,
+      "SELECT abos.direct_shareholder_document_holder($1,$2,$3,$4::jsonb) AS value", token,
+      [JSON.stringify({ shareholderProfileId })], "Shareholder document is unavailable");
+  }
+
   /** Temporary Funding (0037): providers, Safe movements and fundings of the actor's company. */
   async temporaryFundingWorkspace(executor: SqlExecutor, token: string): Promise<TemporaryFundingWorkspace> {
     return this.operationalFinanceFunction<TemporaryFundingWorkspace>(
@@ -613,6 +636,25 @@ export class SandboxAuthenticator {
       token,
       [],
       "The company dashboard is unavailable"
+    );
+  }
+
+  /**
+   * Record an expense, opening the month that covers its date first when that month is merely
+   * pending inside a generated financial year. One database transaction: a refused expense leaves
+   * the month untouched. A closed month, or a date no month covers, is still refused by PostgreSQL.
+   */
+  async recordOperationalExpense(
+    executor: SqlExecutor,
+    token: string,
+    input: OperationalExpenseCreate
+  ): Promise<OperationalExpenseMutationResult> {
+    return this.operationalFinanceFunction<OperationalExpenseMutationResult>(
+      executor,
+      "SELECT abos.operational_expense_record($1,$2,$3,$4::jsonb) AS value",
+      token,
+      [JSON.stringify(input)],
+      "Operational expense creation returned no result"
     );
   }
 

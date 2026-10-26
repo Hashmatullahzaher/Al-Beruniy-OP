@@ -218,6 +218,11 @@ export const migrationCatalog = [
     checksumSha256: "e61215e72d6853bf8a3d796d01222b98937f464b2b316b800f5bfc5d3c8f796b",
     relativePath: "infrastructure/database/migrations/0039_v1_admin_approval_controls.sql",
   },
+  {
+    id: "0040_v1_direct_shareholder_capital",
+    checksumSha256: "b46806fc4c72c1f4ec9ff58a87dbb4c7d876e06b85f0dbda27e27e6b514e50b0",
+    relativePath: "infrastructure/database/migrations/0040_v1_direct_shareholder_capital.sql",
+  },
 ] as const satisfies readonly MigrationDefinition[];
 
 const migrationTableSql = `
