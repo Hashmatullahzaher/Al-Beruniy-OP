@@ -222,6 +222,12 @@ Agents must update the relevant row when status changes. `DONE` requires evidenc
 
 ## Current Execution Pointer
 
+**Since 2026-10-27, execution follows the Revised Final Architecture Plan approved by the owner
+(`docs/00-governance/DECISIONS.md`, "Owner decisions — target architecture — 2026-10-26"). The
+official trunk is `v1/main`; production deploys only a reviewed trunk SHA. Slice 1 ("the owner can
+post, and sees no sandbox") is in progress: D1 trunk and 0040 merge done; D2 (0040 deployment) and
+D3 (migration 0041, retire the E1 product path) each need separate owner authorization.**
+
 First eligible package at repository initialization: **WP-0001 — Repository / Application Skeleton**.
 
 The pointer advances to the first eligible TODO package whose dependencies are DONE. Dependency truth comes from `BUILD_WORK_PACKAGES.md`; this ledger records execution state, not dependency definitions.

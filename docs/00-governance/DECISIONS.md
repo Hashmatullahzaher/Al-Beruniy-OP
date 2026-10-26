@@ -42,3 +42,69 @@ Recorded by the builder (Claude Code) on `v1/integration` as instructed by the e
 - **Opening balances.** Imported from Excel; the owner will provide the layout.
 - **Pending — use labelled placeholders, never invent values:** legal name and registration number; go-live date; the Excel opening-balance layout.
 - **Out of V1:** banks, Sales, Construction, Procurement, HR/Payroll, AI, Telegram.
+
+
+## Owner decisions — simple operating system — 2026-10-26 (morning)
+
+Recorded by the builder (Claude Code) from the owner's written instructions; the basis for reshaping
+migration 0040 (`claude/v1-simple-capital`, reviewed and merged to `v1/main`).
+
+- **One save.** Adding a shareholder and the money they put in is one screen and one save; later
+  money is "Add money" on the shareholder's card. No capital request, eligibility review, agreement,
+  installment schedule, custody verification, handoff, prepare/approve/post buttons or ownership
+  percentage in the ordinary flow.
+- **Four ways in:** cash into a Safe; hawala into a Safe (the saraf's name and reference kept on the
+  record); an asset (one "shareholder contributed assets" account); a company bill the shareholder
+  paid directly (debits the chosen expense account). Bank transfer is out for now.
+- **Agreed total is optional** and blank by default; capital is what was actually contributed.
+- **Months open themselves** on the first valid posting into a pending month of the financial year.
+- **Overspending warns, never blocks:** an expense larger than the account's recorded balance shows
+  the figure and asks the person to confirm.
+- **Existing records are kept** (three shareholders, one declared total); nothing is deleted.
+
+## Owner decisions — target architecture — 2026-10-26
+
+Approved with modifications on the Senior Project Architecture Review of 2026-10-26. The revised
+plan is `Claude outputs/ABOS_REVISED_ARCHITECTURE_PLAN_AND_SLICE_1.md` (outside the repository);
+these decisions are the durable record.
+
+1. Retire E1 synthetic screens from the operational product. Keep legacy tables frozen for
+   history/tests; do not destructively delete them.
+2. Adopt one canonical Safe model based on `operational_treasury_accounts`.
+3. Auto-open periods on first valid posting. Closing requires `finance.period.manage`. Reopening
+   must use a separate explicit permission, require a reason and audit, with optional/required
+   second-person control in Advanced Mode.
+4. Complete reversal posting. If the original period is open, post against that period/date; if
+   closed, post in the current open period while linking immutably to the original journal. Simple
+   Mode may allow direct reversal only to a specifically authorized Finance user with mandatory
+   reason and audit.
+5. Adopt a default FX rounding policy, but keep precision/rounding and FX-difference account
+   configuration company/currency aware.
+6. Opening balances are entered as normal audited transactions in the application. Excel is a
+   future bulk-import convenience, not a blocker.
+7. Unify shareholder capital and shareholder loan/temporary funding in one Add Money experience with
+   a Capital / Loan choice; preserve different accounting underneath.
+8. Capital agreements and installments become optional informational planning records only. They
+   must never gate normal capital receipt.
+9. In Advanced Mode, capital control is reduced to one independent confirmation. Simple Mode posts
+   directly on save.
+10. Provide an optional starter Chart of Accounts template. Never force a fixed chart.
+11. Establish one official trunk immediately and stop deploying from personal branches.
+12. Public production hosting waits for identity hardening, automated backups and CI. Controlled
+    staging may happen earlier.
+
+Additional architecture requirements:
+
+- One operational lane per business event. One Safe model. One capital/loan entry experience. One
+  generalized document vault. One posting kernel plus a source registry.
+- Do not create another giant copied validator. Shared invariants belong in the kernel;
+  source-specific rules must remain modular and registry-driven.
+- Simplify user-visible permissions, but do not weaken backend authorization boundaries.
+- Preserve database-enforced least privilege, immutable posted records, exact decimals, legal-entity
+  isolation, idempotency, concurrency protection, audit and upgrade fingerprints.
+- Simple Operational Mode is the default. Advanced Controls are policy applied to the same
+  transaction lanes, never separate implementations.
+
+Slice 1 was approved on 2026-10-27 with two modifications: the `packages/sandbox-auth` rename is
+deferred out of Slice 1, and `/shareholders/legacy` must expose no action that depends on a retired
+API. The official trunk is `v1/main`, created at the production SHA `817974a9947bdab967f0f1a0f7a1fc4d25bb777b`.
