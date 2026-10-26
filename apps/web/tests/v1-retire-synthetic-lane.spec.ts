@@ -87,8 +87,9 @@ test.describe("0041: the synthetic lane has left the product", () => {
     await expect(tabs.getByRole("tab", { name: /^Installments/ })).toBeVisible();
     await expect(tabs.getByRole("tab", { name: "Capital Requests" })).toHaveCount(0);
     await page.getByRole("button", { name: "Switch to Dari" }).click();
-    await expect(tabs.getByRole("tab", { name: /^اقساط/ })).toBeVisible();
-    await expect(tabs.getByRole("tab", { name: /درخواست‌های سرمایه/ })).toHaveCount(0);
+    const dariTabs = page.getByRole("tablist", { name: "بخش‌های سهامداران" });
+    await expect(dariTabs.getByRole("tab", { name: /^اقساط/ })).toBeVisible();
+    await expect(dariTabs.getByRole("tab", { name: /درخواست‌های سرمایه/ })).toHaveCount(0);
     await page.getByRole("button", { name: "Switch to English" }).click();
     await signOut(page);
   });

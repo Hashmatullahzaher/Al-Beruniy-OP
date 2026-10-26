@@ -181,7 +181,86 @@ seed (`preview:seed`) now gives its synthetic people live roles instead of retir
 
 ## 7. Validation (disposable databases only)
 
-(pending — filled from the final runs)
+Every database run used the disposable PostgreSQL 17 container on 127.0.0.1:15440
+(`abos_d3_retire_check` for the integration suite, `abos_d3_preview_check` for the browser suite,
+`abos_d3_upgrade_copy` for the upgraded copy). Port 55432 / `abos_v1_local_review` was read only once,
+for the dump in §7.4, and never written.
+
+### 7.1 Browser suite — first full serial run and what each failure was
+
+67 specs: 56 passed, 2 skipped (fixture-gated `direct-shareholder-capital-operational`, unchanged),
+9 failed. Each failure was reproduced and classified before anything was changed:
+
+| Spec | Cause | Classification | Fix |
+|---|---|---|---|
+| `v1-chart-of-accounts` | the new dashboard lists the same pages as the navigation, so an unscoped `getByRole("link")` matched twice; then the success message expected "waits in the review list", a 0039-era text that no longer exists | D3 (locator) + pre-existing since 0039 | navigation-scoped locator; assert the 0039 message |
+| `v1-company` | the preview Cashier role I had given `company.dashboard.read` added a "Company dashboard" link next to "Company" | D3 (seed role choice) | Cashier role now `finance.temporary-funding.read` |
+| `v1-currency` | role creation ticked the retired label "Open capital requests from installments"; the second half tested the retired capital-request screen | D3 | retired half removed; the spec now covers rates, Dari, phone and refusals |
+| `v1-operational-finance` (2) | the 0040 overspend warning disables "Record expense" until its checkbox is ticked; the spec predates 0040 | pre-existing since 0040 | tick the warning |
+| `v1-retire-synthetic-lane` (new) | removed routes answer the streamed not-found page with status 200, as every unknown path does (`app/loading.tsx` + `[...segments]`); the Dari tab list has a Dari name | pre-existing streaming behaviour; spec | assert "not an API answer" + not-found content; Dari locator |
+| `v1-reversals` | its fixture needs the retired E1 Treasury codes on two seeded people; the seed's role sync had revoked those direct grants | D3 (seed roles) | fixture revives the grants directly |
+| `v1-shareholder-contributions` | asserted status 404 for the removed route (see above) | spec | `expectGone` helper |
+| `v1-shareholder-setup` | navigation link renamed to "Shareholders" in 0040; `receipt-not-operational` element gone since 0040 | pre-existing since 0040 | updated |
+
+Also found and fixed on the way: the `View Finance inbox and journals` permission label (renamed to
+"View Finance reports and journals"), and the dead `developerTokens` flag of
+`/api/v1/auth/methods` (now always false; the helper is gone).
+
+### 7.2 Browser suite — reruns
+
+(filled below from the final run)
+
+### 7.3 Integration suite
+
+(filled below from the final run)
+
+### 7.4 Upgrade of a real-shaped copy from 0040 to 0041
+
+Read-only `pg_dump` of the preserved database (17 MB, 39 migrations, latest 0040) into the private
+backups folder, restored into `abos_d3_upgrade_copy`; the guarded helper `apply_catalog_0041.mts`
+(derived from the reviewed 0040 helper; refuses unless the checkout is at the expected commit, the
+catalogue ends with 0040 `b46806fc…` then 0041 `e49aa6bd…`, and the database is exactly at 0040)
+dry-ran, then applied exactly `0041_v1_retire_synthetic_lane`.
+
+Table fingerprints (`t|count|md5` over every row of every table) before and after differ in exactly
+two lines: `permission_retirements` (new, 12 rows) and `schema_migrations` (39 → 40). All 88
+pre-existing tables are identical, including `user_permission_grants` (22 existing grants on the
+retired codes are untouched). `frozen_lanes`: 14 rows, every runtime column false, holder true.
+Business counts after upgrade: 3 shareholders, 4 contributions, 0 journals, 12 PENDING periods.
+
+Operational flows on that copy (through a dev server pointed at the copy, the copy's identity proof
+re-keyed to the synthetic secret and its Super Administrator credential replaced — copy only):
+password sign-in; current user with role names; role and user creation through the administration
+API; temporary-password change; eleven pages rendering with no Treasury, Finance-inbox, token-form or
+capital-request text; direct capital — a new shareholder with 100 USD cash into the real Safe in one
+save (journal 1, the month auto-opened, identical replay idempotent); Chart of Accounts list and
+account creation; Finance setup (expense type, configuration); Workflow approvals (expense approval
+OFF, the production company had never configured it); an expense of 10 USD from the Safe (journal 2);
+the daily report showing 90.00 on the Safe; General Ledger read (4 lines); calendar, exchange rates
+and temporary-funding reads; the legacy page's setup and contributions data (the owner's records
+readable); and every frozen entry point refused for the Finance runtime login with SQLSTATE 42501
+(14/14). Evidence: `operational-checks.txt`, `fingerprint-*.txt`, `post-0041-checks.txt` in the
+private copy folder.
+
+**Finding D3-F1 (pre-existing, not introduced by 0041):** `shareholder_setup_create_shareholder`
+(0031) and the other shareholder setup functions judge "not in the future" on `current_date` (UTC),
+while 0040 judges receipts on the Kabul day (`abos.business_today()`). Between 00:00 and 04:30 Kabul
+time, adding a shareholder dated "today" is refused with "This date cannot be in the future" while the
+receipt itself would be accepted. The copy check hit this window (host 23:21 UTC = 03:51 Kabul).
+Fix planned as its own small migration (0042) right after D3: the affected checks and the `today`
+values those workspaces return move to `abos.business_today()`.
+
+### 7.5 Repository sweep and legacy-page audit
+
+Sweep over `apps/web/src` and the packages the application imports (tests excluded): no reference to
+`/finance/treasury`, `/finance/handoffs`, the removed components, the removed API routes, the token
+form, or any frozen function. The persistence E1 gateways still exist (test infrastructure) and have
+no importer in product code. `/shareholders/legacy` calls only: `shareholder/setup`,
+`shareholder/setup/documents`, `shareholder/contributions`, and the 0036 bridge routes
+(`capital-bridge/capability`, `capital-evidence`, `capital-receipts`,
+`finance/shareholder-capital-{configuration,mapping,receipts,postings,trace}`,
+`treasury/shareholder-capital-receipts/[id]/verify`); every one exists and reaches operational
+functions only. The owner's real records remain readable (§7.4).
 
 ## 8. Known limitations and follow-ups
 

@@ -70,7 +70,6 @@ test.describe("V1 shareholder setup", () => {
       await expect(tabs.getByRole("tab", { name: new RegExp(`^${name}`) })).toBeVisible();
     }
     await expect(tabs.getByRole("tab", { name: "Capital Requests" })).toHaveCount(0); // 0041: retired E1 lane
-    await expect(page.getByTestId("receipt-not-operational")).toContainText("not operational on real company data yet");
 
     // Shareholders: add one; the same reference in another case is refused company-wide.
     await page.getByRole("button", { name: "Add shareholder" }).click();
@@ -209,7 +208,6 @@ test.describe("V1 shareholder setup", () => {
     for (const name of ["سهامداران", "قراردادهای سرمایه", "اقساط"]) {
       await expect(page.getByRole("tab", { name: new RegExp(`^${name}`) })).toBeVisible();
     }
-    await expect(page.getByTestId("receipt-not-operational")).toContainText("هنوز هیچ پولی دریافت نمی‌شود");
     await page.getByRole("tab", { name: /^قراردادهای سرمایه/ }).click();
     await expect(card).toContainText("پیش‌نویس");
     await expect(card.locator(".shareholder-documents")).toContainText("سند ضمیمه شده");
