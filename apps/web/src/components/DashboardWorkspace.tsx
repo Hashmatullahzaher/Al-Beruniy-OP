@@ -1,67 +1,25 @@
 "use client";
 
+import { RETIRED_PERMISSION_CODES } from "@abos/contracts";
 import Link from "next/link";
-import { useEffect, useState } from "react";
 
-import { AppIcon, type AppIconName } from "@/components/AppIcon";
+import { AppIcon } from "@/components/AppIcon";
 import { useLocale } from "@/components/LocaleProvider";
 import { useSession } from "@/components/SessionProvider";
 import { StageZeroPageHeader } from "@/components/StageZeroWorkspace";
 import { CATEGORY_COPY, PERMISSION_COPY, type Copy } from "@/lib/access-copy";
-import type { FinanceHandoffWorkspaceView } from "@/lib/finance-handoff-types";
-import type { TreasuryOverview } from "@/lib/treasury-types";
+import { operationalRoutes, sectionHeadings, type NavSection } from "@/lib/operational-routes";
 
-type Counts = ReadonlyArray<{ readonly label: Copy; readonly value: number; readonly tone: string }>;
-
-async function load<T>(url: string): Promise<T | null> {
-  try {
-    const response = await fetch(url, { cache: "no-store" });
-    const body = await response.json() as { ok: boolean; data?: T };
-    return body.ok && body.data ? body.data : null;
-  } catch {
-    return null;
-  }
-}
-
-/** Figures below are counted from records the server returns for this person; nothing is estimated. */
-function treasuryCounts(overview: TreasuryOverview): Counts {
-  const stage = (...stages: string[]) => overview.receipts.filter((receipt) => stages.includes(receipt.stage)).length;
-  return [
-    { label: { en: "Shareholder installments open for cash", fa: "اقساط سهامدار آماده دریافت نقد" }, value: overview.sources.filter((source) => source.status === "ELIGIBLE").length, tone: "gold" },
-    { label: { en: "Recorded, not yet submitted", fa: "ثبت‌شده، هنوز ارسال نشده" }, value: stage("DRAFT", "COUNTED"), tone: "blue" },
-    { label: { en: "Awaiting independent verification", fa: "در انتظار تایید مستقل" }, value: stage("PENDING_VERIFICATION"), tone: "cyan" },
-    { label: { en: "Verified, not yet with Finance", fa: "تاییدشده، هنوز نزد مالی نیست" }, value: stage("VERIFIED"), tone: "green" },
-    { label: { en: "With Finance", fa: "نزد مالی" }, value: stage("HANDED_TO_FINANCE", "APPROVED_BY_FINANCE"), tone: "gold" },
-    { label: { en: "Posted by Finance", fa: "ثبت‌شده توسط مالی" }, value: stage("POSTED_BY_FINANCE"), tone: "green" }
-  ];
-}
-
-function financeCounts(view: FinanceHandoffWorkspaceView): Counts {
-  const stage = (value: string) => view.handoffs.filter((item) => item.stage === value).length;
-  return [
-    { label: { en: "Needs preparation", fa: "نیاز به آماده‌سازی" }, value: stage("HANDED_TO_FINANCE"), tone: "gold" },
-    { label: { en: "Awaiting independent approval", fa: "در انتظار تصویب مستقل" }, value: stage("PENDING_APPROVAL"), tone: "cyan" },
-    { label: { en: "Approved, ready to post", fa: "تصویب‌شده، آماده ثبت" }, value: stage("APPROVED"), tone: "blue" },
-    { label: { en: "Posted to the General Ledger", fa: "ثبت‌شده در دفتر کل" }, value: stage("POSTED"), tone: "green" }
-  ];
-}
-
+/**
+ * My dashboard: who is signed in, the roles they hold, and the pages their permissions open.
+ * Everything comes from the session the server rebuilt for this request; nothing here calls a
+ * Finance or Treasury endpoint. Balances and figures arrive with a later slice.
+ */
 export function DashboardWorkspace() {
   const { locale } = useLocale();
   const fa = locale === "fa";
   const t = (copy: Copy) => copy[locale];
   const session = useSession();
-  const [treasury, setTreasury] = useState<Counts | null>(null);
-  const [finance, setFinance] = useState<Counts | null>(null);
-  const canTreasury = session.can("treasury.read");
-  const canFinance = session.can("finance.report.operational.read");
-
-  useEffect(() => {
-    let current = true;
-    if (canTreasury) void load<TreasuryOverview>("/api/v1/treasury/overview").then((data) => { if (current) setTreasury(data ? treasuryCounts(data) : null); });
-    if (canFinance) void load<FinanceHandoffWorkspaceView>("/api/v1/finance/handoffs").then((data) => { if (current) setFinance(data ? financeCounts(data) : null); });
-    return () => { current = false; };
-  }, [canTreasury, canFinance]);
 
   if (session.status === "loading") return <div className="treasury-card treasury-placeholder">{fa ? "در حال بارگذاری…" : "Loading…"}</div>;
   if (!session.user) {
@@ -76,50 +34,53 @@ export function DashboardWorkspace() {
   }
 
   const user = session.user;
+  const sections = (Object.keys(sectionHeadings) as Exclude<NavSection, "home">[])
+    .map((section) => ({ section, routes: operationalRoutes.filter((route) => route.section === section && route.visible(session.can)) }))
+    .filter((group) => group.routes.length > 0);
+  const home = operationalRoutes.filter((route) => route.section === "home" && route.path !== "/dashboard" && route.visible(session.can));
+  // Permissions retired with the preview lane (0041) still exist as grants but open nothing; they are not shown.
+  const held = user.permissions.filter((code) => !RETIRED_PERMISSION_CODES.has(code));
   const grouped = Object.keys(CATEGORY_COPY).map((category) => ({
     category,
-    codes: user.permissions.filter((code) => categoryOf(code) === category)
+    codes: held.filter((code) => categoryOf(code) === category)
   })).filter((group) => group.codes.length > 0);
-
-  const actions: ReadonlyArray<{ readonly show: boolean; readonly href: string; readonly icon: AppIconName; readonly label: Copy; readonly note: Copy }> = [
-    { show: session.can("treasury.cash-receipt.record"), href: "/finance/treasury", icon: "coins", label: { en: "Record cash received", fa: "ثبت نقد دریافتی" }, note: { en: "Treasury → Shareholder intents", fa: "خزانه ← درخواست‌های سهامداران" } },
-    { show: session.can("treasury.cash-receipt.verify"), href: "/finance/treasury", icon: "shield", label: { en: "Verify receipts recorded by others", fa: "تایید رسیدهای ثبت‌شده توسط دیگران" }, note: { en: "Treasury → Receipts", fa: "خزانه ← رسیدها" } },
-    { show: session.can("finance.report.operational.read"), href: "/finance/handoffs", icon: "finance", label: { en: "Open the Finance inbox", fa: "باز کردن صندوق مالی" }, note: { en: "Prepare, approve or post journals", fa: "آماده‌سازی، تصویب یا ثبت ژورنال" } },
-    { show: session.can("admin.users.manage"), href: "/admin/users", icon: "human-resources", label: { en: "Manage employee accounts", fa: "مدیریت حساب‌های کارمندان" }, note: { en: "Create, suspend, assign roles", fa: "ایجاد، تعلیق، تعیین نقش" } },
-    { show: session.can("admin.roles.manage"), href: "/admin/roles", icon: "shield", label: { en: "Manage roles and permissions", fa: "مدیریت نقش‌ها و صلاحیت‌ها" }, note: { en: "Build roles from the permission list", fa: "ساخت نقش از فهرست صلاحیت‌ها" } }
-  ];
+  const roles = user.roles.length > 0 ? user.roles.join(fa ? "، " : ", ") : (fa ? "هنوز نقشی تعیین نشده است." : "No role assigned yet.");
 
   return (
     <div className="module-workspace dashboard-workspace">
       <StageZeroPageHeader icon="overview"
-        eyebrow={{ en: `V1 client preview · ${user.legalEntityName}`, fa: `پیش‌نمایش مشتری V1 · ${user.legalEntityName}` }}
+        eyebrow={{ en: user.legalEntityName, fa: user.legalEntityName }}
         title={{ en: `Welcome, ${user.displayName}`, fa: `خوش آمدید، ${user.displayName}` }}
-        description={{ en: "Your work and your access, read from the system when this page opened.", fa: "کار و دسترسی شما، هنگام باز شدن این صفحه از سیستم خوانده شده است." }} />
+        description={{ en: "Your roles, your access and the pages you can work in, read from the system when this page opened.", fa: "نقش‌ها، دسترسی و صفحه‌هایی که می‌توانید در آن‌ها کار کنید؛ هنگام باز شدن این صفحه از سیستم خوانده شده است." }} />
 
-      <section className="finance-boundary-banner"><span><AppIcon name="shield" size={22}/></span><div>
-        <p>{fa ? "فقط داده‌های آزمایشی مصنوعی" : "SYNTHETIC PREVIEW DATA ONLY"}</p>
-        <strong>{fa ? "هیچ پول یا سوابق واقعی شرکت در این محیط نیست. ثبت واقعی مالی تا پایان بررسی امنیتی غیرفعال است." : "No real money or company records are in this environment. Real financial posting stays disabled until the security review is complete."}</strong>
-      </div><em>V1 · NOT PRODUCTION</em></section>
-
-      <section className="dashboard-actions" aria-label={fa ? "کارهای شما" : "Your work"}>
-        {actions.filter((action) => action.show).map((action) => (
-          <Link key={action.label.en} href={action.href} className="dashboard-action">
-            <span aria-hidden="true"><AppIcon name={action.icon} size={20} /></span>
-            <div><strong>{t(action.label)}</strong><small>{t(action.note)}</small></div>
-          </Link>
-        ))}
-        {actions.every((action) => !action.show) ? <p className="treasury-placeholder">{fa ? "هنوز کاری برای شما تعیین نشده است." : "No work has been assigned to you yet."}</p> : null}
+      <section className="module-content-card dashboard-profile" aria-label={fa ? "حساب شما" : "Your account"}>
+        <div className="module-card-heading"><div><p>{fa ? "حساب شما" : "YOUR ACCOUNT"}</p><h2>{user.displayName}</h2></div></div>
+        <dl>
+          <dt>{fa ? "نام کاربری" : "Username"}</dt><dd dir="ltr">{user.loginIdentifier}</dd>
+          {user.jobTitle ? <><dt>{fa ? "سمت" : "Job title"}</dt><dd>{user.jobTitle}</dd></> : null}
+          <dt>{fa ? "نقش‌ها" : "Roles"}</dt><dd data-testid="dashboard-roles">{roles}</dd>
+          <dt>{fa ? "شرکت" : "Company"}</dt><dd>{user.legalEntityName}</dd>
+        </dl>
       </section>
 
-      {canTreasury || canFinance ? (
-        <section className="dashboard-counts">
-          {canTreasury ? <CountPanel title={{ en: "Treasury", fa: "خزانه" }} counts={treasury} t={t} /> : null}
-          {canFinance ? <CountPanel title={{ en: "Finance inbox", fa: "صندوق مالی" }} counts={finance} t={t} /> : null}
+      {home.length > 0 || sections.length > 0 ? (
+        <section className="module-content-card" aria-label={fa ? "صفحه‌های شما" : "Your pages"}>
+          <div className="module-card-heading"><div><p>{fa ? "صفحه‌های شما" : "YOUR PAGES"}</p><h2>{fa ? "جایی که می‌توانید کار کنید" : "Where you can work"}</h2></div></div>
+          {home.length > 0 ? <div className="dashboard-actions">{home.map((route) => <RouteLink key={route.path} route={route} fa={fa} />)}</div> : null}
+          {sections.map((group) => (
+            <div key={group.section}>
+              <h3 className="dashboard-section-title">{t(sectionHeadings[group.section])}</h3>
+              <div className="dashboard-actions">{group.routes.map((route) => <RouteLink key={route.path} route={route} fa={fa} />)}</div>
+            </div>
+          ))}
         </section>
-      ) : null}
+      ) : (
+        <p className="treasury-placeholder">{fa ? "هنوز کاری برای شما تعیین نشده است." : "No work has been assigned to you yet."}</p>
+      )}
 
       <section className="module-content-card dashboard-access">
         <div className="module-card-heading"><div><p>{fa ? "دسترسی شما" : "YOUR ACCESS"}</p><h2>{fa ? "آنچه اجازه دارید انجام دهید" : "What you are allowed to do"}</h2></div></div>
+        {grouped.length === 0 ? <p className="treasury-placeholder">{fa ? "هنوز صلاحیتی به شما داده نشده است." : "No permission has been given to you yet."}</p> : null}
         {grouped.map((group) => (
           <div key={group.category} className="dashboard-access-group">
             <h3>{t(CATEGORY_COPY[group.category] ?? { en: group.category, fa: group.category })}</h3>
@@ -136,14 +97,12 @@ export function DashboardWorkspace() {
   );
 }
 
-function CountPanel({ title, counts, t }: { readonly title: Copy; readonly counts: Counts | null; readonly t: (copy: Copy) => string }) {
+function RouteLink({ route, fa }: { readonly route: (typeof operationalRoutes)[number]; readonly fa: boolean }) {
   return (
-    <div className="module-content-card dashboard-count-panel">
-      <div className="module-card-heading"><div><h2>{t(title)}</h2></div></div>
-      {counts === null ? <p className="treasury-placeholder">{t({ en: "Loading…", fa: "در حال بارگذاری…" })}</p> : (
-        <ul>{counts.map((item) => <li key={item.label.en} className={`tone-${item.tone}`}><strong>{item.value}</strong><span>{t(item.label)}</span></li>)}</ul>
-      )}
-    </div>
+    <Link href={route.path} className="dashboard-action">
+      <span aria-hidden="true"><AppIcon name={route.icon} size={20} /></span>
+      <div><strong>{fa ? route.fa : route.en}</strong></div>
+    </Link>
   );
 }
 

@@ -1,5 +1,10 @@
 # ABOS V1 client preview — Milestone A
 
+> **Retired with migration 0041 (Slice 1 D3, 2026-10-27).** The screens this demonstration walks through
+> (`/finance/treasury`, `/finance/handoffs`, the token sign-in forms and the capital-request panel) left the
+> product; the database functions behind them are frozen (`abos.frozen_lanes`) and keep their records and
+> their integration-test coverage. This file is kept as history and no longer describes a runnable journey.
+
 **Status:** a working, locally runnable client preview on synthetic data. It is **not** an operational
 accounting system and has **not** been deployed online. Real financial posting stays disabled.
 

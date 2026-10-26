@@ -12,6 +12,7 @@ import { PostgresExecutor, PostgresShareholderRepository, RestrictedCapitalPosti
 import { SandboxAuthenticator } from "@abos/sandbox-auth";
 import { CapitalReceiptIntentService } from "@abos/shareholder";
 import { addSyntheticSaraf } from "./currency-fixtures.ts";
+import { RETIRED_PERMISSION_CODES } from "@abos/contracts";
 import { databaseUrl, MISSING_DATABASE_MESSAGE, openHarness, resetSchema, type Harness } from "./harness.ts";
 import { issueOperationalSession } from "./operational-session.ts";
 import {
@@ -34,10 +35,14 @@ const OWNERS = [
   "abos_v1_shareholder_capital_owner", "abos_v1_capital_evidence_owner"
 ] as const;
 const FUNCTION_OWNERS = [...OWNERS, "abos_v1_identity_owner", "abos_v1_workflow_policy_owner"] as const;
+// 0041: the plain runtime logins model production; the two frozen logins additionally hold abos_e1_frozen_lane,
+// which only a disposable test database ever grants, so the E1 flows keep their database-level coverage.
 const LOGINS = {
-  finance: { name: "abos_e1_finance_runtime_test_login", password: "synthetic-finance-runtime-only-2026", role: "abos_e1_runtime" },
-  treasury: { name: "abos_e1_treasury_runtime_test_login", password: "synthetic-treasury-runtime-only-2026", role: "abos_e1_treasury_runtime" },
-  identity: { name: "abos_v1_identity_runtime_test_login", password: "synthetic-identity-runtime-only-2026", role: "abos_v1_identity_runtime" }
+  finance: { name: "abos_e1_finance_runtime_test_login", password: "synthetic-finance-runtime-only-2026", role: "abos_e1_runtime", frozen: false },
+  treasury: { name: "abos_e1_treasury_runtime_test_login", password: "synthetic-treasury-runtime-only-2026", role: "abos_e1_treasury_runtime", frozen: false },
+  identity: { name: "abos_v1_identity_runtime_test_login", password: "synthetic-identity-runtime-only-2026", role: "abos_v1_identity_runtime", frozen: false },
+  frozenFinance: { name: "abos_e1_frozen_finance_test_login", password: "synthetic-frozen-finance-only-2026", role: "abos_e1_runtime", frozen: true },
+  frozenTreasury: { name: "abos_e1_frozen_treasury_test_login", password: "synthetic-frozen-treasury-only-2026", role: "abos_e1_treasury_runtime", frozen: true }
 } as const;
 
 if (databaseUrl() === undefined) {
@@ -295,12 +300,60 @@ if (databaseUrl() === undefined) {
       }
     });
 
+    test("0041 freezes the E1 lane: runtimes lose EXECUTE, only the frozen-lane holder keeps it, retirements match the contract", async () => {
+      const lanes = await harness.executor.query<{
+        lane: string; entry_point: string; function_exists: boolean; finance_runtime_can_execute: boolean;
+        treasury_runtime_can_execute: boolean; identity_runtime_can_execute: boolean; frozen_lane_can_execute: boolean;
+      }>("SELECT * FROM abos.frozen_lanes ORDER BY entry_point");
+      assert.deepEqual(lanes.rows.map((row) => row.entry_point), [
+        "abos.finance_approve_capital_posting(text,uuid)", "abos.finance_handoff_trace(text,uuid)", "abos.finance_handoff_workspace(text)",
+        "abos.finance_prepare_capital_posting(text,uuid,uuid,text)", "abos.post_synthetic_capital_receipt(text,uuid,uuid)",
+        "abos.shareholder_capital_workspace(text)", "abos.shareholder_create_capital_request(text,uuid,uuid,text,date,uuid,text)",
+        "abos.treasury_revoke_own_session(text)", "abos.treasury_safes_saraf_command(text,uuid,text,jsonb)",
+        "abos.treasury_safes_saraf_query(text,uuid,text,uuid)", "abos.treasury_secure_command(text,uuid,text,jsonb)",
+        "abos.treasury_secure_context(text)", "abos.treasury_secure_query(text,uuid,text,uuid)", "abos.treasury_synthetic_signin_context(text)"
+      ]);
+      for (const lane of lanes.rows) {
+        assert.equal(lane.function_exists, true, lane.entry_point);
+        assert.deepEqual([lane.finance_runtime_can_execute, lane.treasury_runtime_can_execute, lane.identity_runtime_can_execute, lane.frozen_lane_can_execute],
+          [false, false, false, true], lane.entry_point);
+        // A plain runtime is refused before the function runs; the frozen lane reaches the function's own authorizer.
+        const call = frozenCall(lane.entry_point);
+        for (const kind of ["finance", "treasury", "identity"] as const) {
+          await assert.rejects(() => restricted(kind, (db) => db.query(call)),
+            (error: unknown) => (error as { code?: string }).code === "42501" && /permission denied for function/.test(String(error)), `${kind}: ${call}`);
+        }
+        for (const kind of ["frozenFinance", "frozenTreasury"] as const) {
+          try {
+            await restricted(kind, (db) => db.query(call));
+          } catch (error) {
+            assert.ok(!/permission denied for function/.test(String(error)), `${kind}: ${call} -> ${String(error)}`);
+          }
+        }
+      }
+      const members = await harness.executor.query<{ member: string }>(
+        `SELECT m.rolname AS member FROM pg_auth_members a JOIN pg_roles m ON m.oid = a.member JOIN pg_roles g ON g.oid = a.roleid
+          WHERE g.rolname = 'abos_e1_frozen_lane' ORDER BY 1`);
+      for (const row of members.rows) assert.match(row.member, /_test_login$/, "only disposable test logins may hold the frozen lane");
+      const holder = await harness.executor.query<{ rolcanlogin: boolean; rolinherit: boolean; rolsuper: boolean }>(
+        "SELECT rolcanlogin, rolinherit, rolsuper FROM pg_roles WHERE rolname = 'abos_e1_frozen_lane'");
+      assert.deepEqual(holder.rows[0], { rolcanlogin: false, rolinherit: false, rolsuper: false });
+      // Retirements: the register equals the contract constant, every retired code still has its catalogue row untouched.
+      const retired = await harness.executor.query<{ permission_code: string; availability: string; retired_in_migration: string }>(
+        `SELECT r.permission_code, c.availability, r.retired_in_migration
+           FROM abos.permission_retirements r JOIN abos.permission_catalogue c USING (permission_code) ORDER BY 1`);
+      assert.deepEqual(retired.rows.map((row) => row.permission_code), [...RETIRED_PERMISSION_CODES].sort());
+      assert.ok(retired.rows.every((row) => row.retired_in_migration === "0041_v1_retire_synthetic_lane"));
+      assert.ok(retired.rows.every((row) => row.availability === "ACTIVE" || row.availability === "UNAVAILABLE_IN_PREVIEW"), "catalogue rows are not rewritten");
+      await assert.rejects(() => harness.executor.query("DELETE FROM abos.permission_retirements"), /append-only|permission denied|cannot be/i);
+    });
+
     test("posting still works end to end, a duplicate posting returns the same journal, and posted records cannot change", async () => {
       const prepared = await postingReady(harness);
       const operationalSession = await issueOperationalSession(
         harness, prepared.world.approverId, prepared.world.legalEntityId
       );
-      const post = () => restricted("finance", (db) => new RestrictedCapitalPostingGateway(db).post({
+      const post = () => restricted("frozenFinance", (db) => new RestrictedCapitalPostingGateway(db).post({
         bearerToken: prepared.token, postingIntentId: prepared.postingIntentId as PostingIntentId,
         accountingPeriodId: prepared.world.accountingPeriodId as never
       }));
@@ -444,7 +497,7 @@ if (databaseUrl() === undefined) {
         userAccountId: prepared.world.approverId as UserAccountId,
         legalEntityId: prepared.world.legalEntityId as LegalEntityId
       });
-      await restricted("finance", (db) => new RestrictedCapitalPostingGateway(db).post({
+      await restricted("frozenFinance", (db) => new RestrictedCapitalPostingGateway(db).post({
         bearerToken: prepared.token, postingIntentId: prepared.postingIntentId as PostingIntentId,
         accountingPeriodId: prepared.world.accountingPeriodId as AccountingPeriodId
       }));
@@ -471,7 +524,7 @@ if (databaseUrl() === undefined) {
         "a synthetic developer session cannot enter an operational Finance function"
       );
       await assert.rejects(
-        () => restricted("treasury", (db) => db.query(
+        () => restricted("frozenTreasury", (db) => db.query(
           "SELECT abos.treasury_secure_context($1)", [shareholderSession.token]
         )),
         /sandbox session is invalid/,
@@ -518,38 +571,38 @@ if (databaseUrl() === undefined) {
         "reversal requests remain on the legacy gate until the unresolved reversal policy is approved"
       );
 
-      const context = await restricted("treasury", async (db) => (await db.query<{ value: { legalEntityId: string; syntheticAuthorized: boolean } }>(
+      const context = await restricted("frozenTreasury", async (db) => (await db.query<{ value: { legalEntityId: string; syntheticAuthorized: boolean } }>(
         "SELECT abos.treasury_secure_context($1) AS value", [managerSession.token]
       )).rows[0]?.value);
       assert.ok(context);
       assert.equal(context?.legalEntityId, prepared.world.legalEntityId);
       assert.equal(context.syntheticAuthorized, false);
-      await assert.rejects(() => restricted("treasury", (db) => db.query(
+      await assert.rejects(() => restricted("frozenTreasury", (db) => db.query(
         "SELECT abos.treasury_synthetic_signin_context($1)", [managerSession.token]
       )), /sandbox session is invalid/);
       for (const query of ["SOURCES", "RECEIPTS", "COUNTS", "HANDOFFS", "FINANCE_PROGRESS", "EVIDENCE", "EVENTS"]) {
-        await assert.rejects(() => restricted("treasury", (db) => db.query(
+        await assert.rejects(() => restricted("frozenTreasury", (db) => db.query(
           "SELECT abos.treasury_secure_query($1,$2,$3,NULL)",
           [managerSession.token, prepared.world.legalEntityId, query]
         )), /synthetic Treasury sandbox authorization is not active/, query);
       }
       const locationId = randomUUID();
       const accountId = randomUUID();
-      await restricted("treasury", (db) => db.query(
+      await restricted("frozenTreasury", (db) => db.query(
         "SELECT abos.treasury_secure_command($1,$2,'CREATE_LOCATION',$3::jsonb)",
         [managerSession.token, prepared.world.legalEntityId, JSON.stringify({
           id: locationId, name: "Operational gate safe",
           responsibleCashierUserAccountId: prepared.world.cashierId
         })]
       ));
-      await restricted("treasury", (db) => db.query(
+      await restricted("frozenTreasury", (db) => db.query(
         "SELECT abos.treasury_secure_command($1,$2,'OPEN_ACCOUNT',$3::jsonb)",
         [managerSession.token, prepared.world.legalEntityId, JSON.stringify({
           id: accountId, cashLocationId: locationId, currency: "USD",
           ledgerAccountId: prepared.world.cashLedgerAccountId
         })]
       ));
-      const locations = await restricted("treasury", async (db) => (await db.query<{ value: { id: string }[] }>(
+      const locations = await restricted("frozenTreasury", async (db) => (await db.query<{ value: { id: string }[] }>(
         "SELECT abos.treasury_secure_query($1,$2,'LOCATIONS',NULL) AS value",
         [managerSession.token, prepared.world.legalEntityId]
       )).rows[0]?.value ?? []);
@@ -562,19 +615,19 @@ if (databaseUrl() === undefined) {
         [prepared.world.treasuryManagerId, prepared.world.legalEntityId, prepared.world.bootstrapUserId]
       );
       for (const query of ["SARAF_ACCOUNTS", "CASH_LEDGER_CHOICES", "SARAF_LEDGER_CHOICES", "SARAF_PARTIES"]) {
-        await restricted("treasury", (db) => db.query(
+        await restricted("frozenTreasury", (db) => db.query(
           "SELECT abos.treasury_safes_saraf_query($1,$2,$3,NULL)",
           [managerSession.token, prepared.world.legalEntityId, query]
         ));
       }
       for (const query of ["SAFE_COUNTS", "COUNT_EVIDENCE"]) {
-        await assert.rejects(() => restricted("treasury", (db) => db.query(
+        await assert.rejects(() => restricted("frozenTreasury", (db) => db.query(
           "SELECT abos.treasury_safes_saraf_query($1,$2,$3,NULL)",
           [managerSession.token, prepared.world.legalEntityId, query]
         )), /synthetic Treasury sandbox authorization is not active/, query);
       }
       for (const operation of ["RECORD_SAFE_COUNT", "CONFIRM_SAFE_COUNT"]) {
-        await assert.rejects(() => restricted("treasury", (db) => db.query(
+        await assert.rejects(() => restricted("frozenTreasury", (db) => db.query(
           "SELECT abos.treasury_safes_saraf_command($1,$2,$3,$4::jsonb)",
           [managerSession.token, prepared.world.legalEntityId, operation, JSON.stringify({ id: randomUUID() })]
         )), /synthetic Treasury sandbox authorization is not active/, operation);
@@ -588,7 +641,7 @@ if (databaseUrl() === undefined) {
          VALUES ($1,$2,'SYN-SARAF-GATE','Synthetic gate Saraf','ASSET','SARAF',true,'USD','ACTIVE')`,
         [sarafLedger, prepared.world.legalEntityId]
       );
-      await restricted("treasury", (db) => db.query(
+      await restricted("frozenTreasury", (db) => db.query(
         "SELECT abos.treasury_safes_saraf_command($1,$2,'CREATE_SARAF_ACCOUNT',$3::jsonb)",
         [managerSession.token, prepared.world.legalEntityId, JSON.stringify({
           id: randomUUID(), businessPartyId: sarafParty, currency: "USD", ledgerAccountId: sarafLedger
@@ -604,18 +657,18 @@ if (databaseUrl() === undefined) {
       }
       for (const operation of ["VOID_RECEIPT", "COUNT_RECEIPT", "VERIFY_RECEIPT", "HANDOFF_RECEIPT",
         "RECORD_COUNT", "RECONCILE_OPENING", "APPROVE_OPENING", "ACTIVATE_ACCOUNT"]) {
-        await assert.rejects(() => restricted("treasury", (db) => db.query(
+        await assert.rejects(() => restricted("frozenTreasury", (db) => db.query(
           "SELECT abos.treasury_secure_command($1,$2,$3,$4::jsonb)",
           [managerSession.token, prepared.world.legalEntityId, operation, JSON.stringify({ id: randomUUID(), purpose: "RECEIPT" })]
         )), /synthetic Treasury sandbox authorization is not active/, operation);
       }
-      await assert.rejects(() => restricted("finance", (db) => db.query(
+      await assert.rejects(() => restricted("frozenFinance", (db) => db.query(
         "SELECT abos.finance_handoff_workspace($1)", [financeSession.token]
       )), /synthetic Finance sandbox authorization is not active/);
-      await assert.rejects(() => restricted("finance", (db) => db.query(
+      await assert.rejects(() => restricted("frozenFinance", (db) => db.query(
         "SELECT abos.finance_handoff_trace($1,$2)", [financeSession.token, randomUUID()]
       )), /synthetic Finance sandbox authorization is not active/);
-      await assert.rejects(() => restricted("treasury", (db) => db.query(
+      await assert.rejects(() => restricted("frozenTreasury", (db) => db.query(
         "SELECT abos.treasury_secure_command($1,$2,'CREATE_LOCATION',$3::jsonb)",
         [managerSession.token, randomUUID(), JSON.stringify({ id: randomUUID() })]
       )), /out of scope/);
@@ -642,7 +695,7 @@ if (databaseUrl() === undefined) {
         "setup/read attempts add no journals");
 
       await assert.rejects(
-        () => restricted("treasury", (db) => db.query(
+        () => restricted("frozenTreasury", (db) => db.query(
           "SELECT abos.treasury_secure_command($1,$2,'RECORD_RECEIPT',$3::jsonb)",
           [managerSession.token, prepared.world.legalEntityId, JSON.stringify({
             id: randomUUID(), capitalReceiptIntentId: randomUUID(),
@@ -652,21 +705,21 @@ if (databaseUrl() === undefined) {
         /synthetic Treasury sandbox authorization is not active/
       );
       await assert.rejects(
-        () => restricted("finance", (db) => db.query(
+        () => restricted("frozenFinance", (db) => db.query(
           "SELECT abos.finance_prepare_capital_posting($1,$2,$3,$4)",
           [financeSession.token, randomUUID(), prepared.world.accountingPeriodId, `blocked-${randomUUID()}`]
         )),
         /synthetic Finance sandbox authorization is not active/
       );
       await assert.rejects(
-        () => restricted("finance", (db) => db.query(
+        () => restricted("frozenFinance", (db) => db.query(
           "SELECT abos.post_synthetic_capital_receipt($1,$2,$3)",
           [financeSession.token, prepared.postingIntentId, prepared.world.accountingPeriodId]
         )),
         /synthetic sandbox authorization is not active/
       );
       await assert.rejects(
-        () => restricted("finance", (db) => db.query(
+        () => restricted("frozenFinance", (db) => db.query(
           "SELECT abos.shareholder_create_capital_request($1,$2,$3,'1',DATE '2026-09-30',NULL,$4)",
           [shareholderOperationalSession.token, prepared.world.installmentId,
             prepared.world.cashAccountId, `blocked-${randomUUID()}`]
@@ -678,13 +731,29 @@ if (databaseUrl() === undefined) {
     test("a session is refused in another legal entity, even by the functions' own owners' code", async () => {
       const prepared = await postingReady(harness);
       const other = randomUUID();
-      await assert.rejects(() => restricted("treasury", (db) => db.query(
+      await assert.rejects(() => restricted("frozenTreasury", (db) => db.query(
         "SELECT abos.treasury_secure_query($1, $2, 'RECEIPTS', NULL)", [prepared.treasuryToken, other])), /out of scope|not active|invalid/i);
     });
   });
 }
 
 // -----------------------------------------------------------------------------------------------
+
+/** A statement that calls a frozen entry point with typed placeholders, so only the privilege check can refuse it. */
+function frozenCall(entryPoint: string): string {
+  const match = /^(abos\.[a-z_]+)\((.*)\)$/.exec(entryPoint);
+  const name = match?.[1]; const signature = match?.[2];
+  assert.ok(name !== undefined && signature !== undefined, entryPoint);
+  const literal: Record<string, string> = {
+    text: `'${"x".repeat(43)}'`, uuid: "gen_random_uuid()", jsonb: "'{}'::jsonb", date: "DATE '2026-01-01'"
+  };
+  const args = signature === "" ? [] : signature.split(",").map((type) => {
+    const value = literal[type.trim()];
+    assert.ok(value, `${entryPoint}: unsupported argument type ${type}`);
+    return value;
+  });
+  return `SELECT ${name}(${args.join(", ")})`;
+}
 
 function loginUrl(kind: keyof typeof LOGINS): string {
   const url = new URL(databaseUrl() ?? "");
@@ -698,6 +767,8 @@ async function ensureLogin(harness: Harness, login: (typeof LOGINS)[keyof typeof
   const extra = verb === "CREATE" ? " NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION" : "";
   await harness.executor.query(`${verb} ROLE ${login.name} LOGIN INHERIT${extra} PASSWORD '${login.password}'`);
   await harness.executor.query(`GRANT ${login.role} TO ${login.name}`);
+  // Other suites grant the frozen lane to the same plain login names; here the plain logins must model production.
+  await harness.executor.query(`${login.frozen ? "GRANT" : "REVOKE"} abos_e1_frozen_lane ${login.frozen ? "TO" : "FROM"} ${login.name}`);
 }
 
 async function restricted<T>(kind: keyof typeof LOGINS, operation: (db: SqlExecutor) => Promise<T>): Promise<T> {

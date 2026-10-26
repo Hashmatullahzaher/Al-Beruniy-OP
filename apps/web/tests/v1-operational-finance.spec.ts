@@ -55,6 +55,8 @@ test.describe("V1 operational finance", () => {
     await form.getByLabel("Amount (USD) *").fill("125.50");
     await form.getByLabel("Receipt or reference number *").fill("SYN-RCPT-001");
     await form.getByLabel("What was it for? *").fill("Synthetic printer paper");
+    // 0040: the Safe has nothing on record yet, so the form warns and asks for confirmation before saving.
+    await form.getByRole("checkbox", { name: "I understand; record it anyway" }).check();
     await form.getByRole("button", { name: "Record expense" }).click();
     await expect(page.getByRole("status").filter({ hasText: "Expense recorded" }))
       .toContainText("Expense recorded: 125.50 USD from Synthetic Main Safe.");
@@ -161,6 +163,7 @@ test.describe("V1 operational finance setup", () => {
     await form.getByLabel("Amount (USD) *").fill("42.00");
     await form.getByLabel("Receipt or reference number *").fill("SYN-OCT-001");
     await form.getByLabel("What was it for? *").fill("Synthetic stationery");
+    await form.getByRole("checkbox", { name: "I understand; record it anyway" }).check(); // 0040 overspend warning
     await form.getByRole("button", { name: "Record expense" }).click();
     await expect(page.getByRole("status").filter({ hasText: "Expense recorded" }))
       .toContainText("Expense recorded: 42.00 USD from Synthetic Main Safe.");

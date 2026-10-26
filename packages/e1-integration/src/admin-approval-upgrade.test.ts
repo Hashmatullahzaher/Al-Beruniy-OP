@@ -10,7 +10,12 @@ import { seedSyntheticWorld, SYNTHETIC_AUTH_CONFIGURATION } from "./synthetic-wo
 
 const PREDECESSOR = "0038_v1_shareholder_capital_activation";
 const MIGRATION = "0039_v1_admin_approval_controls";
-const NEW_TABLES = ["finance_workflow_policy_commands", "ledger_account_policy_releases", "direct_capital_receipts", "direct_capital_receipt_allocations"] as const;
+const NEW_TABLES = ["finance_workflow_policy_commands", "ledger_account_policy_releases", "direct_capital_receipts", "direct_capital_receipt_allocations",
+  "permission_retirements"] as const;
+// 0041 seeds the retirement register (schema metadata, like the workflow catalogue row) and lets only the
+// identity runtime read it; every other new table stays empty and unreachable from every runtime.
+const SEEDED_ROWS: Readonly<Record<string, number>> = { permission_retirements: 12 };
+const READ_ONLY_RUNTIME: Readonly<Record<string, string>> = { permission_retirements: "abos_v1_identity_runtime" };
 const NEW_GOVERNANCE_COLUMNS = [
   "finance_workflow_policy_version_id", "approval_required", "policy_released_by_user_account_id",
   "policy_released_at", "policy_release_reason"
@@ -19,7 +24,7 @@ const NEW_GOVERNANCE_COLUMNS = [
 if (databaseUrl() === undefined) {
   test("0039 Admin approval controls historical upgrade", () => assert.fail(MISSING_DATABASE_MESSAGE));
 } else {
-  describe("0038 through 0040 approval controls and direct-capital zero-backfill upgrade", () => {
+  describe("0038 through 0041 approval controls, direct-capital and synthetic-lane retirement zero-backfill upgrade", () => {
     let harness: Harness;
     before(async () => { harness = await openHarness(SYNTHETIC_AUTH_CONFIGURATION.runtimeMarker); });
     after(async () => { await harness?.close(); });
@@ -94,17 +99,17 @@ if (databaseUrl() === undefined) {
           const beforeRegistry = (await client.query("SELECT * FROM abos.schema_migrations ORDER BY migration_id")).rows;
           const governanceBefore = (await client.query("SELECT to_jsonb(g) AS row FROM abos.ledger_account_governance g ORDER BY ledger_account_id")).rows;
           assert.equal(governanceBefore.length, 3);
-          assert.deepEqual(await applyMigrations(tx, migrations), [MIGRATION, "0040_v1_direct_shareholder_capital"]);
+          assert.deepEqual(await applyMigrations(tx, migrations), [MIGRATION, "0040_v1_direct_shareholder_capital", "0041_v1_retire_synthetic_lane"]);
           const afterTables = await tableNames(client);
           assert.deepEqual(afterTables.filter((name) => !beforeTables.includes(name)), [...NEW_TABLES].sort());
           assert.deepEqual(await snapshots(client, beforeTables), beforeBusiness,
             "all historical columns in every business/security table are byte-for-byte preserved");
-          assert.deepEqual((await client.query("SELECT * FROM abos.schema_migrations WHERE migration_id<>ALL($1::text[]) ORDER BY migration_id", [[MIGRATION, "0040_v1_direct_shareholder_capital"]])).rows,
+          assert.deepEqual((await client.query("SELECT * FROM abos.schema_migrations WHERE migration_id<>ALL($1::text[]) ORDER BY migration_id", [[MIGRATION, "0040_v1_direct_shareholder_capital", "0041_v1_retire_synthetic_lane"]])).rows,
             beforeRegistry, "all 0001-0038 registry values, checksums and timestamps are unchanged");
           const upgraded = (await client.query("SELECT checksum_sha256 FROM abos.schema_migrations WHERE migration_id=$1", [MIGRATION])).rows;
           assert.equal(upgraded.length, 1, "0039 recorded exactly once");
           assert.equal(upgraded[0]?.checksum_sha256, migrations[index]?.checksumSha256);
-          assert.equal(Number((await client.query("SELECT count(*) AS n FROM abos.schema_migrations")).rows[0]?.n), beforeRegistry.length + 2);
+          assert.equal(Number((await client.query("SELECT count(*) AS n FROM abos.schema_migrations")).rows[0]?.n), beforeRegistry.length + 3);
           assert.deepEqual((await client.query(`SELECT to_jsonb(g)-$1::text[] AS row
             FROM abos.ledger_account_governance g ORDER BY ledger_account_id`, [NEW_GOVERNANCE_COLUMNS])).rows, governanceBefore);
           const governanceAdded = (await client.query(`SELECT approval_required,finance_workflow_policy_version_id,
@@ -120,15 +125,25 @@ if (databaseUrl() === undefined) {
           assert.equal(Number((await client.query("SELECT count(*) AS n FROM abos.finance_workflow_policy_versions WHERE workflow_type='CHART_OF_ACCOUNTS'")).rows[0]?.n), 0,
             "no client CoA policy choice is created by schema deployment");
           for (const table of NEW_TABLES) {
-            assert.equal(Number((await client.query(`SELECT count(*) AS n FROM abos.${table}`)).rows[0]?.n), 0,
+            assert.equal(Number((await client.query(`SELECT count(*) AS n FROM abos.${table}`)).rows[0]?.n), SEEDED_ROWS[table] ?? 0,
               `${table} has no backfilled commands or automatic releases`);
             for (const runtime of ["abos_e1_runtime", "abos_e1_treasury_runtime", "abos_v1_identity_runtime"]) {
               const privileges = (await client.query(`SELECT
-                has_table_privilege($1,$2,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE') AS table_access,
-                has_any_column_privilege($1,$2,'SELECT,INSERT,UPDATE') AS column_access`, [runtime, `abos.${table}`])).rows[0];
-              assert.deepEqual(privileges, { table_access: false, column_access: false }, `${runtime} has no direct access to ${table}`);
+                has_table_privilege($1,$2,'SELECT') AS read_access,
+                has_table_privilege($1,$2,'INSERT,UPDATE,DELETE,TRUNCATE') AS write_access,
+                has_any_column_privilege($1,$2,'INSERT,UPDATE') AS column_write_access`, [runtime, `abos.${table}`])).rows[0];
+              const readOnly = READ_ONLY_RUNTIME[table] === runtime;
+              assert.deepEqual(privileges, { read_access: readOnly, write_access: false, column_write_access: false }, `${runtime} access to ${table}`);
             }
           }
+          // 0041: every frozen E1 entry point still exists, no runtime may execute any of them, and the
+          // register names exactly the twelve retired codes while their catalogue rows and grants are untouched.
+          const lanes = (await client.query(`SELECT count(*)::int AS n, bool_and(function_exists) AS present,
+            bool_or(finance_runtime_can_execute OR treasury_runtime_can_execute OR identity_runtime_can_execute) AS runtime,
+            bool_and(frozen_lane_can_execute) AS holder FROM abos.frozen_lanes`)).rows[0];
+          assert.deepEqual(lanes, { n: 14, present: true, runtime: false, holder: true });
+          assert.equal(Number((await client.query(`SELECT count(*) AS n FROM abos.permission_retirements r
+            JOIN abos.permission_catalogue c USING (permission_code)`)).rows[0]?.n), 12);
           const afterAll = await snapshots(client, afterTables);
           const afterRegistry = (await client.query("SELECT * FROM abos.schema_migrations ORDER BY migration_id")).rows;
           assert.deepEqual(await applyMigrations(tx, migrations), [], "repeating the reviewed runner is a no-op");

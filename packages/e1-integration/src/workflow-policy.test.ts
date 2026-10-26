@@ -52,7 +52,7 @@ if (databaseUrl() === undefined) {
           permissions: ["admin.finance-workflow.manage"]
         });
         const readerRole = await identity.createRole(admin, {
-          name: "Policy Reader", description: "No configuration authority.", permissions: ["treasury.read"]
+          name: "Policy Reader", description: "No configuration authority.", permissions: ["treasury.cash-location.manage"]
         });
         const editor = await identity.createUser(admin, {
           loginIdentifier: "policy.editor", displayName: "Synthetic Policy Editor",

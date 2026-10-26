@@ -47,7 +47,7 @@ if (databaseUrl() === undefined) {
 
         // Only a Super Administrator can hand out the company permission (administration access).
         const companyRole = await identity.createRole(admin, { name: "Company Editor", description: "", permissions: ["admin.company.manage"] });
-        const readerRole = await identity.createRole(admin, { name: "Reader", description: "", permissions: ["treasury.read"] });
+        const readerRole = await identity.createRole(admin, { name: "Reader", description: "", permissions: ["treasury.cash-location.manage"] });
         const reader = await identity.createUser(admin, { loginIdentifier: "plain.reader", displayName: "Synthetic Reader", status: "ACTIVE", roleIds: [readerRole.id] });
         const readerToken = (await identity.changePassword({ loginIdentifier: "plain.reader", currentPassword: reader.temporaryPassword, newPassword: "Reader passphrase 2026 x", clientAddress: CLIENT })).token;
         assert.equal((await identity.companyProfile(readerToken)).profile.legalName, null, "any employee can read the company details");

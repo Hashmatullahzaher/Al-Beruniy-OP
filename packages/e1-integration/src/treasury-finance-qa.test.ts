@@ -565,6 +565,8 @@ async function ensureRestrictedLogin(harness: Harness): Promise<void> {
       `CREATE ROLE ${RUNTIME_LOGIN} LOGIN INHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION PASSWORD '${RUNTIME_PASSWORD}'`);
   }
   await harness.executor.query(`GRANT abos_e1_runtime TO ${RUNTIME_LOGIN}`);
+  await harness.executor.query(`GRANT abos_e1_frozen_lane TO ${RUNTIME_LOGIN}`); // 0041: frozen E1 lane
+  await harness.executor.query(`GRANT abos_e1_frozen_lane TO ${RUNTIME_LOGIN}`); // 0041: frozen E1 lane
 }
 
 async function asRestricted<T>(operation: (db: SqlExecutor) => Promise<T>): Promise<T> {

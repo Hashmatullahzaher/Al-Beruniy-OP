@@ -42,7 +42,7 @@ export type AccountStatus = "ACTIVE" | "DISABLED" | "INVITED" | "REVOKED";
 export interface CatalogueEntry {
   readonly code: string;
   readonly category: "ADMINISTRATION" | "SHAREHOLDER" | "TREASURY" | "FINANCE" | "COMPANY";
-  readonly availability: "ACTIVE" | "UNAVAILABLE_IN_PREVIEW";
+  readonly availability: "ACTIVE" | "UNAVAILABLE_IN_PREVIEW" | "RETIRED";
   readonly independenceEnforced: boolean;
   readonly administrative: boolean;
   readonly catalogueVersion: number;
@@ -55,6 +55,8 @@ export interface SessionUser {
   readonly jobTitle: string | null;
   readonly legalEntityId: string;
   readonly legalEntityName: string;
+  /** Names of the active roles assigned in this company (display only; access is the permission list). */
+  readonly roles: readonly string[];
   readonly permissions: readonly string[];
   readonly sessionExpiresAt: string;
 }
@@ -385,6 +387,13 @@ export class IdentityService {
     );
     const user = row.rows[0];
     assertIdentity(user !== undefined, "AUTHENTICATION_REQUIRED", "Sign in to continue.");
+    const roles = await tx.query<{ readonly role_name: string }>(
+      `SELECT r.role_name FROM abos.user_role_assignments a
+         JOIN abos.access_roles r ON r.id = a.role_id AND r.status = 'ACTIVE'
+        WHERE a.user_account_id = $1 AND a.legal_entity_id = $2 AND a.revoked_at IS NULL
+        ORDER BY r.role_name`,
+      [actor.userAccountId, actor.legalEntityId]
+    );
     return {
       userAccountId: actor.userAccountId,
       loginIdentifier: user.login_identifier,
@@ -392,6 +401,7 @@ export class IdentityService {
       jobTitle: user.job_title,
       legalEntityId: actor.legalEntityId,
       legalEntityName: user.entity_name,
+      roles: roles.rows.map((entry) => entry.role_name),
       permissions: [...actor.permissions].sort(),
       sessionExpiresAt: iso(user.expires_at)
     };
@@ -974,11 +984,16 @@ function requireSuperAdminFor(actor: Actor, permissions: Iterable<string>): void
 
 async function requireAvailablePermissions(tx: SqlExecutor, codes: readonly string[]): Promise<void> {
   if (codes.length === 0) return;
-  const found = await tx.query<{ readonly permission_code: string }>(
-    "SELECT permission_code FROM abos.permission_catalogue WHERE permission_code = ANY($1::text[]) AND availability = 'ACTIVE'",
+  const found = await tx.query<{ readonly permission_code: string; readonly retired: boolean }>(
+    `SELECT c.permission_code, (r.permission_code IS NOT NULL) AS retired
+       FROM abos.permission_catalogue c LEFT JOIN abos.permission_retirements r USING (permission_code)
+      WHERE c.permission_code = ANY($1::text[]) AND c.availability = 'ACTIVE'`,
     [codes]
   );
-  const available = new Set(found.rows.map((row) => row.permission_code));
+  // 0041: a retired code keeps its catalogue row but can no longer be added to a role.
+  const retired = codes.filter((code) => found.rows.some((row) => row.permission_code === code && row.retired));
+  assertIdentity(retired.length === 0, "VALIDATION_FAILED", "Some selected permissions were retired with the preview lane and cannot be added to a role.", { retired });
+  const available = new Set(found.rows.filter((row) => !row.retired).map((row) => row.permission_code));
   const unavailable = codes.filter((code) => !available.has(code));
   assertIdentity(unavailable.length === 0, "VALIDATION_FAILED", "Some selected permissions are not available in this version.", { unavailable });
 }
@@ -1013,10 +1028,13 @@ async function loadCompanyProfile(tx: SqlExecutor, actor: Actor): Promise<Compan
 async function loadCatalogue(tx: SqlExecutor): Promise<CatalogueEntry[]> {
   const rows = await tx.query<{
     readonly permission_code: string; readonly category: CatalogueEntry["category"]; readonly availability: CatalogueEntry["availability"];
-    readonly independence_enforced: boolean; readonly administrative: boolean; readonly catalogue_version: number;
-  }>("SELECT * FROM abos.permission_catalogue ORDER BY sort_order");
+    readonly independence_enforced: boolean; readonly administrative: boolean; readonly catalogue_version: number; readonly retired: boolean;
+  }>(`SELECT c.*, (r.permission_code IS NOT NULL) AS retired
+        FROM abos.permission_catalogue c LEFT JOIN abos.permission_retirements r USING (permission_code)
+       ORDER BY c.sort_order`);
+  // 0041: a retired code is reported as RETIRED; its catalogue row is unchanged.
   return rows.rows.map((row) => ({
-    code: row.permission_code, category: row.category, availability: row.availability,
+    code: row.permission_code, category: row.category, availability: row.retired ? "RETIRED" : row.availability,
     independenceEnforced: row.independence_enforced, administrative: row.administrative, catalogueVersion: row.catalogue_version
   }));
 }

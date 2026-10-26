@@ -1421,6 +1421,10 @@ button.review-context { border: 0; border-inline-start: 1px solid rgba(102, 142,
 .dashboard-action strong, .dashboard-action small { display: block; }
 .dashboard-action strong { font-size: 13px; }
 .dashboard-action small { margin-top: 3px; color: var(--abos-slate-400); font-size: 11px; }
+.dashboard-profile dl { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 16px; margin: 10px 0 0; }
+.dashboard-profile dt { color: var(--abos-slate-400); font-size: 11px; }
+.dashboard-profile dd { margin: 0; font-size: 13px; }
+.dashboard-section-title { margin: 0 0 8px; color: var(--abos-slate-400); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
 .dashboard-counts { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 10px; }
 .dashboard-count-panel { padding: 12px; }
 .dashboard-count-panel ul { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; margin: 10px 0 0; padding: 0; list-style: none; }

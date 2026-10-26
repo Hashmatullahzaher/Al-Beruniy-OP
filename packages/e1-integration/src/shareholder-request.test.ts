@@ -39,6 +39,8 @@ if (databaseUrl() === undefined) {
     async function prepare(): Promise<Prepared> {
       await resetSchema(harness.pool);
       await harness.executor.query("GRANT abos_e1_runtime TO abos_e1_finance_runtime_test_login");
+      await harness.executor.query("GRANT abos_e1_frozen_lane TO abos_e1_finance_runtime_test_login"); // 0041: frozen E1 lane
+      await harness.executor.query("GRANT abos_e1_frozen_lane TO abos_e1_finance_runtime_test_login"); // 0041: frozen E1 lane
       const world = await seedSyntheticWorld(harness.executor);
       // The seed's intent creator holds the operator-provisioned (unavailable) permission; the app uses the new ACTIVE one.
       await grant(harness.executor, world, world.intentCreatorId, ["shareholder.capital-request.create"]);

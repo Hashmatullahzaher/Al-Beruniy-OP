@@ -686,6 +686,8 @@ async function ensureLogin(harness: Harness, login: { name: string; password: st
     CREATE ROLE ${login.name} LOGIN INHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION; END IF; END $$`);
   await harness.executor.query(`ALTER ROLE ${login.name} LOGIN PASSWORD '${login.password}'`);
   await harness.executor.query(`GRANT ${runtimeRole} TO ${login.name}`);
+  await harness.executor.query(`GRANT abos_e1_frozen_lane TO ${login.name}`); // 0041: frozen E1 lane
+  await harness.executor.query(`GRANT abos_e1_frozen_lane TO ${login.name}`); // 0041: frozen E1 lane
 }
 
 function restricted(login: { name: string; password: string }): { executor: PostgresExecutor; close(): Promise<void> } {

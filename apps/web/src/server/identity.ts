@@ -144,7 +144,3 @@ export function stringList(body: Record<string, unknown>, key: string): string[]
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
 }
 
-/** Developer token sign-in exists only for automated tests and local development. */
-export function developerTokenSignInEnabled(): boolean {
-  return process.env.ABOS_ALLOW_DEV_TOKEN_SIGNIN === "1" && process.env.NODE_ENV !== "production";
-}

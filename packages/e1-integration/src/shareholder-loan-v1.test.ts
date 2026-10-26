@@ -24,6 +24,8 @@ if (databaseUrl() === undefined) {
     test("a chosen loan agreement cannot enter the capital request or posting pipeline", async () => {
       await resetSchema(harness.pool);
       await harness.executor.query("GRANT abos_e1_runtime TO abos_e1_finance_runtime_test_login");
+      await harness.executor.query("GRANT abos_e1_frozen_lane TO abos_e1_finance_runtime_test_login"); // 0041: frozen E1 lane
+      await harness.executor.query("GRANT abos_e1_frozen_lane TO abos_e1_finance_runtime_test_login"); // 0041: frozen E1 lane
       const world = await seedSyntheticWorld(harness.executor);
       await grant(harness.executor, world, world.intentCreatorId, ["shareholder.capital-request.create"]);
       const token = await sessionFor(harness.executor, world.intentCreatorId, world.legalEntityId);

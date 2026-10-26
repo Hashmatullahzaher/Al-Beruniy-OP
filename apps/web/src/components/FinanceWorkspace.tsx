@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
 
 import { AppIcon, type AppIconName } from "@/components/AppIcon";
@@ -166,22 +165,6 @@ export function FinanceWorkspace() {
               <ul>{selected.dependencies.map((dependency) => <li key={dependency.en}><AppIcon name="shield" size={13} />{localized(dependency, locale)}</li>)}</ul>
               <div><AppIcon name="alert" size={16} /><span><b>{localized({ en: "Operational state", fa: "وضعیت عملیاتی" }, locale)}</b>{localized({ en: "Unavailable · no records or actions", fa: "در دسترس نیست · بدون سوابق یا عملیات" }, locale)}</span></div>
             </aside>
-          </div>
-        ) : activeTab === "treasury" ? (
-          <div className="treasury-entry">
-            <span aria-hidden="true"><AppIcon name="coins" size={26} /></span>
-            <div>
-              <p>{localized({ en: "E1 SYNTHETIC SANDBOX", fa: "محیط آزمایشی مصنوعی E1" }, locale)}</p>
-              <h2>{localized({ en: "Treasury workspace", fa: "فضای کاری خزانه" }, locale)}</h2>
-              <span>{localized({ en: "Office safes, independent USD and AFN accounts, cash receipts, physical counts, independent verification and handoff to Finance - on synthetic data, with no General Ledger posting from Treasury.", fa: "صندوق‌های دفتر، حساب‌های مستقل دالر و افغانی، دریافت نقد، شمارش فزیکی، تایید مستقل و تحویل به مالی - با داده‌های مصنوعی و بدون ثبت در دفتر کل از خزانه." }, locale)}</span>
-            </div>
-            <Link className="treasury-button" href="/finance/treasury">{localized({ en: "Open Treasury", fa: "باز کردن خزانه" }, locale)}</Link>
-          </div>
-        ) : activeTab === "accounting" ? (
-          <div className="treasury-entry">
-            <span aria-hidden="true"><AppIcon name="finance" size={26} /></span>
-            <div><p>E1 SYNTHETIC SANDBOX</p><h2>{localized({ en: "Treasury handoffs & posting", fa: "تحویل خزانه و ثبت مالی" }, locale)}</h2><span>{localized({ en: "Authorized Finance personas prepare, independently approve, securely post, and reconcile persisted Treasury handoffs.", fa: "اشخاص مجاز مالی تحویل‌های ثبت‌شده خزانه را آماده، مستقل تصویب، امن ثبت و تطبیق می‌کنند." }, locale)}</span></div>
-            <Link className="treasury-button" href="/finance/handoffs">{localized({ en: "Open Finance handoffs", fa: "باز کردن تحویل‌های مالی" }, locale)}</Link>
           </div>
         ) : (
           <WorkspaceEmptyState icon={emptyCopy[activeTab as keyof typeof emptyCopy].icon} title={emptyCopy[activeTab as keyof typeof emptyCopy].title} description={emptyCopy[activeTab as keyof typeof emptyCopy].description} />

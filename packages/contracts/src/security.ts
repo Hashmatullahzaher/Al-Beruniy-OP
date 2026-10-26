@@ -57,3 +57,24 @@ export interface ServerActorContext {
   /** `stage1-e0-v2`. Expiry of the issuing session; a context outliving it is refused. */
   readonly expiresAt?: string;
 }
+
+/**
+ * Permission codes retired with migration 0041 (`abos.permission_retirements`). They belong only to
+ * the frozen E1 synthetic lane: the catalogue rows and every existing grant stay exactly as they
+ * are, but a retired code cannot be added to a role, the role editor shows it as retired, and the
+ * dashboard no longer lists it. The integration suite asserts this list equals the register.
+ */
+export const RETIRED_PERMISSION_CODES: ReadonlySet<string> = new Set([
+  "treasury.read",
+  "treasury.cash-receipt.record",
+  "treasury.cash-count.record",
+  "treasury.cash-receipt.verify",
+  "treasury.handoff.create",
+  "treasury.cash-account.reconcile",
+  "treasury.cash-account.approve",
+  "shareholder.capital-request.create",
+  "shareholder.capital-intent.create",
+  "finance.posting-intent.create",
+  "finance.posting-intent.approve",
+  "finance.journal.post"
+]);

@@ -1,25 +1,24 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import pg from "pg";
 
-import type { LegalEntityId, ServerActorContext, TreasuryPermission, UserAccountId } from "@abos/contracts";
-import {
-  PostgresExecutor, RestrictedTreasuryGateway, RestrictedTreasuryRepository
-} from "@abos/persistence";
+import { PostgresExecutor } from "@abos/persistence";
 import {
   readSandboxConfiguration,
   SandboxAuthError,
   type SandboxAuthConfiguration
 } from "@abos/sandbox-auth";
-import { TreasuryDomainError, TreasuryService, type TreasuryActor } from "@abos/treasury";
+import { TreasuryDomainError } from "@abos/treasury";
 
 /**
- * Server-only Treasury runtime for the web app.
+ * Server-only Treasury database runtime and the shared response helpers for the web app.
  *
  * Imported by route handlers only. The browser never sees a database URL, a signing secret or a
  * bearer token: the token lives in an httpOnly, SameSite=Strict cookie, and every request rebuilds
  * the actor from persisted grants. Nothing here falls back to a default user, a default secret or
  * a default database - an unconfigured server answers 503, not a demo.
+ *
+ * The E1 Treasury screens and their session context left the product with migration 0041; what
+ * remains is the restricted Treasury login, used by the operational shareholder-capital bridge.
  */
 
 export const SESSION_COOKIE = "abos_sandbox_session";
@@ -30,7 +29,6 @@ pg.types.setTypeParser(1700, (value: string) => value);
 interface TreasuryRuntime {
   readonly pool: pg.Pool;
   readonly executor: PostgresExecutor;
-  readonly gateway: RestrictedTreasuryGateway;
   readonly configuration: SandboxAuthConfiguration;
 }
 
@@ -47,7 +45,7 @@ export function treasuryRuntime(): TreasuryRuntime {
   if (globalRuntime.__abosTreasuryRuntime !== undefined) return globalRuntime.__abosTreasuryRuntime;
   const url = process.env.ABOS_TREASURY_DATABASE_URL;
   if (url === undefined || url.trim() === "") {
-    throw new TreasuryUnavailableError("The E1 Treasury sandbox requires ABOS_TREASURY_DATABASE_URL with the restricted Treasury credential.");
+    throw new TreasuryUnavailableError("The Treasury database login is not configured (ABOS_TREASURY_DATABASE_URL is unset).");
   }
   let configuration: SandboxAuthConfiguration;
   try {
@@ -57,67 +55,9 @@ export function treasuryRuntime(): TreasuryRuntime {
   }
   const pool = new pg.Pool({ connectionString: url, max: 6 });
   const executor = new PostgresExecutor(pool, { runtimeMarker: configuration.runtimeMarker });
-  const runtime = { pool, executor, configuration, gateway: new RestrictedTreasuryGateway(executor) };
+  const runtime = { pool, executor, configuration };
   globalRuntime.__abosTreasuryRuntime = runtime;
   return runtime;
-}
-
-export interface TreasuryRequestContext {
-  readonly syntheticAuthorized: boolean;
-  readonly runtime: TreasuryRuntime;
-  readonly context: ServerActorContext;
-  readonly actor: TreasuryActor;
-  readonly displayName: string;
-  readonly service: TreasuryService;
-  readonly reader: RestrictedTreasuryRepository;
-}
-
-/** Authenticates the session cookie. Throws AUTHENTICATION_REQUIRED when there is none. */
-export async function currentTreasury(): Promise<TreasuryRequestContext> {
-  const runtime = treasuryRuntime();
-  const token = (await cookies()).get(SESSION_COOKIE)?.value;
-  if (token === undefined || token.length === 0) {
-    throw new SandboxAuthError("AUTHENTICATION_REQUIRED", "Sign in with a sandbox session token to use Treasury.");
-  }
-  const session = await runtime.gateway.context(token);
-  const legalEntityId = session.legalEntityId as LegalEntityId;
-  const treasuryPermissions = session.treasuryPermissions as readonly TreasuryPermission[];
-  const context: ServerActorContext = {
-    userAccountId: session.userAccountId as UserAccountId,
-    legalEntityIds: [legalEntityId], projectIds: [], departmentIds: [], costCenterIds: [],
-    permissions: [], treasuryPermissions, authenticatedAt: new Date().toISOString(),
-    sessionId: session.sessionId, expiresAt: session.expiresAt
-  };
-  const actor: TreasuryActor = {
-    userAccountId: context.userAccountId,
-    legalEntityId,
-    treasuryPermissions,
-    sessionId: context.sessionId ?? ""
-  };
-  const repository = new RestrictedTreasuryRepository(
-    runtime.gateway, { bearerToken: token, legalEntityId }
-  );
-  return {
-    syntheticAuthorized: session.syntheticAuthorized === true,
-    runtime,
-    context,
-    actor,
-    displayName: session.displayName,
-    service: new TreasuryService(repository),
-    reader: repository
-  };
-}
-
-export function hasTreasuryPermission(actor: TreasuryActor, permission: TreasuryPermission): boolean {
-  return actor.treasuryPermissions.includes(permission);
-}
-
-export async function displayNames(reader: RestrictedTreasuryRepository, entity: LegalEntityId, ids: readonly string[]): Promise<Map<string, string>> {
-  const unique = [...new Set(ids.filter((id) => id.length > 0))];
-  if (unique.length === 0) return new Map();
-  const rows = await reader.listUsers(entity);
-  return new Map(rows.filter((row) => unique.includes(String(row.id)))
-    .map((row) => [row.id as UserAccountId, String(row.display_name)]));
 }
 
 /**
@@ -134,7 +74,7 @@ export function assertSameOrigin(request: Request): void {
   } catch {
     throw new SandboxAuthError("PERMISSION_DENIED", "Cross-origin requests are refused.");
   }
-  if (originHost !== host) throw new SandboxAuthError("PERMISSION_DENIED", "Cross-origin Treasury requests are refused.");
+  if (originHost !== host) throw new SandboxAuthError("PERMISSION_DENIED", "Cross-origin requests are refused.");
 }
 
 export async function readJson(request: Request): Promise<Record<string, unknown>> {
@@ -184,8 +124,8 @@ export function errorResponse(error: unknown): NextResponse {
   if (sqlState === "23503") {
     return json({ ok: false, error: { code: "REFUSED_BY_DATABASE", message: "A referenced record does not exist or belongs elsewhere." } }, 422);
   }
-  console.error("Unexpected Treasury failure", error);
-  return json({ ok: false, error: { code: "INTERNAL_ERROR", message: "The Treasury request failed unexpectedly. Nothing was reported as successful." } }, 500);
+  console.error("Unexpected request failure", error);
+  return json({ ok: false, error: { code: "INTERNAL_ERROR", message: "The request failed unexpectedly. Nothing was reported as successful." } }, 500);
 }
 
 export function json(body: unknown, status = 200): NextResponse {

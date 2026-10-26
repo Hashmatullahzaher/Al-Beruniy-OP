@@ -225,8 +225,11 @@ Agents must update the relevant row when status changes. `DONE` requires evidenc
 **Since 2026-10-27, execution follows the Revised Final Architecture Plan approved by the owner
 (`docs/00-governance/DECISIONS.md`, "Owner decisions — target architecture — 2026-10-26"). The
 official trunk is `v1/main`; production deploys only a reviewed trunk SHA. Slice 1 ("the owner can
-post, and sees no sandbox") is in progress: D1 trunk and 0040 merge done; D2 (0040 deployment) and
-D3 (migration 0041, retire the E1 product path) each need separate owner authorization.**
+post, and sees no sandbox") is in progress: D1 trunk and 0040 merge done; D2 (0040 deployed to
+production on 2026-10-27 from trunk `0aa6512`, accepted); D3 (migration 0041, retire the E1 product
+path) implemented on branch `claude/d3-retire-e1` and documented in
+`docs/04-delivery/V1_RETIRE_SYNTHETIC_LANE_0041.md`, awaiting owner review. Production deployment
+of 0041 is NOT authorized until that review.**
 
 First eligible package at repository initialization: **WP-0001 — Repository / Application Skeleton**.
 

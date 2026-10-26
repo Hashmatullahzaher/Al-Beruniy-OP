@@ -12,6 +12,7 @@ import { bootstrapSuperAdmin, IdentityError, IdentityService, INDEPENDENCE_PERMI
 import { PostgresExecutor, PostgresShareholderRepository, RestrictedTreasuryGateway } from "@abos/persistence";
 import { SandboxAuthenticator } from "@abos/sandbox-auth";
 import { CapitalReceiptIntentService } from "@abos/shareholder";
+import { grant } from "./currency-fixtures.ts";
 import { databaseUrl, MISSING_DATABASE_MESSAGE, openHarness, resetSchema, type Harness } from "./harness.ts";
 import {
   bindSyntheticFinanceApprovalEvidence, bindSyntheticTreasuryEvidence, seedSyntheticWorld,
@@ -77,8 +78,8 @@ if (databaseUrl() === undefined) {
       const setup = await prepare(harness);
       try {
         const role = await setup.identity.createRole(setup.adminToken, {
-          name: "Cash Receipt Officer", description: "Records and counts cash received into the safe.",
-          permissions: ["treasury.read", "treasury.cash-receipt.record", "treasury.cash-count.record"]
+          name: "Safe Setup Officer", description: "Sets up the company's Safes and Treasury accounts.",
+          permissions: ["treasury.cash-location.manage", "treasury.operational-account.manage"]
         });
         const created = await setup.identity.createUser(setup.adminToken, {
           loginIdentifier: "Receipt.Officer", displayName: "Synthetic Receipt Officer", jobTitle: "Cashier",
@@ -86,12 +87,12 @@ if (databaseUrl() === undefined) {
         });
         assert.equal(created.user.loginIdentifier, "receipt.officer");
         assert.equal(created.user.mustChangePassword, true);
-        assert.deepEqual(created.user.permissions, ["treasury.cash-count.record", "treasury.cash-receipt.record", "treasury.read"]);
+        assert.deepEqual(created.user.permissions, ["treasury.cash-location.manage", "treasury.operational-account.manage"]);
 
         const token = await signInAs(setup.identity, "receipt.officer", created.temporaryPassword);
         const context = await restricted("treasury", (db) => new RestrictedTreasuryGateway(db).context(token));
         assert.equal(context.userAccountId, created.user.id);
-        assert.deepEqual([...context.treasuryPermissions].sort(), ["treasury.cash-count.record", "treasury.cash-receipt.record", "treasury.read"]);
+        assert.deepEqual([...context.treasuryPermissions].sort(), ["treasury.cash-location.manage", "treasury.operational-account.manage"]);
 
         const trail = await setup.identity.auditTrail(setup.adminToken);
         const actions = trail.map((entry) => `${entry.action}:${entry.actor}`);
@@ -107,11 +108,11 @@ if (databaseUrl() === undefined) {
     test("ordinary employees cannot create users, edit roles or read the administration data", async () => {
       const setup = await prepare(harness);
       try {
-        const { token } = await employee(setup, "plain.cashier", ["treasury.read", "treasury.cash-receipt.record"]);
+        const { token } = await employee(setup, "plain.cashier", ["treasury.cash-location.manage"]);
         await rejectsIdentity("PERMISSION_DENIED", () => setup.identity.createUser(token, {
           loginIdentifier: "sneaky.user", displayName: "Sneaky User", status: "ACTIVE", roleIds: []
         }));
-        await rejectsIdentity("PERMISSION_DENIED", () => setup.identity.createRole(token, { name: "Everything", description: "", permissions: ["finance.journal.post"] }));
+        await rejectsIdentity("PERMISSION_DENIED", () => setup.identity.createRole(token, { name: "Everything", description: "", permissions: ["finance.expense.create"] }));
         await rejectsIdentity("PERMISSION_DENIED", () => setup.identity.listUsers(token));
         await rejectsIdentity("PERMISSION_DENIED", () => setup.identity.listRoles(token));
         await rejectsIdentity("PERMISSION_DENIED", () => setup.identity.auditTrail(token));
@@ -123,7 +124,7 @@ if (databaseUrl() === undefined) {
       const setup = await prepare(harness);
       try {
         // The administrator cannot change their own roles or status.
-        const finance = await setup.identity.createRole(setup.adminToken, { name: "Finance Approver", description: "", permissions: ["finance.report.operational.read", "finance.posting-intent.approve"] });
+        const finance = await setup.identity.createRole(setup.adminToken, { name: "Finance Approver", description: "", permissions: ["finance.report.operational.read", "finance.expense.approve"] });
         await rejectsIdentity("SELF_CHANGE_FORBIDDEN", () => setup.identity.setRoles(setup.adminToken, setup.adminId, [setup.superAdminRoleId, finance.id]));
         await rejectsIdentity("SELF_CHANGE_FORBIDDEN", () => setup.identity.setStatus(setup.adminToken, setup.adminId, "DISABLED"));
         // ...nor widen a role they hold.
@@ -131,17 +132,17 @@ if (databaseUrl() === undefined) {
         assert.ok(superRole?.youHoldThis);
         await rejectsIdentity("SELF_CHANGE_FORBIDDEN", () => setup.identity.updateRole(setup.adminToken, setup.superAdminRoleId, {
           name: superRole.name, description: superRole.description, status: "ACTIVE", expectedVersion: superRole.version,
-          permissions: [...superRole.permissions, "finance.journal.post"]
+          permissions: [...superRole.permissions, "finance.expense.create"]
         }));
 
         // A user administrator without role administration cannot hand out administration access.
         const userAdminRole = await setup.identity.createRole(setup.adminToken, { name: "User Administrator", description: "", permissions: ["admin.users.manage"] });
         const userAdmin = await employeeWithRole(setup, "user.admin", userAdminRole.id);
-        const target = await employee(setup, "target.person", ["treasury.read"]);
+        const target = await employee(setup, "target.person", ["treasury.cash-location.manage"]);
         await rejectsIdentity("SUPER_ADMIN_REQUIRED", () => setup.identity.setRoles(userAdmin.token, target.id, [setup.superAdminRoleId]));
         await rejectsIdentity("SUPER_ADMIN_REQUIRED", () => setup.identity.setRoles(userAdmin.token, setup.adminId, []));
         // ...and cannot create roles at all.
-        await rejectsIdentity("PERMISSION_DENIED", () => setup.identity.createRole(userAdmin.token, { name: "Mine", description: "", permissions: ["treasury.read"] }));
+        await rejectsIdentity("PERMISSION_DENIED", () => setup.identity.createRole(userAdmin.token, { name: "Mine", description: "", permissions: ["treasury.cash-location.manage"] }));
 
         // The database itself refuses a self-assignment and a self-grant, even for its own runtime role.
         await assert.rejects(() => restricted("identity", (db) => db.query(
@@ -149,7 +150,12 @@ if (databaseUrl() === undefined) {
            VALUES ($1, $2, $3, $4, $2)`, [randomUUID(), userAdmin.id, finance.id, setup.world.legalEntityId])), /permission denied|check constraint/i);
         await assert.rejects(() => restricted("identity", (db) => db.query(
           `INSERT INTO abos.user_permission_grants (user_account_id, legal_entity_id, permission_code, granted_by_user_account_id)
-           VALUES ($1, $2, 'finance.journal.post', $1)`, [userAdmin.id, setup.world.legalEntityId])), /permission denied|check constraint/i);
+           VALUES ($1, $2, 'finance.expense.create', $1)`, [userAdmin.id, setup.world.legalEntityId])), /permission denied|check constraint/i);
+        // 0041: a retired E1 permission cannot be put into a role either, by the service or directly.
+        await rejectsIdentity("VALIDATION_FAILED", () => setup.identity.createRole(setup.adminToken, { name: "Legacy Cashier", description: "", permissions: ["treasury.read"] }));
+        await assert.rejects(() => restricted("identity", (db) => db.query(
+          "INSERT INTO abos.access_role_permissions (role_id, permission_code, added_by_user_account_id) VALUES ($1, 'treasury.cash-receipt.record', $2)",
+          [finance.id, setup.adminId])), /permission denied|retired/i);
         // Unavailable permissions cannot be put into a role, by the service or directly.
         await rejectsIdentity("VALIDATION_FAILED", () => setup.identity.createRole(setup.adminToken, { name: "Reverser", description: "", permissions: ["finance.journal.reverse"] }));
         await assert.rejects(() => restricted("identity", (db) => db.query(
@@ -181,8 +187,8 @@ if (databaseUrl() === undefined) {
     test("suspension and role removal end access immediately, in the identity service and in the Treasury database functions", async () => {
       const setup = await prepare(harness);
       try {
-        const person = await employee(setup, "soon.suspended", ["treasury.read", "treasury.cash-receipt.record"]);
-        assert.ok((await restricted("treasury", (db) => new RestrictedTreasuryGateway(db).context(person.token))).treasuryPermissions.includes("treasury.read"));
+        const person = await employee(setup, "soon.suspended", ["treasury.cash-location.manage"]);
+        assert.ok((await restricted("treasury", (db) => new RestrictedTreasuryGateway(db).context(person.token))).treasuryPermissions.includes("treasury.cash-location.manage"));
         const detail = await setup.identity.setStatus(setup.adminToken, person.id, "DISABLED");
         assert.equal(detail.activeSessions, 0);
         await assert.rejects(() => restricted("treasury", (db) => new RestrictedTreasuryGateway(db).context(person.token)), /invalid|expired|revoked/i);
@@ -203,19 +209,19 @@ if (databaseUrl() === undefined) {
     test("changing a role changes every holder's access and ends their sessions; deactivating it removes access", async () => {
       const setup = await prepare(harness);
       try {
-        const role = await setup.identity.createRole(setup.adminToken, { name: "Treasury Reader", description: "", permissions: ["treasury.read"] });
+        const role = await setup.identity.createRole(setup.adminToken, { name: "Treasury Reader", description: "", permissions: ["treasury.cash-location.manage"] });
         const person = await employeeWithRole(setup, "role.holder", role.id);
         const updated = await setup.identity.updateRole(setup.adminToken, role.id, {
           name: "Treasury Reader", description: "Reads and records", status: "ACTIVE", expectedVersion: role.version,
-          permissions: ["treasury.read", "treasury.cash-receipt.record"]
+          permissions: ["treasury.cash-location.manage", "treasury.operational-account.manage"]
         });
         assert.equal(updated.version, role.version + 1);
         await assert.rejects(() => restricted("treasury", (db) => new RestrictedTreasuryGateway(db).context(person.token)), /invalid|expired|revoked/i);
         await rejectsIdentity("STALE_VERSION", () => setup.identity.updateRole(setup.adminToken, role.id, {
-          name: "Treasury Reader", description: "", status: "ACTIVE", expectedVersion: role.version, permissions: ["treasury.read"]
+          name: "Treasury Reader", description: "", status: "ACTIVE", expectedVersion: role.version, permissions: ["treasury.cash-location.manage"]
         }));
         const again = await signInAs(setup.identity, "role.holder", person.password);
-        assert.deepEqual([...(await setup.identity.currentUser(again)).permissions].sort(), ["treasury.cash-receipt.record", "treasury.read"]);
+        assert.deepEqual([...(await setup.identity.currentUser(again)).permissions].sort(), ["treasury.cash-location.manage", "treasury.operational-account.manage"]);
         await setup.identity.updateRole(setup.adminToken, role.id, {
           name: "Treasury Reader", description: "", status: "INACTIVE", expectedVersion: updated.version, permissions: updated.permissions
         });
@@ -226,7 +232,7 @@ if (databaseUrl() === undefined) {
     test("duplicate usernames are refused regardless of letter case", async () => {
       const setup = await prepare(harness);
       try {
-        await employee(setup, "unique.name", ["treasury.read"]);
+        await employee(setup, "unique.name", ["treasury.cash-location.manage"]);
         await rejectsIdentity("DUPLICATE", () => setup.identity.createUser(setup.adminToken, {
           loginIdentifier: "Unique.Name", displayName: "Someone Else", status: "ACTIVE", roleIds: []
         }));
@@ -240,7 +246,7 @@ if (databaseUrl() === undefined) {
         const other = await otherEntity(harness, setup.world);
         await rejectsIdentity("NOT_FOUND", () => setup.identity.userDetail(setup.adminToken, other.userId));
         await rejectsIdentity("NOT_FOUND", () => setup.identity.setStatus(setup.adminToken, other.userId, "DISABLED"));
-        const mine = await employee(setup, "local.person", ["treasury.read"]);
+        const mine = await employee(setup, "local.person", ["treasury.cash-location.manage"]);
         await rejectsIdentity("NOT_FOUND", () => setup.identity.setRoles(setup.adminToken, mine.id, [other.roleId]));
         assert.equal((await setup.identity.listUsers(setup.adminToken)).some((user) => user.id === other.userId), false);
         assert.equal((await setup.identity.listRoles(setup.adminToken)).some((role) => role.id === other.roleId), false);
@@ -250,7 +256,7 @@ if (databaseUrl() === undefined) {
     test("repeated wrong passwords lock the account, and a locked account answers exactly like an unknown one", async () => {
       const setup = await prepare(harness);
       try {
-        const person = await employee(setup, "locked.person", ["treasury.read"]);
+        const person = await employee(setup, "locked.person", ["treasury.cash-location.manage"]);
         for (let attempt = 0; attempt < 5; attempt += 1) {
           await rejectsIdentity("INVALID_CREDENTIALS", () => setup.identity.login({ loginIdentifier: "locked.person", password: "wrong password here", clientAddress: "198.51.100.7" }));
         }
@@ -265,11 +271,11 @@ if (databaseUrl() === undefined) {
     test("independent review findings stay closed (sessions, audit scope, takeover, cross-entity, grant integrity, expiry)", async () => {
       const setup = await prepare(harness);
       try {
-        const approver = await employee(setup, "fin.approver", ["finance.report.operational.read", "finance.posting-intent.approve"]);
+        const approver = await employee(setup, "fin.approver", ["finance.report.operational.read", "finance.expense.approve"]);
         // C-01: the identity runtime cannot mint a session without a recorded successful sign-in,
         // and no new session may start in the future or last longer than an hour.
         // Someone who has an account and access but has not signed in.
-        const quietRole = await setup.identity.createRole(setup.adminToken, { name: "Quiet Approver", description: "", permissions: ["finance.report.operational.read", "finance.posting-intent.approve"] });
+        const quietRole = await setup.identity.createRole(setup.adminToken, { name: "Quiet Approver", description: "", permissions: ["finance.report.operational.read", "finance.expense.approve"] });
         const quiet = await setup.identity.createUser(setup.adminToken, { loginIdentifier: "quiet.approver", displayName: "Quiet Approver", status: "ACTIVE", roleIds: [quietRole.id] });
         const mint = (issuedAt: string, expiresAt: string) => restricted("identity", (db) => db.query(
           `INSERT INTO abos.sandbox_sessions (id, user_account_id, token_sha256, runtime_token_sha256, legal_entity_id, issued_at, expires_at)
@@ -297,7 +303,7 @@ if (databaseUrl() === undefined) {
         await rejectsIdentity("SUPER_ADMIN_REQUIRED", () => setup.identity.resetPassword(userAdmin.token, approver.id));
         await rejectsIdentity("SUPER_ADMIN_REQUIRED", () => setup.identity.revokeSessions(userAdmin.token, approver.id));
         await rejectsIdentity("SUPER_ADMIN_REQUIRED", () => setup.identity.updateProfile(userAdmin.token, setup.adminId, { displayName: "Renamed Admin" }));
-        const approverRole = (await setup.identity.listRoles(setup.adminToken)).find((role) => role.permissions.includes("finance.posting-intent.approve"));
+        const approverRole = (await setup.identity.listRoles(setup.adminToken)).find((role) => role.permissions.includes("finance.expense.approve"));
         assert.ok(approverRole);
         await rejectsIdentity("SUPER_ADMIN_REQUIRED", () => setup.identity.createUser(userAdmin.token, {
           loginIdentifier: "puppet.approver", displayName: "Puppet Approver", status: "ACTIVE", roleIds: [approverRole.id] }));
@@ -312,9 +318,9 @@ if (databaseUrl() === undefined) {
             loginIdentifier: `puppet.${code.replace(/[^a-z]/g, "")}`, displayName: "Puppet Holder", status: "ACTIVE", roleIds: [sensitiveRole.id] }));
         }
         // ...but can still run ordinary accounts.
-        const reader =await setup.identity.createRole(setup.adminToken, { name: "Reader", description: "", permissions: ["treasury.read"] });
+        const reader =await setup.identity.createRole(setup.adminToken, { name: "Reader", description: "", permissions: ["treasury.cash-location.manage"] });
         const ordinary = await setup.identity.createUser(userAdmin.token, { loginIdentifier: "ordinary.reader", displayName: "Ordinary Reader", status: "ACTIVE", roleIds: [reader.id] });
-        assert.equal(ordinary.user.permissions.join(","), "treasury.read");
+        assert.equal(ordinary.user.permissions.join(","), "treasury.cash-location.manage");
 
         // C-08: in the database, administration access can only be granted by a current super administrator.
         await assert.rejects(() => restricted("identity", (db) => db.query(
@@ -325,7 +331,7 @@ if (databaseUrl() === undefined) {
         const other = await otherEntity(harness, setup.world);
         await harness.executor.query(
           `INSERT INTO abos.user_permission_grants (user_account_id, legal_entity_id, permission_code, granted_by_user_account_id)
-           VALUES ($1, $2, 'treasury.read', $3)`, [ordinary.user.id, other.entityId, setup.world.bootstrapUserId]);
+           VALUES ($1, $2, 'treasury.cash-location.manage', $3)`, [ordinary.user.id, other.entityId, setup.world.bootstrapUserId]);
         await rejectsIdentity("NOT_FOUND", () => setup.identity.resetPassword(setup.adminToken, ordinary.user.id));
         await rejectsIdentity("NOT_FOUND", () => setup.identity.setStatus(setup.adminToken, ordinary.user.id, "DISABLED"));
 
@@ -353,12 +359,14 @@ if (databaseUrl() === undefined) {
     test("an employee holding Cashier and Finance Approver roles still cannot approve cash they recorded", async () => {
       const setup = await prepare(harness);
       try {
-        const both = await employee(setup, "dual.role", ["treasury.read", "treasury.cash-receipt.record", "treasury.cash-count.record",
-          "finance.report.operational.read", "finance.posting-intent.approve"]);
-        const verifier = await employee(setup, "independent.verifier", ["treasury.read", "treasury.cash-receipt.verify", "treasury.handoff.create"]);
-        const preparer = await employee(setup, "finance.preparer", ["finance.report.operational.read", "finance.posting-intent.create"]);
+        // 0041: the E1 codes are retired and cannot enter a role, so the frozen-lane regression grants them
+        // directly (as the operator would), on top of ordinary roles created through administration.
+        const both = await legacyEmployee(harness, setup, "dual.role", ["treasury.cash-location.manage", "finance.report.operational.read"],
+          ["treasury.read", "treasury.cash-receipt.record", "treasury.cash-count.record", "finance.posting-intent.approve"]);
+        const verifier = await legacyEmployee(harness, setup, "independent.verifier", ["treasury.cash-location.manage"], ["treasury.read", "treasury.cash-receipt.verify", "treasury.handoff.create"]);
+        const preparer = await legacyEmployee(harness, setup, "finance.preparer", ["finance.report.operational.read"], ["finance.posting-intent.create"]);
         // A Treasury manager - also created through administration - assigns the cashier to the safe.
-        const manager = await employee(setup, "treasury.manager", ["treasury.read", "treasury.cash-location.manage"]);
+        const manager = await legacyEmployee(harness, setup, "treasury.manager", ["treasury.cash-location.manage"], ["treasury.read"]);
         await restricted("treasury", (db) => new RestrictedTreasuryGateway(db).command(
           { bearerToken: manager.token, legalEntityId: setup.world.legalEntityId as LegalEntityId },
           "ASSIGN_CASHIER", { id: randomUUID(), cashLocationId: setup.world.cashLocationId, userAccountId: both.id }));
@@ -366,7 +374,7 @@ if (databaseUrl() === undefined) {
         const handoffId = await receiptThroughHandoff(setup.world, flow, both.token, verifier.token);
 
         // A cashier-only token cannot reach Finance functions at all.
-        const cashierOnly = await employee(setup, "cashier.only", ["treasury.read", "treasury.cash-receipt.record"]);
+        const cashierOnly = await legacyEmployee(harness, setup, "cashier.only", ["treasury.cash-location.manage"], ["treasury.read", "treasury.cash-receipt.record"]);
         await assert.rejects(() => restricted("finance", (db) => db.query("SELECT abos.finance_handoff_workspace($1)", [cashierOnly.token])), /authority is missing|insufficient/i);
         await assert.rejects(() => restricted("finance", (db) => db.query("SELECT abos.finance_prepare_capital_posting($1,$2,$3,$4)",
           [cashierOnly.token, handoffId, setup.world.accountingPeriodId, `idem-${randomUUID()}`])), /authority is missing|insufficient/i);
@@ -418,6 +426,13 @@ async function employee(setup: Setup, login: string, permissions: readonly strin
   return employeeWithRole(setup, login, role.id);
 }
 
+/** 0041: retired E1 permissions cannot be put into a role; the frozen-lane regression grants them directly. */
+async function legacyEmployee(harness: Harness, setup: Setup, login: string, rolePermissions: readonly string[], legacyPermissions: readonly string[]): Promise<{ id: string; token: string; password: string }> {
+  const person = await employee(setup, login, rolePermissions);
+  await grant(harness.executor, setup.world, person.id, legacyPermissions);
+  return person;
+}
+
 async function employeeWithRole(setup: Setup, login: string, roleId: string): Promise<{ id: string; token: string; password: string }> {
   const created = await setup.identity.createUser(setup.adminToken, { loginIdentifier: login, displayName: `Synthetic ${login}`, status: "ACTIVE", roleIds: [roleId] });
   const password = `Chosen passphrase for ${login.split(".").reverse().join(" ")} 42`;
@@ -456,6 +471,8 @@ async function ensureLogin(harness: Harness, login: (typeof LOGINS)[keyof typeof
   const extra = verb === "CREATE" ? " NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION" : "";
   await harness.executor.query(`${verb} ROLE ${login.name} LOGIN INHERIT${extra} PASSWORD '${login.password}'`);
   await harness.executor.query(`GRANT ${login.role} TO ${login.name}`);
+  // 0041: the Treasury and Finance steps below run through frozen E1 entry points.
+  if (login.role !== "abos_v1_identity_runtime") await harness.executor.query(`GRANT abos_e1_frozen_lane TO ${login.name}`);
 }
 
 async function restricted<T>(kind: keyof typeof LOGINS, operation: (db: SqlExecutor) => Promise<T>): Promise<T> {

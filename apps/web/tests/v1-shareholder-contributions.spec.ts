@@ -171,45 +171,18 @@ test.describe("V1 shareholder contributions", () => {
     expect(await occurrences(legacyHolder, "107,500"), "no combined total of legacy and new contributions").toBe(0);
     await expect(legacyHolder.locator(".contribution-none")).toHaveCount(0);
 
-    // Advanced still exposes agreements, installments and capital requests.
+    // Advanced still exposes agreements and installments; capital requests left the product with 0041.
     await page.getByRole("button", { name: "Advanced" }).click();
     const tabs = page.getByRole("tablist", { name: "Shareholder areas" });
-    for (const name of ["Shareholders", "Capital Agreements", "Installments", "Capital Requests"]) {
+    for (const name of ["Shareholders", "Capital Agreements", "Installments"]) {
       await expect(tabs.getByRole("tab", { name: new RegExp(`^${name}`) })).toBeVisible();
     }
+    await expect(tabs.getByRole("tab", { name: "Capital Requests" })).toHaveCount(0);
     await tabs.getByRole("tab", { name: /^Capital Agreements/ }).click();
     await expect(page.locator(".shareholder-agreement", { hasText: "SYN-CAP-" }).first()).toBeVisible();
     await tabs.getByRole("tab", { name: "Installments" }).click();
     await expect(page.locator(".shareholder-agreement", { hasText: "SYN-CAP-" }).first()).toBeVisible();
-    await tabs.getByRole("tab", { name: "Capital Requests" }).click();
-    await expect(page.locator(".shareholder-request-note")).toBeVisible();
-
-    // On company data the synthetic capital-request gate is closed. Close it here (disposable preview
-    // database only) and check that it reads as "not operational", never as a sign-in problem.
-    const gateExpiry = await query("SELECT expires_at::text AS value FROM abos.sandbox_authorizations WHERE singleton");
-    expect(gateExpiry, "the preview sandbox gate exists").toBeTruthy();
-    // The gate's own CHECK requires expires_at > authorized_at; one millisecond after it is already past.
-    await query("UPDATE abos.sandbox_authorizations SET expires_at = authorized_at + interval '1 millisecond' WHERE singleton RETURNING 1 AS value");
-    try {
-      const refused = await page.evaluate(async () => {
-        const response = await fetch("/api/v1/shareholder/capital-requests");
-        return { status: response.status, code: ((await response.json()) as { error?: { code?: string } }).error?.code };
-      });
-      expect(refused).toEqual({ status: 403, code: "NOT_OPERATIONAL" });
-      await tabs.getByRole("tab", { name: "Installments" }).click();
-      await tabs.getByRole("tab", { name: "Capital Requests" }).click();
-      const unavailable = page.getByTestId("capital-requests-not-operational");
-      await expect(unavailable).toContainText("Capital Requests is not operational yet.");
-      await expect(page.getByText("Sign in first")).toHaveCount(0);
-      await expect(page.getByRole("link", { name: "Sign in" })).toHaveCount(0);
-      await page.getByRole("button", { name: "Switch to Dari" }).click();
-      await expect(unavailable).toContainText("درخواست سرمایه هنوز عملیاتی نشده است.");
-      await expect(page.getByText("ابتدا وارد شوید")).toHaveCount(0);
-      await expect(page.getByRole("link", { name: "ورود" })).toHaveCount(0);
-      await page.getByRole("button", { name: "Switch to English" }).click();
-    } finally {
-      await query("UPDATE abos.sandbox_authorizations SET expires_at = $1::timestamptz WHERE singleton RETURNING 1 AS value", [gateExpiry]);
-    }
+    await expectGone(page, "/api/v1/shareholder/capital-requests");
     await page.getByRole("button", { name: "Back to shareholders view" }).click();
     await expect(simple).toBeVisible();
 
@@ -312,6 +285,13 @@ async function query(sql: string, parameters: readonly unknown[] = []): Promise<
   } finally {
     await client.end();
   }
+}
+
+/** Unknown paths stream the not-found page (status 200 with the 404 boundary); a removed API route must never answer as JSON. */
+async function expectGone(page: Page, path: string): Promise<void> {
+  const response = await page.request.get(path);
+  expect(response.headers()["content-type"] ?? "", path).toContain("text/html");
+  expect(await response.text(), path).not.toContain('"ok":');
 }
 
 async function signIn(page: Page, username: string, password: string | undefined): Promise<void> {
