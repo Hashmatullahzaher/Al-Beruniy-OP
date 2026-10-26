@@ -34,10 +34,25 @@ export async function directCapitalPost(request: Request): Promise<Response> {
 
 function directCapitalErrorResponse(error: unknown): Response {
   const message = error instanceof Error ? error.message : "";
-  const known = /exceeds available outstanding capital/i.test(message) ? ["OVER_RECEIPT", "The receipt exceeds outstanding capital."]
-    : /no open accounting period/i.test(message) ? ["PERIOD_NOT_OPEN", "No open accounting period covers this date."]
-    : /currency|CASH asset/i.test(message) ? ["CURRENCY_MISMATCH", "Choose an active Safe in the approved accounting currency."]
-    : /capital approval setting|capital equity account/i.test(message) ? ["CONFIGURATION_REQUIRED", "Finance configuration must be completed before receiving capital."] : null;
+  const known =
+    /no accounting period covers/i.test(message)
+      ? ["PERIOD_MISSING", "No month in your financial year covers this date. Generate the financial year first."]
+    : /cannot be reopened automatically/i.test(message)
+      ? ["PERIOD_CLOSED", "The month covering this date is closed. Choose another date or reopen the month in Finance."]
+    : /contributed assets" account/i.test(message)
+      ? ["ASSET_ACCOUNT_REQUIRED", "Create one active \"shareholder contributed assets\" account in the Chart of Accounts before recording an asset."]
+    : /expense account/i.test(message)
+      ? ["EXPENSE_ACCOUNT_REQUIRED", "Choose an active expense account in the accounting currency."]
+    : /name the saraf/i.test(message)
+      ? ["SARAF_REQUIRED", "Name the saraf the hawala came through."]
+    : /describe the asset, or the bill/i.test(message)
+      ? ["DESCRIPTION_REQUIRED", "Describe the asset, or the bill that was paid."]
+    : /choose the Safe|does not move a Safe/i.test(message)
+      ? ["DESTINATION_MISMATCH", "Cash and hawala need the Safe they went into; an asset or a paid bill does not."]
+    : /currency|CASH asset/i.test(message)
+      ? ["CURRENCY_MISMATCH", "Choose an active Safe in the approved accounting currency."]
+    : /capital approval setting|capital equity account/i.test(message)
+      ? ["CONFIGURATION_REQUIRED", "Finance configuration must be completed before recording capital."] : null;
   if (known) return json({ ok: false, error: { code: known[0], message: known[1] } }, 422);
   return shareholderSetupErrorResponse(error);
 }

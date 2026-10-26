@@ -109,7 +109,7 @@ if (databaseUrl() === undefined) {
               const row = tablename === "ledger_account_governance"
                 ? "(to_jsonb(t)-ARRAY['finance_workflow_policy_version_id','approval_required','policy_released_by_user_account_id','policy_released_at','policy_release_reason']::text[])"
                 : tablename === "shareholder_profiles"
-                  ? "(to_jsonb(t)-ARRAY['ownership_percentage','capital_note','capital_document_agreement_id']::text[])"
+                  ? "(to_jsonb(t)-ARRAY['capital_note','capital_document_agreement_id']::text[])"
                   : ["posting_intents", "subledger_entries"].includes(tablename)
                     ? "(to_jsonb(t)-'direct_capital_receipt_id')"
                     : "to_jsonb(t)";

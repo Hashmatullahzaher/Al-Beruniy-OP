@@ -52,7 +52,9 @@ const operationalRoutes: ReadonlyArray<{ readonly path: string; readonly icon: A
   { path: "/finance/record-expense", icon: "coins", en: "Record expense", fa: "ثبت مصرف", section: "daily", visible: (can) => can("finance.expense.create") },
   { path: "/finance/transactions", icon: "reports-analytics", en: "Daily transactions", fa: "معاملات روزانه", section: "daily", visible: (can) => can("finance.expense.read") },
   { path: "/finance/treasury", icon: "coins", en: "Treasury", fa: "خزانه", section: "daily", visible: (can) => can("treasury.read") },
-  { path: "/finance/temporary-funding", icon: "coins", en: "Temporary funding", fa: "تمویل موقت", section: "daily", visible: (can) => TEMPORARY_FUNDING_PERMISSIONS.some((permission) => can(permission)) || (can("admin.users.manage") && can("admin.roles.manage")) },
+  // Temporary funding stays reachable by its own route and permissions, but is kept out of ordinary
+  // navigation until the owner asks for it; a one-person company does not need the extra lane.
+  { path: "/finance/temporary-funding", icon: "coins", en: "Temporary funding", fa: "تمویل موقت", section: "daily", visible: (can) => TEMPORARY_FUNDING_PERMISSIONS.some((permission) => can(permission)) },
   // Reports.
   { path: "/finance/daily-report", icon: "reports-analytics", en: "Daily financial report", fa: "گزارش مالی روزانه", section: "reports", visible: (can) => can("finance.expense.read") },
   // Accounting (accountants and Finance managers).
@@ -61,7 +63,7 @@ const operationalRoutes: ReadonlyArray<{ readonly path: string; readonly icon: A
   { path: "/finance/accounts", icon: "finance", en: "Chart of Accounts", fa: "جدول حساب‌ها", section: "accounting", visible: (can) => can("finance.ledger-account.manage") || can("finance.ledger-account.review") || can("finance.report.operational.read") },
   { path: "/finance/calendar", icon: "reports-analytics", en: "Financial calendar", fa: "تقویم مالی", section: "accounting", visible: (can) => can("finance.calendar.manage") || can("finance.report.operational.read") },
   { path: "/finance/exchange-rates", icon: "coins", en: "Exchange rates", fa: "نرخ اسعار", section: "accounting", visible: (can) => can("finance.exchange-rate.record") || can("finance.report.operational.read") },
-  { path: "/shareholders", icon: "finance", en: "Shareholder capital", fa: "سرمایه سهامداران", section: "accounting", visible: (can) => can("shareholder.setup.manage") || can("shareholder.capital-request.create") || can("shareholder.read") || can("shareholder.capital-receipt.read") || can("shareholder.capital-receipt.record") || can("treasury.capital-receipt.verify") || can("finance.capital-receipt.configure") || can("finance.capital-receipt.prepare") || can("finance.capital-receipt.approve") || can("finance.capital-receipt.post") },
+  { path: "/shareholders", icon: "finance", en: "Shareholders", fa: "سهامداران", section: "accounting", visible: (can) => can("shareholder.setup.manage") || can("shareholder.read") || can("shareholder.capital-receipt.read") || can("shareholder.capital-receipt.record") || can("finance.capital-receipt.prepare") || can("finance.capital-receipt.post") },
   { path: "/finance/reversals", icon: "finance", en: "Journal reversals", fa: "برگشت ژورنال‌ها", section: "accounting", visible: (can) => can("finance.reversal.request") || can("finance.reversal.approve") || can("finance.report.operational.read") },
   // Finance setup (Treasury accounts, expense types, accounting periods).
   { path: "/finance/setup", icon: "settings", en: "Finance setup", fa: "تنظیمات مالی", section: "setup", visible: (can) => can("treasury.operational-account.manage") || can("finance.expense-category.manage") || can("finance.period.manage") },

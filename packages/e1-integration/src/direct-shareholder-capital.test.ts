@@ -14,12 +14,16 @@ const MARKER = SYNTHETIC_AUTH_CONFIGURATION.runtimeMarker;
 const WRITE_PERMISSIONS = ["shareholder.setup.manage", "shareholder.capital-receipt.read",
   "shareholder.capital-receipt.record", "finance.capital-receipt.prepare", "finance.capital-receipt.post"];
 type Session = { proof: string; runtimeDigest: string; tokenDigest: string; sessionId: string };
-type Fixture = { world: SyntheticWorld; actor: Session; safe: string };
-type Creation = { shareholderProfileId: string; contributionId: string };
+type Fixture = { world: SyntheticWorld; actor: Session; safe: string; assetAccount: string; billAccount: string };
+type Creation = { shareholderProfileId: string; contributionId: string | null;
+  agreedTotal: string | null; firstReceipt: Receipt | null };
 type Receipt = { receiptId: string; journalId: string; reference: string; status: string; replayed: boolean };
-type Workspace = { shareholders: { id: string; name: string; capitals: {
-  currency: string; total: string; received: string; outstanding: string; available: string }[] }[];
-  destinations: { id: string; name: string; currency: string; balance: string | null }[] };
+type Workspace = { shareholders: { id: string; name: string; note: string | null; capitals: {
+  currency: string; contributed: string; agreedTotal: string | null; remaining: string | null }[];
+  transactions: { id: string; method: string; destination: string | null; providerName: string | null;
+    itemDescription: string | null; debitAccount: string | null; amount: string }[] }[];
+  destinations: { id: string; name: string; currency: string; balance: string | null }[];
+  assetAccountReady: boolean; expenseAccounts: { id: string; code: string; name: string }[] };
 
 if (databaseUrl() === undefined) {
   test("direct shareholder capital requires real PostgreSQL", () => assert.fail(MISSING_DATABASE_MESSAGE));
@@ -75,25 +79,45 @@ if (databaseUrl() === undefined) {
         (id,legal_entity_id,workflow_type,version,approval_required,configured_by_user_account_id,change_reason)
         VALUES($1,$2,'SHAREHOLDER_CAPITAL_RECEIPT',1,false,$3,'Synthetic direct-capital test policy')`,
       [randomUUID(), world.legalEntityId, world.bootstrapUserId]);
-      return { world, safe, actor: await session(world, world.intentCreatorId) };
+      const assetAccount = randomUUID();
+      await h.pool.query(`INSERT INTO abos.ledger_accounts
+        (id,legal_entity_id,account_code,account_name,account_type,control_account_type,
+         posting_allowed,account_currency_code,status)
+        VALUES($1,$2,'SYN-CONTRIB-ASSET','Synthetic shareholder contributed assets','ASSET',
+               'SHAREHOLDER_CONTRIBUTED_ASSETS',true,'USD','ACTIVE')`,
+      [assetAccount, world.legalEntityId]);
+      const billAccount = randomUUID();
+      await h.pool.query(`INSERT INTO abos.ledger_accounts
+        (id,legal_entity_id,account_code,account_name,account_type,posting_allowed,account_currency_code,status)
+        VALUES($1,$2,'SYN-DIRECT-BILL','Synthetic bill a shareholder paid','EXPENSE',true,'USD','ACTIVE')`,
+      [billAccount, world.legalEntityId]);
+      return { world, safe, assetAccount, billAccount, actor: await session(world, world.intentCreatorId) };
     }
     async function session(world: SyntheticWorld, actor: string): Promise<Session> {
       const issued = await issueOperationalSession(h, actor, world.legalEntityId);
       return args(issued.token, issued.sessionId);
     }
-    async function call<T>(name: string, s: Session, payload?: object, db = runtime): Promise<T> {
+    async function call<T>(name: string, s: Session, payload?: object, db = runtime, date?: string): Promise<T> {
       const parameters: unknown[] = [s.proof, s.runtimeDigest, s.tokenDigest];
       if (payload !== undefined) parameters.push(JSON.stringify(payload));
+      if (date !== undefined) parameters.push(date);
+      const tail = payload !== undefined ? ",$4::jsonb" : date !== undefined ? ",$4::date" : "";
       const result = await db.query<{ value: T }>(
-        `SELECT abos.${name}($1,$2,$3${payload === undefined ? "" : ",$4::jsonb"}) AS value`, parameters);
+        `SELECT abos.${name}($1,$2,$3${tail}) AS value`, parameters);
       assert.ok(result.rows[0]); return result.rows[0].value;
     }
-    const create = (f: Fixture, extra: object = {}) => call<Creation>("direct_shareholder_create", f.actor, {
-      displayName: `Synthetic Direct Shareholder ${randomUUID()}`, totalCapital: "100000", currencyCode: "USD",
-      ownershipPercent: null, externalReference: null, note: null, businessDate: "2026-09-22", ...keys(), ...extra });
-    const payload = (f: Fixture, id: string, extra: object = {}) => ({ shareholderProfileId: id, amount: "20000",
+    // One save. An agreed total is optional, and so is the money recorded with it.
+    const add = (f: Fixture, extra: object = {}) => call<Creation>("direct_shareholder_add", f.actor, {
+      displayName: `Synthetic Direct Shareholder ${randomUUID()}`, agreedTotal: "100000", currencyCode: "USD",
+      externalReference: null, note: null, businessDate: "2026-09-22", ...keys(), ...extra });
+    const create = add;
+    const payload = (f: Fixture, id: string, extra: object = {}) => ({ shareholderProfileId: id,
+      fundingMethod: "CASH", amount: "20000",
       currencyCode: "USD", receiptDate: "2026-09-23", destinationAccountId: f.safe,
       paymentReference: "SYNTHETIC-RECEIPT", note: null, ...keys(), ...extra });
+    const contribution = (f: Fixture, extra: object = {}) => ({ fundingMethod: "CASH", amount: "20000",
+      currencyCode: "USD", receiptDate: "2026-09-23", destinationAccountId: f.safe,
+      paymentReference: "SYNTHETIC-FIRST", note: null, ...extra });
     const receive = (f: Fixture, id: string, extra: object = {}) =>
       call<Receipt>("direct_shareholder_receive", f.actor, payload(f, id, extra));
     const legacyReceive = (f: Fixture, contributionId: string, amount: string) =>
@@ -116,17 +140,17 @@ if (databaseUrl() === undefined) {
     }
 
     test("shareholder creation and declaration remain non-financial without any sandbox authorization", async () => {
-      const f = await fixture(); const created = await create(f, { ownershipPercent: "12.5", note: "Synthetic owner note" });
+      const f = await fixture(); const created = await create(f, { note: "Synthetic owner note" });
       assert.ok(created.shareholderProfileId); assert.ok(created.contributionId);
       await zero();
-      const row = await h.pool.query(`SELECT p.ownership_percentage::text AS ownership,p.capital_note,
+      const row = await h.pool.query(`SELECT p.capital_note,
         c.record_status,c.receipt_status,c.amount::text AS amount FROM abos.shareholder_profiles p
         JOIN abos.shareholder_contributions c ON c.shareholder_profile_id=p.id WHERE p.id=$1`, [created.shareholderProfileId]);
-      assert.deepEqual(row.rows[0], { ownership: "12.5", capital_note: "Synthetic owner note",
+      assert.deepEqual(row.rows[0], { capital_note: "Synthetic owner note",
         record_status: "DECLARED", receipt_status: "NOT_RECEIVED", amount: "100000" });
       const view = (await workspace(f.actor)).shareholders.find(s => s.id === created.shareholderProfileId);
-      assert.ok(view); assert.equal(Number(view.capitals[0]?.total), 100000);
-      assert.equal(Number(view.capitals[0]?.received), 0); assert.equal(Number(view.capitals[0]?.outstanding), 100000);
+      assert.ok(view); assert.equal(Number(view.capitals[0]?.agreedTotal), 100000);
+      assert.equal(Number(view.capitals[0]?.contributed), 0); assert.equal(Number(view.capitals[0]?.remaining), 100000);
       assert.equal((await h.pool.query("SELECT count(*)::int AS n FROM abos.sandbox_authorizations")).rows[0]?.n, 0);
     });
 
@@ -135,11 +159,11 @@ if (databaseUrl() === undefined) {
       const first = await create(f, input); const replay = await create(f, input);
       assert.equal(replay.shareholderProfileId, first.shareholderProfileId);
       assert.equal(replay.contributionId, first.contributionId);
-      await assert.rejects(() => create(f, { ...input, totalCapital: "110000" }), /idempotency|conflict|already used/i);
+      await assert.rejects(() => create(f, { ...input, agreedTotal: "110000" }), /idempotency|conflict|already used/i);
       const before = await h.pool.query("SELECT count(*)::int AS n FROM abos.shareholder_profiles");
-      await assert.rejects(() => create(f, { totalCapital: "0" }), /amount|positive/i);
+      await assert.rejects(() => create(f, { agreedTotal: "0" }), /amount|positive/i);
       assert.deepEqual((await h.pool.query("SELECT count(*)::int AS n FROM abos.shareholder_profiles")).rows, before.rows);
-      await assert.rejects(() => create(f, { ownershipPercent: "101" }), /ownership|percentage/i);
+      await assert.rejects(() => create(f, { agreedTotal: "100000", currencyCode: null }), /currency/i);
       await zero();
     });
 
@@ -182,7 +206,7 @@ if (databaseUrl() === undefined) {
       [{ subledger_type: "OPERATIONAL_TREASURY", amount: "30000" }, { subledger_type: "SHAREHOLDER_CAPITAL", amount: "-30000" }]);
       assert.equal((await h.pool.query("SELECT sum(original_amount)::text AS amount FROM abos.subledger_entries")).rows[0]?.amount, "0");
       const view = await workspace(f.actor); const cap = view.shareholders.find(x => x.id === s.shareholderProfileId)?.capitals[0];
-      assert.ok(cap); assert.equal(Number(cap.received), 30000); assert.equal(Number(cap.outstanding), 70000);
+      assert.ok(cap); assert.equal(Number(cap.contributed), 30000); assert.equal(Number(cap.remaining), 70000);
       assert.equal(Number(view.destinations.find(x => x.id === f.safe)?.balance), 30000);
       assert.equal((await h.pool.query("SELECT count(*)::int AS n FROM abos.posting_approvals")).rows[0]?.n, 0);
       assert.equal((await h.pool.query("SELECT count(*)::int AS n FROM abos.shareholder_capital_receipt_custody_verifications")).rows[0]?.n, 0);
@@ -206,14 +230,30 @@ if (databaseUrl() === undefined) {
       assert.deepEqual(await counts(), { receipts: 1, allocations: 1, journals: 1, lines: 2, intents: 1, subledgers: 2 });
     });
 
-    test("over-receipt rolls back every financial row; concurrent oversubscription has one winner", async () => {
+    test("money beyond an optional agreed total is recorded, not refused, and never over-allocates", async () => {
       const f = await fixture(); const s = await create(f);
-      await assert.rejects(() => receive(f, s.shareholderProfileId, { amount: "100000.01" }), /outstanding|exceeds|available/i);
-      await zero();
+      const posted = await receive(f, s.shareholderProfileId, { amount: "100000.01" });
+      assert.equal(posted.status, "POSTED");
+      // The declaration absorbs exactly its own amount; the extra cent stays unallocated capital.
+      assert.equal((await h.pool.query("SELECT sum(amount)::text AS amount FROM abos.direct_capital_receipt_allocations")).rows[0]?.amount, "100000");
+      const cap = (await workspace(f.actor)).shareholders.find(x => x.id === s.shareholderProfileId)?.capitals[0];
+      assert.equal(cap?.contributed, "100000.01"); assert.equal(cap?.agreedTotal, "100000");
+      assert.equal(cap?.remaining, "-0.01", "contributing more than agreed shows a negative remainder, not an error");
       const results = await Promise.allSettled([receive(f, s.shareholderProfileId, { amount: "60000" }), receive(f, s.shareholderProfileId, { amount: "60000" })]);
-      assert.equal(results.filter(x => x.status === "fulfilled").length, 1);
-      assert.equal(results.filter(x => x.status === "rejected").length, 1);
-      assert.deepEqual(await counts(), { receipts: 1, allocations: 1, journals: 1, lines: 2, intents: 1, subledgers: 2 });
+      assert.equal(results.filter(x => x.status === "fulfilled").length, 2, "two genuine arrivals both post");
+      assert.deepEqual(await counts(), { receipts: 3, allocations: 1, journals: 3, lines: 6, intents: 3, subledgers: 6 });
+    });
+
+    test("a shareholder with no agreed total records capital with no declaration behind it", async () => {
+      const f = await fixture(); const s = await create(f, { agreedTotal: null, currencyCode: null });
+      assert.equal(s.contributionId, null);
+      assert.equal((await h.pool.query("SELECT count(*)::int AS n FROM abos.shareholder_contributions WHERE shareholder_profile_id=$1", [s.shareholderProfileId])).rows[0]?.n, 0);
+      const posted = await receive(f, s.shareholderProfileId, { amount: "7500" });
+      assert.equal(posted.status, "POSTED");
+      assert.deepEqual(await counts(), { receipts: 1, allocations: 0, journals: 1, lines: 2, intents: 1, subledgers: 2 });
+      const cap = (await workspace(f.actor)).shareholders.find(x => x.id === s.shareholderProfileId)?.capitals[0];
+      assert.equal(cap?.contributed, "7500");
+      assert.equal(cap?.agreedTotal, null); assert.equal(cap?.remaining, null, "no target means nothing outstanding");
     });
 
     test("one receipt can allocate across existing declarations without agreements or mandatory installments", async () => {
@@ -227,29 +267,33 @@ if (databaseUrl() === undefined) {
       assert.deepEqual((await h.pool.query("SELECT (SELECT count(*) FROM abos.capital_agreements)::int AS agreements,(SELECT count(*) FROM abos.capital_installments)::int AS installments")).rows, before.rows);
       const allocations = await h.pool.query("SELECT sum(amount)::text AS amount FROM abos.direct_capital_receipt_allocations");
       assert.equal(allocations.rows[0]?.amount, "120000");
-      await assert.rejects(() => receive(f, s.shareholderProfileId, { amount: "30000.01" }), /outstanding|exceeds|available/i);
+      // Declarations are now fully consumed, so further genuine money is recorded unallocated.
+      assert.equal((await receive(f, s.shareholderProfileId, { amount: "30000.01" })).status, "POSTED");
+      assert.equal(allocations.rows[0]?.amount, "120000");
     });
 
-    test("direct and existing receipt lanes share the same outstanding capital limit", async () => {
+    test("the existing receipt lane still cannot exceed a declaration the direct lane has consumed", async () => {
       const f = await fixture(); const s = await create(f);
+      assert.ok(s.contributionId);
       await receive(f, s.shareholderProfileId, { amount: "60000" });
-      await assert.rejects(() => legacyReceive(f, s.contributionId, "40000.01"), /outstanding|exceed|available|allocated/i);
-      await legacyReceive(f, s.contributionId, "40000");
-      await assert.rejects(() => receive(f, s.shareholderProfileId, { amount: "0.01" }), /outstanding|exceed|available/i);
+      await assert.rejects(() => legacyReceive(f, s.contributionId ?? "", "40000.01"), /outstanding|exceed|available|allocated/i);
+      await legacyReceive(f, s.contributionId ?? "", "40000");
+      // The legacy lane only reserves; it posts nothing by itself, so the ledger is untouched.
       assert.deepEqual(await counts(), { receipts: 1, allocations: 1, journals: 1, lines: 2, intents: 1, subledgers: 2 });
       const legacy = await h.pool.query("SELECT original_amount::text AS amount FROM abos.shareholder_capital_receipts WHERE contribution_id=$1", [s.contributionId]);
       assert.deepEqual(legacy.rows, [{ amount: "40000" }]);
+      const cap = (await workspace(f.actor)).shareholders.find(x => x.id === s.shareholderProfileId)?.capitals[0];
+      assert.equal(cap?.contributed, "60000", "a reserved but unposted legacy receipt is not contributed capital");
+      assert.equal(cap?.remaining, "40000");
     });
 
-    test("concurrent direct and legacy receipts cannot oversubscribe a shared declaration", async () => {
+    test("concurrent direct and legacy receipts cannot over-allocate a shared declaration", async () => {
       const f = await fixture(); const s = await create(f);
-      const results = await Promise.allSettled([receive(f, s.shareholderProfileId, { amount: "60000" }), legacyReceive(f, s.contributionId, "60000")]);
-      assert.equal(results.filter(x => x.status === "fulfilled").length, 1);
-      assert.equal(results.filter(x => x.status === "rejected").length, 1);
+      await Promise.allSettled([receive(f, s.shareholderProfileId, { amount: "60000" }), legacyReceive(f, s.contributionId ?? "", "60000")]);
       const total = await h.pool.query(`SELECT
         COALESCE((SELECT sum(amount) FROM abos.direct_capital_receipt_allocations WHERE contribution_id=$1),0)
         +COALESCE((SELECT sum(original_amount) FROM abos.shareholder_capital_receipts WHERE contribution_id=$1 AND record_state='RECORDED'),0) AS amount`, [s.contributionId]);
-      assert.equal(total.rows[0]?.amount, "60000");
+      assert.ok(Number(total.rows[0]?.amount) <= 100000, "the declaration is never allocated beyond its amount");
     });
 
     test("a late posting failure rolls back source, journal, subledgers, audit and idempotency together", async () => {
@@ -275,7 +319,7 @@ if (databaseUrl() === undefined) {
       await h.pool.query(`CREATE TRIGGER test_direct_null_credit_party BEFORE INSERT ON abos.journal_lines
         FOR EACH ROW EXECUTE FUNCTION abos.test_direct_null_credit_party()`);
       await assert.rejects(() => call("direct_shareholder_receive", f.actor, p),
-        /direct capital requires exact Safe debit and shareholder equity credit/);
+        /direct capital requires its exact method debit and shareholder equity credit/);
       await zero();
       await h.pool.query("DROP TRIGGER test_direct_null_credit_party ON abos.journal_lines");
       assert.equal((await call<Receipt>("direct_shareholder_receive", f.actor, p)).status, "POSTED");
@@ -309,7 +353,7 @@ if (databaseUrl() === undefined) {
       assert.equal((await report())?.after, "25000");
       assert.equal((await workspace(f.actor)).destinations.find(x => x.id === f.safe)?.balance, "25000");
       const cap = (await workspace(f.actor)).shareholders.find(x => x.id === s.shareholderProfileId)?.capitals[0];
-      assert.equal(cap?.received, "30000"); assert.equal(cap?.outstanding, "70000");
+      assert.equal(cap?.contributed, "30000"); assert.equal(cap?.remaining, "70000");
       await grant(h.executor, f.world, f.world.cashierId, ["shareholder.setup.manage"]);
       const reader = await session(f.world, f.world.cashierId);
       assert.equal((await workspace(reader)).destinations.find(x => x.id === f.safe)?.balance, null,
@@ -384,8 +428,8 @@ if (databaseUrl() === undefined) {
 
     test("closed period, approval ON and ambiguous capital ledger fail closed", async () => {
       const f = await fixture(); const s = await create(f);
-      await h.pool.query("UPDATE abos.accounting_periods SET status='PENDING' WHERE id=$1", [f.world.accountingPeriodId]);
-      await assert.rejects(() => receive(f, s.shareholderProfileId), /period|open/i);
+      await h.pool.query("UPDATE abos.accounting_periods SET status='SOFT_CLOSED' WHERE id=$1", [f.world.accountingPeriodId]);
+      await assert.rejects(() => receive(f, s.shareholderProfileId), /period|reopen|cannot/i);
       await h.pool.query("UPDATE abos.accounting_periods SET status='OPEN' WHERE id=$1", [f.world.accountingPeriodId]);
       await h.pool.query(`INSERT INTO abos.finance_workflow_policy_versions
         (id,legal_entity_id,workflow_type,version,approval_required,configured_by_user_account_id,change_reason)
@@ -452,6 +496,162 @@ if (databaseUrl() === undefined) {
       } finally { await client.query("ROLLBACK"); client.release(); }
     });
 
+    test("one save records the shareholder and the first money together, or neither", async () => {
+      const f = await fixture();
+      const created = await add(f, { agreedTotal: null, currencyCode: null, firstContribution: contribution(f) });
+      assert.ok(created.firstReceipt); assert.equal(created.firstReceipt?.status, "POSTED");
+      assert.deepEqual(await counts(), { receipts: 1, allocations: 0, journals: 1, lines: 2, intents: 1, subledgers: 2 });
+      const holder = (await workspace(f.actor)).shareholders.find(x => x.id === created.shareholderProfileId);
+      assert.equal(holder?.capitals[0]?.contributed, "20000");
+      assert.equal(holder?.transactions[0]?.method, "CASH");
+      // A contribution that cannot post takes the whole save with it: no orphan shareholder.
+      const before = await h.pool.query("SELECT count(*)::int AS n FROM abos.shareholder_profiles");
+      await assert.rejects(() => add(f, { displayName: "Synthetic rolled back shareholder",
+        agreedTotal: null, currencyCode: null, firstContribution: contribution(f, { destinationAccountId: randomUUID() }) }),
+      /treasury|safe|account|destination/i);
+      assert.deepEqual((await h.pool.query("SELECT count(*)::int AS n FROM abos.shareholder_profiles")).rows, before.rows);
+      assert.deepEqual(await counts(), { receipts: 1, allocations: 0, journals: 1, lines: 2, intents: 1, subledgers: 2 });
+    });
+
+    test("a hawala contribution lands in the chosen Safe and keeps the saraf and reference on the record", async () => {
+      const f = await fixture(); const s = await create(f, { agreedTotal: null, currencyCode: null });
+      const posted = await receive(f, s.shareholderProfileId, { fundingMethod: "HAWALA",
+        providerName: "Synthetic Saraf Mahmood", paymentReference: "HAWALA-77421", amount: "12000" });
+      assert.equal(posted.status, "POSTED");
+      const row = await h.pool.query(`SELECT funding_method,provider_name,payment_reference,
+        operational_treasury_account_id::text AS safe,debit_ledger_account_id::text AS debit
+        FROM abos.direct_capital_receipts WHERE id=$1`, [posted.receiptId]);
+      assert.deepEqual(row.rows[0], { funding_method: "HAWALA", provider_name: "Synthetic Saraf Mahmood",
+        payment_reference: "HAWALA-77421", safe: f.safe, debit: f.world.cashLedgerAccountId });
+      assert.deepEqual((await h.pool.query(`SELECT subledger_type,original_amount::text AS amount
+        FROM abos.subledger_entries WHERE direct_capital_receipt_id=$1 ORDER BY subledger_type`, [posted.receiptId])).rows,
+      [{ subledger_type: "OPERATIONAL_TREASURY", amount: "12000" }, { subledger_type: "SHAREHOLDER_CAPITAL", amount: "-12000" }]);
+      assert.equal(Number((await workspace(f.actor)).destinations.find(x => x.id === f.safe)?.balance), 12000);
+      await assert.rejects(() => receive(f, s.shareholderProfileId, { fundingMethod: "HAWALA", providerName: null }), /saraf/i);
+      await assert.rejects(() => receive(f, s.shareholderProfileId, { providerName: "Synthetic Saraf" }), /saraf/i);
+    });
+
+    test("a contributed asset debits the contributed-assets account and moves no Safe", async () => {
+      const f = await fixture(); const s = await create(f, { agreedTotal: null, currencyCode: null });
+      const posted = await receive(f, s.shareholderProfileId, { fundingMethod: "ASSET", destinationAccountId: null,
+        itemDescription: "Synthetic Hilux pickup, 2019", amount: "35000", paymentReference: null });
+      assert.equal(posted.status, "POSTED");
+      const row = await h.pool.query(`SELECT funding_method,item_description,
+        operational_treasury_account_id::text AS safe,debit_ledger_account_id::text AS debit
+        FROM abos.direct_capital_receipts WHERE id=$1`, [posted.receiptId]);
+      assert.deepEqual(row.rows[0], { funding_method: "ASSET", item_description: "Synthetic Hilux pickup, 2019",
+        safe: null, debit: f.assetAccount });
+      assert.deepEqual((await h.pool.query(`SELECT subledger_type,original_amount::text AS amount
+        FROM abos.subledger_entries WHERE direct_capital_receipt_id=$1`, [posted.receiptId])).rows,
+      [{ subledger_type: "SHAREHOLDER_CAPITAL", amount: "-35000" }]);
+      const lines = await h.pool.query(`SELECT ledger_account_id::text AS ledger,base_debit::text AS debit,base_credit::text AS credit
+        FROM abos.journal_lines WHERE journal_id=$1 ORDER BY line_number`, [posted.journalId]);
+      assert.deepEqual(lines.rows, [{ ledger: f.assetAccount, debit: "35000", credit: "0" },
+        { ledger: f.world.capitalLedgerAccountId, debit: "0", credit: "35000" }]);
+      assert.equal(Number((await workspace(f.actor)).destinations.find(x => x.id === f.safe)?.balance), 0,
+        "an asset contribution never moves recorded cash");
+      assert.equal((await workspace(f.actor)).assetAccountReady, true);
+      await assert.rejects(() => receive(f, s.shareholderProfileId, { fundingMethod: "ASSET", itemDescription: "Synthetic asset" }),
+        /Safe/i, "an asset contribution may not name a Safe");
+      await assert.rejects(() => receive(f, s.shareholderProfileId, { fundingMethod: "ASSET", destinationAccountId: null, itemDescription: null }), /asset|bill/i);
+    });
+
+    test("a bill the shareholder paid directly debits the chosen expense account only", async () => {
+      const f = await fixture(); const s = await create(f, { agreedTotal: null, currencyCode: null });
+      const posted = await receive(f, s.shareholderProfileId, { fundingMethod: "BILL_PAYMENT", destinationAccountId: null,
+        itemDescription: "Synthetic generator fuel invoice", expenseLedgerAccountId: f.billAccount,
+        amount: "1800", paymentReference: null });
+      assert.equal(posted.status, "POSTED");
+      const lines = await h.pool.query(`SELECT ledger_account_id::text AS ledger,base_debit::text AS debit,base_credit::text AS credit
+        FROM abos.journal_lines WHERE journal_id=$1 ORDER BY line_number`, [posted.journalId]);
+      assert.deepEqual(lines.rows, [{ ledger: f.billAccount, debit: "1800", credit: "0" },
+        { ledger: f.world.capitalLedgerAccountId, debit: "0", credit: "1800" }]);
+      assert.equal(Number((await workspace(f.actor)).destinations.find(x => x.id === f.safe)?.balance), 0);
+      assert.ok((await workspace(f.actor)).expenseAccounts.some(x => x.id === f.billAccount));
+      // Only an ordinary expense account of this company may be debited this way.
+      await assert.rejects(() => receive(f, s.shareholderProfileId, { fundingMethod: "BILL_PAYMENT", destinationAccountId: null,
+        itemDescription: "Synthetic bill", expenseLedgerAccountId: f.world.cashLedgerAccountId }), /expense account/i);
+      await assert.rejects(() => receive(f, s.shareholderProfileId, { fundingMethod: "BILL_PAYMENT", destinationAccountId: null,
+        itemDescription: "Synthetic bill", expenseLedgerAccountId: randomUUID() }), /expense account/i);
+      await assert.rejects(() => receive(f, s.shareholderProfileId, { expenseLedgerAccountId: f.billAccount }), /paid bill/i);
+      await assert.rejects(() => receive(f, s.shareholderProfileId, { fundingMethod: "GIFT" }), /funding method/i);
+    });
+
+    test("a pending month inside the financial year opens itself once, audited, and closed books still refuse", async () => {
+      const f = await fixture(); const s = await create(f);
+      const fiscalYear = randomUUID(); const october = randomUUID();
+      await h.pool.query(`INSERT INTO abos.fiscal_years(id,legal_entity_id,calendar_kind,fiscal_year,label_en,label_fa,
+        starts_on,ends_on,generated_by_user_account_id)
+        VALUES($1,$2,'GREGORIAN',2026,'FY 2026','۱۴۰۵','2026-10-01','2026-10-31',$3)`,
+      [fiscalYear, f.world.legalEntityId, f.world.bootstrapUserId]);
+      await h.pool.query(`INSERT INTO abos.accounting_periods(id,legal_entity_id,period_name,starts_on,ends_on,status,
+        fiscal_year_id,period_sequence,period_name_fa)
+        VALUES($1,$2,'2026-10','2026-10-01','2026-10-31','PENDING',$3,1,'میزان')`,
+      [october, f.world.legalEntityId, fiscalYear]);
+      const audits = await h.pool.query("SELECT count(*)::int AS n FROM abos.audit_records WHERE action='ACCOUNTING_PERIOD_OPENED'");
+      const posted = await receive(f, s.shareholderProfileId, { receiptDate: "2026-10-05" });
+      assert.equal(posted.status, "POSTED");
+      const row = await h.pool.query("SELECT status,opened_by_user_account_id::text AS opener FROM abos.accounting_periods WHERE id=$1", [october]);
+      assert.deepEqual(row.rows[0], { status: "OPEN", opener: f.world.intentCreatorId });
+      assert.equal((await h.pool.query("SELECT count(*)::int AS n FROM abos.audit_records WHERE action='ACCOUNTING_PERIOD_OPENED'")).rows[0]?.n,
+        (audits.rows[0]?.n ?? 0) + 1, "opening a month is audited exactly once");
+      await receive(f, s.shareholderProfileId, { receiptDate: "2026-10-06", amount: "500" });
+      assert.equal((await h.pool.query("SELECT count(*)::int AS n FROM abos.audit_records WHERE action='ACCOUNTING_PERIOD_OPENED'")).rows[0]?.n,
+        (audits.rows[0]?.n ?? 0) + 1, "an already open month is not reopened");
+      await h.pool.query("UPDATE abos.accounting_periods SET status='CLOSED',closed_by_user_account_id=$2,closed_at=clock_timestamp() WHERE id=$1",
+        [october, f.world.bootstrapUserId]);
+      await assert.rejects(() => receive(f, s.shareholderProfileId, { receiptDate: "2026-10-07" }), /period|reopen|cannot/i);
+      // A date no period covers is still refused; no period or financial year is invented.
+      await assert.rejects(() => receive(f, s.shareholderProfileId, { receiptDate: "2025-03-04" }), /period|financial year/i);
+      // A pending month with no financial year behind it is not opened automatically either.
+      const orphan = randomUUID();
+      await h.pool.query(`INSERT INTO abos.accounting_periods(id,legal_entity_id,period_name,starts_on,ends_on,status)
+        VALUES($1,$2,'2026-08','2026-08-01','2026-08-31','PENDING')`, [orphan, f.world.legalEntityId]);
+      await assert.rejects(() => receive(f, s.shareholderProfileId, { receiptDate: "2026-08-11" }), /period|reopen|cannot/i);
+    });
+
+    test("the expense lane opens a pending month through its own entry point and refuses a closed one", async () => {
+      const f = await fixture();
+      await grant(h.executor, f.world, f.world.intentCreatorId, ["finance.expense.create", "finance.expense.read"]);
+      const fiscalYear = randomUUID(); const october = randomUUID();
+      await h.pool.query(`INSERT INTO abos.fiscal_years(id,legal_entity_id,calendar_kind,fiscal_year,label_en,label_fa,
+        starts_on,ends_on,generated_by_user_account_id)
+        VALUES($1,$2,'GREGORIAN',2026,'FY 2026','۱۴۰۵','2026-10-01','2026-10-31',$3)`,
+      [fiscalYear, f.world.legalEntityId, f.world.bootstrapUserId]);
+      await h.pool.query(`INSERT INTO abos.accounting_periods(id,legal_entity_id,period_name,starts_on,ends_on,status,
+        fiscal_year_id,period_sequence,period_name_fa)
+        VALUES($1,$2,'2026-10','2026-10-01','2026-10-31','PENDING',$3,1,'میزان')`,
+      [october, f.world.legalEntityId, fiscalYear]);
+      const ledger = randomUUID(); const category = randomUUID();
+      await h.pool.query(`INSERT INTO abos.ledger_accounts(id,legal_entity_id,account_code,account_name,account_type,posting_allowed,account_currency_code,status)
+        VALUES($1,$2,'SYN-PERIOD-EXP','Synthetic auto-open expense','EXPENSE',true,'USD','ACTIVE')`, [ledger, f.world.legalEntityId]);
+      await h.pool.query(`INSERT INTO abos.operational_expense_categories(id,legal_entity_id,category_code,name_en,ledger_account_id,status,version,created_by_user_account_id,last_changed_by_user_account_id)
+        VALUES($1,$2,'SYN-PERIOD','Synthetic auto-open expense',$3,'ACTIVE',1,$4,$4)`, [category, f.world.legalEntityId, ledger, f.world.bootstrapUserId]);
+      await h.pool.query(`INSERT INTO abos.finance_workflow_policy_versions(id,legal_entity_id,workflow_type,version,approval_required,configured_by_user_account_id,change_reason)
+        VALUES($1,$2,'EXPENSE',1,false,$3,'Synthetic auto-open expense policy')`, [randomUUID(), f.world.legalEntityId, f.world.bootstrapUserId]);
+      const expense = (extra: object = {}) => call<{ expense: { status: string } }>("operational_expense_create", f.actor, {
+        treasuryAccountId: f.safe, expenseCategoryId: category, payeeBusinessPartyId: null, projectId: null,
+        departmentId: null, costCenterId: null, reference: `SYN-PERIOD-${randomUUID()}`,
+        description: "Synthetic expense on an unopened month", note: null, businessDate: "2026-10-05",
+        originalAmount: "25", currencyCode: "USD", exchangeRateId: null, ...keys(), ...extra });
+      // Without the period step the expense lane still refuses, exactly as before.
+      await assert.rejects(() => expense(), /period|open/i);
+      const opened = await call<{ accountingPeriodId: string; periodName: string }>(
+        "operational_period_ensure_open", f.actor, undefined, runtime, "2026-10-05");
+      assert.equal(opened.accountingPeriodId, october); assert.equal(opened.periodName, "2026-10");
+      assert.equal((await h.pool.query("SELECT status FROM abos.accounting_periods WHERE id=$1", [october])).rows[0]?.status, "OPEN");
+      // Capital first, so the Safe actually holds the money this expense pays out.
+      const s = await create(f);
+      await receive(f, s.shareholderProfileId, { receiptDate: "2026-10-05", amount: "500" });
+      assert.equal((await expense()).expense.status, "POSTED");
+      await h.pool.query("UPDATE abos.accounting_periods SET status='CLOSED',closed_by_user_account_id=$2,closed_at=clock_timestamp() WHERE id=$1",
+        [october, f.world.bootstrapUserId]);
+      await assert.rejects(() => call("operational_period_ensure_open", f.actor, undefined, runtime, "2026-10-05"), /period|reopen|cannot/i);
+      // Opening a month is Finance work: expense authority is required, and a synthetic session is not.
+      const reader = await session(f.world, f.world.cashierId);
+      await assert.rejects(() => call("operational_period_ensure_open", reader, undefined, runtime, "2026-09-10"), denied);
+    });
+
     test("runtime cannot bypass the functions with direct table DML or privileged helper execution", async () => {
       const f = await fixture(); const s = await create(f);
       for (const table of ["direct_capital_receipts", "direct_capital_receipt_allocations", "journals", "journal_lines", "posting_intents", "subledger_entries"]) {
@@ -459,7 +659,7 @@ if (databaseUrl() === undefined) {
         await assert.rejects(() => runtime.query(`DELETE FROM abos.${table} WHERE false`), /permission denied/i);
         await assert.rejects(() => runtime.query(`INSERT INTO abos.${table} DEFAULT VALUES`), /permission denied/i);
       }
-      await assert.rejects(() => runtime.query("UPDATE abos.shareholder_profiles SET ownership_percentage=100 WHERE id=$1", [s.shareholderProfileId]), /permission denied/i);
+      await assert.rejects(() => runtime.query("UPDATE abos.shareholder_profiles SET capital_note='x' WHERE id=$1", [s.shareholderProfileId]), /permission denied/i);
       await assert.rejects(() => runtime.query("SET ROLE abos_v1_operational_finance_owner"), /permission denied/i);
       await assert.rejects(() => runtime.query("SELECT abos.direct_capital_equity($1,'USD')", [f.world.legalEntityId]), /permission denied/i);
       const publicExec = await h.pool.query(`SELECT p.proname FROM pg_proc p CROSS JOIN LATERAL
@@ -469,7 +669,7 @@ if (databaseUrl() === undefined) {
       assert.deepEqual(publicExec.rows, []);
       const unsafeOwners = await h.pool.query(`SELECT p.proname,r.rolname FROM pg_proc p JOIN pg_roles r ON r.oid=p.proowner
         WHERE p.pronamespace='abos'::regnamespace AND p.proname IN
-          ('direct_shareholder_create','direct_shareholder_receive','direct_shareholder_capital_workspace','direct_shareholder_document_holder')
+          ('direct_shareholder_add','direct_shareholder_receive','direct_shareholder_capital_workspace','direct_shareholder_document_holder')
           AND (r.rolcanlogin OR r.rolsuper OR r.rolcreaterole OR r.rolcreatedb OR r.rolbypassrls)`);
       assert.deepEqual(unsafeOwners.rows, []);
       const directDml = await h.pool.query(`SELECT c.relname FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace

@@ -1,5 +1,11 @@
 # Direct Shareholder Capital — 0040 implementation review
 
+> **Superseded.** This describes the earlier two-step shape of migration 0040 (add shareholder,
+> then receive capital), which was never applied to any database. The owner asked for one save,
+> four ways of contributing, an optional agreed total and no ownership percentages, so 0040 was
+> reshaped in place and its checksum changed. For what 0040 now contains, read
+> `V1_SIMPLE_SHAREHOLDER_CAPITAL_0040.md`. Kept for the record of what was reviewed and why.
+
 Review date: 2026-10-25 (Asia/Kabul). Status: IMPLEMENTED AND VALIDATED; OWNER REVIEW REQUIRED BEFORE PUSH OR DEPLOYMENT.
 
 Repository: `Hashmatullahzaher/Al-Beruniy-OP`. Branch: `codex/v1-direct-shareholder-capital`.

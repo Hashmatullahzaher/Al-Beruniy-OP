@@ -602,7 +602,7 @@ if (databaseUrl() === undefined) {
         "shareholder_contributions.UPDATE(amount,asset_category,business_date,cancellation_reason,cancelled_at,cancelled_by_user_account_id,currency_code,declared_at,declared_by_user_account_id,description,estimated_value,item_name,ownership_note,quantity,record_status,reference,unit,updated_at,updated_by_user_account_id,valuation_currency_code,version)",
         "shareholder_profiles.INSERT(business_party_id,id,legal_entity_id,status)",
         // 0040 optional profile presentation fields and serialized private-document holder link only.
-        "shareholder_profiles.UPDATE(capital_document_agreement_id,capital_note,ownership_percentage)"
+        "shareholder_profiles.UPDATE(capital_document_agreement_id,capital_note)"
       ]);
       // The usage row can be locked by the owner but never changed.
       await ownerRefused(harness, `UPDATE abos.capital_agreement_commitment_usage SET capital_agreement_id = capital_agreement_id WHERE capital_agreement_id = '${world.agreementId}'`,

@@ -5,7 +5,7 @@ import { expect, test } from "@playwright/test";
 const fixtureFile = process.env.ABOS_DIRECT_CAPITAL_BROWSER_FILE;
 test.skip(!fixtureFile, "Requires the dedicated disposable 0040 operational-password preview; never preserved company data.");
 
-test("one Finance Manager creates 100,000 capital, receives 20,000 then 10,000 and sees the actual GL", async ({ page }) => {
+test("one person adds a shareholder with 20,000 in one save, adds 10,000 more and sees the actual GL", async ({ page }) => {
   if (!fixtureFile) throw new Error("Dedicated preview fixture is required");
   const fixture = JSON.parse(readFileSync(fixtureFile, "utf8")) as { database: string; url: string; username: string; password: string; safeId: string };
   expect(fixture.database).toBe("abos_direct_capital_browser_0040");
@@ -15,25 +15,28 @@ test("one Finance Manager creates 100,000 capital, receives 20,000 then 10,000 a
   await page.getByLabel("Password", { exact: true }).fill(fixture.password);
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(page.getByRole("button", { name: "Add shareholder", exact: true })).toBeVisible();
+  // One save records the shareholder and the first 20,000 together.
   await page.getByRole("button", { name: "Add shareholder", exact: true }).click();
   const create = page.getByRole("form", { name: "Add shareholder", exact: true });
   await create.getByLabel("Name", { exact: true }).fill("Demo Shareholder");
-  await create.getByLabel("Total Capital", { exact: true }).fill("100000");
+  await create.getByLabel("Amount", { exact: true }).fill("20000");
   await create.getByRole("combobox", { name: "Currency", exact: true }).selectOption("USD");
-  await create.getByRole("button", { name: "Save shareholder", exact: true }).click();
+  await create.getByRole("combobox", { name: "Which Safe did it go into?", exact: true }).selectOption(fixture.safeId);
+  await create.getByLabel("Agreed total (optional)", { exact: true }).fill("100000");
+  const created = page.waitForResponse(r => r.url().endsWith("/api/v1/shareholder/capital") && r.request().method() === "POST");
+  await create.getByRole("button", { name: "Save", exact: true }).click();
+  expect((await created).status()).toBe(201);
   const holder = page.getByRole("article", { name: "Demo Shareholder", exact: true });
   await expect(holder).toBeVisible();
   await expect(holder).toContainText("No document attached");
-  for (const amount of ["20000", "10000"]) {
-    await holder.getByRole("button", { name: "Receive Capital", exact: true }).click();
-    const form = page.getByRole("form", { name: "Receive Capital", exact: true });
-    await form.getByLabel("Amount received", { exact: true }).fill(amount);
-    await form.getByRole("combobox", { name: "Destination Safe / account", exact: true }).selectOption(fixture.safeId);
-    const response = page.waitForResponse(r => r.url().endsWith("/api/v1/shareholder/capital") && r.request().method() === "POST");
-    await form.getByRole("button", { name: "Save / Receive", exact: true }).click();
-    expect((await response).status()).toBe(201);
-    await expect(form).toHaveCount(0);
-  }
+  await holder.getByRole("button", { name: "Add money", exact: true }).click();
+  const form = page.getByRole("form", { name: /^Add money/ });
+  await form.getByLabel("Amount", { exact: true }).fill("10000");
+  await form.getByRole("combobox", { name: "Which Safe did it go into?", exact: true }).selectOption(fixture.safeId);
+  const response = page.waitForResponse(r => r.url().endsWith("/api/v1/shareholder/capital") && r.request().method() === "POST");
+  await form.getByRole("button", { name: "Save", exact: true }).click();
+  expect((await response).status()).toBe(201);
+  await expect(form).toHaveCount(0);
   const capital = holder.getByRole("region", { name: "USD capital", exact: true });
   await expect(capital).toContainText("USD 100,000");
   await expect(capital).toContainText("USD 30,000");
@@ -42,7 +45,7 @@ test("one Finance Manager creates 100,000 capital, receives 20,000 then 10,000 a
   await expect(holder.getByRole("row")).toHaveCount(3);
   const references = await holder.locator("tbody tr").allTextContents();
   expect(references.every(value => value.includes("CAP-"))).toBe(true);
-  await expect(page.getByRole("main")).not.toContainText(/Capital Request|Capital Agreement|Posting Intent|Handoff|Eligibility|Synthetic Authorization/);
+  await expect(page.getByRole("main")).not.toContainText(/Capital Request|Capital Agreement|Posting Intent|Handoff|Eligibility|Installment|Ownership|Synthetic Authorization/);
   await page.screenshot({ path: "test-results/direct-capital-operational/shareholder-posted.png", fullPage: true });
   const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kabul", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
   const ledger = await page.request.get(`/api/v1/finance/general-ledger?from=${today}&to=${today}`);
@@ -104,6 +107,7 @@ test("real-password workspace remains responsive and keyboard accessible in Dari
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.getByRole("button", { name: /Demo Shareholder/ }).click();
   await expect(page.getByRole("article", { name: "Demo Shareholder", exact: true })).toContainText("USD 70,000");
+  await expect(page.getByRole("article", { name: "Demo Shareholder", exact: true })).toContainText("Capital put in");
   await page.screenshot({ path: "test-results/direct-capital-operational/desktop-shareholder.png", fullPage: true });
   await page.setViewportSize({ width: 820, height: 1180 });
   await page.getByRole("button", { name: "Switch to Dari", exact: true }).click();

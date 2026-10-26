@@ -517,8 +517,8 @@ export class SandboxAuthenticator {
 
   async directCapitalCommand(executor: SqlExecutor, token: string, command: DirectShareholderCommand): Promise<DirectCapitalResult> {
     const { action, ...payload } = command;
-    const sql = action === "create-shareholder"
-      ? "SELECT abos.direct_shareholder_create($1,$2,$3,$4::jsonb) AS value"
+    const sql = action === "add-shareholder"
+      ? "SELECT abos.direct_shareholder_add($1,$2,$3,$4::jsonb) AS value"
       : "SELECT abos.direct_shareholder_receive($1,$2,$3,$4::jsonb) AS value";
     return this.operationalFinanceFunction<DirectCapitalResult>(executor, sql, token, [JSON.stringify(payload)], "Capital transaction is unavailable");
   }
@@ -640,6 +640,24 @@ export class SandboxAuthenticator {
   }
 
   /** Options for recording an expense on one business date (read only). */
+  /**
+   * Open the month that covers a date, if it is merely pending inside a generated financial year.
+   * A closed month, or a date no month covers, is still refused by PostgreSQL.
+   */
+  async ensureOpenAccountingPeriod(
+    executor: SqlExecutor,
+    token: string,
+    date: string
+  ): Promise<{ readonly accountingPeriodId: string; readonly periodName: string }> {
+    return this.operationalFinanceFunction(
+      executor,
+      "SELECT abos.operational_period_ensure_open($1,$2,$3,$4::date) AS value",
+      token,
+      [date],
+      "The accounting period is unavailable"
+    );
+  }
+
   async operationalExpenseEntryOptions(
     executor: SqlExecutor,
     token: string,

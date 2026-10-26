@@ -10,7 +10,7 @@ import { errorResponse, json } from "@/server/treasury";
 
 export type AccountType = "ASSET" | "LIABILITY" | "EQUITY" | "REVENUE" | "EXPENSE";
 export type ControlType = "CASH" | "SARAF" | "SHAREHOLDER_CAPITAL" | "SHAREHOLDER_LOAN" | "AR" | "AP" | "OTHER"
-  | "TEMPORARY_FUNDING_PAYABLE";
+  | "TEMPORARY_FUNDING_PAYABLE" | "SHAREHOLDER_CONTRIBUTED_ASSETS";
 export type ReviewState = "PENDING_REVIEW" | "REVIEWED" | "FLAGGED" | "NOT_REQUIRED";
 
 export interface DuplicateWarning {

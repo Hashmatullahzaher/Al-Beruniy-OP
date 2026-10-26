@@ -30,7 +30,8 @@ const CONTROLS: Readonly<Record<ControlType, Copy>> = {
   AR: { en: "Receivables", fa: "حسابات دریافتنی" },
   AP: { en: "Payables", fa: "حسابات پرداختنی" },
   OTHER: { en: "Other control", fa: "کنترل دیگر" },
-  TEMPORARY_FUNDING_PAYABLE: { en: "Temporary funding payable", fa: "بدهی تمویل موقت" }
+  TEMPORARY_FUNDING_PAYABLE: { en: "Temporary funding payable", fa: "بدهی تمویل موقت" },
+  SHAREHOLDER_CONTRIBUTED_ASSETS: { en: "Shareholder contributed assets", fa: "دارایی‌های آوردهٔ سهامدار" }
 };
 const REVIEW_COPY: Readonly<Record<string, Copy>> = {
   PENDING_REVIEW: { en: "Awaiting review", fa: "در انتظار بازبینی" },

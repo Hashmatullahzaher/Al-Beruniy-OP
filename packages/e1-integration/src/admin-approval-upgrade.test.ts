@@ -154,7 +154,7 @@ async function snapshots(client: pg.PoolClient, tables: readonly string[]): Prom
     // New governance columns have separately asserted protective defaults. The single workflow
     // catalogue row is schema metadata, not a policy or authorization for any real company.
     const addedColumns = table === "ledger_account_governance" ? [...NEW_GOVERNANCE_COLUMNS]
-      : table === "shareholder_profiles" ? ["ownership_percentage", "capital_note", "capital_document_agreement_id"]
+      : table === "shareholder_profiles" ? ["capital_note", "capital_document_agreement_id"]
       : ["posting_intents", "subledger_entries"].includes(table) ? ["direct_capital_receipt_id"] : [];
     const projection = addedColumns.length ? "to_jsonb(t)-$1::text[]" : "to_jsonb(t)";
     const parameters = addedColumns.length ? [addedColumns] : [];

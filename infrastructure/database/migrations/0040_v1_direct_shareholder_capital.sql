@@ -1,17 +1,24 @@
--- Owner-authorized single-action capital receipts. Additive, zero business-data backfill.
--- Declarations stay non-financial. This disjoint lane never fabricates custody, approval,
--- agreement, evidence or legacy mapping records. Existing E1/0036-0039 commands remain protected.
+-- Owner-authorized single-action capital contributions. Additive, zero business-data backfill.
+-- One save records the shareholder and the money together. An agreed total is optional: a
+-- contribution with no declaration behind it is ordinary, not an error. Four ways in, each with
+-- its own exact debit: cash or hawala into a Safe, a contributed asset, or a company bill the
+-- shareholder paid directly. This disjoint lane never fabricates custody, approval, agreement,
+-- evidence or legacy mapping records. Existing E1/0036-0039 commands remain protected.
 
 ALTER TABLE abos.shareholder_profiles
- ADD COLUMN ownership_percentage numeric CHECK(ownership_percentage BETWEEN 0 AND 100),
  ADD COLUMN capital_note text CHECK(length(capital_note)<=1000);
 
 CREATE TABLE abos.direct_capital_receipts (
  id uuid PRIMARY KEY,
  legal_entity_id uuid NOT NULL REFERENCES abos.legal_entities(id),
  shareholder_profile_id uuid NOT NULL,
- operational_treasury_account_id uuid NOT NULL,
+ funding_method text NOT NULL CHECK(funding_method IN('CASH','HAWALA','ASSET','BILL_PAYMENT')),
+ -- Only the two cash-bearing methods move a Safe; an asset or a directly paid bill never does.
+ operational_treasury_account_id uuid,
+ debit_ledger_account_id uuid NOT NULL,
  paid_in_capital_ledger_account_id uuid NOT NULL,
+ provider_name text CHECK(length(btrim(provider_name)) BETWEEN 2 AND 160),
+ item_description text CHECK(length(btrim(item_description)) BETWEEN 2 AND 300),
  original_amount numeric NOT NULL CHECK(original_amount>0 AND original_amount<'Infinity'::numeric),
  original_currency_code text NOT NULL REFERENCES abos.currencies(code),
  receipt_date date NOT NULL,
@@ -28,9 +35,20 @@ CREATE TABLE abos.direct_capital_receipts (
  UNIQUE(legal_entity_id,idempotency_key),
  UNIQUE(legal_entity_id,transaction_reference),
  UNIQUE(journal_id,legal_entity_id),
+ -- Each method carries exactly the fields it needs and none that belong to another method.
+ CONSTRAINT direct_capital_receipts_method_shape CHECK(
+  (funding_method='CASH' AND operational_treasury_account_id IS NOT NULL
+    AND provider_name IS NULL AND item_description IS NULL)
+  OR(funding_method='HAWALA' AND operational_treasury_account_id IS NOT NULL
+    AND provider_name IS NOT NULL AND item_description IS NULL)
+  OR(funding_method='ASSET' AND operational_treasury_account_id IS NULL
+    AND provider_name IS NULL AND item_description IS NOT NULL)
+  OR(funding_method='BILL_PAYMENT' AND operational_treasury_account_id IS NULL
+    AND provider_name IS NULL AND item_description IS NOT NULL)),
  FOREIGN KEY(shareholder_profile_id,legal_entity_id) REFERENCES abos.shareholder_profiles(id,legal_entity_id),
  FOREIGN KEY(operational_treasury_account_id,legal_entity_id,original_currency_code)
    REFERENCES abos.operational_treasury_accounts(id,legal_entity_id,currency_code),
+ FOREIGN KEY(debit_ledger_account_id,legal_entity_id) REFERENCES abos.ledger_accounts(id,legal_entity_id),
  FOREIGN KEY(paid_in_capital_ledger_account_id,legal_entity_id) REFERENCES abos.ledger_accounts(id,legal_entity_id),
  FOREIGN KEY(workflow_policy_version_id,legal_entity_id) REFERENCES abos.finance_workflow_policy_versions(id,legal_entity_id),
  FOREIGN KEY(journal_id,legal_entity_id) REFERENCES abos.journals(id,legal_entity_id) DEFERRABLE INITIALLY DEFERRED
@@ -86,21 +104,79 @@ ALTER TABLE abos.subledger_entries ADD COLUMN direct_capital_receipt_id uuid,
 
 REVOKE ALL ON abos.direct_capital_receipts,abos.direct_capital_receipt_allocations FROM PUBLIC;
 GRANT SELECT ON abos.direct_capital_receipts,abos.direct_capital_receipt_allocations TO abos_v1_operational_finance_owner;
-GRANT INSERT(id,legal_entity_id,shareholder_profile_id,operational_treasury_account_id,paid_in_capital_ledger_account_id,
+GRANT INSERT(id,legal_entity_id,shareholder_profile_id,funding_method,operational_treasury_account_id,
+ debit_ledger_account_id,paid_in_capital_ledger_account_id,provider_name,item_description,
  original_amount,original_currency_code,receipt_date,payment_reference,note,transaction_reference,
  workflow_policy_version_id,journal_id,created_by_user_account_id,correlation_id,idempotency_key)
  ON abos.direct_capital_receipts TO abos_v1_operational_finance_owner;
 GRANT INSERT(receipt_id,legal_entity_id,contribution_id,amount) ON abos.direct_capital_receipt_allocations
  TO abos_v1_operational_finance_owner;
-GRANT SELECT(shareholder_profile_id,legal_entity_id) ON abos.direct_capital_receipts
- TO abos_v1_shareholder_setup_owner;
+-- The setup owner reads only what the optional document holder needs to size itself.
+GRANT SELECT(shareholder_profile_id,legal_entity_id,original_amount,original_currency_code)
+ ON abos.direct_capital_receipts TO abos_v1_shareholder_setup_owner;
 GRANT SELECT(legal_entity_id,contribution_id,amount) ON abos.direct_capital_receipt_allocations
  TO abos_v1_shareholder_capital_owner;
-GRANT SELECT(ownership_percentage,capital_note) ON abos.shareholder_profiles TO abos_v1_operational_finance_owner;
-GRANT SELECT(ownership_percentage,capital_note),UPDATE(ownership_percentage,capital_note)
- ON abos.shareholder_profiles TO abos_v1_shareholder_setup_owner;
+GRANT SELECT(capital_note) ON abos.shareholder_profiles TO abos_v1_operational_finance_owner;
+GRANT SELECT(capital_note),UPDATE(capital_note) ON abos.shareholder_profiles TO abos_v1_shareholder_setup_owner;
 GRANT INSERT(direct_capital_receipt_id) ON abos.posting_intents,abos.subledger_entries TO abos_v1_operational_finance_owner;
 GRANT EXECUTE ON FUNCTION abos.shareholder_contribution_finance_lock(uuid,uuid,integer) TO abos_v1_operational_finance_owner;
+
+-- A contributed asset needs somewhere to land. Dedicated control type, so exactly one account can
+-- be resolved without guessing; existing accounts are never converted, classified or backfilled.
+ALTER TABLE abos.ledger_accounts DROP CONSTRAINT ledger_accounts_control_account_type_check;
+ALTER TABLE abos.ledger_accounts ADD CONSTRAINT ledger_accounts_control_account_type_check
+ CHECK(control_account_type IS NULL OR control_account_type IN
+  ('CASH','SHAREHOLDER_CAPITAL','SHAREHOLDER_LOAN','AR','AP','SARAF','OTHER',
+   'TEMPORARY_FUNDING_PAYABLE','SHAREHOLDER_CONTRIBUTED_ASSETS'));
+
+CREATE OR REPLACE FUNCTION abos.coa_validate(
+  p_code text, p_name text, p_name_fa text, p_description text, p_type text, p_control text,
+  p_currency text, p_posting boolean, p_status text
+) RETURNS void
+LANGUAGE plpgsql STABLE
+SET search_path = pg_catalog, pg_temp
+AS $$
+BEGIN
+  IF p_code IS NULL OR p_code !~ '^[A-Za-z0-9][A-Za-z0-9._/-]{0,31}$' THEN
+    RAISE EXCEPTION 'the account code must be 1-32 letters, digits or . _ / - and start with a letter or digit'
+      USING ERRCODE = 'check_violation';
+  END IF;
+  IF p_name IS NULL OR length(p_name) NOT BETWEEN 2 AND 120 THEN
+    RAISE EXCEPTION 'the account name must be 2-120 characters' USING ERRCODE = 'check_violation';
+  END IF;
+  IF p_name_fa IS NOT NULL AND length(p_name_fa) > 120 THEN
+    RAISE EXCEPTION 'the Dari account name must be at most 120 characters' USING ERRCODE = 'check_violation';
+  END IF;
+  IF p_description IS NOT NULL AND length(p_description) > 500 THEN
+    RAISE EXCEPTION 'the description must be at most 500 characters' USING ERRCODE = 'check_violation';
+  END IF;
+  IF p_type IS NULL OR p_type NOT IN ('ASSET', 'LIABILITY', 'EQUITY', 'REVENUE', 'EXPENSE') THEN
+    RAISE EXCEPTION 'the account type must be ASSET, LIABILITY, EQUITY, REVENUE or EXPENSE' USING ERRCODE = 'check_violation';
+  END IF;
+  IF p_control IS NOT NULL AND p_control NOT IN ('CASH', 'SARAF', 'SHAREHOLDER_CAPITAL', 'SHAREHOLDER_LOAN', 'AR', 'AP', 'OTHER',
+                                                 'TEMPORARY_FUNDING_PAYABLE', 'SHAREHOLDER_CONTRIBUTED_ASSETS') THEN
+    RAISE EXCEPTION 'unknown control account type %', p_control USING ERRCODE = 'check_violation';
+  END IF;
+  -- A control account must carry the account type its balance has by definition.
+  IF (p_control IN ('CASH', 'AR', 'SHAREHOLDER_CONTRIBUTED_ASSETS') AND p_type <> 'ASSET')
+     OR (p_control IN ('AP', 'SHAREHOLDER_LOAN', 'TEMPORARY_FUNDING_PAYABLE') AND p_type <> 'LIABILITY')
+     OR (p_control = 'SHAREHOLDER_CAPITAL' AND p_type <> 'EQUITY')
+     OR (p_control = 'SARAF' AND p_type NOT IN ('ASSET', 'LIABILITY')) THEN
+    RAISE EXCEPTION 'a % control account cannot have account type %', p_control, p_type USING ERRCODE = 'check_violation';
+  END IF;
+  IF p_posting IS NULL THEN
+    RAISE EXCEPTION 'say whether the account accepts postings' USING ERRCODE = 'check_violation';
+  END IF;
+  -- Currencies are never combined: an account that takes postings, or a control account, has one.
+  IF p_currency IS NULL AND (p_posting OR p_control IS NOT NULL) THEN
+    RAISE EXCEPTION 'an account that accepts postings, or a control account, needs a currency' USING ERRCODE = 'check_violation';
+  END IF;
+  IF p_currency IS NOT NULL AND p_status = 'ACTIVE'
+     AND NOT EXISTS (SELECT 1 FROM abos.currencies c WHERE c.code = p_currency AND c.enabled) THEN
+    RAISE EXCEPTION 'currency % is not enabled', p_currency USING ERRCODE = 'check_violation';
+  END IF;
+END;
+$$;
 
 CREATE FUNCTION abos.direct_capital_actor(p_proof text,p_runtime text,p_token text,p_write boolean)
 RETURNS jsonb LANGUAGE plpgsql SET search_path=pg_catalog,pg_temp AS $$
@@ -136,47 +212,155 @@ BEGIN
  RETURN ids[1];
 END $$;
 
-CREATE FUNCTION abos.direct_shareholder_create(p_proof text,p_runtime text,p_token text,p_payload jsonb)
+-- Where a contributed asset lands. Resolved the same way as equity: exactly one typed, reviewed,
+-- posting-allowed account, never invented and never chosen by guesswork.
+CREATE FUNCTION abos.direct_capital_asset_account(p_entity uuid,p_currency text) RETURNS uuid
+LANGUAGE plpgsql SET search_path=pg_catalog,pg_temp AS $$
+DECLARE ids uuid[];
+BEGIN
+ SELECT array_agg(a.id ORDER BY a.id) INTO ids FROM abos.ledger_accounts a
+ LEFT JOIN abos.ledger_account_governance g ON g.ledger_account_id=a.id AND g.legal_entity_id=a.legal_entity_id
+ WHERE a.legal_entity_id=p_entity AND a.status='ACTIVE' AND a.posting_allowed
+  AND a.account_type='ASSET' AND a.control_account_type='SHAREHOLDER_CONTRIBUTED_ASSETS'
+  AND (a.account_currency_code IS NULL OR a.account_currency_code=p_currency)
+  AND NOT a.requires_project AND NOT a.requires_department AND NOT a.requires_cost_center
+  AND(g.ledger_account_id IS NULL OR g.review_state IN('REVIEWED','NOT_REQUIRED'));
+ IF cardinality(ids) IS DISTINCT FROM 1 THEN
+  RAISE EXCEPTION 'create one active "shareholder contributed assets" account in the Chart of Accounts'
+   USING ERRCODE='check_violation';
+ END IF;
+ RETURN ids[1];
+END $$;
+
+-- The expense a shareholder paid directly. The account is chosen by the user, so it is validated
+-- rather than resolved: an ordinary expense account of this company, in the accounting currency,
+-- carrying no dimension requirement this lane cannot supply.
+CREATE FUNCTION abos.direct_capital_expense_account(p_entity uuid,p_currency text,p_account uuid) RETURNS uuid
+LANGUAGE plpgsql SET search_path=pg_catalog,pg_temp AS $$
+DECLARE chosen uuid;
+BEGIN
+ SELECT a.id INTO chosen FROM abos.ledger_accounts a
+ LEFT JOIN abos.ledger_account_governance g ON g.ledger_account_id=a.id AND g.legal_entity_id=a.legal_entity_id
+ WHERE a.id=p_account AND a.legal_entity_id=p_entity AND a.status='ACTIVE' AND a.posting_allowed
+  AND a.account_type='EXPENSE' AND a.control_account_type IS NULL
+  AND (a.account_currency_code IS NULL OR a.account_currency_code=p_currency)
+  AND NOT a.requires_project AND NOT a.requires_department AND NOT a.requires_cost_center
+  AND(g.ledger_account_id IS NULL OR g.review_state IN('REVIEWED','NOT_REQUIRED'));
+ IF chosen IS NULL THEN
+  RAISE EXCEPTION 'choose an active expense account in the accounting currency' USING ERRCODE='check_violation';
+ END IF;
+ RETURN chosen;
+END $$;
+
+-- A one-person company should not meet a period error for an ordinary save. An existing OPEN period
+-- is used as before. Otherwise the PENDING period that already covers the date, inside a generated
+-- fiscal year, is opened and audited. A SOFT_CLOSED, CLOSED or absent period is still refused: this
+-- never reopens closed books and never invents a period or a fiscal year.
+CREATE FUNCTION abos.open_period_for_business_date(p_entity uuid,p_actor uuid,p_date date) RETURNS uuid
+LANGUAGE plpgsql SET search_path=pg_catalog,pg_temp AS $$
+DECLARE period abos.accounting_periods%ROWTYPE; before_state jsonb;
+BEGIN
+ PERFORM pg_advisory_xact_lock(hashtextextended('abos-periods:'||p_entity::text,0));
+ SELECT * INTO period FROM abos.accounting_periods
+  WHERE legal_entity_id=p_entity AND p_date BETWEEN starts_on AND ends_on
+  ORDER BY starts_on DESC LIMIT 1;
+ IF NOT FOUND THEN
+  RAISE EXCEPTION 'no accounting period covers %; generate the financial year first',p_date USING ERRCODE='check_violation';
+ END IF;
+ IF period.status='OPEN' THEN RETURN period.id; END IF;
+ IF period.status<>'PENDING' OR period.fiscal_year_id IS NULL THEN
+  RAISE EXCEPTION 'the accounting period covering % is %; it cannot be reopened automatically',p_date,period.status
+   USING ERRCODE='check_violation';
+ END IF;
+ before_state:=to_jsonb(period);
+ UPDATE abos.accounting_periods SET status='OPEN',opened_by_user_account_id=p_actor,
+  opened_at=clock_timestamp(),operational_version=operational_version+1
+ WHERE id=period.id AND legal_entity_id=p_entity AND status='PENDING';
+ INSERT INTO abos.audit_records(id,actor_user_account_id,legal_entity_id,correlation_id,action,
+  entity_type,entity_id,before_state,after_state,metadata)
+ VALUES(gen_random_uuid(),p_actor,p_entity,gen_random_uuid(),'ACCOUNTING_PERIOD_OPENED','ACCOUNTING_PERIOD',
+  period.id,before_state,(SELECT to_jsonb(p) FROM abos.accounting_periods p WHERE p.id=period.id),
+  jsonb_build_object('source','v1-direct-capital','reason','opened automatically to record a dated transaction'));
+ RETURN period.id;
+END $$;
+
+-- One save. The shareholder, an optional agreed total and the money they are putting in now all
+-- commit together or not at all. An agreed total is optional and creates the same non-financial
+-- declaration as before; with none, the shareholder's capital is simply what they contribute.
+-- The same rule for the ordinary expense lane, which checks for an open period before it inserts
+-- anything. The web request opens the month first, then records the expense, so a one-person company
+-- never meets a period error for an ordinary save. It opens nothing a person could not open by hand.
+CREATE FUNCTION abos.operational_period_ensure_open(p_proof text,p_runtime text,p_token text,p_date date)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+DECLARE c jsonb; entity uuid; actor uuid; period uuid;
+BEGIN
+ c:=abos.operational_finance_actor(p_proof,p_runtime,p_token,'finance.expense.create');
+ IF c->>'sessionProvenance' IS DISTINCT FROM 'PASSWORD_OPERATIONAL' THEN
+  RAISE EXCEPTION 'an operational password session is required' USING ERRCODE='insufficient_privilege'; END IF;
+ entity:=(c->>'legalEntityId')::uuid; actor:=(c->>'userAccountId')::uuid;
+ IF p_date IS NULL THEN RAISE EXCEPTION 'a date is required' USING ERRCODE='invalid_parameter_value'; END IF;
+ period:=abos.open_period_for_business_date(entity,actor,p_date);
+ RETURN jsonb_build_object('accountingPeriodId',period,
+  'periodName',(SELECT period_name FROM abos.accounting_periods WHERE id=period));
+END $$;
+ALTER FUNCTION abos.operational_period_ensure_open(text,text,text,date) OWNER TO abos_v1_operational_finance_owner;
+
+CREATE FUNCTION abos.direct_shareholder_add(p_proof text,p_runtime text,p_token text,p_payload jsonb)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE c jsonb; actor uuid; entity uuid; scope text; key text; correlation uuid; replay jsonb;
- profile jsonb; contribution jsonb; result jsonb; percent numeric; business_date date;
+ profile jsonb; contribution jsonb; posted jsonb; result jsonb; business_date date; total text;
+ first_contribution jsonb; profile_id uuid;
 BEGIN
  c:=abos.shareholder_setup_actor(p_proof,p_runtime,p_token,ARRAY['shareholder.setup.manage']);
  IF c->>'sessionProvenance' IS DISTINCT FROM 'PASSWORD_OPERATIONAL' THEN
   RAISE EXCEPTION 'an operational password session is required' USING ERRCODE='insufficient_privilege'; END IF;
  actor:=(c->>'userAccountId')::uuid; entity:=(c->>'legalEntityId')::uuid;
  IF p_payload IS NULL OR jsonb_typeof(p_payload)<>'object' OR EXISTS(SELECT 1 FROM jsonb_object_keys(p_payload) k
-  WHERE k NOT IN('displayName','totalCapital','currencyCode','ownershipPercent','externalReference','note','businessDate','idempotencyKey','correlationId')) THEN
+  WHERE k NOT IN('displayName','agreedTotal','currencyCode','externalReference','note','businessDate',
+   'firstContribution','idempotencyKey','correlationId')) THEN
   RAISE EXCEPTION 'unknown shareholder fields' USING ERRCODE='invalid_parameter_value'; END IF;
  key:=p_payload->>'idempotencyKey'; correlation:=(p_payload->>'correlationId')::uuid;
  business_date:=(p_payload->>'businessDate')::date;
- percent:=NULLIF(p_payload->>'ownershipPercent','')::numeric;
- IF percent IS NOT NULL AND (percent<0 OR percent>100 OR percent='NaN'::numeric) OR length(p_payload->>'note')>1000 THEN
-  RAISE EXCEPTION 'invalid ownership percentage or note' USING ERRCODE='invalid_parameter_value'; END IF;
- scope:=entity::text||':DIRECT_SHAREHOLDER_CREATE';
+ total:=NULLIF(btrim(p_payload->>'agreedTotal'),'');
+ first_contribution:=CASE WHEN jsonb_typeof(p_payload->'firstContribution')='object' THEN p_payload->'firstContribution' END;
+ IF length(p_payload->>'note')>1000 THEN
+  RAISE EXCEPTION 'the note is too long' USING ERRCODE='invalid_parameter_value'; END IF;
+ IF total IS NOT NULL AND NULLIF(btrim(p_payload->>'currencyCode'),'') IS NULL THEN
+  RAISE EXCEPTION 'an agreed total needs its currency' USING ERRCODE='invalid_parameter_value'; END IF;
+ scope:=entity::text||':DIRECT_SHAREHOLDER_ADD';
  replay:=abos.shareholder_setup_idempotency_begin(scope,key,
   encode(sha256(convert_to((p_payload-'correlationId')::text||actor::text,'UTF8')),'hex'),correlation);
  IF replay IS NOT NULL THEN RETURN replay; END IF;
  profile:=abos.shareholder_setup_create_shareholder(p_proof,p_runtime,p_token,jsonb_build_object(
   'displayName',p_payload->>'displayName','externalReference',p_payload->>'externalReference',
   'shareholderSince',business_date,'idempotencyKey','DSP:'||key,'correlationId',correlation));
- contribution:=abos.shareholder_contribution_create(p_proof,p_runtime,p_token,jsonb_build_object(
-  'shareholderProfileId',profile->>'shareholderProfileId','contributionType','CASH',
-  'businessDate',business_date,'amount',p_payload->>'totalCapital','currencyCode',p_payload->>'currencyCode',
-  'description',p_payload->>'note','reference',p_payload->>'externalReference','declare',true,
-  'idempotencyKey','DSC:'||key,'correlationId',correlation));
- UPDATE abos.shareholder_profiles SET ownership_percentage=percent,capital_note=NULLIF(btrim(p_payload->>'note'),'')
- WHERE id=(profile->>'shareholderProfileId')::uuid AND legal_entity_id=entity;
- result:=profile||jsonb_build_object('contributionId',contribution->>'contributionId');
- PERFORM abos.shareholder_setup_idempotency_complete(scope,key,'SHAREHOLDER_PROFILE',(profile->>'shareholderProfileId')::uuid,result);
+ profile_id:=(profile->>'shareholderProfileId')::uuid;
+ IF total IS NOT NULL THEN
+  contribution:=abos.shareholder_contribution_create(p_proof,p_runtime,p_token,jsonb_build_object(
+   'shareholderProfileId',profile_id,'contributionType','CASH',
+   'businessDate',business_date,'amount',total,'currencyCode',p_payload->>'currencyCode',
+   'description',p_payload->>'note','reference',p_payload->>'externalReference','declare',true,
+   'idempotencyKey','DSC:'||key,'correlationId',correlation));
+ END IF;
+ UPDATE abos.shareholder_profiles SET capital_note=NULLIF(btrim(p_payload->>'note'),'')
+ WHERE id=profile_id AND legal_entity_id=entity;
+ IF first_contribution IS NOT NULL THEN
+  posted:=abos.direct_shareholder_receive(p_proof,p_runtime,p_token,
+   first_contribution||jsonb_build_object('shareholderProfileId',profile_id,
+    'idempotencyKey','DCR:'||key,'correlationId',correlation));
+ END IF;
+ result:=profile||jsonb_build_object('contributionId',contribution->>'contributionId',
+  'agreedTotal',total,'firstReceipt',posted);
+ PERFORM abos.shareholder_setup_idempotency_complete(scope,key,'SHAREHOLDER_PROFILE',profile_id,result);
  RETURN result;
 END $$;
-ALTER FUNCTION abos.direct_shareholder_create(text,text,text,jsonb) OWNER TO abos_v1_shareholder_setup_owner;
+ALTER FUNCTION abos.direct_shareholder_add(text,text,text,jsonb) OWNER TO abos_v1_shareholder_setup_owner;
 
 CREATE FUNCTION abos.direct_shareholder_receive(p_proof text,p_runtime text,p_token text,p_payload jsonb)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE c jsonb; actor uuid; entity uuid; profile uuid; destination uuid; equity uuid; currency text;
- amount numeric; day date; period uuid; policy uuid; treasury_ledger uuid; base text;
+ amount numeric; day date; period uuid; policy uuid; debit_account uuid; base text; method text;
+ provider text; item text; cash_bearing boolean;
  key text; correlation uuid; scope text; replay jsonb; fingerprint text; receipt uuid:=gen_random_uuid();
  journal uuid:=gen_random_uuid(); intent uuid:=gen_random_uuid(); debit_line uuid:=gen_random_uuid(); credit_line uuid:=gen_random_uuid();
  source abos.shareholder_contributions%ROWTYPE; allocated numeric; remaining numeric; piece numeric; party uuid; result jsonb; ref text;
@@ -185,15 +369,32 @@ BEGIN
  c:=abos.direct_capital_actor(p_proof,p_runtime,p_token,true);
  actor:=(c->>'userAccountId')::uuid; entity:=(c->>'legalEntityId')::uuid;
  IF p_payload IS NULL OR jsonb_typeof(p_payload)<>'object' OR EXISTS(SELECT 1 FROM jsonb_object_keys(p_payload) k
-  WHERE k NOT IN('shareholderProfileId','amount','currencyCode','receiptDate','destinationAccountId','paymentReference','note','idempotencyKey','correlationId')) THEN
+  WHERE k NOT IN('shareholderProfileId','fundingMethod','amount','currencyCode','receiptDate','destinationAccountId',
+   'providerName','itemDescription','expenseLedgerAccountId','paymentReference','note','idempotencyKey','correlationId')) THEN
   RAISE EXCEPTION 'unknown capital receipt fields' USING ERRCODE='invalid_parameter_value'; END IF;
- profile:=(p_payload->>'shareholderProfileId')::uuid; destination:=(p_payload->>'destinationAccountId')::uuid;
+ profile:=(p_payload->>'shareholderProfileId')::uuid; destination:=NULLIF(p_payload->>'destinationAccountId','')::uuid;
  currency:=p_payload->>'currencyCode'; day:=(p_payload->>'receiptDate')::date;
  amount:=abos.temporary_funding_amount(p_payload->>'amount');
+ method:=COALESCE(NULLIF(btrim(p_payload->>'fundingMethod'),''),'CASH');
+ provider:=NULLIF(btrim(p_payload->>'providerName'),''); item:=NULLIF(btrim(p_payload->>'itemDescription'),'');
  key:=NULLIF(btrim(p_payload->>'idempotencyKey'),''); correlation:=(p_payload->>'correlationId')::uuid;
- IF profile IS NULL OR destination IS NULL OR day IS NULL OR day>current_date
+ IF method NOT IN('CASH','HAWALA','ASSET','BILL_PAYMENT') THEN
+  RAISE EXCEPTION 'unknown funding method %',method USING ERRCODE='invalid_parameter_value'; END IF;
+ cash_bearing:=method IN('CASH','HAWALA');
+ IF profile IS NULL OR day IS NULL OR day>current_date
   OR length(p_payload->>'paymentReference')>120 OR length(p_payload->>'note')>1000 THEN
-  RAISE EXCEPTION 'a valid shareholder, date, Safe and reference are required' USING ERRCODE='invalid_parameter_value'; END IF;
+  RAISE EXCEPTION 'a valid shareholder, date and reference are required' USING ERRCODE='invalid_parameter_value'; END IF;
+ -- Each method requires exactly its own fields, so one cannot be smuggled through another.
+ IF cash_bearing AND destination IS NULL THEN
+  RAISE EXCEPTION 'choose the Safe the money went into' USING ERRCODE='invalid_parameter_value'; END IF;
+ IF NOT cash_bearing AND destination IS NOT NULL THEN
+  RAISE EXCEPTION 'this contribution does not move a Safe' USING ERRCODE='invalid_parameter_value'; END IF;
+ IF (method='HAWALA')<>(provider IS NOT NULL) THEN
+  RAISE EXCEPTION 'name the saraf for a hawala contribution, and only for one' USING ERRCODE='invalid_parameter_value'; END IF;
+ IF (method IN('ASSET','BILL_PAYMENT'))<>(item IS NOT NULL) THEN
+  RAISE EXCEPTION 'describe the asset, or the bill that was paid' USING ERRCODE='invalid_parameter_value'; END IF;
+ IF (method='BILL_PAYMENT')<>(NULLIF(p_payload->>'expenseLedgerAccountId','') IS NOT NULL) THEN
+  RAISE EXCEPTION 'choose the expense account the payment covers, and only for a paid bill' USING ERRCODE='invalid_parameter_value'; END IF;
  -- Authorization precedes durable replay; changed/expired permissions cannot replay sensitive results.
  scope:='direct-capital:receive:'||entity::text||':'||actor::text;
  fingerprint:=encode(sha256(convert_to((p_payload-'correlationId')::text||actor::text,'UTF8')),'hex');
@@ -211,12 +412,18 @@ BEGIN
  WHERE legal_entity_id=entity AND workflow_type='SHAREHOLDER_CAPITAL_RECEIPT' ORDER BY version DESC LIMIT 1;
  IF policy IS NULL OR (SELECT approval_required FROM abos.finance_workflow_policy_versions WHERE id=policy) THEN
   RAISE EXCEPTION 'a direct capital receipt requires the company approval setting OFF' USING ERRCODE='check_violation'; END IF;
- treasury_ledger:=abos.temporary_funding_treasury_ledger(entity,destination,currency,true);
- IF EXISTS(SELECT 1 FROM abos.ledger_accounts WHERE id=treasury_ledger
-  AND account_currency_code IS NOT NULL AND account_currency_code<>currency) THEN
-  RAISE EXCEPTION 'Safe ledger currency does not match receipt currency' USING ERRCODE='check_violation'; END IF;
+ IF cash_bearing THEN
+  debit_account:=abos.temporary_funding_treasury_ledger(entity,destination,currency,true);
+  IF EXISTS(SELECT 1 FROM abos.ledger_accounts WHERE id=debit_account
+   AND account_currency_code IS NOT NULL AND account_currency_code<>currency) THEN
+   RAISE EXCEPTION 'Safe ledger currency does not match receipt currency' USING ERRCODE='check_violation'; END IF;
+ ELSIF method='ASSET' THEN debit_account:=abos.direct_capital_asset_account(entity,currency);
+ ELSE debit_account:=abos.direct_capital_expense_account(entity,currency,(p_payload->>'expenseLedgerAccountId')::uuid);
+ END IF;
  equity:=abos.direct_capital_equity(entity,currency);
- period:=abos.temporary_funding_open_period(entity,day);
+ IF debit_account=equity THEN
+  RAISE EXCEPTION 'a contribution cannot debit and credit the same account' USING ERRCODE='check_violation'; END IF;
+ period:=abos.open_period_for_business_date(entity,actor,day);
  -- Exactly the same row locks as the legacy receipt command. Lock all eligible declarations in
  -- stable UUID order before allocating, so two direct saves and direct/legacy races serialize.
  FOR source IN SELECT * FROM abos.shareholder_contributions WHERE shareholder_profile_id=profile
@@ -226,11 +433,12 @@ BEGIN
   locked_sources:=array_append(locked_sources,source.id);
  END LOOP;
  remaining:=amount; ref:='CAP-'||to_char(day,'YYYYMMDD')||'-'||upper(replace(receipt::text,'-',''));
- INSERT INTO abos.direct_capital_receipts(id,legal_entity_id,shareholder_profile_id,operational_treasury_account_id,
-  paid_in_capital_ledger_account_id,original_amount,original_currency_code,receipt_date,payment_reference,note,
+ INSERT INTO abos.direct_capital_receipts(id,legal_entity_id,shareholder_profile_id,funding_method,
+  operational_treasury_account_id,debit_ledger_account_id,paid_in_capital_ledger_account_id,provider_name,
+  item_description,original_amount,original_currency_code,receipt_date,payment_reference,note,
   transaction_reference,workflow_policy_version_id,journal_id,created_by_user_account_id,correlation_id,idempotency_key)
- VALUES(receipt,entity,profile,destination,equity,amount,currency,day,NULLIF(btrim(p_payload->>'paymentReference'),''),
-  NULLIF(btrim(p_payload->>'note'),''),ref,policy,journal,actor,correlation,key);
+ VALUES(receipt,entity,profile,method,destination,debit_account,equity,provider,item,amount,currency,day,
+  NULLIF(btrim(p_payload->>'paymentReference'),''),NULLIF(btrim(p_payload->>'note'),''),ref,policy,journal,actor,correlation,key);
  FOR source IN SELECT * FROM abos.shareholder_contributions WHERE shareholder_profile_id=profile
   AND legal_entity_id=entity AND contribution_type='CASH' AND record_status='DECLARED'
   AND currency_code=currency AND business_date<=day AND id=ANY(locked_sources) ORDER BY business_date,id LOOP
@@ -243,8 +451,9 @@ BEGIN
    VALUES(receipt,entity,source.id,piece); remaining:=remaining-piece; END IF;
   EXIT WHEN remaining=0;
  END LOOP;
- IF remaining<>0 THEN RAISE EXCEPTION 'receipt exceeds available outstanding capital for this date and currency'
-  USING ERRCODE='check_violation'; END IF;
+ -- An agreed total is optional. Whatever an existing declaration covers is consumed exactly as the
+ -- legacy lane consumes it; anything beyond it is ordinary unallocated capital, not a refusal.
+ IF remaining<0 THEN RAISE EXCEPTION 'capital allocation arithmetic failed' USING ERRCODE='check_violation'; END IF;
  INSERT INTO abos.posting_intents(id,legal_entity_id,source_type,source_id,intent_kind,original_amount,original_currency_code,
   base_amount,base_currency_code,accounting_effective_date,correlation_id,idempotency_key,status,created_by_user_account_id,
   processing_model,direct_capital_receipt_id,finance_workflow_policy_version_id,operational_version)
@@ -255,21 +464,28 @@ BEGIN
  VALUES(journal,entity,period,intent,ref,day,currency,'DRAFT',actor,'OPERATIONAL_V1');
  INSERT INTO abos.journal_lines(id,journal_id,legal_entity_id,line_number,ledger_account_id,business_party_id,
   original_amount,original_currency_code,base_debit,base_credit,base_currency_code,source_type,source_id,processing_model)
- VALUES(debit_line,journal,entity,1,treasury_ledger,NULL,amount,currency,amount,0,currency,'DIRECT_SHAREHOLDER_CAPITAL',receipt,'OPERATIONAL_V1'),
+ VALUES(debit_line,journal,entity,1,debit_account,NULL,amount,currency,amount,0,currency,'DIRECT_SHAREHOLDER_CAPITAL',receipt,'OPERATIONAL_V1'),
   (credit_line,journal,entity,2,equity,party,amount,currency,0,amount,currency,'DIRECT_SHAREHOLDER_CAPITAL',receipt,'OPERATIONAL_V1');
+ -- The shareholder subledger always moves. The Treasury subledger moves only when a Safe does.
+ IF cash_bearing THEN
+  INSERT INTO abos.subledger_entries(id,legal_entity_id,journal_line_id,subledger_type,operational_treasury_account_id,
+   business_party_id,original_amount,original_currency_code,base_amount,base_currency_code,source_type,source_id,
+   processing_model,direct_capital_receipt_id)
+  VALUES(gen_random_uuid(),entity,debit_line,'OPERATIONAL_TREASURY',destination,NULL,amount,currency,amount,currency,
+   'DIRECT_SHAREHOLDER_CAPITAL',receipt,'OPERATIONAL_V1',receipt);
+ END IF;
  INSERT INTO abos.subledger_entries(id,legal_entity_id,journal_line_id,subledger_type,operational_treasury_account_id,
   business_party_id,original_amount,original_currency_code,base_amount,base_currency_code,source_type,source_id,
   processing_model,direct_capital_receipt_id)
- VALUES(gen_random_uuid(),entity,debit_line,'OPERATIONAL_TREASURY',destination,NULL,amount,currency,amount,currency,
-   'DIRECT_SHAREHOLDER_CAPITAL',receipt,'OPERATIONAL_V1',receipt),
-  (gen_random_uuid(),entity,credit_line,'SHAREHOLDER_CAPITAL',NULL,party,-amount,currency,-amount,currency,
+ VALUES(gen_random_uuid(),entity,credit_line,'SHAREHOLDER_CAPITAL',NULL,party,-amount,currency,-amount,currency,
    'DIRECT_SHAREHOLDER_CAPITAL',receipt,'OPERATIONAL_V1',receipt);
  UPDATE abos.posting_intents SET status='POSTED',operational_version=2 WHERE id=intent;
  UPDATE abos.journals SET status='POSTED',posted_by_user_account_id=actor,posted_at=clock_timestamp() WHERE id=journal;
  result:=jsonb_build_object('receiptId',receipt,'journalId',journal,'reference',ref,'status','POSTED','replayed',false);
  PERFORM abos.temporary_funding_audit(actor,entity,correlation,'SHAREHOLDER_CAPITAL_RECEIVED','DIRECT_CAPITAL_RECEIPT',receipt,
-  result||jsonb_build_object('shareholderProfileId',profile,'amount',amount::text,'currency',currency,
-    'treasuryAccountId',destination,'equityAccountId',equity,'approvalOccurred',false));
+  result||jsonb_build_object('shareholderProfileId',profile,'fundingMethod',method,'amount',amount::text,'currency',currency,
+    'treasuryAccountId',destination,'debitAccountId',debit_account,'equityAccountId',equity,
+    'providerName',provider,'itemDescription',item,'allocatedToDeclarations',(amount-remaining)::text,'approvalOccurred',false));
  PERFORM abos.temporary_funding_idempotency_complete(scope,key,'DIRECT_CAPITAL_RECEIPT',receipt,result);
  RETURN result;
 END $$;
@@ -279,13 +495,31 @@ CREATE FUNCTION abos.validate_direct_capital_journal_posting() RETURNS trigger
 LANGUAGE plpgsql SET search_path=pg_catalog,pg_temp AS $$
 DECLARE i abos.posting_intents%ROWTYPE; r abos.direct_capital_receipts%ROWTYPE;
  a abos.operational_treasury_accounts%ROWTYPE; party uuid; line_count bigint; debit numeric; credit numeric;
+ cash_bearing boolean; debit_account_valid boolean;
 BEGIN
  IF NEW.status<>'POSTED' OR NEW.processing_model IS DISTINCT FROM 'OPERATIONAL_V1' THEN RETURN NEW; END IF;
  SELECT * INTO i FROM abos.posting_intents WHERE id=NEW.posting_intent_id AND legal_entity_id=NEW.legal_entity_id;
  IF i.source_type IS DISTINCT FROM 'DIRECT_SHAREHOLDER_CAPITAL' THEN RETURN NEW; END IF;
  SELECT * INTO r FROM abos.direct_capital_receipts WHERE id=i.direct_capital_receipt_id AND legal_entity_id=NEW.legal_entity_id;
  IF NOT FOUND THEN RAISE EXCEPTION 'direct capital source missing' USING ERRCODE='check_violation'; END IF;
+ cash_bearing:=r.funding_method IN('CASH','HAWALA');
  SELECT * INTO a FROM abos.operational_treasury_accounts WHERE id=r.operational_treasury_account_id AND legal_entity_id=r.legal_entity_id;
+ -- The debit account must independently satisfy the rule of the method that chose it.
+ debit_account_valid:=CASE
+  WHEN cash_bearing THEN a.id IS NOT NULL AND r.debit_ledger_account_id=a.ledger_account_id
+   AND abos.temporary_funding_treasury_ledger(r.legal_entity_id,a.id,r.original_currency_code,true)=a.ledger_account_id
+   AND NOT EXISTS(SELECT 1 FROM abos.ledger_accounts WHERE id=a.ledger_account_id
+    AND account_currency_code IS NOT NULL AND account_currency_code<>r.original_currency_code)
+  WHEN r.funding_method='ASSET' THEN EXISTS(SELECT 1 FROM abos.ledger_accounts x
+   WHERE x.id=r.debit_ledger_account_id AND x.legal_entity_id=r.legal_entity_id AND x.status='ACTIVE'
+    AND x.posting_allowed AND x.account_type='ASSET' AND x.control_account_type='SHAREHOLDER_CONTRIBUTED_ASSETS'
+    AND(x.account_currency_code IS NULL OR x.account_currency_code=r.original_currency_code)
+    AND NOT x.requires_project AND NOT x.requires_department AND NOT x.requires_cost_center)
+  ELSE EXISTS(SELECT 1 FROM abos.ledger_accounts x
+   WHERE x.id=r.debit_ledger_account_id AND x.legal_entity_id=r.legal_entity_id AND x.status='ACTIVE'
+    AND x.posting_allowed AND x.account_type='EXPENSE' AND x.control_account_type IS NULL
+    AND(x.account_currency_code IS NULL OR x.account_currency_code=r.original_currency_code)
+    AND NOT x.requires_project AND NOT x.requires_department AND NOT x.requires_cost_center) END;
  SELECT business_party_id INTO party FROM abos.shareholder_profiles WHERE id=r.shareholder_profile_id AND legal_entity_id=r.legal_entity_id AND status='ACTIVE';
  SELECT count(*),COALESCE(sum(base_debit),0),COALESCE(sum(base_credit),0) INTO line_count,debit,credit FROM abos.journal_lines WHERE journal_id=NEW.id;
  IF current_user<>'abos_v1_operational_finance_owner' OR i.processing_model<>'OPERATIONAL_V1'
@@ -300,16 +534,15 @@ BEGIN
   OR NEW.base_currency_code IS DISTINCT FROM r.original_currency_code
   OR NEW.accounting_effective_date IS DISTINCT FROM r.receipt_date OR i.accounting_effective_date IS DISTINCT FROM r.receipt_date
   OR i.finance_workflow_policy_version_id IS DISTINCT FROM r.workflow_policy_version_id
-  OR a.id IS NULL OR party IS NULL OR line_count<>2 OR debit<>credit OR debit<>r.original_amount
+  OR NOT debit_account_valid OR (NOT cash_bearing AND r.operational_treasury_account_id IS NOT NULL)
+  OR r.debit_ledger_account_id=r.paid_in_capital_ledger_account_id
+  OR party IS NULL OR line_count<>2 OR debit<>credit OR debit<>r.original_amount
   OR EXISTS(SELECT 1 FROM abos.posting_approvals WHERE posting_intent_id=i.id)
   OR NOT EXISTS(SELECT 1 FROM abos.finance_workflow_policy_versions WHERE id=r.workflow_policy_version_id
    AND legal_entity_id=r.legal_entity_id AND workflow_type='SHAREHOLDER_CAPITAL_RECEIPT' AND NOT approval_required)
   OR NOT EXISTS(SELECT 1 FROM abos.accounting_periods WHERE id=NEW.accounting_period_id AND legal_entity_id=NEW.legal_entity_id
    AND status='OPEN' AND r.receipt_date BETWEEN starts_on AND ends_on)
   OR NOT EXISTS(SELECT 1 FROM abos.legal_entities WHERE id=NEW.legal_entity_id AND currency_policy_status='APPROVED' AND base_currency_code=r.original_currency_code)
-  OR abos.temporary_funding_treasury_ledger(r.legal_entity_id,a.id,r.original_currency_code,true) IS DISTINCT FROM a.ledger_account_id
-  OR EXISTS(SELECT 1 FROM abos.ledger_accounts WHERE id=a.ledger_account_id
-    AND account_currency_code IS NOT NULL AND account_currency_code<>r.original_currency_code)
   OR NOT EXISTS(SELECT 1 FROM abos.ledger_accounts e WHERE e.id=r.paid_in_capital_ledger_account_id AND e.legal_entity_id=r.legal_entity_id
    AND e.status='ACTIVE' AND e.posting_allowed AND e.account_type='EQUITY' AND e.control_account_type='SHAREHOLDER_CAPITAL'
    AND(e.account_currency_code IS NULL OR e.account_currency_code=r.original_currency_code)
@@ -322,12 +555,13 @@ BEGIN
   OR l.project_id IS NOT NULL OR l.department_id IS NOT NULL OR l.cost_center_id IS NOT NULL
   OR l.original_amount IS DISTINCT FROM r.original_amount OR l.original_currency_code IS DISTINCT FROM r.original_currency_code
   OR l.base_currency_code IS DISTINCT FROM r.original_currency_code OR l.conversion_snapshot_reference IS NOT NULL
-  OR NOT((l.line_number=1 AND l.ledger_account_id=a.ledger_account_id AND l.business_party_id IS NULL
+  OR NOT((l.line_number=1 AND l.ledger_account_id=r.debit_ledger_account_id AND l.business_party_id IS NULL
    AND l.base_debit=r.original_amount AND l.base_credit=0)
    OR(l.line_number=2 AND l.ledger_account_id=r.paid_in_capital_ledger_account_id AND l.business_party_id IS NOT DISTINCT FROM party
    AND l.base_debit=0 AND l.base_credit=r.original_amount)))) THEN
-  RAISE EXCEPTION 'direct capital requires exact Safe debit and shareholder equity credit' USING ERRCODE='check_violation'; END IF;
- IF (SELECT count(*) FROM abos.subledger_entries s JOIN abos.journal_lines l ON l.id=s.journal_line_id WHERE l.journal_id=NEW.id)<>2
+  RAISE EXCEPTION 'direct capital requires its exact method debit and shareholder equity credit' USING ERRCODE='check_violation'; END IF;
+ IF (SELECT count(*) FROM abos.subledger_entries s JOIN abos.journal_lines l ON l.id=s.journal_line_id WHERE l.journal_id=NEW.id)
+   <>(CASE WHEN cash_bearing THEN 2 ELSE 1 END)
   OR EXISTS(SELECT 1 FROM abos.subledger_entries s JOIN abos.journal_lines l ON l.id=s.journal_line_id WHERE l.journal_id=NEW.id AND(
    s.legal_entity_id IS DISTINCT FROM r.legal_entity_id OR s.direct_capital_receipt_id IS DISTINCT FROM r.id
    OR s.source_type IS DISTINCT FROM 'DIRECT_SHAREHOLDER_CAPITAL' OR s.source_id IS DISTINCT FROM r.id
@@ -336,10 +570,10 @@ BEGIN
    OR s.base_amount IS DISTINCT FROM CASE WHEN l.line_number=1 THEN r.original_amount ELSE -r.original_amount END
    OR s.original_currency_code IS DISTINCT FROM r.original_currency_code
    OR s.base_currency_code IS DISTINCT FROM r.original_currency_code
-   OR NOT((l.line_number=1 AND s.subledger_type='OPERATIONAL_TREASURY' AND s.operational_treasury_account_id=a.id AND s.business_party_id IS NULL)
+   OR NOT((l.line_number=1 AND cash_bearing AND s.subledger_type='OPERATIONAL_TREASURY' AND s.operational_treasury_account_id=a.id AND s.business_party_id IS NULL)
     OR(l.line_number=2 AND s.subledger_type='SHAREHOLDER_CAPITAL' AND s.business_party_id=party AND s.operational_treasury_account_id IS NULL)))) THEN
-  RAISE EXCEPTION 'direct capital requires exact Safe and shareholder subledgers' USING ERRCODE='check_violation'; END IF;
- IF (SELECT COALESCE(sum(amount),0) FROM abos.direct_capital_receipt_allocations WHERE receipt_id=r.id)<>r.original_amount
+  RAISE EXCEPTION 'direct capital requires its exact method and shareholder subledgers' USING ERRCODE='check_violation'; END IF;
+ IF (SELECT COALESCE(sum(amount),0) FROM abos.direct_capital_receipt_allocations WHERE receipt_id=r.id)>r.original_amount
   OR EXISTS(SELECT 1 FROM abos.direct_capital_receipt_allocations x JOIN abos.shareholder_contributions c ON c.id=x.contribution_id
    WHERE x.receipt_id=r.id AND(c.legal_entity_id IS DISTINCT FROM r.legal_entity_id OR c.shareholder_profile_id IS DISTINCT FROM r.shareholder_profile_id
     OR c.contribution_type<>'CASH' OR c.record_status<>'DECLARED' OR c.currency_code<>r.original_currency_code OR c.business_date>r.receipt_date
@@ -359,8 +593,8 @@ BEGIN
  IF NOT FOUND OR NOT EXISTS(SELECT 1 FROM abos.journals j JOIN abos.posting_intents i ON i.id=j.posting_intent_id
   WHERE j.id=r.journal_id AND j.legal_entity_id=r.legal_entity_id AND j.status='POSTED' AND i.status='POSTED'
    AND i.direct_capital_receipt_id=r.id AND i.source_type='DIRECT_SHAREHOLDER_CAPITAL')
-  OR(SELECT COALESCE(sum(amount),0) FROM abos.direct_capital_receipt_allocations WHERE receipt_id=r.id)<>r.original_amount THEN
-  RAISE EXCEPTION 'capital receipt must commit with its complete posted journal and allocations' USING ERRCODE='check_violation'; END IF;
+  OR(SELECT COALESCE(sum(amount),0) FROM abos.direct_capital_receipt_allocations WHERE receipt_id=r.id)>r.original_amount THEN
+  RAISE EXCEPTION 'capital contribution must commit with its complete posted journal' USING ERRCODE='check_violation'; END IF;
  RETURN NULL;
 END $$;
 ALTER FUNCTION abos.guard_direct_capital_complete() OWNER TO abos_v1_operational_finance_owner;
@@ -401,10 +635,17 @@ BEGIN
  WHERE id=profile AND legal_entity_id=entity AND status='ACTIVE';
  IF NOT FOUND THEN RAISE EXCEPTION 'shareholder not found in this legal entity' USING ERRCODE='no_data_found'; END IF;
  IF holder IS NOT NULL THEN RETURN jsonb_build_object('capitalAgreementId',holder); END IF;
+ -- An agreed total is optional, so the holder's committed amount falls back to what was actually
+ -- contributed. The holder is a private attachment anchor only; it activates no agreement.
  SELECT currency_code,sum(amount) INTO currency,total FROM abos.shareholder_contributions
  WHERE shareholder_profile_id=profile AND legal_entity_id=entity AND contribution_type='CASH' AND record_status='DECLARED'
  GROUP BY currency_code ORDER BY currency_code LIMIT 1;
- IF total IS NULL THEN RAISE EXCEPTION 'save the shareholder capital before attaching a document' USING ERRCODE='check_violation'; END IF;
+ IF total IS NULL THEN
+  SELECT original_currency_code,sum(original_amount) INTO currency,total FROM abos.direct_capital_receipts
+  WHERE shareholder_profile_id=profile AND legal_entity_id=entity
+  GROUP BY original_currency_code ORDER BY original_currency_code LIMIT 1;
+ END IF;
+ IF total IS NULL THEN RAISE EXCEPTION 'record the shareholder capital before attaching a document' USING ERRCODE='check_violation'; END IF;
  result:=abos.shareholder_setup_create_agreement(p_proof,p_runtime,p_token,jsonb_build_object(
   'shareholderProfileId',profile,'agreementReference','ATTACHMENT-'||profile::text,
   'committedAmount',total::text,'currencyCode',currency,'effectiveOn',current_date,'partialInstallmentsAllowed',true,
@@ -423,11 +664,14 @@ GRANT SELECT(id,legal_entity_id,version) ON abos.capital_agreement_evidence TO a
 CREATE FUNCTION abos.direct_shareholder_capital_workspace(p_proof text,p_runtime text,p_token text)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
 DECLARE c jsonb; entity uuid; permissions jsonb; base text; company_name text; reason text; equity uuid;
+ asset_account uuid;
 BEGIN
  c:=abos.direct_capital_actor(p_proof,p_runtime,p_token,false);
  entity:=(c->>'legalEntityId')::uuid; permissions:=COALESCE(c->'permissions','[]'::jsonb);
  SELECT base_currency_code,name INTO base,company_name FROM abos.legal_entities WHERE id=entity;
  BEGIN equity:=abos.direct_capital_equity(entity,base); EXCEPTION WHEN check_violation THEN reason:='Choose an active shareholder capital equity account in Finance setup.'; END;
+ -- Asset contributions need their own account. Its absence disables only that one method.
+ BEGIN asset_account:=abos.direct_capital_asset_account(entity,base); EXCEPTION WHEN check_violation THEN asset_account:=NULL; END;
  IF NOT EXISTS(SELECT 1 FROM abos.finance_workflow_policy_versions p WHERE p.legal_entity_id=entity
   AND p.workflow_type='SHAREHOLDER_CAPITAL_RECEIPT' AND NOT p.approval_required
   AND p.version=(SELECT max(version) FROM abos.finance_workflow_policy_versions WHERE legal_entity_id=entity AND workflow_type=p.workflow_type)) THEN
@@ -435,7 +679,14 @@ BEGIN
  RETURN jsonb_build_object('legalEntity',jsonb_build_object('id',entity,'name',company_name,'baseCurrency',base),
  'permissions',jsonb_build_object('canManage',permissions ? 'shareholder.setup.manage',
   'canReceive',permissions ?& ARRAY['shareholder.capital-receipt.record','finance.capital-receipt.prepare','finance.capital-receipt.post']),
- 'receiveAvailable',reason IS NULL,'unavailableReason',reason,
+ 'receiveAvailable',reason IS NULL,'unavailableReason',reason,'assetAccountReady',asset_account IS NOT NULL,
+ 'expenseAccounts',COALESCE((SELECT jsonb_agg(jsonb_build_object('id',x.id,'code',x.account_code,'name',x.account_name)
+   ORDER BY x.account_code) FROM abos.ledger_accounts x
+   LEFT JOIN abos.ledger_account_governance g ON g.ledger_account_id=x.id AND g.legal_entity_id=x.legal_entity_id
+   WHERE x.legal_entity_id=entity AND x.status='ACTIVE' AND x.posting_allowed AND x.account_type='EXPENSE'
+    AND x.control_account_type IS NULL AND(x.account_currency_code IS NULL OR x.account_currency_code=base)
+    AND NOT x.requires_project AND NOT x.requires_department AND NOT x.requires_cost_center
+    AND(g.ledger_account_id IS NULL OR g.review_state IN('REVIEWED','NOT_REQUIRED'))),'[]'::jsonb),
  'currencies',COALESCE((SELECT jsonb_agg(jsonb_build_object('code',code,'label',name) ORDER BY code) FROM abos.currencies WHERE enabled),'[]'::jsonb),
  'destinations',COALESCE((SELECT jsonb_agg(jsonb_build_object('id',a.id,'name',a.name_en,'currency',a.currency_code,
   'balance',CASE WHEN permissions ? 'finance.report.operational.read' THEN COALESCE((SELECT sum(s.original_amount) FROM abos.subledger_entries s JOIN abos.journal_lines l ON l.id=s.journal_line_id
@@ -451,23 +702,37 @@ BEGIN
    AND(l.account_currency_code IS NULL OR l.account_currency_code=a.currency_code)
    AND NOT l.requires_project AND NOT l.requires_department AND NOT l.requires_cost_center),'[]'::jsonb),
  'shareholders',COALESCE((SELECT jsonb_agg(jsonb_build_object('id',p.id,'name',b.display_name,'reference',b.external_reference,
-  'note',p.capital_note,'ownershipPercent',p.ownership_percentage::text,'active',p.status='ACTIVE' AND b.status='ACTIVE',
-  'capitals',COALESCE((SELECT jsonb_agg(jsonb_build_object('currency',v.currency,'total',v.total::text,
-    'received',v.received::text,'outstanding',(v.total-v.received)::text,'available',(v.total-v.reserved)::text) ORDER BY v.currency)
-   FROM(SELECT d.currency_code AS currency,sum(d.amount) AS total,
-    sum(COALESCE((SELECT sum(x.amount) FROM abos.direct_capital_receipt_allocations x WHERE x.contribution_id=d.id AND x.legal_entity_id=entity),0)
-     +COALESCE((SELECT sum(r.original_amount) FROM abos.shareholder_capital_receipts r JOIN abos.posting_intents i ON i.shareholder_capital_receipt_id=r.id
-       AND i.legal_entity_id=entity AND i.status='POSTED' JOIN abos.journals j ON j.posting_intent_id=i.id AND j.status='POSTED'
-       WHERE r.contribution_id=d.id AND r.legal_entity_id=entity),0)) AS received,
-    sum(COALESCE((SELECT sum(x.amount) FROM abos.direct_capital_receipt_allocations x WHERE x.contribution_id=d.id AND x.legal_entity_id=entity),0)
-     +COALESCE((SELECT sum(r.original_amount) FROM abos.shareholder_capital_receipts r WHERE r.contribution_id=d.id
-        AND r.legal_entity_id=entity AND r.record_state='RECORDED'),0)) AS reserved
-    FROM abos.shareholder_contributions d WHERE d.shareholder_profile_id=p.id AND d.legal_entity_id=entity
-     AND d.contribution_type='CASH' AND d.record_status='DECLARED' GROUP BY d.currency_code)v),'[]'::jsonb),
+  'note',p.capital_note,'active',p.status='ACTIVE' AND b.status='ACTIVE',
+  -- Capital is what the shareholder actually contributed. An agreed total is shown only where one
+  -- exists; nothing is implied from its absence and no figure is invented.
+  'capitals',COALESCE((SELECT jsonb_agg(jsonb_build_object('currency',v.currency,
+    'contributed',v.contributed::text,'agreedTotal',v.agreed::text,
+    'remaining',CASE WHEN v.agreed IS NOT NULL THEN (v.agreed-v.contributed)::text END) ORDER BY v.currency)
+   FROM(SELECT u.currency,sum(u.contributed) AS contributed,
+     CASE WHEN sum(u.agreed) IS NULL THEN NULL ELSE sum(u.agreed) END AS agreed
+    FROM(
+     SELECT r.original_currency_code AS currency,r.original_amount AS contributed,NULL::numeric AS agreed
+      FROM abos.direct_capital_receipts r WHERE r.shareholder_profile_id=p.id AND r.legal_entity_id=entity
+     UNION ALL
+     SELECT r.original_currency_code,r.original_amount,NULL::numeric
+      FROM abos.shareholder_capital_receipts r
+      JOIN abos.posting_intents i ON i.shareholder_capital_receipt_id=r.id AND i.legal_entity_id=entity AND i.status='POSTED'
+      JOIN abos.journals j ON j.posting_intent_id=i.id AND j.status='POSTED'
+      JOIN abos.shareholder_contributions d ON d.id=r.contribution_id AND d.legal_entity_id=entity
+      WHERE d.shareholder_profile_id=p.id AND r.legal_entity_id=entity
+     UNION ALL
+     SELECT d.currency_code,0::numeric,d.amount FROM abos.shareholder_contributions d
+      WHERE d.shareholder_profile_id=p.id AND d.legal_entity_id=entity
+       AND d.contribution_type='CASH' AND d.record_status='DECLARED')u
+    GROUP BY u.currency)v),'[]'::jsonb),
   'transactions',COALESCE((SELECT jsonb_agg(jsonb_build_object('id',r.id,'date',r.receipt_date,'amount',r.original_amount::text,
-   'currency',r.original_currency_code,'destination',a.name_en,'reference',r.transaction_reference,'status','POSTED',
+   'currency',r.original_currency_code,'method',r.funding_method,'destination',a.name_en,
+   'providerName',r.provider_name,'itemDescription',r.item_description,
+   'debitAccount',(SELECT x.account_name FROM abos.ledger_accounts x WHERE x.id=r.debit_ledger_account_id AND x.legal_entity_id=entity),
+   'reference',r.transaction_reference,'status','POSTED',
    'journalId',r.journal_id,'note',r.note,'paymentReference',r.payment_reference) ORDER BY r.receipt_date DESC,r.created_at DESC)
-   FROM abos.direct_capital_receipts r JOIN abos.operational_treasury_accounts a ON a.id=r.operational_treasury_account_id AND a.legal_entity_id=entity
+   FROM abos.direct_capital_receipts r
+   LEFT JOIN abos.operational_treasury_accounts a ON a.id=r.operational_treasury_account_id AND a.legal_entity_id=entity
    WHERE r.shareholder_profile_id=p.id AND r.legal_entity_id=entity),'[]'::jsonb),
   'documents',CASE WHEN permissions ?| ARRAY['shareholder.setup.manage','shareholder.read'] THEN
    COALESCE((SELECT jsonb_agg(jsonb_build_object('id',f.agreement_evidence_id,'fileName',f.original_file_name,'version',e.version) ORDER BY e.version DESC)
@@ -479,14 +744,22 @@ BEGIN
 END $$;
 ALTER FUNCTION abos.direct_shareholder_capital_workspace(text,text,text) OWNER TO abos_v1_operational_finance_owner;
 
+REVOKE ALL ON FUNCTION abos.operational_period_ensure_open(text,text,text,date) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION abos.operational_period_ensure_open(text,text,text,date) TO abos_e1_runtime;
 REVOKE ALL ON FUNCTION abos.direct_capital_actor(text,text,text,boolean),abos.direct_capital_equity(uuid,text),
- abos.direct_shareholder_create(text,text,text,jsonb),abos.direct_shareholder_receive(text,text,text,jsonb),
+ abos.direct_capital_asset_account(uuid,text),abos.direct_capital_expense_account(uuid,text,uuid),
+ abos.open_period_for_business_date(uuid,uuid,date),
+ abos.direct_shareholder_add(text,text,text,jsonb),abos.direct_shareholder_receive(text,text,text,jsonb),
  abos.direct_shareholder_capital_workspace(text,text,text),abos.direct_shareholder_document_holder(text,text,text,jsonb),
  abos.validate_direct_capital_journal_posting(),abos.guard_direct_capital_complete(),abos.refuse_direct_capital_reversal()
  FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION abos.direct_capital_actor(text,text,text,boolean),abos.direct_capital_equity(uuid,text)
- TO abos_v1_operational_finance_owner;
-GRANT EXECUTE ON FUNCTION abos.direct_shareholder_create(text,text,text,jsonb),abos.direct_shareholder_receive(text,text,text,jsonb),
+GRANT EXECUTE ON FUNCTION abos.direct_capital_actor(text,text,text,boolean),abos.direct_capital_equity(uuid,text),
+ abos.direct_capital_asset_account(uuid,text),abos.direct_capital_expense_account(uuid,text,uuid),
+ abos.open_period_for_business_date(uuid,uuid,date) TO abos_v1_operational_finance_owner;
+-- The one-save entry point commits the shareholder and the money together, so it alone may call
+-- the posting entry point. No runtime gains anything the two commands did not already allow.
+GRANT EXECUTE ON FUNCTION abos.direct_shareholder_receive(text,text,text,jsonb) TO abos_v1_shareholder_setup_owner;
+GRANT EXECUTE ON FUNCTION abos.direct_shareholder_add(text,text,text,jsonb),abos.direct_shareholder_receive(text,text,text,jsonb),
  abos.direct_shareholder_capital_workspace(text,text,text),abos.direct_shareholder_document_holder(text,text,text,jsonb) TO abos_e1_runtime;
 
 

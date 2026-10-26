@@ -6,7 +6,7 @@ import type {
   OperationalExpenseView
 } from "@abos/contracts";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { AccessGate, api } from "@/components/AdminUsersWorkspace";
 import { AppIcon } from "@/components/AppIcon";
@@ -59,6 +59,10 @@ export function RecordExpenseWorkspace() {
   const [error, setError] = useState<string | null>(null);
   const [recorded, setRecorded] = useState<OperationalExpenseView | null>(null);
   const [identity, setIdentity] = useState(newRequestIdentity);
+  // Recorded account activity for the chosen date, used only to warn before an account goes below
+  // zero. It needs reporting permission; without it there is simply no warning, never a false one.
+  const [balances, setBalances] = useState<Record<string, string> | null>(null);
+  const [overspendAccepted, setOverspendAccepted] = useState(false);
 
   const load = useCallback(async (date: string) => {
     const result = await api<OperationalExpenseEntryOptions>(
@@ -97,11 +101,25 @@ export function RecordExpenseWorkspace() {
   const base = options?.baseCurrency ?? null;
   const currency = account?.currencyCode ?? null;
   const foreign = currency !== null && base !== null && currency !== base;
-  const rates = useMemo(() => (options?.exchangeRates ?? []).filter((rate) =>
+  // The React Compiler memoizes this filter; a manual useMemo here cannot be preserved.
+  const rates = (options?.exchangeRates ?? []).filter((rate) =>
     currency !== null && base !== null
       && [rate.unitCurrency, rate.quoteCurrency].includes(currency)
-      && [rate.unitCurrency, rate.quoteCurrency].includes(base)), [options, currency, base]);
+      && [rate.unitCurrency, rate.quoteCurrency].includes(base));
   const chosenRateId = foreign ? (rates.length === 1 ? rates[0]?.id ?? "" : draft.exchangeRateId) : "";
+  useEffect(() => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(draft.businessDate)) return;
+    let current = true;
+    void api<{ readonly treasuryMovements: readonly { readonly treasuryAccountId: string; readonly after: string }[] }>(
+      `/api/v1/finance/operations/daily-report?date=${encodeURIComponent(draft.businessDate)}`
+    ).then((result) => {
+      if (!current) return;
+      setBalances(result.ok
+        ? Object.fromEntries(result.data.treasuryMovements.map((movement) => [movement.treasuryAccountId, movement.after]))
+        : null);
+    });
+    return () => { current = false; };
+  }, [draft.businessDate, recorded]);
   const needs = {
     project: Boolean(account?.requiresProject || category?.requiresProject),
     department: Boolean(account?.requiresDepartment || category?.requiresDepartment),
@@ -112,6 +130,7 @@ export function RecordExpenseWorkspace() {
     setDraft((value) => ({ ...value, ...changes }));
     setIdentity(newRequestIdentity());
     setError(null);
+    setOverspendAccepted(false);
   };
 
   if (gate) {
@@ -134,7 +153,13 @@ export function RecordExpenseWorkspace() {
     || (needs.department && (options?.departments.length ?? 0) === 0)
     || (needs.costCenter && (options?.costCenters.length ?? 0) === 0);
   const amountValid = AMOUNT.test(draft.originalAmount.trim()) && /[1-9]/.test(draft.originalAmount);
-  const ready = options !== null && setupGaps.length === 0 && !periodClosed && !rateMissing && !dimensionMissing
+  // Money in before money out: the warning states what the account actually holds, and the person
+  // decides. Only an amount in the account's own currency can be compared with its balance.
+  const recordedBalance = account !== undefined && balances !== null ? balances[account.id] ?? "0" : null;
+  const overspend = recordedBalance !== null && amountValid && !foreign
+    && Number(draft.originalAmount.trim()) > Number(recordedBalance);
+  // A pending month is opened by the server on save, so it no longer blocks the form.
+  const ready = options !== null && setupGaps.length === 0 && !rateMissing && !dimensionMissing
     && account !== undefined && category !== undefined && amountValid
     && draft.reference.trim().length > 0 && draft.description.trim().length >= 3
     && (!foreign || chosenRateId !== "")
@@ -173,6 +198,7 @@ export function RecordExpenseWorkspace() {
     setDraft((value) => ({ ...value, ...EMPTY, treasuryAccountId: value.treasuryAccountId,
       expenseCategoryId: value.expenseCategoryId }));
     setIdentity(newRequestIdentity());
+    setOverspendAccepted(false);
     await load(draft.businessDate);
   };
 
@@ -225,12 +251,17 @@ export function RecordExpenseWorkspace() {
             <label><span>{fa ? "تاریخ *" : "Date *"}</span>
               <input type="date" value={draft.businessDate} required
                 onChange={(event) => update({ businessDate: event.target.value, exchangeRateId: "" })} /></label>
-            {periodClosed ? <p className="admin-hint expense-warning" role="status">{fa ? "این تاریخ در یک دوره حسابداری باز نیست." : "This date is not in an open accounting period."}</p> : null}
+            {periodClosed ? <p className="admin-hint" role="status">{fa
+              ? "ماه این تاریخ هنوز باز نیست. اگر در سال مالی باشد، هنگام ذخیره باز می‌شود؛ ماه بسته‌شده پذیرفته نمی‌شود."
+              : "The month of this date is not open yet. If it is inside your financial year it will be opened when you save; a closed month is refused."}</p> : null}
 
             {choose(fa ? "پرداخت از" : "Paid from", draft.treasuryAccountId,
               (value) => update({ treasuryAccountId: value, exchangeRateId: "" }),
               options.treasuryAccounts.map((item) => ({ id: item.id, label: `${localizedName(item, fa)} · ${item.currencyCode}` })),
               true, fa ? "حساب خزانه را انتخاب کنید" : "Choose a Treasury account")}
+            {account && recordedBalance !== null ? <p className="admin-hint" role="status">
+              {fa ? "گردش ثبت‌شدهٔ این حساب" : "Recorded in this account"}: <b dir="ltr">{money(recordedBalance, account.currencyCode)}</b>
+            </p> : null}
             {choose(fa ? "نوع مصرف" : "Expense type", draft.expenseCategoryId,
               (value) => update({ expenseCategoryId: value }),
               options.expenseCategories.map((item) => ({ id: item.id, label: localizedName(item, fa) })),
@@ -284,7 +315,17 @@ export function RecordExpenseWorkspace() {
             <label><span>{fa ? "یادداشت (اختیاری)" : "Note (optional)"}</span>
               <textarea value={draft.note} maxLength={1000} rows={2} onChange={(event) => update({ note: event.target.value })} /></label>
 
-            <button type="submit" className="treasury-button gold" disabled={busy || !ready}>
+            {overspend && account ? <p className="admin-hint expense-warning" role="alert">
+              {fa
+                ? `این حساب فقط ${money(recordedBalance ?? "0", account.currencyCode)} ثبت‌شده دارد. با این ثبت، موجودی آن منفی می‌شود. اگر پولی رسیده و هنوز ثبت نشده، نخست آن را ثبت کنید.`
+                : `This account holds only ${money(recordedBalance ?? "0", account.currencyCode)} on record. Saving this takes it below zero. If money has arrived and is not recorded yet, record it first.`}
+              {" "}
+              <label className="expense-overspend-accept">
+                <input type="checkbox" checked={overspendAccepted} onChange={(event) => setOverspendAccepted(event.target.checked)} />
+                <span>{fa ? "می‌دانم؛ باز هم ثبت کن" : "I understand; record it anyway"}</span>
+              </label>
+            </p> : null}
+            <button type="submit" className="treasury-button gold" disabled={busy || !ready || (overspend && !overspendAccepted)}>
               {busy ? (fa ? "در حال ثبت…" : "Recording…")
                 : options.approvalRequired ? (fa ? "فرستادن برای تأیید" : "Send for approval")
                   : (fa ? "ثبت مصرف" : "Record expense")}
