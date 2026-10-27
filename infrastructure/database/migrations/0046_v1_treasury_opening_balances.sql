@@ -147,8 +147,12 @@ BEGIN
     RAISE EXCEPTION 'opening balance journal does not match its source, amount, date, reference or recorder'
       USING ERRCODE = 'check_violation';
   END IF;
+  -- Like every other source validator, the Safe must still be ACTIVE when the journal posts.
   SELECT * INTO v_account FROM abos.operational_treasury_accounts
-   WHERE id = v_opening.operational_treasury_account_id AND legal_entity_id = p_journal.legal_entity_id;
+   WHERE id = v_opening.operational_treasury_account_id AND legal_entity_id = p_journal.legal_entity_id AND status = 'ACTIVE';
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'an opening balance posts only to an active Safe' USING ERRCODE = 'check_violation';
+  END IF;
   IF NOT EXISTS (SELECT 1 FROM abos.journal_lines line WHERE line.journal_id = p_journal.id AND line.line_number = 1
        AND line.ledger_account_id = v_account.ledger_account_id AND line.base_debit = v_opening.amount
        AND line.business_party_id IS NULL AND line.project_id IS NULL AND line.department_id IS NULL AND line.cost_center_id IS NULL)

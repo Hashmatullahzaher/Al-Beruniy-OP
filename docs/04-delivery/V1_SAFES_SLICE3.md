@@ -60,8 +60,8 @@ and 0046. Design: `docs/03-architecture/SAFE_BALANCES.md`.
 | Check | Result |
 |---|---|
 | 0045 suite (kernel refuses a wrong sign; balances as of any date; ledger and capital agree; restricted movement keeps its money; internal-only privileges; upgrade from a populated 0044 changes no row and refuses a broken row) | 5/5 |
-| 0046 suite (posting shape, audit, outbox, balances; replay, second and concurrent duplicate; refusals with nothing written; PENDING month and Kabul boundary a day behind UTC; equity missing, invalid, ambiguous; authority, synthetic session, responsible person, runtime and PUBLIC; lifecycle) | 7/7 |
-| Full integration, fresh database 0001→0046 | 282/282 |
+| 0046 suite (posting shape, audit, outbox, balances; replay, second and concurrent duplicate; refusals with nothing written; PENDING month and Kabul boundary a day behind UTC; equity missing, invalid, ambiguous; authority, synthetic session, responsible person, runtime and PUBLIC; lifecycle; close during an in-flight receipt) | 8/8 |
+| Full integration, fresh database 0001→0046 (final, after the review) | 283/283 |
 | Unit / typecheck / lint / build | 169/169; 12/12; clean; 11/11 |
 | Browser: Safes spec (mocked; English, Dari RTL at phone width, errors, permissions) | 7/7 |
 | Browser: relevant suites (shell, foundation, direct capital, temporary funding, operational finance, Chart of Accounts, dashboard, retired lane) | 29 passed, 6 fixture-gated skips |
@@ -69,7 +69,29 @@ and 0046. Design: `docs/03-architecture/SAFE_BALANCES.md`.
 | Real-database browser check: sign in, open Safes, set opening balance 2,500.00 through the form, expense 125.50, Safe shows 2,374.50; Dari RTL at 390 px without overflow (credentials only in the private AlBeruniyOS folder) | passed |
 | Production-shaped copy (restored post-0044 production) 0044 → 0046 | only 0045 and 0046 applied; rerun a no-op; 87/90 tables identical; catalogue +2 codes, registry OPENING_BALANCE activated, two new empty tables; 0 journals; the Safe کسه shows book 0 and its legacy link; opening equity MISSING (owner must create the account) |
 
-## 4. Before the owner uses it on production
+## 4. Final adversarial review (before owner authorization)
+
+- **Close/deactivate versus an in-flight posting.** A posting reads its Safe before writing anything that
+  references it, so a close could commit in between. Proven safe with a deterministic two-connection test
+  (a disposable trigger pauses a capital receipt in that window): every source validator re-checks that the
+  Safe is ACTIVE when the journal posts, after the source row holds a key-share lock on the Safe, so the
+  posting is refused and the closed Safe keeps a zero balance. The opening-balance validator did not
+  re-check (its writer locks the Safe row first, so it was not exploitable); for uniform defense it now
+  re-checks too. This changed 0046 before any preserved deployment (checksum below).
+- **Frozen bridge signs.** The 0036 bridge is exempt from the kernel's sign check; its rows already follow
+  the convention (Treasury + on the debit, shareholder capital − on the credit), so the read model sums
+  them correctly.
+- **Privileges.** No runtime role holds any table-level or column-level write. 0045/0046 add no
+  table-wide write grant to any role (45 pre-existing table-wide owner grants before and after, none held
+  by the operational Finance owner); the new tables carry column-level writes only.
+- **Scope, entity and replay.** Balances never depend on the reader; every read is filtered by the
+  session's legal entity; replays return the first result; a second or concurrent opening balance is
+  refused; no dynamic SQL in any new function.
+
+Final checksums: 0045 `3bbc150bd6fc614460f766f635261fa810323cdacbd98d3baa37563b0797466e`, 0046
+`5176103a6c8003c97f9f8a61959c5e7a9e6fe6a1d529c992145be793f7c662e0`.
+
+## 5. Before the owner uses it on production
 
 - Deploying 0045 and 0046 needs separate authorization.
 - After deployment, the owner creates one Equity account with the control "Opening balance equity" in the
@@ -77,7 +99,7 @@ and 0046. Design: `docs/03-architecture/SAFE_BALANCES.md`.
 - Roles that should see Safes need `treasury.safe.read`; whoever sets opening balances needs
   `treasury.opening-balance.record`.
 
-## 5. Not in Slice 3
+## 6. Not in Slice 3
 
 - Opening balances of foreign-currency Safes (need an exchange-rate snapshot).
 - Temporary funding keeps its own writers (now on the single sign convention).
