@@ -57,7 +57,7 @@ test.describe("V1 shareholder setup", () => {
     await signOut(page);
 
     await signIn(page, "demo.treasury.manager", accounts["demo.treasury.manager"]);
-    await page.getByRole("navigation", { name: "Operations" }).getByRole("link", { name: "Shareholder capital" }).click();
+    await page.getByRole("navigation", { name: "Operations" }).getByRole("link", { name: "Shareholders" }).click();
     await expect(page).toHaveURL(/\/shareholders$/);
     // Existing draft-agreement behavior is preserved at the explicit legacy URL.
     await page.goto("/shareholders/legacy");
@@ -66,10 +66,10 @@ test.describe("V1 shareholder setup", () => {
     await expect(page.getByRole("tablist", { name: "Shareholder areas" })).toHaveCount(0);
     await page.getByRole("button", { name: "Advanced" }).click();
     const tabs = page.getByRole("tablist", { name: "Shareholder areas" });
-    for (const name of ["Shareholders", "Capital Agreements", "Installments", "Capital Requests"]) {
+    for (const name of ["Shareholders", "Capital Agreements", "Installments"]) {
       await expect(tabs.getByRole("tab", { name: new RegExp(`^${name}`) })).toBeVisible();
     }
-    await expect(page.getByTestId("receipt-not-operational")).toContainText("not operational on real company data yet");
+    await expect(tabs.getByRole("tab", { name: "Capital Requests" })).toHaveCount(0); // 0041: retired E1 lane
 
     // Shareholders: add one; the same reference in another case is refused company-wide.
     await page.getByRole("button", { name: "Add shareholder" }).click();
@@ -203,16 +203,11 @@ test.describe("V1 shareholder setup", () => {
     await expect(plan).toContainText("USD 50,000 / USD 50,000");
     await page.screenshot({ path: resolve(SHOTS, "01-installments-en.png"), fullPage: true });
 
-    // Capital requests: the existing workflow, with the receipt boundary stated.
-    await tabs.getByRole("tab", { name: "Capital Requests" }).click();
-    await expect(page.locator(".shareholder-request-note")).toContainText("works for synthetic sandbox data only");
-
     // Dari, desktop and phone.
     await page.getByRole("button", { name: "Switch to Dari" }).click();
-    for (const name of ["سهامداران", "قراردادهای سرمایه", "اقساط", "درخواست‌های سرمایه"]) {
+    for (const name of ["سهامداران", "قراردادهای سرمایه", "اقساط"]) {
       await expect(page.getByRole("tab", { name: new RegExp(`^${name}`) })).toBeVisible();
     }
-    await expect(page.getByTestId("receipt-not-operational")).toContainText("هنوز هیچ پولی دریافت نمی‌شود");
     await page.getByRole("tab", { name: /^قراردادهای سرمایه/ }).click();
     await expect(card).toContainText("پیش‌نویس");
     await expect(card.locator(".shareholder-documents")).toContainText("سند ضمیمه شده");

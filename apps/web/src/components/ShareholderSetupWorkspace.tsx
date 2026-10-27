@@ -12,7 +12,6 @@ import { exactDecimal } from "@/components/ExchangeRatesWorkspace";
 import { useLocale } from "@/components/LocaleProvider";
 import { ShareholderCapitalBoundary, ShareholderCapitalConfigurationPanel, useShareholderCapitalBridge } from "@/components/ShareholderCapitalBridge";
 import { ShareholderContributionsView } from "@/components/ShareholderContributionsView";
-import { ShareholderRequestWorkspace } from "@/components/ShareholderRequestWorkspace";
 import { StageZeroPageHeader } from "@/components/StageZeroWorkspace";
 import type { Copy } from "@/lib/access-copy";
 
@@ -24,12 +23,11 @@ import type { Copy } from "@/lib/access-copy";
  * existing capital request workspace is reused unchanged for the fourth area.
  */
 
-type Tab = "shareholders" | "agreements" | "installments" | "requests";
+type Tab = "shareholders" | "agreements" | "installments";
 const TABS: readonly { readonly id: Tab; readonly copy: Copy }[] = [
   { id: "shareholders", copy: { en: "Shareholders", fa: "سهامداران" } },
   { id: "agreements", copy: { en: "Capital Agreements", fa: "قراردادهای سرمایه" } },
-  { id: "installments", copy: { en: "Installments", fa: "اقساط" } },
-  { id: "requests", copy: { en: "Capital Requests", fa: "درخواست‌های سرمایه" } }
+  { id: "installments", copy: { en: "Installments", fa: "اقساط" } }
 ];
 
 const BLOCKER_COPY: Readonly<Record<ShareholderSetupBlocker, Copy>> = {
@@ -113,25 +111,21 @@ export function ShareholderSetupWorkspace() {
   const [message, setMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
   const capitalBridge = useShareholderCapitalBridge();
 
-  const apply = useCallback((result: Awaited<ReturnType<typeof api<SetupView>>>, first: boolean) => {
+  const apply = useCallback((result: Awaited<ReturnType<typeof api<SetupView>>>) => {
     if (!result.ok) {
       const next = result.status === 401 ? "signed-out" : result.status === 403 ? "denied" : null;
       setGate(next);
-      // People who may only open capital requests land on that area.
-      if (next === "denied" && first) { setMode("advanced"); setTab("requests"); }
       if (next === null) setMessage({ tone: "error", text: errorText(result.error, locale) });
       return;
     }
     setGate(null);
     setView(result.data);
-    // Someone who opens capital requests but does not set up shareholders starts on their own work.
-    if (first && !result.data.permissions.canManage && result.data.permissions.canCreateRequests) { setMode("advanced"); setTab("requests"); }
   }, [locale]);
 
-  const reload = useCallback(async () => apply(await api<SetupView>("/api/v1/shareholder/setup"), false), [apply]);
+  const reload = useCallback(async () => apply(await api<SetupView>("/api/v1/shareholder/setup")), [apply]);
   useEffect(() => {
     let current = true;
-    void api<SetupView>("/api/v1/shareholder/setup").then((result) => { if (current) apply(result, true); });
+    void api<SetupView>("/api/v1/shareholder/setup").then((result) => { if (current) apply(result); });
     return () => { current = false; };
   }, [apply]);
 
@@ -190,7 +184,7 @@ export function ShareholderSetupWorkspace() {
       <StageZeroPageHeader icon="coins"
         eyebrow={{ en: `Shareholders · ${view?.legalEntity?.name ?? ""}`, fa: `سهامداران · ${view?.legalEntity?.name ?? ""}` }}
         title={{ en: "Shareholder capital", fa: "سرمایه سهامداران" }}
-        description={{ en: "Shareholders and what each has contributed or committed. Capital agreements, installments and capital requests are under Advanced.", fa: "سهامداران و آنچه هر کدام آورده یا تعهد کرده است. قراردادهای سرمایه، اقساط و درخواست‌های سرمایه در «جزئیات پیشرفته» هستند." }} />
+        description={{ en: "Shareholders and what each has contributed or committed. Capital agreements and installments are under Advanced.", fa: "سهامداران و آنچه هر کدام آورده یا تعهد کرده است. قراردادهای سرمایه و اقساط در «جزئیات پیشرفته» هستند." }} />
 
       <ShareholderCapitalBoundary fa={fa} bridge={capitalBridge} />
       <ShareholderCapitalConfigurationPanel fa={fa} bridge={capitalBridge} />
@@ -203,7 +197,7 @@ export function ShareholderSetupWorkspace() {
           : <button type="button" className="treasury-button" aria-expanded={true} onClick={() => { setMode("simple"); setForm(null); setMessage(null); }}>{fa ? "بازگشت به نمای سهامداران" : "Back to shareholders view"}</button>}
       </div>
 
-      {mode === "simple" ? <ShareholderContributionsView fa={fa} capitalBridge={capitalBridge} onAdvanced={() => { setMode("advanced"); setTab("requests"); }} /> : <>
+      {mode === "simple" ? <ShareholderContributionsView fa={fa} capitalBridge={capitalBridge} onAdvanced={() => { setMode("advanced"); setTab("shareholders"); }} /> : <>
       <div className="admin-tabs shareholder-tabs" role="tablist" aria-label={fa ? "بخش‌های سهامداران" : "Shareholder areas"}>
         {TABS.map((entry) => (
           <button key={entry.id} role="tab" id={`shareholder-tab-${entry.id}`} aria-selected={tab === entry.id} aria-controls={`shareholder-panel-${entry.id}`}
@@ -216,14 +210,7 @@ export function ShareholderSetupWorkspace() {
       </div>
 
       <div role="tabpanel" id={`shareholder-panel-${tab}`} aria-labelledby={`shareholder-tab-${tab}`}>
-        {tab === "requests" ? (
-          <>
-            <p className="admin-hint shareholder-request-note">{fa
-              ? "درخواست‌های سرمایه همان روند قبلی است. تا تأیید جداگانه، دریافت نقد و ثبت آن فقط برای داده‌های آزمایشی مصنوعی کار می‌کند؛ قراردادهای پیش‌نویس اینجا درخواست‌پذیر نیستند."
-              : "Capital requests are the existing workflow. Until separately approved, receiving and posting the cash works for synthetic sandbox data only; draft agreements set up here cannot be requested."}</p>
-            <ShareholderRequestWorkspace embedded />
-          </>
-        ) : gate === "denied" ? (
+        {gate === "denied" ? (
           <AccessGate state="denied" fa={fa} what={{ en: "Shareholders need the “Set up shareholders and capital agreements” or “View shareholder agreements” permission.", fa: "بخش سهامداران به صلاحیت «تنظیم سهامداران و قراردادهای سرمایه» یا «مشاهده قراردادهای سهامداران» نیاز دارد." }} />
         ) : view === null ? (
           <p className="treasury-placeholder">{fa ? "در حال بارگذاری…" : "Loading…"}</p>

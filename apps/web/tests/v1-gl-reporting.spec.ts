@@ -85,7 +85,8 @@ test("posted GL preview preserves exact decimal text, both calendars, source and
   await expect(browser.getByText("12,345,678,901,234,567,890.123456789").first()).toBeVisible();
   await expect(browser.getByText("SYN-JRN-001 · #1")).toBeVisible();
   await expect(browser.getByText("CAPITAL_RECEIPT · 44444444-4444-4444-8444-444444444444")).toBeVisible();
-  await expect(browser.getByRole("link", { name: "Open Finance inbox for source trace" })).toHaveAttribute("href", "/finance/handoffs");
+  // 0041: the Finance inbox left the product; the ledger offers no link into the retired lane.
+  await expect(browser.getByRole("link", { name: "Open Finance inbox for source trace" })).toHaveCount(0);
   await expect(browser.getByRole("region", { name: "Line totals" })).toContainText(" · ");
   await expect(browser.getByRole("status").filter({ hasText: "Showing 1 of 101 lines" })).toBeVisible();
   await expect(browser.getByRole("button", { name: "Load more lines" })).toBeVisible();

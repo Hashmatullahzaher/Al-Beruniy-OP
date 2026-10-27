@@ -26,7 +26,7 @@ test.describe("V1 financial calendar", () => {
     await page.getByRole("button", { name: "New role" }).click();
     const editor = page.getByRole("form", { name: "Role editor" });
     await editor.getByLabel("Role name").fill("Finance Calendar Manager");
-    for (const permission of ["Manage financial calendar", "View Finance inbox and journals"]) {
+    for (const permission of ["Manage financial calendar", "View Finance reports and journals"]) {
       await editor.locator(".permission-row", { hasText: permission }).locator("input").check();
     }
     await editor.getByRole("button", { name: "Create role" }).click();

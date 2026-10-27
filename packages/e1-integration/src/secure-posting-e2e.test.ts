@@ -228,6 +228,10 @@ async function ensureRestrictedLogin(harness: Harness): Promise<void> {
     );
   }
   await harness.executor.query("GRANT abos_e1_runtime TO abos_e1_runtime_test_login");
+  // 0041: the synthetic posting function is frozen; only the frozen-lane holder may execute it.
+  await harness.executor.query("GRANT abos_e1_frozen_lane TO abos_e1_runtime_test_login");
+  // 0041: the synthetic posting function is frozen; only the frozen-lane holder may execute it.
+  await harness.executor.query("GRANT abos_e1_frozen_lane TO abos_e1_runtime_test_login");
 }
 
 async function asRestrictedLogin<T>(

@@ -5,8 +5,8 @@ import { resolve } from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 
 /**
- * WP-C: daily exchange rates, AFN capital requests with rate snapshots, and shareholder capital
- * requests, through the real sign-in, administration and restricted runtime login.
+ * WP-C: daily exchange rates through the real sign-in, administration and restricted runtime login.
+ * (The AFN capital-request half was retired with the E1 lane in 0041.)
  * Reseeds the disposable dev database:
  *   ABOS_E2E_PORT=3193 ABOS_V1_PREVIEW_E2E=1 pnpm exec playwright test v1-currency --workers=1
  */
@@ -15,15 +15,17 @@ const ROOT = resolve(__dirname, "../../..");
 
 test.use({ viewport: { width: 1440, height: 900 } });
 
-function kabulDate(offsetDays = 0): string {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kabul", year: "numeric", month: "2-digit", day: "2-digit" })
-    .format(new Date(Date.now() + offsetDays * 86_400_000));
+/** Unknown paths stream the not-found page (status 200 with the 404 boundary); a removed API route must never answer as JSON. */
+async function expectGone(page: Page, path: string): Promise<void> {
+  const response = await page.request.get(path);
+  expect(response.headers()["content-type"] ?? "", path).toContain("text/html");
+  expect(await response.text(), path).not.toContain('"ok":');
 }
 
 test.describe("V1 currency and shareholder capital", () => {
   test.skip(process.env.ABOS_V1_PREVIEW_E2E !== "1", "Set ABOS_V1_PREVIEW_E2E=1 to reseed the dev database and run this.");
 
-  test("rates are recorded exactly, AFN requests keep their day's rate, and currencies stay separate", async ({ page }) => {
+  test("rates are recorded exactly and corrected with a reason; others can only view them", async ({ page }) => {
     test.setTimeout(300_000);
     mkdirSync(SHOTS, { recursive: true });
     const accounts = seedPreview();
@@ -34,7 +36,7 @@ test.describe("V1 currency and shareholder capital", () => {
     await page.getByRole("button", { name: "New role" }).click();
     const editor = page.getByRole("form", { name: "Role editor" });
     await editor.getByLabel("Role name").fill("Currency and Capital Clerk");
-    for (const permission of ["Record daily exchange rates", "Open capital requests from installments", "View Finance inbox and journals"]) {
+    for (const permission of ["Record daily exchange rates", "View Finance reports and journals"]) {
       await editor.locator(".permission-row", { hasText: permission }).locator("input").check();
     }
     await editor.getByRole("button", { name: "Create role" }).click();
@@ -48,7 +50,7 @@ test.describe("V1 currency and shareholder capital", () => {
 
     // Record today's market rate exactly as quoted, then correct it with a reason.
     await signIn(page, "demo.finance.preparer", accounts["demo.finance.preparer"]);
-    await page.getByRole("link", { name: "Exchange rates" }).click();
+    await page.getByRole("navigation", { name: "Operations" }).getByRole("link", { name: "Exchange rates" }).click();
     await expect(page).toHaveURL(/\/finance\/exchange-rates/);
     const entry = page.getByRole("form", { name: "Record exchange rate" });
     await entry.getByLabel(/^Rate \(/).fill("71.2540");
@@ -71,44 +73,12 @@ test.describe("V1 currency and shareholder capital", () => {
     await expect(table.locator("tbody tr").first()).toContainText("1 USD = 71.264 AFN");
     await page.screenshot({ path: resolve(SHOTS, "01-exchange-rates.png"), fullPage: true });
 
-    // Shareholder capital: a USD request, then an AFN request that keeps today's rate.
-    await page.getByRole("link", { name: "Shareholder capital" }).click();
-    await expect(page).toHaveURL(/\/shareholders/);
-    // 0031: the page has four areas; capital requests are the fourth.
-    await page.getByRole("tab", { name: "Capital Requests" }).click();
-    const totals = page.locator(".shareholder-total");
-    await expect(totals).toHaveCount(2);
-    await expect(totals.nth(0)).toContainText("AFN");
-    await expect(totals.nth(1)).toContainText("USD");
-    const usd = page.locator(".shareholder-agreement", { hasText: "USD" }).filter({ hasText: "SYN-CAP-" });
-    await usd.getByRole("button", { name: "Create request" }).first().click();
-    const usdForm = page.getByRole("form", { name: "Create capital request" });
-    await expect(usdForm.locator("fieldset.shareholder-rates")).toHaveCount(0);
-    await usdForm.getByRole("button", { name: "Create capital request" }).click();
-    await expect(page.locator(".treasury-message.success")).toContainText("Capital request created");
-
-    const afn = page.locator(".shareholder-agreement").filter({ hasText: "SYN-AFN-" });
-    // A day without a recorded rate is refused; no other day's rate is used.
-    await afn.getByRole("button", { name: "Create request" }).first().click();
-    const afnForm = page.getByRole("form", { name: "Create capital request" });
-    await afnForm.getByLabel("Business date").fill(kabulDate(-2));
-    await expect(afnForm.locator(".shareholder-rate-missing")).toBeVisible();
-    await afnForm.getByRole("button", { name: "Create capital request" }).click();
-    await expect(page.locator(".treasury-message.error")).toContainText("record that day's rate first");
-    await afnForm.getByLabel("Business date").fill(kabulDate());
-    await expect(afnForm).toContainText("1 USD = 71.264 AFN");
-    await afnForm.getByRole("button", { name: "Create capital request" }).click();
-    await expect(page.locator(".treasury-message.success")).toContainText("rate kept as its snapshot");
-    await expect(afn.locator(".shareholder-snapshot").first()).toContainText("1 USD = 71.264 AFN");
-    await expect(afn).toContainText("AFN 1,782,500");
-    await expect(totals.nth(0)).toContainText("AFN 1,782,500");
-    await expect(totals.nth(1)).toContainText("USD");
-    await page.screenshot({ path: resolve(SHOTS, "02-shareholder-capital.png"), fullPage: true });
-
+    // 0041: capital requests (and their AFN rate snapshots) left the product with the E1 lane; AFN capital
+    // returns with the FX slice on the direct lane.
     // Dari and phone width.
     await page.getByRole("button", { name: "Switch to Dari" }).click();
-    await expect(page.getByRole("heading", { name: "سرمایه سهامداران" })).toBeVisible();
-    await page.screenshot({ path: resolve(SHOTS, "03-shareholder-dari.png"), fullPage: true });
+    await expect(page.getByRole("heading", { name: "نرخ اسعار" })).toBeVisible();
+    await page.screenshot({ path: resolve(SHOTS, "03-rates-dari.png"), fullPage: true });
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/finance/exchange-rates");
     await expect(page.locator(".rates-table")).toBeVisible();
@@ -130,10 +100,8 @@ test.describe("V1 currency and shareholder capital", () => {
       body: JSON.stringify({ rateDate: new Date().toISOString().slice(0, 10), source: "MARKET", unitCurrency: "USD", quoteCurrency: "AFN", rate: "70" })
     })).status);
     expect(refused).toBe(403);
-    const refusedRequest = await page.evaluate(async () => (await fetch("/api/v1/shareholder/capital-requests", {
-      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ installmentId: crypto.randomUUID() })
-    })).status);
-    expect(refusedRequest).toBe(403);
+    // 0041: the capital-request route left the product with the E1 lane.
+    await expectGone(page, "/api/v1/shareholder/capital-requests");
   });
 });
 

@@ -1,7 +1,6 @@
 "use client";
 
 import { formatDual } from "@abos/calendar";
-import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
 import { AccessGate, api, errorText } from "@/components/AdminUsersWorkspace";
@@ -204,7 +203,6 @@ export function GeneralLedgerWorkspace() {
             {moreProblem ? <p className="treasury-message error" role="alert">{errorText(moreProblem, locale)}</p> : null}
           </div> : null}
         </section>
-        <p className="admin-hint"><Link href="/finance/handoffs">{fa ? "بازکردن صندوق مالی و ردگیری منبع" : "Open Finance inbox for source trace"}</Link></p>
       </> : null}
     </div>
   );

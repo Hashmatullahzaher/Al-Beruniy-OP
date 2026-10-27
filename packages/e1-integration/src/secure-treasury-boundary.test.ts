@@ -179,16 +179,19 @@ if (databaseUrl() === undefined) {
         debit: prepared.world.installmentAmount, credit: prepared.world.installmentAmount
       });
 
+      // 0041: both test logins hold the frozen-lane holder role (one role for all fourteen frozen entry
+      // points), so a cross-lane call reaches the function and is refused by its own authorizer on the
+      // session's grants. Plain runtime logins are refused with "permission denied" (security-ownership).
       await assert.rejects(
         () => restricted((db) => db.query(
           "SELECT abos.finance_handoff_workspace($1)", [prepared.verifierToken])),
-        /permission denied/i
+        /permission denied|Finance authority is missing/i
       );
       await assert.rejects(
         () => financeRestricted((db) => db.query(
           "SELECT abos.treasury_secure_query($1,$2,'LOCATIONS',NULL)",
           [approverSession.token, prepared.world.legalEntityId])),
-        /permission denied/i
+        /permission denied|Treasury authority is missing/i
       );
 
       await assert.rejects(
@@ -423,6 +426,8 @@ async function ensureLogin(harness: Harness): Promise<void> {
       PASSWORD 'synthetic-treasury-runtime-only-2026'`);
   }
   await harness.executor.query("GRANT abos_e1_treasury_runtime TO abos_e1_treasury_runtime_test_login");
+  await harness.executor.query("GRANT abos_e1_frozen_lane TO abos_e1_treasury_runtime_test_login"); // 0041: frozen E1 lane
+  await harness.executor.query("GRANT abos_e1_frozen_lane TO abos_e1_treasury_runtime_test_login"); // 0041: frozen E1 lane
 }
 
 async function ensureFinanceLogin(harness: Harness): Promise<void> {
@@ -437,6 +442,8 @@ async function ensureFinanceLogin(harness: Harness): Promise<void> {
       PASSWORD 'synthetic-finance-runtime-only-2026'`);
   }
   await harness.executor.query("GRANT abos_e1_runtime TO abos_e1_finance_runtime_test_login");
+  await harness.executor.query("GRANT abos_e1_frozen_lane TO abos_e1_finance_runtime_test_login"); // 0041: frozen E1 lane
+  await harness.executor.query("GRANT abos_e1_frozen_lane TO abos_e1_finance_runtime_test_login"); // 0041: frozen E1 lane
 }
 
 async function restricted<T>(operation: (db: SqlExecutor) => Promise<T>): Promise<T> {

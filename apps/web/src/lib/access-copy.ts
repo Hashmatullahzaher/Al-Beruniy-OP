@@ -76,8 +76,8 @@ export const PERMISSION_COPY: Readonly<Record<string, PermissionCopy>> = {
     allows: { en: "Send a verified receipt to the Finance inbox.", fa: "ارسال رسید تاییدشده به صندوق مالی." }
   },
   "finance.report.operational.read": {
-    label: { en: "View Finance inbox and journals", fa: "مشاهده صندوق مالی و ژورنال‌ها" },
-    allows: { en: "See verified handoffs, their evidence, the posted journal and its reconciliation.", fa: "مشاهده تحویل‌های تاییدشده، اسناد، ژورنال ثبت‌شده و تطبیق آن." }
+    label: { en: "View Finance reports and journals", fa: "مشاهده گزارش‌های مالی و ژورنال‌ها" },
+    allows: { en: "See the General Ledger, the Chart of Accounts, the financial calendar and the exchange rates.", fa: "مشاهده تحویل‌های تاییدشده، اسناد، ژورنال ثبت‌شده و تطبیق آن." }
   },
   "finance.calendar.manage": {
     label: { en: "Manage financial calendar", fa: "مدیریت تقویم مالی" },

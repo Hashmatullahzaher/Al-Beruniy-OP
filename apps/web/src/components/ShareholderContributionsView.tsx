@@ -10,7 +10,7 @@ import { CONTRIBUTION_ASSET_CATEGORIES } from "@abos/contracts";
 import { AccessGate, api, errorText } from "@/components/AdminUsersWorkspace";
 import { AppIcon } from "@/components/AppIcon";
 import { exactDecimal } from "@/components/ExchangeRatesWorkspace";
-import { ShareholderCapitalOperations, type CapitalBridgeState } from "@/components/ShareholderCapitalBridge";
+import { capitalOperationsAvailable, ShareholderCapitalOperations, type CapitalBridgeState } from "@/components/ShareholderCapitalBridge";
 import type { Copy } from "@/lib/access-copy";
 
 /**
@@ -371,7 +371,8 @@ function ContributionRow({ c, view, fa, t, canManage, capitalBridge, form, setFo
           </span>
         ) : c.recordStatus === "CANCELLED" && c.cancellationReason ? <small className="contribution-sub">{c.cancellationReason}</small> : null}</td>
       </tr>
-      {c.type === "CASH" && c.recordStatus === "DECLARED" ? <tr className="capital-operation-row"><td colSpan={7}><ShareholderCapitalOperations contribution={c} fa={fa} bridge={capitalBridge} /></td></tr> : null}
+      {/* The live-workflow row exists only when the operations panel has something to show; an empty row is dead UI. */}
+      {capitalOperationsAvailable(capitalBridge, c) ? <tr className="capital-operation-row"><td colSpan={7}><ShareholderCapitalOperations contribution={c} fa={fa} bridge={capitalBridge} /></td></tr> : null}
       {editing ? (
         <tr className="shareholder-form-row"><td colSpan={7}>
           <form className="admin-form shareholder-form" aria-label={fa ? "ویرایش آورده" : "Edit contribution"} onSubmit={submit(() => void run(

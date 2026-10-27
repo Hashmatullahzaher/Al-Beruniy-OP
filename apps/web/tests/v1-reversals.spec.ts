@@ -35,7 +35,7 @@ test.describe("V1 journal reversals", () => {
 
     // The Finance user chooses the posted journal and asks for its reversal with a reason.
     await signIn(page, "demo.finance.preparer", accounts["demo.finance.preparer"]);
-    await page.getByRole("link", { name: "Journal reversals" }).click();
+    await page.getByRole("navigation", { name: "Operations" }).getByRole("link", { name: "Journal reversals" }).click();
     await expect(page).toHaveURL(/\/finance\/reversals/);
     await expect(page.getByText("REVERSAL POSTING IS NOT ENABLED · SYNTHETIC DATA")).toBeVisible();
     await expect(page.getByRole("region", { name: "Reversal posting status" })).toContainText("posting policy");

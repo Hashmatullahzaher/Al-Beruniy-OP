@@ -362,6 +362,8 @@ if (databaseUrl() === undefined) {
 async function prepare(harness: Harness): Promise<{ world: SyntheticWorld; tokens: Tokens }> {
   await resetSchema(harness.pool);
   await harness.executor.query("GRANT abos_e1_runtime TO abos_e1_finance_runtime_test_login");
+      await harness.executor.query("GRANT abos_e1_frozen_lane TO abos_e1_finance_runtime_test_login"); // 0041: frozen E1 lane
+      await harness.executor.query("GRANT abos_e1_frozen_lane TO abos_e1_finance_runtime_test_login"); // 0041: frozen E1 lane
   const world = await seedSyntheticWorld(harness.executor);
   // Creator: manage. Editor: manage and review. Reviewer: review only. Reader: operational read only.
   await grant(harness, world, world.intentCreatorId, ["finance.ledger-account.manage"]);

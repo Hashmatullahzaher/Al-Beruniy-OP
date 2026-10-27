@@ -63,6 +63,20 @@ async function main(): Promise<void> {
       earlier.push(id);
     }
     const [preparerId = "", posterId = ""] = earlier;
+    // 0041: the retired E1 Treasury codes can no longer come from a role, and the preview seed's role
+    // synchronisation revoked the direct grants the synthetic world had given these two people. The fixture
+    // revives them directly, as the operator would, so the frozen custody pipeline still yields one posted journal.
+    for (const [name, codes] of [
+      ["Synthetic Cashier", ["treasury.read", "treasury.cash-receipt.record", "treasury.cash-count.record"]],
+      ["Synthetic Count Confirmer", ["treasury.read", "treasury.cash-receipt.verify", "treasury.handoff.create"]]
+    ] as const) {
+      const userId = await person(name);
+      for (const code of codes) {
+        await owner.query(`INSERT INTO abos.user_permission_grants (user_account_id, legal_entity_id, permission_code, granted_by_user_account_id)
+                           VALUES ($1, $2, $3, $4)
+                           ON CONFLICT (user_account_id, legal_entity_id, permission_code) DO UPDATE SET revoked_at = NULL`, [userId, entity.id, code, bootstrap]);
+      }
+    }
     for (const permission of ["finance.posting-intent.approve", "finance.journal.post"]) {
       await owner.query(`INSERT INTO abos.user_permission_grants (user_account_id, legal_entity_id, permission_code, granted_by_user_account_id)
                          VALUES ($1, $2, $3, $4)`, [posterId, entity.id, permission, bootstrap]);

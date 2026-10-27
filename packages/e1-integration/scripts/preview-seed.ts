@@ -27,17 +27,19 @@ import { addInstallment, bindSyntheticFinanceApprovalEvidence, bindSyntheticTrea
 
 pg.types.setTypeParser(1700, (value: string) => value);
 
+// 0041 retired the E1 permission codes; the preview people hold ordinary operational roles. Specs that
+// need more (expenses, Chart of Accounts, reversals, temporary funding) assign it themselves.
 const ROLES = [
-  { name: "Cashier", description: "Records cash received into an assigned safe, counts it and submits it for verification.",
-    permissions: ["treasury.read", "treasury.cash-receipt.record", "treasury.cash-count.record"] },
-  { name: "Treasury Verifier", description: "Independently verifies cash recorded by someone else and hands it to Finance.",
-    permissions: ["treasury.read", "treasury.cash-receipt.verify", "treasury.handoff.create"] },
-  { name: "Treasury Manager", description: "Manages safes and cash accounts and assigns cashiers to safes.",
-    permissions: ["treasury.read", "treasury.cash-location.manage"] },
-  { name: "Finance Preparer", description: "Prepares journals for verified cash handed over by Treasury.",
-    permissions: ["finance.report.operational.read", "finance.posting-intent.create"] },
-  { name: "Finance Approver", description: "Independently approves prepared journals and posts approved ones.",
-    permissions: ["finance.report.operational.read", "finance.posting-intent.approve", "finance.journal.post"] }
+  { name: "Cashier", description: "May read temporary funding; holds no expense, Treasury or administration authority.",
+    permissions: ["finance.temporary-funding.read"] },
+  { name: "Treasury Verifier", description: "Independently verifies custody of recorded shareholder capital receipts.",
+    permissions: ["treasury.capital-receipt.verify"] },
+  { name: "Treasury Manager", description: "Sets up the company's Safes and Treasury accounts.",
+    permissions: ["treasury.cash-location.manage", "treasury.operational-account.manage"] },
+  { name: "Finance Preparer", description: "Reads operational Finance reports; further authority is assigned per preview.",
+    permissions: ["finance.report.operational.read"] },
+  { name: "Finance Approver", description: "Reads operational Finance reports; approval authority is assigned per preview.",
+    permissions: ["finance.report.operational.read"] }
 ] as const;
 
 const PEOPLE = [

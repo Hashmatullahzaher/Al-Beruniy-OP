@@ -1,5 +1,10 @@
 # E1 owner demonstration — Treasury to General Ledger
 
+> **Retired with migration 0041 (Slice 1 D3, 2026-10-27).** The screens this demonstration walks through
+> (`/finance/treasury`, `/finance/handoffs`, the token sign-in forms and the capital-request panel) left the
+> product; the database functions behind them are frozen (`abos.frozen_lanes`) and keep their records and
+> their integration-test coverage. This file is kept as history and no longer describes a runnable journey.
+
 Branch `agent/claude/stage-1-e1-owner-demo`, based on Codex integration commit `6243f0d`.
 Synthetic data only. Development sandbox only. Production posting remains blocked.
 

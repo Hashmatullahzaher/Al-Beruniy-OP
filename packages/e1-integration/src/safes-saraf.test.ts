@@ -437,5 +437,7 @@ async function ensureLogin(harness: Harness): Promise<void> {
     await harness.executor.query(`CREATE ROLE ${LOGIN} LOGIN INHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION PASSWORD '${PASSWORD}'`);
   }
   await harness.executor.query(`GRANT abos_e1_treasury_runtime TO ${LOGIN}`);
+  await harness.executor.query(`GRANT abos_e1_frozen_lane TO ${LOGIN}`); // 0041: the E1 safes screen is a frozen lane
+  await harness.executor.query(`GRANT abos_e1_frozen_lane TO ${LOGIN}`); // 0041: the E1 safes screen is a frozen lane
 }
 

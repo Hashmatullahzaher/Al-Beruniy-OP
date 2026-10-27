@@ -59,8 +59,29 @@ if (databaseUrl() === undefined) {
           can_grant_permission: false,
           can_edit_gate: false,
           can_create_in_schema: false,
-          can_execute_secure_post: true
+          can_execute_secure_post: false // 0041: the synthetic posting function is frozen
         });
+      });
+    });
+
+    test("0041: the frozen E1 lane is executable only by its holder role, and the inventory view says so", async () => {
+      const lanes = await harness.executor.query<{
+        entry_point: string; function_exists: boolean; finance_runtime_can_execute: boolean;
+        treasury_runtime_can_execute: boolean; identity_runtime_can_execute: boolean; frozen_lane_can_execute: boolean;
+      }>("SELECT * FROM abos.frozen_lanes ORDER BY entry_point");
+      assert.equal(lanes.rows.length, 14, "fourteen reviewed E1 entry points are frozen");
+      for (const lane of lanes.rows) {
+        assert.equal(lane.function_exists, true, `${lane.entry_point} still exists`);
+        assert.equal(lane.finance_runtime_can_execute, false, `${lane.entry_point}: finance runtime`);
+        assert.equal(lane.treasury_runtime_can_execute, false, `${lane.entry_point}: treasury runtime`);
+        assert.equal(lane.identity_runtime_can_execute, false, `${lane.entry_point}: identity runtime`);
+        assert.equal(lane.frozen_lane_can_execute, true, `${lane.entry_point}: frozen lane`);
+      }
+      const member = await harness.executor.query<{ member: boolean }>("SELECT pg_has_role('abos_e1_runtime', 'abos_e1_frozen_lane', 'MEMBER') AS member");
+      assert.equal(member.rows[0]?.member, false, "the runtime is not a member of the frozen-lane holder");
+      await asRuntime(harness, async (client) => {
+        const view = await client.query<{ count: string }>("SELECT count(*)::text AS count FROM abos.frozen_lanes WHERE NOT finance_runtime_can_execute");
+        assert.equal(view.rows[0]?.count, "14", "the runtime can read the inventory and sees itself locked out");
       });
     });
 

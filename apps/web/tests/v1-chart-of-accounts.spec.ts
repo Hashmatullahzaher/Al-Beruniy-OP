@@ -31,7 +31,7 @@ test.describe("V1 Chart of Accounts", () => {
 
     // The manager adds a group and two posting accounts; a likely duplicate needs confirmation.
     await signIn(page, "demo.finance.preparer", accounts["demo.finance.preparer"]);
-    await page.getByRole("link", { name: "Chart of Accounts" }).click();
+    await page.getByRole("navigation", { name: "Operations" }).getByRole("link", { name: "Chart of Accounts" }).click();
     await expect(page).toHaveURL(/\/finance\/accounts/);
     await expect(page.getByText("NO FIXED CHART IS SHIPPED")).toBeVisible();
     await addAccount(page, { code: "SYN-EXP", name: "Synthetic Operating Expenses", type: "EXPENSE", currency: "", posting: false });
@@ -48,7 +48,8 @@ test.describe("V1 Chart of Accounts", () => {
     await page.screenshot({ path: resolve(SHOTS, "01-duplicate-warning.png") });
     await form.getByLabel("I have checked the warnings; this is not a duplicate.").check();
     await form.getByRole("button", { name: "Create account" }).click();
-    await expect(page.locator(".treasury-message.success")).toContainText("waits in the review list");
+    // 0039: the message states the policy outcome; the review list below proves the account is waiting there.
+    await expect(page.locator(".treasury-message.success")).toContainText("Account created under the current approval policy.");
     // An exact code is refused before it is even sent.
     await page.getByRole("button", { name: "New account" }).click();
     await form.getByLabel("Account code").fill("syn-exp-100");

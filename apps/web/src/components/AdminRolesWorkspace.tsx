@@ -10,7 +10,7 @@ import { StageZeroPageHeader } from "@/components/StageZeroWorkspace";
 import { CATEGORY_COPY, PERMISSION_COPY, type Copy } from "@/lib/access-copy";
 
 interface CatalogueEntry {
-  readonly code: string; readonly category: string; readonly availability: "ACTIVE" | "UNAVAILABLE_IN_PREVIEW";
+  readonly code: string; readonly category: string; readonly availability: "ACTIVE" | "UNAVAILABLE_IN_PREVIEW" | "RETIRED";
   readonly independenceEnforced: boolean; readonly administrative: boolean; readonly catalogueVersion: number;
 }
 
@@ -125,19 +125,23 @@ export function AdminRolesWorkspace() {
                   <legend>{t(CATEGORY_COPY[category] ?? { en: category, fa: category })}</legend>
                   {catalogue.filter((entry) => entry.category === category).map((entry) => {
                     const copy = PERMISSION_COPY[entry.code];
+                    const retired = entry.availability === "RETIRED";
                     const unavailable = entry.availability !== "ACTIVE";
                     const superOnly = (entry.administrative || entry.independenceEnforced) && !isSuperAdmin;
                     const allowed = draft.permissions.has(entry.code);
+                    // 0041: a retired code is never offered; it stays visible only while this role still holds it.
+                    if (retired && !allowed) return null;
                     return (
                       <label key={entry.code} className={`permission-row ${allowed ? "allowed" : "denied"} ${unavailable ? "unavailable" : ""}`}>
                         <input type="checkbox" checked={allowed} disabled={unavailable || superOnly}
                           onChange={() => setDraft({ ...draft, permissions: toggle(draft.permissions, entry.code) })} />
-                        <span className="permission-state" aria-hidden="true">{unavailable ? (fa ? "موجود نیست" : "Unavailable") : allowed ? (fa ? "مجاز" : "Allowed") : (fa ? "غیرمجاز" : "Not allowed")}</span>
+                        <span className="permission-state" aria-hidden="true">{retired ? (fa ? "بازنشسته" : "Retired") : unavailable ? (fa ? "موجود نیست" : "Unavailable") : allowed ? (fa ? "مجاز" : "Allowed") : (fa ? "غیرمجاز" : "Not allowed")}</span>
                         <span className="permission-text">
                           <strong>{copy ? t(copy.label) : entry.code}</strong>
                           <small>{copy ? t(copy.allows) : ""}</small>
                           {entry.independenceEnforced && copy?.independence ? <em className="permission-independent">{t(copy.independence)}</em> : null}
-                          {unavailable ? <em className="permission-unavailable">{fa ? "در این پیش‌نمایش پیاده نشده است؛ قابل انتخاب نیست." : "Not implemented in this preview; cannot be chosen."}</em> : null}
+                          {retired ? <em className="permission-unavailable">{fa ? "با کنار گذاشتن مسیر آزمایشی بازنشسته شد؛ این نقش تا زمانی که مدیر آن را بردارد، آن را نگه می‌دارد." : "Retired with the preview lane; this role keeps it until an administrator removes it."}</em>
+                            : unavailable ? <em className="permission-unavailable">{fa ? "در این پیش‌نمایش پیاده نشده است؛ قابل انتخاب نیست." : "Not implemented in this preview; cannot be chosen."}</em> : null}
                           {superOnly ? <em className="permission-unavailable">{fa ? "فقط مدیر ارشد می‌تواند این را تعیین کند." : "Only a Super Administrator can set this."}</em> : null}
                         </span>
                       </label>

@@ -191,7 +191,7 @@ export function DirectShareholderCapitalWorkspace() {
         {view.permissions.canManage && !form ? <button className="treasury-button gold" onClick={() => start("add")}>{copy("Add shareholder", "افزودن سهامدار")}</button> : null}
         <button className="treasury-button" disabled={disabled} onClick={() => void refresh()}>{copy("Refresh", "تازه‌سازی")}</button>
         <Link className="treasury-button" href="/finance/general-ledger">{copy("General Ledger", "دفتر کل")}</Link>
-        <Link className="treasury-button" href="/finance/treasury">{copy("Safes & accounts", "صندوق‌ها و حساب‌ها")}</Link>
+        <Link className="treasury-button" href="/finance/setup">{copy("Finance setup", "تنظیمات مالی")}</Link>
       </div>
       {!view.receiveAvailable ? <p className="treasury-message" role="status">{copy("Recording capital is currently unavailable. Ask your Finance administrator to complete the company’s settings.", "ثبت سرمایه فعلاً در دسترس نیست. از مدیر مالی بخواهید تنظیمات شرکت را تکمیل کند.")}</p> : null}
       {form ? <form className="admin-form shareholder-form" aria-label={form.kind === "add" ? copy("Add shareholder", "افزودن سهامدار") : copy("Add money", "افزودن پول")} onSubmit={event => void submit(event)} aria-busy={busy}>

@@ -13,6 +13,8 @@ export interface SignedInUser {
   readonly displayName: string;
   readonly jobTitle: string | null;
   readonly legalEntityName: string;
+  /** Names of the active roles assigned in this company, for display only. */
+  readonly roles: readonly string[];
   readonly permissions: readonly string[];
   readonly sessionExpiresAt: string;
 }

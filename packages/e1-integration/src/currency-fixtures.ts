@@ -21,6 +21,7 @@ export async function ensureFinanceLogin(harness: Harness): Promise<void> {
   const verb = exists.rows[0]?.exists === true ? "ALTER" : "CREATE";
   const extra = verb === "CREATE" ? " NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION" : "";
   await harness.executor.query(`${verb} ROLE ${FINANCE_LOGIN.name} LOGIN INHERIT${extra} PASSWORD '${FINANCE_LOGIN.password}'`);
+  await harness.executor.query(`GRANT abos_e1_frozen_lane TO ${FINANCE_LOGIN.name}`); // 0041: capital requests are a frozen E1 lane
 }
 
 /** Runs through the restricted runtime login (member of abos_e1_runtime only). */
