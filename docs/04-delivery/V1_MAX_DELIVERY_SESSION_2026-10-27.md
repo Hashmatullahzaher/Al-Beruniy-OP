@@ -133,3 +133,23 @@ stays at trunk `0aa6512` / migration 0040 throughout unless an entry says otherw
   amended before any preserved deployment, checksum `5176103a…`); new regression test for a close during an
   in-flight capital receipt; full integration 283/283; production-shaped upgrade still only the intended
   changes; no table-wide write grant added. Report section 4 of `V1_SAFES_SLICE3.md`. Not deployed.
+
+## Production deployment 0045 → 0046 (owner authorization of 2026-10-27)
+
+- Deployed trunk SHA `6380c16471d51dc451113acdbcd1209e225cd781`; 0045 applied from `787128c` (its catalog ends at
+  0045; ancestor of trunk), 0046 from `6380c16`, each through a guarded helper pinning predecessor and checksums
+  (refusals of wrong predecessor, missing, future, altered and mismatched states proven on copies). Checksums:
+  0045 `3bbc150b…466e`, 0046 `5176103a…62e0`.
+- Package `AlBeruniyOS/backups/deployment-0045-0046-20261027-211406` (114 files sealed). Pre-0045 dump sha256
+  `31e9983896f558c2c2cedfeef6f2e9944b287fa15d2c625574187812a1492b35`; test restore 90/90 identical; rehearsal on
+  the restored copy identical to production at each step and to a fresh install of 6380c16 except three older
+  constraints (below).
+- After 0045: only the migration registry changed among tables; business data, journals, periods, the Safe and
+  the legacy tables unchanged; no runtime write; read model executable only by the operational Finance owner.
+- After 0046: the two new tables exist and are empty; OPENING_BALANCE ACTIVE; OPENING_BALANCE_EQUITY control
+  and CLOSED status present; exactly `treasury.safe.read` and `treasury.opening-balance.record` added; the Finance
+  runtime gained EXECUTE on exactly the three entry points; nothing for PUBLIC; table-wide grant list unchanged;
+  Safe کسه book balance 0 with no movements; opening equity MISSING; 0 journals; 12 periods PENDING.
+- Runtime and startup guard repinned to 6380c16; health ok; route checks green (Safes page renders, its API
+  refuses without a session); smoke 7/7 and browser 29/29 after warm rerun (cold-compile timeouts first);
+  vault reconciliation CLEAN. No real financial transaction and no opening balance were created.
