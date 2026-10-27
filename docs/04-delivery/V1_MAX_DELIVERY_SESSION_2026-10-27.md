@@ -91,3 +91,24 @@ stays at trunk `0aa6512` / migration 0040 throughout unless an entry says otherw
 - Full integration on a fresh database 270/270; unit 169/169; typecheck 12/12; lint clean; build 11/11.
   Production-shaped copy 0043→0044: 89/90 tables byte-identical (registry +1); writers keep owner,
   security, `search_path` and grants. Not deployed.
+
+## Production deployment 0042 → 0043 → 0044 (owner authorization of 2026-10-27)
+
+- Deployed trunk SHA `7ae43630f2a84f04593b1e5806945b1f954e8c6e`; applied one migration at a time, each from
+  the trunk commit whose catalog ends at it (a6a2c51, d335846, 7ae4363), through guarded helpers that pin
+  the predecessor and checksums and refuse a missing, extra, future or altered migration (refusals proven
+  on disposable copies). Checksums: 0042 `e9fbb93c…8a50`, 0043 `57da48ca…3155`, 0044 `d21e3445…dfbc2`.
+- Private package `AlBeruniyOS/backups/deployment-0042-0044-20261027-165730` (ACL STC + SYSTEM; 108 files
+  sealed). Pre-0042 dump sha256 `a2ea8a6752325531f98fe6ad2b4c558014e1ad3b06410c9d82341daaff82d5f6`; test
+  restore 89/89 identical; full rehearsal on the restored copy ended identical to a fresh install of
+  7ae4363 (510 catalog entries).
+- Each step verified on production before the next and identical to the rehearsal: 0042 changed only the
+  migration registry, eight function bodies (date expression only) and one grant; 0043 added the 11-row
+  registry, kernel and four validators and replaced three validators (bridge untouched); 0044 changed two
+  writer bodies and added the two kernel functions. Business counts, grants, roles, 0 journals and 12
+  PENDING periods unchanged throughout; vault reconciliation CLEAN.
+- Runtime and startup guard repinned to 7ae4363; health reports it; route checks, live-safe smoke 6/6 and
+  mocked browser 22/22 green. No real transaction was created.
+- On a restored copy of post-0044 production: signed-in direct capital and expense posted through the
+  kernel with the reviewed shape; kernel, equivalence and posting suites 77/77 at the deployed SHA.
+- Test-harness debt TH-1 recorded in `OPEN_ITEMS.md`.

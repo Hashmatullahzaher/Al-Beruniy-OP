@@ -111,3 +111,18 @@ Recommended: one small migration after the posting kernel, same technique and sa
 | Unit / typecheck / lint / build | 169/169; 12/12; clean; 11/11 tasks, 12 pages |
 | Browser (shareholder setup and contributions, direct capital, D3 acceptance, shell) | 24/24 |
 | Upgrade of a restored copy of production (post-0041 dump `755eb55e…`) through the guarded helper `apply_catalog_0042.mts` | exactly 0042 applied; rerun refused; 88/89 tables identical, only `schema_migrations` 40→41; no shareholder-lane function reads `current_date`; only the setup owner gained `business_today()` |
+
+## 8. Scope clarification recorded before production deployment (2026-10-27)
+
+The owner approved the eighth function on condition that it is the shareholder-profile role trigger and
+that its change is strictly `current_date` → `abos.business_today()`. Recorded facts:
+
+| Item | Value |
+|---|---|
+| Function | `abos.validate_shareholder_profile_role()` returns `trigger`, no arguments, plpgsql |
+| Trigger | `shareholder_profiles_role_guard` BEFORE INSERT OR UPDATE ON `abos.shareholder_profiles` FOR EACH ROW |
+| Owner on production | `abos_local_operator` (the migration operator); SECURITY INVOKER; no `search_path` setting; default ACL; all unchanged by 0042 |
+| Latest definition before 0042 | 0001 |
+| Why it is the same failure | it requires a SHAREHOLDER role with `effective_from <= current_date`; 0042 dates that role on the Kabul day, so between 00:00 and 04:30 Kabul the new role is "not yet effective" on the UTC day and the profile insert is refused |
+| Diff | body lines 7–8 only: both `current_date` occurrences become `abos.business_today()` |
+| Proof | on the restored production copy and on production, the restated body with `abos.business_today()` read back as `current_date` is byte-identical to the 0041 body (all eight functions); owner, security, configuration and privileges unchanged |
