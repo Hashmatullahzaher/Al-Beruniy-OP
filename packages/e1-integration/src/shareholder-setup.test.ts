@@ -758,7 +758,6 @@ async function ensureLogin(harness: Harness): Promise<void> {
   await harness.executor.query(`ALTER ROLE ${LOGIN.name} LOGIN PASSWORD '${LOGIN.password}'`);
   await harness.executor.query(`GRANT abos_e1_runtime TO ${LOGIN.name}`);
   await harness.executor.query(`GRANT abos_e1_frozen_lane TO ${LOGIN.name}`); // 0041: capital requests are a frozen E1 lane
-  await harness.executor.query(`GRANT abos_e1_frozen_lane TO ${LOGIN.name}`); // 0041: capital requests are a frozen E1 lane
 }
 
 function restrictedFinance(): { executor: PostgresExecutor; close(): Promise<void> } {

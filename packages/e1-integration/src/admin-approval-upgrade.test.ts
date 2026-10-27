@@ -24,7 +24,7 @@ const NEW_GOVERNANCE_COLUMNS = [
 if (databaseUrl() === undefined) {
   test("0039 Admin approval controls historical upgrade", () => assert.fail(MISSING_DATABASE_MESSAGE));
 } else {
-  describe("0038 through 0041 approval controls, direct-capital and synthetic-lane retirement zero-backfill upgrade", () => {
+  describe("0038 through 0042 approval controls, direct-capital, synthetic-lane retirement and business-day zero-backfill upgrade", () => {
     let harness: Harness;
     before(async () => { harness = await openHarness(SYNTHETIC_AUTH_CONFIGURATION.runtimeMarker); });
     after(async () => { await harness?.close(); });
@@ -99,17 +99,17 @@ if (databaseUrl() === undefined) {
           const beforeRegistry = (await client.query("SELECT * FROM abos.schema_migrations ORDER BY migration_id")).rows;
           const governanceBefore = (await client.query("SELECT to_jsonb(g) AS row FROM abos.ledger_account_governance g ORDER BY ledger_account_id")).rows;
           assert.equal(governanceBefore.length, 3);
-          assert.deepEqual(await applyMigrations(tx, migrations), [MIGRATION, "0040_v1_direct_shareholder_capital", "0041_v1_retire_synthetic_lane"]);
+          assert.deepEqual(await applyMigrations(tx, migrations), [MIGRATION, "0040_v1_direct_shareholder_capital", "0041_v1_retire_synthetic_lane", "0042_v1_shareholder_business_day"]);
           const afterTables = await tableNames(client);
           assert.deepEqual(afterTables.filter((name) => !beforeTables.includes(name)), [...NEW_TABLES].sort());
           assert.deepEqual(await snapshots(client, beforeTables), beforeBusiness,
             "all historical columns in every business/security table are byte-for-byte preserved");
-          assert.deepEqual((await client.query("SELECT * FROM abos.schema_migrations WHERE migration_id<>ALL($1::text[]) ORDER BY migration_id", [[MIGRATION, "0040_v1_direct_shareholder_capital", "0041_v1_retire_synthetic_lane"]])).rows,
+          assert.deepEqual((await client.query("SELECT * FROM abos.schema_migrations WHERE migration_id<>ALL($1::text[]) ORDER BY migration_id", [[MIGRATION, "0040_v1_direct_shareholder_capital", "0041_v1_retire_synthetic_lane", "0042_v1_shareholder_business_day"]])).rows,
             beforeRegistry, "all 0001-0038 registry values, checksums and timestamps are unchanged");
           const upgraded = (await client.query("SELECT checksum_sha256 FROM abos.schema_migrations WHERE migration_id=$1", [MIGRATION])).rows;
           assert.equal(upgraded.length, 1, "0039 recorded exactly once");
           assert.equal(upgraded[0]?.checksum_sha256, migrations[index]?.checksumSha256);
-          assert.equal(Number((await client.query("SELECT count(*) AS n FROM abos.schema_migrations")).rows[0]?.n), beforeRegistry.length + 3);
+          assert.equal(Number((await client.query("SELECT count(*) AS n FROM abos.schema_migrations")).rows[0]?.n), beforeRegistry.length + 4);
           assert.deepEqual((await client.query(`SELECT to_jsonb(g)-$1::text[] AS row
             FROM abos.ledger_account_governance g ORDER BY ledger_account_id`, [NEW_GOVERNANCE_COLUMNS])).rows, governanceBefore);
           const governanceAdded = (await client.query(`SELECT approval_required,finance_workflow_policy_version_id,

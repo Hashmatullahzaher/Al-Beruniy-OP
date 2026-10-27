@@ -75,4 +75,4 @@ Resolve before dependent production configuration:
 - Telegram webhook domain/secret and environment separation
 - Telegram allowed actions, step-up authentication policy and group-chat policy
 - Telegram notification categories and recipient rules
-
+- **Known defect D3-F2 (scheduled, no decision needed): UTC day outside the shareholder lane.** Six operational functions still judge "today" on PostgreSQL's `current_date` (UTC on production) instead of the Kabul business day (`abos.business_today()`): exchange-rate view and recording, fiscal-year generation, the Safe and Saraf account guards, the Finance-setup workspace and the temporary-funding workspace. Effects are limited to 00:00-04:30 Kabul time; details and the fix plan are in `docs/04-delivery/V1_SHAREHOLDER_BUSINESS_DAY_0042.md` section 6. The shareholder setup lane itself is fixed by 0042.
