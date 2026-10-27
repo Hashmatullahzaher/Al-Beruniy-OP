@@ -159,6 +159,19 @@ export const PERMISSION_COPY: Readonly<Record<string, PermissionCopy>> = {
     label: { en: "Set Safe opening balances", fa: "ثبت موجودی افتتاحیهٔ صندوق" },
     allows: { en: "Record the opening balance of a Safe once, at the business start. It is recorded in the books at once and is never edited; a mistake is corrected by reversal.", fa: "ثبت موجودی افتتاحیهٔ یک صندوق برای یک بار، در آغاز کار. فوراً در دفاتر ثبت می‌شود و هرگز ویرایش نمی‌شود؛ اشتباه با برگشت اصلاح می‌شود." }
   },
+  // Money movements (0047).
+  "treasury.receipt.record": {
+    label: { en: "Receive cash into a Safe", fa: "دریافت پول در صندوق" },
+    allows: { en: "Record money received into a Safe or Saraf account as other income, in one save. It is recorded in the books at once; a mistake is corrected by reversal, never edited.", fa: "ثبت پول دریافت‌شده در صندوق یا حساب صراف به‌عنوان عاید دیگر، با یک ذخیره. فوراً در دفاتر ثبت می‌شود؛ اشتباه با برگشت اصلاح می‌شود، هرگز ویرایش نمی‌شود." }
+  },
+  "treasury.transfer.record": {
+    label: { en: "Transfer between Safes and Saraf accounts", fa: "انتقال میان صندوق‌ها و حساب‌های صراف" },
+    allows: { en: "Move money from one Safe or Saraf account to another in the same currency, in one save. Both accounts show the movement at once.", fa: "انتقال پول از یک صندوق یا حساب صراف به دیگری با همان واحد پول، با یک ذخیره. هر دو حساب حرکت را فوراً نشان می‌دهند." }
+  },
+  "treasury.payment.record": {
+    label: { en: "Pay what the company owes", fa: "پرداخت آنچه شرکت بدهکار است" },
+    allows: { en: "Pay a supplier, contractor, salary or other amount the company owes from a Safe or Saraf account, against a payable account, in one save. Paying an expense still needs the permission to record expenses.", fa: "پرداخت به تأمین‌کننده، قراردادی، معاش یا مبلغ دیگری که شرکت بدهکار است از صندوق یا حساب صراف، در مقابل یک حساب قابل پرداخت، با یک ذخیره. پرداخت مصرف همچنان به صلاحیت ثبت مصارف نیاز دارد." }
+  },
   "finance.expense-category.manage": {
     label: { en: "Set up expense types", fa: "تنظیم انواع مصرف" },
     allows: { en: "Add and edit the expense types people choose when recording an expense, each linked to an expense account in the Chart of Accounts. Does not record any transaction.", fa: "افزودن و ویرایش انواع مصرف که هنگام ثبت مصرف انتخاب می‌شوند؛ هر کدام به یک حساب مصرف در جدول حساب‌ها وصل است. هیچ معامله‌ای ثبت نمی‌کند." }

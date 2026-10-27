@@ -1976,5 +1976,10 @@ button.review-context { border: 0; border-inline-start: 1px solid rgba(102, 142,
 .safe-direction.in { background: rgba(70, 170, 120, .18); color: #8fe0b4; }
 .safe-direction.out { background: rgba(214, 96, 96, .18); color: #f2a3a3; }
 .safe-status-closed { opacity: .7; }
+.money-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.money-form select { min-height: 38px; padding: 7px 10px; border: 1px solid rgba(73, 145, 192, .35); border-radius: 7px; background: rgba(3, 14, 25, .8); color: white; font: inherit; font-size: 12.5px; }
+.money-form fieldset { display: flex; flex-wrap: wrap; gap: 14px; margin: 0; padding: 6px 0; border: 0; }
+.money-form fieldset legend { margin-bottom: 4px; font-size: 12px; }
+.money-form small { display: block; margin-top: 4px; opacity: .8; }
 .table-scroll { overflow-x: auto; }
 @media (max-width: 760px) { .safe-figures { grid-template-columns: repeat(2, minmax(0, 1fr)); } .safe-opening-form { grid-template-columns: minmax(0, 1fr); } .safe-book { text-align: start; } }

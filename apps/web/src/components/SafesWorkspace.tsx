@@ -1,17 +1,19 @@
 "use client";
 
-import type { SafeOpeningBalanceResult, SafeView, SafesWorkspace as Workspace } from "@abos/contracts";
+import type { MoneyOptions, SafeOpeningBalanceResult, SafeView, SafesWorkspace as Workspace } from "@abos/contracts";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
 import { AccessGate, api, errorText } from "@/components/AdminUsersWorkspace";
 import { AppIcon } from "@/components/AppIcon";
 import { useLocale } from "@/components/LocaleProvider";
+import { MONEY_ACTION_COPY, MoneyMovementForm, type MoneyKind } from "@/components/MoneyMovementForms";
 import { localizedName, money } from "@/components/OperationalFinanceShared";
 import { StageZeroPageHeader } from "@/components/StageZeroWorkspace";
 import type { Copy } from "@/lib/access-copy";
 
 const ENDPOINT = "/api/v1/finance/safes";
+const MONEY_ENDPOINT = "/api/v1/finance/money";
 const AMOUNT = /^(0|[1-9][0-9]*)(\.[0-9]+)?$/;
 
 const TYPE_COPY: Readonly<Record<string, Copy>> = {
@@ -35,7 +37,10 @@ const SOURCE_COPY: Readonly<Record<string, Copy>> = {
   OPERATIONAL_EXPENSE: { en: "Expense", fa: "مصرف" },
   DIRECT_SHAREHOLDER_CAPITAL: { en: "Shareholder capital", fa: "سرمایهٔ سهامدار" },
   TEMPORARY_FUNDING: { en: "Temporary funding", fa: "تمویل موقت" },
-  TEMPORARY_FUNDING_SETTLEMENT: { en: "Temporary funding repaid", fa: "بازپرداخت تمویل موقت" }
+  TEMPORARY_FUNDING_SETTLEMENT: { en: "Temporary funding repaid", fa: "بازپرداخت تمویل موقت" },
+  CASH_RECEIPT: { en: "Cash received", fa: "پول دریافت‌شده" },
+  TREASURY_TRANSFER: { en: "Transfer", fa: "انتقال" },
+  PAYMENT: { en: "Payment", fa: "پرداخت" }
 };
 
 /** Dari for the refusal codes returned by safesErrorResponse. */
@@ -78,6 +83,8 @@ export function SafesWorkspace() {
   const [notice, setNotice] = useState<Copy | null>(null);
   const [busy, setBusy] = useState(false);
   const [openFor, setOpenFor] = useState<string | null>(null);
+  const [moneyOptions, setMoneyOptions] = useState<MoneyOptions | null>(null);
+  const [moneyFor, setMoneyFor] = useState<{ safeId: string; kind: MoneyKind } | null>(null);
 
   const apply = useCallback((result: Awaited<ReturnType<typeof api<Workspace>>>) => {
     if (!result.ok) {
@@ -94,6 +101,25 @@ export function SafesWorkspace() {
     void api<Workspace>(ENDPOINT).then((result) => { if (current) apply(result); });
     return () => { current = false; };
   }, [apply]);
+
+  // Money movement options; without any movement permission the Safes stay read-only.
+  const loadMoney = useCallback(async () => {
+    const result = await api<MoneyOptions>(MONEY_ENDPOINT);
+    setMoneyOptions(result.ok ? result.data : null);
+  }, []);
+  useEffect(() => {
+    let current = true;
+    void api<MoneyOptions>(MONEY_ENDPOINT).then((result) => { if (current) setMoneyOptions(result.ok ? result.data : null); });
+    return () => { current = false; };
+  }, []);
+
+  const moneyDone = useCallback(async (done: Copy) => {
+    const result = await api<Workspace>(ENDPOINT);
+    apply(result);
+    await loadMoney();
+    setError(null);
+    setNotice(done);
+  }, [apply, loadMoney]);
 
   const post = useCallback(async (body: Record<string, unknown>, done: Copy): Promise<boolean> => {
     setBusy(true);
@@ -158,21 +184,34 @@ export function SafesWorkspace() {
           <div className="safes-list">{workspace.safes.map((safe) => (
             <SafeCard key={safe.id} safe={safe} workspace={workspace} fa={fa} t={t} busy={busy}
               formOpen={openFor === safe.id} toggleForm={() => setOpenFor(openFor === safe.id ? null : safe.id)}
-              post={post} closeForm={() => setOpenFor(null)} />))}</div>
+              post={post} closeForm={() => setOpenFor(null)} moneyOptions={moneyOptions}
+              moneyKind={moneyFor?.safeId === safe.id ? moneyFor.kind : null}
+              openMoney={(kind) => { setNotice(null); setMoneyFor(moneyFor?.safeId === safe.id && moneyFor.kind === kind ? null : { safeId: safe.id, kind }); }}
+              // A save that finishes later closes only its own form, never one opened since.
+              closeMoney={(kind) => setMoneyFor((open) => (open?.safeId === safe.id && open.kind === kind ? null : open))} moneyDone={moneyDone} />))}</div>
         )}
       </>}
     </div>
   );
 }
 
-function SafeCard({ safe, workspace, fa, t, busy, formOpen, toggleForm, closeForm, post }: Readonly<{
+function SafeCard({ safe, workspace, fa, t, busy, formOpen, toggleForm, closeForm, post, moneyOptions, moneyKind, openMoney, closeMoney, moneyDone }: Readonly<{
   safe: SafeView; workspace: Workspace; fa: boolean; t: (copy: Copy) => string; busy: boolean; formOpen: boolean;
   toggleForm: () => void; closeForm: () => void; post: (body: Record<string, unknown>, done: Copy) => Promise<boolean>;
+  moneyOptions: MoneyOptions | null; moneyKind: MoneyKind | null; openMoney: (kind: MoneyKind) => void; closeMoney: (kind: MoneyKind) => void;
+  moneyDone: (done: Copy) => Promise<void>;
 }>) {
   const name = localizedName(safe, fa);
   const headingId = `safe-${safe.id}`;
   const canOpen = workspace.canRecordOpeningBalance && safe.status === "ACTIVE" && safe.openingBalance === null
     && workspace.openingEquity.status === "READY" && safe.currencyCode === workspace.baseCurrency;
+  // Movements are offered on active accounts in the accounting currency, the only currency 0047 posts.
+  const movable = moneyOptions !== null && safe.status === "ACTIVE" && safe.currencyCode === moneyOptions.baseCurrency;
+  const moneyKinds: MoneyKind[] = !movable ? [] : [
+    ...(moneyOptions.canReceive ? ["receive" as const] : []),
+    ...(moneyOptions.canTransfer ? ["transfer" as const] : []),
+    ...(moneyOptions.canPay || moneyOptions.canRecordExpense ? ["pay" as const] : [])
+  ];
   return (
     <section className="module-content-card safe-card" aria-labelledby={headingId}>
       <header className="safe-card-head">
@@ -208,6 +247,17 @@ function SafeCard({ safe, workspace, fa, t, busy, formOpen, toggleForm, closeFor
       </p>
 
       {canOpen && formOpen ? <OpeningBalanceForm safe={safe} today={workspace.today} fa={fa} busy={busy} post={post} close={closeForm} /> : null}
+
+      {moneyKinds.length > 0 ? (
+        <div className="money-actions" role="group" aria-label={fa ? `حرکت پول — ${name}` : `Move money — ${name}`}>
+          {moneyKinds.map((kind) => (
+            <button key={kind} className={`treasury-button${moneyKind === kind ? " gold" : ""}`} type="button" aria-pressed={moneyKind === kind}
+              onClick={() => openMoney(kind)}>{t(MONEY_ACTION_COPY[kind])}</button>))}
+        </div>
+      ) : null}
+      {moneyOptions && moneyKind && moneyKinds.includes(moneyKind) ? (
+        <MoneyMovementForm key={moneyKind} kind={moneyKind} safe={safe} options={moneyOptions} fa={fa} close={() => closeMoney(moneyKind)} done={moneyDone} />
+      ) : null}
 
       {safe.responsibles.length > 0 || workspace.canManageSafes ? (
         <Responsibles safe={safe} workspace={workspace} fa={fa} busy={busy} post={post} />

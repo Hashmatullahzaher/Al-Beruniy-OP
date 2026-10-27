@@ -25,7 +25,9 @@ export const operationalExpenseCreateSchema = z.object({
   currencyCode: supportedCurrencySchema,
   exchangeRateId: nullableUuidSchema,
   correlationId: opaqueUuidSchema,
-  idempotencyKey: z.string().trim().min(8).max(200)
+  idempotencyKey: z.string().trim().min(8).max(200),
+  /** 0048: an expense paid from the Pay screen names its kind; the kind chooses the governing approval setting. */
+  paymentKind: z.enum(["SUPPLIER", "CONTRACTOR", "SALARY", "OTHER"]).optional()
 }).strict();
 
 export type OperationalExpenseCreate = z.infer<typeof operationalExpenseCreateSchema>;
@@ -101,6 +103,8 @@ export interface OperationalExpenseView {
   readonly baseCurrency: SupportedCurrency;
   readonly exchangeRateSnapshot: OperationalExpenseExchangeRateSnapshot | null;
   readonly workflowPolicyVersionId: string;
+  /** 0048: set when the expense was paid from the Pay screen; chooses the governing approval setting. */
+  readonly paymentKind?: "SUPPLIER" | "CONTRACTOR" | "SALARY" | "OTHER" | null;
   readonly approvalRequired: boolean;
   readonly status: OperationalExpenseStatus;
   readonly version: number;

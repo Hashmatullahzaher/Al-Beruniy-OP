@@ -153,3 +153,28 @@ stays at trunk `0aa6512` / migration 0040 throughout unless an entry says otherw
 - Runtime and startup guard repinned to 6380c16; health ok; route checks green (Safes page renders, its API
   refuses without a session); smoke 7/7 and browser 29/29 after warm rerun (cold-compile timeouts first);
   vault reconciliation CLEAN. No real financial transaction and no opening balance were created.
+
+## Slice 4 — receive cash, transfer and pay (0047, 0048)
+
+- Branch `claude/slice4-money` (base `4ee3e24`).
+- Design: `docs/03-architecture/MONEY_MOVEMENTS.md`. Report: `docs/04-delivery/V1_MONEY_MOVEMENTS_SLICE4.md`.
+- 0047 adds three kernel sources:
+  - CASH_RECEIPT: Dr Safe/Saraf, Cr income;
+  - TREASURY_TRANSFER: Dr destination, Cr source, with both Treasury movements;
+  - PAYMENT: Dr payable, Cr Safe/Saraf; the kind is SUPPLIER, CONTRACTOR, SALARY or OTHER.
+- 0047 also adds:
+  - one immutable source table per source;
+  - permissions `treasury.receipt.record`, `treasury.transfer.record` and `treasury.payment.record`;
+  - refusal when an approval setting is unsaved or requires approval;
+  - base currency only.
+- 0048: paying an expense stays in the expense lane with a payment kind that chooses its approval setting (salary → SALARY_PAYMENT, supplier/contractor → SUPPLIER_PAYMENT, other → EXPENSE).
+- The Safes page offers Receive cash, Transfer and Pay; each saves once.
+- Owner questions recorded in `OPEN_ITEMS.md`: negative balances, an approval flow for these movements, and attachments.
+- Validation is in report section 3. The adversarial review fixed four issues (report section 3a):
+  - accounts payable now requires a supplier;
+  - the expense JSON is unchanged without a kind;
+  - two refusal mappings;
+  - dimension-free expense types on Pay.
+- The real-database check also found a late-save UI race, now fixed.
+- Not deployed.
+
