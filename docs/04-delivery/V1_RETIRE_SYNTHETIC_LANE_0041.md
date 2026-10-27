@@ -1,8 +1,9 @@
 # Retire the synthetic lane — migration 0041 and the matching application change (Slice 1 D3)
 
-Status: IMPLEMENTED on branch `claude/d3-retire-e1` (worktree `_worktrees/al-beruniy-d3`), based on
-trunk `v1/main` at `0aa651250b2fdec98811195ec103c43f2d5020a1` (the SHA production runs today).
-**Not merged, not deployed.** Production deployment of 0041 remains NOT AUTHORIZED until the owner
+Status: IMPLEMENTED on branch `claude/d3-retire-e1`, based on trunk `v1/main` at
+`0aa651250b2fdec98811195ec103c43f2d5020a1` (the SHA production runs today), validated green and
+merged to `v1/main` (merge commit recorded in `V1_MAX_DELIVERY_SESSION_2026-10-27.md`).
+**Not deployed.** Production deployment of 0041 remains NOT AUTHORIZED until the owner
 has reviewed this report. The preserved production database stays at 0040.
 
 Governing instruction: the owner's D3 authorization of 2026-10-27 ("proceed with D3 source
@@ -206,13 +207,57 @@ Also found and fixed on the way: the `View Finance inbox and journals` permissio
 "View Finance reports and journals"), and the dead `developerTokens` flag of
 `/api/v1/auth/methods` (now always false; the helper is gone).
 
-### 7.2 Browser suite — reruns
+### 7.2 Browser suite — reruns and the final serial run
 
-(filled below from the final run)
+After the fixes of §7.1, the affected specs were rerun twice (11 then 4 specs, all passed), then the
+whole suite once more from the final tree, serially, after the integration suites had released the
+shared test logins: **67 specs, 64 passed, 2 skipped (fixture-gated, unchanged), 1 failed** —
+`v1-shareholder-contributions` counted four contribution rows where it expects three. That spec had
+passed in both earlier reruns on the same tree; see §7.2.1 for the reproduction and outcome.
 
-### 7.3 Integration suite
+Explicit reruns after the full integration run (serial, same fresh database): identity hardening,
+migration upgrade, security ownership, restricted role, operational-finance configuration (session
+provenance), direct shareholder capital, operational expense posting, temporary funding, General
+Ledger activity, financial calendar, Chart of Accounts, currency rates — **11 suites, 104 tests, 104
+passed**.
 
-(filled below from the final run)
+Smoke (`@smoke`, serial, against the dev server): **8 passed**. Production build (`pnpm build`, after
+the browser runs so the build output cannot pollute `next dev`): **11/11 tasks successful**, the web
+app compiled and generated all 12 static pages.
+
+#### 7.2.1 The one failure of the final run — reproduced, explained, fixed
+
+`v1-shareholder-contributions` expected three rows in a new shareholder's table and found four. It
+reproduced three times out of three in its full-run neighbourhood and, once the spec checked the
+stored count after each save, every time on its own. The fourth row is the 0038 live-workflow row
+(`capital-operation-row`): `ContributionRow` rendered it for every declared cash contribution, and
+its panel returned nothing when the capital bridge is not operational, leaving an empty table row.
+The spec's expectation of three had only ever passed by timing: the count was polled while the
+success message was already shown but the view had not yet reloaded with the third contribution
+(two contribution rows plus the empty row), which is also why it passed in the earlier reruns.
+Pre-existing since 0038; not introduced by 0041.
+
+Fix: the row renders only when the operations panel has something to show
+(`capitalOperationsAvailable`, the panel's own condition), so the legacy page carries no empty row;
+the spec now checks the stored contribution count after each save, which removes the timing window.
+Result: the spec passed twice in its neighbourhood, and the whole browser suite was rerun from the
+final tree: **67 specs, 65 passed, 2 skipped (fixture-gated), 0 failed.**
+
+### 7.3 Integration suite (PostgreSQL, serial, fresh disposable database `abos_d3_final_check`)
+
+30 suites, **260 tests, 260 passed, 0 failed, 0 skipped** from the final tree. Every suite starts by
+dropping the schema and applying 0001 → 0041 through the repository runner, so this is also the
+fresh-install proof (30 fresh installs). The historical upgrade test applies 0039+0040+0041 on a
+populated 0038 database and proves every pre-existing table byte-for-byte unchanged.
+
+An earlier full run had four failures, each explained: the upgrade test needed to learn 0041 (done);
+two `identity-hardening` failures were "Migration content checksum mismatch for 0041" because the
+migration file was edited while that run was in progress (reran clean); and one
+`secure-treasury-boundary` cross-lane assertion expected "permission denied" where the frozen-lane
+holder now reaches the function's own authorizer (assertion widened; the plain-runtime refusal is
+asserted in `security-ownership`).
+
+Unit (every package): 169 tests, 169 passed. Typecheck: 12/12 packages. Lint: clean, zero warnings.
 
 ### 7.4 Upgrade of a real-shaped copy from 0040 to 0041
 
@@ -285,3 +330,34 @@ zero-backfill proof (expected: `permission_retirements` new with 12 rows; every 
 fingerprint identical; `frozen_lanes` shows all runtime columns false), runtime repin to the
 reviewed trunk SHA, health, routes (`/finance/treasury` and `/finance/handoffs` → 404), smoke,
 vault, report.
+
+## 10. Summary for authorization
+
+| Item | Value |
+|---|---|
+| Branch | `claude/d3-retire-e1` → merged into `v1/main` (SHA in the session record) |
+| Base | `0aa651250b2fdec98811195ec103c43f2d5020a1` (production today) |
+| Migration | `0041_v1_retire_synthetic_lane`, checksum `e49aa6bd788f7253c29b0a1c6abd3ac10744895ee343d5732a042f6f171dbaa6` |
+| Retired entry points | the 14 of §3 (runtime EXECUTE revoked; holder `abos_e1_frozen_lane`) |
+| Retired permissions | the 12 of §4 (`abos.permission_retirements`; catalogue rows and grants untouched) |
+| Removed | pages, components, routes, server modules, types and specs of §5 |
+| Legacy page | capital-request tab/panel removed; the empty live-workflow row no longer renders; every remaining control reaches an operational API (§7.5) |
+| Integration | 30 suites, 260/260 on a fresh database (30 fresh installs 0001→0041); explicit reruns 104/104 |
+| Unit / typecheck / lint / build | 169/169; 12/12; clean; 11/11 tasks, 12 pages |
+| Browser | 67 specs: 65 passed, 2 skipped, 0 failed (final run); smoke 8/8 |
+| Skipped | `direct-shareholder-capital-operational` (2): gated on a private fixture file from the 0040 cycle; unchanged by D3 |
+| Fresh install | proven by every integration suite's schema reset (0001→0041) |
+| Upgrade 0040→0041 | real-shaped copy of production: applied through the guarded helper; 88/88 pre-existing tables fingerprint-identical; only `permission_retirements` (+12 rows) and `schema_migrations` (39→40) differ |
+| Zero business-data change | fingerprint diff above; 22 existing grants on retired codes untouched; 3 shareholders / 4 contributions / 0 journals / 12 PENDING periods after upgrade |
+| Residual E1 references (intentional) | frozen functions, tables and records; persistence E1 gateways and `packages/sandbox-auth` (test infrastructure, deferred rename); `treasury_secure_context` developer-token fallback (unreachable); `X-ABOS-Data` header name; `abos_e1_frozen_lane` (no members in production) |
+| Found on the way | D3-F1 (UTC day in shareholder setup, pre-existing) → migration 0042; the 0038 empty live-workflow row (fixed here); stale specs since 0039/0040 (fixed) |
+
+Deployment risk assessment: **low**. 0041 is additive and reversible by the standard pre-0041 dump
+restore; it writes no existing row; it changes no operational function; the only behavioural change
+for a signed-in person is the disappearance of screens that did not work on company data (synthetic
+gate absent). The one operational dependency checked explicitly is that no product path calls a
+frozen function (§7.5, and the runtime-privilege assertions in two suites). Residual risk: a role
+that still holds a retired code keeps it (by design) and a later role edit will drop it only if an
+administrator removes it; the roles editor shows it as "Retired".
+
+Production deployment of 0041 remains NOT AUTHORIZED until the owner approves this report.

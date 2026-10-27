@@ -95,6 +95,15 @@ type Trace = Omit<ShareholderCapitalTraceReadModel, "contribution"> & { readonly
 type ReceiptForm = { readonly amount: string; readonly receiptDate: string; readonly destination: string; readonly reference: string; readonly evidence: EvidenceDraft };
 type ActionForm = { readonly receiptId: string; readonly kind: "VERIFY" | "PREPARE" | "DECIDE"; readonly evidence: EvidenceDraft; readonly reason: string; readonly decision: "APPROVED" | "REJECTED"; readonly custodyDecision: "VERIFIED" | "REJECTED"; readonly verificationKind: "PHYSICAL_CASH_COUNT" | "BANK_CONFIRMATION" | "SARAF_CONFIRMATION" | "CONTROLLED_EVIDENCE" };
 
+/** Whether the live cash-capital operations panel has anything to show for a contribution; the row that hosts it renders only then. */
+export function capitalOperationsAvailable(bridge: CapitalBridgeState, contribution: ShareholderContribution): boolean {
+  const capability = bridge.capability; const permissions = capability?.permissions ?? [];
+  const operational = capability?.state === "OPERATIONAL" && capability.mutationAvailable;
+  const permitted = ["shareholder.capital-receipt.read", "shareholder.capital-receipt.record", "treasury.capital-receipt.verify",
+    "finance.capital-receipt.prepare", "finance.capital-receipt.approve", "finance.capital-receipt.post"].some((code) => permissions.includes(code));
+  return Boolean(operational && permitted && contribution.type === "CASH" && contribution.recordStatus === "DECLARED" && contribution.amount && contribution.currency);
+}
+
 export function ShareholderCapitalOperations({ contribution, fa, bridge }: { readonly contribution: ShareholderContribution; readonly fa: boolean; readonly bridge: CapitalBridgeState }) {
   const session = useSession();
   const capability = bridge.capability; const permissions = capability?.permissions ?? []; const operational = capability?.state === "OPERATIONAL" && capability.mutationAvailable;

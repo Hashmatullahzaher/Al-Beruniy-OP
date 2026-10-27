@@ -93,6 +93,7 @@ test.describe("V1 shareholder contributions", () => {
     await form.getByLabel("Description (optional)").fill("Synthetic cash pledge");
     await form.getByRole("button", { name: "Save contribution" }).click();
     await expect(page.locator(".treasury-message.success")).toContainText("recorded as declared. Nothing was posted.");
+    expect(await contributionCount("Synthetic Shareholder Gamma"), "one stored contribution after the cash save").toBe(1);
 
     // Asset: land, with an informational estimate.
     await card.getByRole("button", { name: "Add contribution" }).click();
@@ -111,6 +112,7 @@ test.describe("V1 shareholder contributions", () => {
     await expect(form).toContainText("An estimated value is information only");
     await form.getByRole("button", { name: "Save contribution" }).click();
     await expect(page.locator(".treasury-message.success")).toContainText("recorded as declared");
+    expect(await contributionCount("Synthetic Shareholder Gamma"), "two stored contributions after the asset save").toBe(2);
 
     // Credit: unclassified by default.
     await card.getByRole("button", { name: "Add contribution" }).click();
@@ -123,6 +125,7 @@ test.describe("V1 shareholder contributions", () => {
     await expect(form).toContainText("Classification: not yet classified");
     await form.getByRole("button", { name: "Save contribution" }).click();
     await expect(page.locator(".treasury-message.success")).toContainText("recorded as declared");
+    expect(await contributionCount("Synthetic Shareholder Gamma"), "three stored contributions after the credit save").toBe(3);
 
     const rows = card.locator("table.contribution-table tbody tr");
     await expect(rows).toHaveCount(3);
