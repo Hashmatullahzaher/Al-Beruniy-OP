@@ -106,3 +106,69 @@ export interface SafeOpeningBalanceResult {
 }
 
 export const SAFE_PERMISSIONS = ["treasury.safe.read", "treasury.opening-balance.record"] as const;
+
+/** Slice 4 (0047): receive cash, transfer and pay against a payable, each one save through the posting kernel. */
+export type MoneySettingStatus = "READY" | "APPROVAL_REQUIRED" | "NOT_SAVED";
+export type PaymentKind = "SUPPLIER" | "CONTRACTOR" | "SALARY" | "OTHER";
+export const PAYMENT_KINDS: readonly PaymentKind[] = ["SUPPLIER", "CONTRACTOR", "SALARY", "OTHER"];
+
+export interface MoneyOptions {
+  readonly baseCurrency: string | null;
+  readonly today: string;
+  readonly canReceive: boolean;
+  readonly canTransfer: boolean;
+  readonly canPay: boolean;
+  readonly canRecordExpense: boolean;
+  /** Approval setting per workflow type: OTHER_INCOME, TREASURY_TRANSFER, SUPPLIER_PAYMENT, SALARY_PAYMENT. */
+  readonly settings: Readonly<Record<string, MoneySettingStatus>>;
+  readonly treasuryAccounts: readonly { readonly id: string; readonly nameEn: string; readonly nameFa: string | null; readonly accountType: SafeAccountType; readonly currencyCode: string }[];
+  readonly incomeAccounts: readonly { readonly id: string; readonly code: string; readonly name: string }[];
+  /** requiresParty: an accounts-payable control account, kept per supplier, so a free-text payee is not enough. */
+  readonly payableAccounts: readonly { readonly id: string; readonly code: string; readonly name: string; readonly requiresParty: boolean }[];
+  readonly parties: readonly { readonly id: string; readonly name: string }[];
+}
+
+interface MoneyRequest {
+  readonly amount: string;
+  readonly currencyCode: string;
+  readonly businessDate: string;
+  readonly reference: string | null;
+  readonly note: string | null;
+  readonly idempotencyKey: string;
+  readonly correlationId: string;
+}
+
+export interface ReceiveCashCommand extends MoneyRequest {
+  readonly action: "receive-cash";
+  readonly treasuryAccountId: string;
+  readonly payerBusinessPartyId: string | null;
+  readonly payerName: string | null;
+  readonly revenueLedgerAccountId: string;
+}
+
+export interface TransferCommand extends MoneyRequest {
+  readonly action: "transfer";
+  readonly sourceTreasuryAccountId: string;
+  readonly destinationTreasuryAccountId: string;
+}
+
+export interface PayPayableCommand extends MoneyRequest {
+  readonly action: "pay-payable";
+  readonly treasuryAccountId: string;
+  readonly paymentKind: PaymentKind;
+  readonly payeeBusinessPartyId: string | null;
+  readonly payeeName: string | null;
+  readonly payableLedgerAccountId: string;
+}
+
+export type MoneyCommand = ReceiveCashCommand | TransferCommand | PayPayableCommand;
+
+export interface MoneyResult {
+  readonly movementId: string;
+  readonly journalId: string;
+  readonly reference: string;
+  readonly status: "POSTED";
+  readonly replayed: boolean;
+}
+
+export const MONEY_PERMISSIONS = ["treasury.receipt.record", "treasury.transfer.record", "treasury.payment.record"] as const;

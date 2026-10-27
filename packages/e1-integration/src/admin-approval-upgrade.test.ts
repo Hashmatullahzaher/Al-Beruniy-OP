@@ -11,7 +11,8 @@ import { seedSyntheticWorld, SYNTHETIC_AUTH_CONFIGURATION } from "./synthetic-wo
 const PREDECESSOR = "0038_v1_shareholder_capital_activation";
 const MIGRATION = "0039_v1_admin_approval_controls";
 const NEW_TABLES = ["finance_workflow_policy_commands", "ledger_account_policy_releases", "direct_capital_receipts", "direct_capital_receipt_allocations",
-  "permission_retirements", "posting_sources", "treasury_opening_balances", "operational_treasury_account_responsibles"] as const;
+  "permission_retirements", "posting_sources", "treasury_opening_balances", "operational_treasury_account_responsibles",
+  "treasury_cash_receipts", "treasury_transfers", "treasury_payments"] as const;
 // 0041 seeds the retirement register (schema metadata, like the workflow catalogue row) and lets only the
 // identity runtime read it; every other new table stays empty and unreachable from every runtime.
 const SEEDED_ROWS: Readonly<Record<string, number>> = { permission_retirements: 12, posting_sources: 11 };
@@ -99,17 +100,17 @@ if (databaseUrl() === undefined) {
           const beforeRegistry = (await client.query("SELECT * FROM abos.schema_migrations ORDER BY migration_id")).rows;
           const governanceBefore = (await client.query("SELECT to_jsonb(g) AS row FROM abos.ledger_account_governance g ORDER BY ledger_account_id")).rows;
           assert.equal(governanceBefore.length, 3);
-          assert.deepEqual(await applyMigrations(tx, migrations), [MIGRATION, "0040_v1_direct_shareholder_capital", "0041_v1_retire_synthetic_lane", "0042_v1_shareholder_business_day", "0043_v1_posting_kernel", "0044_v1_posting_kernel_writer", "0045_v1_subledger_sign_and_balances", "0046_v1_treasury_opening_balances"]);
+          assert.deepEqual(await applyMigrations(tx, migrations), [MIGRATION, "0040_v1_direct_shareholder_capital", "0041_v1_retire_synthetic_lane", "0042_v1_shareholder_business_day", "0043_v1_posting_kernel", "0044_v1_posting_kernel_writer", "0045_v1_subledger_sign_and_balances", "0046_v1_treasury_opening_balances", "0047_v1_basic_money_movements", "0048_v1_expense_payment_kind"]);
           const afterTables = await tableNames(client);
           assert.deepEqual(afterTables.filter((name) => !beforeTables.includes(name)), [...NEW_TABLES].sort());
           assert.deepEqual(await snapshots(client, beforeTables), beforeBusiness,
             "all historical columns in every business/security table are byte-for-byte preserved");
-          assert.deepEqual((await client.query("SELECT * FROM abos.schema_migrations WHERE migration_id<>ALL($1::text[]) ORDER BY migration_id", [[MIGRATION, "0040_v1_direct_shareholder_capital", "0041_v1_retire_synthetic_lane", "0042_v1_shareholder_business_day", "0043_v1_posting_kernel", "0044_v1_posting_kernel_writer", "0045_v1_subledger_sign_and_balances", "0046_v1_treasury_opening_balances"]])).rows,
+          assert.deepEqual((await client.query("SELECT * FROM abos.schema_migrations WHERE migration_id<>ALL($1::text[]) ORDER BY migration_id", [[MIGRATION, "0040_v1_direct_shareholder_capital", "0041_v1_retire_synthetic_lane", "0042_v1_shareholder_business_day", "0043_v1_posting_kernel", "0044_v1_posting_kernel_writer", "0045_v1_subledger_sign_and_balances", "0046_v1_treasury_opening_balances", "0047_v1_basic_money_movements", "0048_v1_expense_payment_kind"]])).rows,
             beforeRegistry, "all 0001-0038 registry values, checksums and timestamps are unchanged");
           const upgraded = (await client.query("SELECT checksum_sha256 FROM abos.schema_migrations WHERE migration_id=$1", [MIGRATION])).rows;
           assert.equal(upgraded.length, 1, "0039 recorded exactly once");
           assert.equal(upgraded[0]?.checksum_sha256, migrations[index]?.checksumSha256);
-          assert.equal(Number((await client.query("SELECT count(*) AS n FROM abos.schema_migrations")).rows[0]?.n), beforeRegistry.length + 8);
+          assert.equal(Number((await client.query("SELECT count(*) AS n FROM abos.schema_migrations")).rows[0]?.n), beforeRegistry.length + 10);
           assert.deepEqual((await client.query(`SELECT to_jsonb(g)-$1::text[] AS row
             FROM abos.ledger_account_governance g ORDER BY ledger_account_id`, [NEW_GOVERNANCE_COLUMNS])).rows, governanceBefore);
           const governanceAdded = (await client.query(`SELECT approval_required,finance_workflow_policy_version_id,
@@ -150,7 +151,7 @@ if (databaseUrl() === undefined) {
           [{ permission_code: "treasury.opening-balance.record", category: "TREASURY", availability: "ACTIVE" },
             { permission_code: "treasury.safe.read", category: "TREASURY", availability: "ACTIVE" }]);
           assert.deepEqual((await client.query("SELECT source_type FROM abos.posting_sources WHERE status='ACTIVE' ORDER BY 1")).rows.map((r) => r.source_type),
-            ["DIRECT_SHAREHOLDER_CAPITAL", "OPENING_BALANCE", "OPERATIONAL_EXPENSE", "TEMPORARY_FUNDING", "TEMPORARY_FUNDING_SETTLEMENT"]);
+            ["CASH_RECEIPT", "DIRECT_SHAREHOLDER_CAPITAL", "OPENING_BALANCE", "OPERATIONAL_EXPENSE", "PAYMENT", "TEMPORARY_FUNDING", "TEMPORARY_FUNDING_SETTLEMENT", "TREASURY_TRANSFER"]);
           const afterAll = await snapshots(client, afterTables);
           const afterRegistry = (await client.query("SELECT * FROM abos.schema_migrations ORDER BY migration_id")).rows;
           assert.deepEqual(await applyMigrations(tx, migrations), [], "repeating the reviewed runner is a no-op");
@@ -177,13 +178,14 @@ async function snapshots(client: pg.PoolClient, tables: readonly string[]): Prom
     // catalogue row is schema metadata, not a policy or authorization for any real company.
     const addedColumns = table === "ledger_account_governance" ? [...NEW_GOVERNANCE_COLUMNS]
       : table === "shareholder_profiles" ? ["capital_note", "capital_document_agreement_id"]
-      : table === "posting_intents" ? ["direct_capital_receipt_id", "treasury_opening_balance_id"]
+      : table === "posting_intents" ? ["direct_capital_receipt_id", "treasury_opening_balance_id", "treasury_receipt_id", "treasury_transfer_id", "treasury_payment_id"]
+      : table === "operational_expenses" ? ["payment_kind"]
       : table === "subledger_entries" ? ["direct_capital_receipt_id"] : [];
     const projection = addedColumns.length ? "to_jsonb(t)-$1::text[]" : "to_jsonb(t)";
     const parameters = addedColumns.length ? [addedColumns] : [];
     // 0046 adds two permission codes to the catalogue (asserted separately); every other row is untouched.
     const filter = table === "finance_workflow_types" ? " WHERE workflow_type<>'CHART_OF_ACCOUNTS'"
-      : table === "permission_catalogue" ? " WHERE permission_code NOT IN ('treasury.safe.read','treasury.opening-balance.record')" : "";
+      : table === "permission_catalogue" ? " WHERE permission_code NOT IN ('treasury.safe.read','treasury.opening-balance.record','treasury.receipt.record','treasury.transfer.record','treasury.payment.record')" : "";
     const row = (await client.query(`SELECT count(*)::text AS count,
       md5(COALESCE(string_agg((${projection})::text,'' ORDER BY (${projection})::text),'')) AS hash
       FROM abos.${table} t${filter}`, parameters)).rows[0];

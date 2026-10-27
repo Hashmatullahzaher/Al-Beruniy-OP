@@ -3,6 +3,9 @@ import type { SqlExecutor } from "@abos/database";
 import { sandboxGateFingerprint, TREASURY_PERMISSIONS } from "@abos/contracts";
 import type {
   DirectCapitalWorkspace,
+  MoneyCommand,
+  MoneyOptions,
+  MoneyResult,
   SafeOpeningBalanceResult,
   SafesCommand,
   SafesWorkspace,
@@ -526,6 +529,21 @@ export class SandboxAuthenticator {
       : "SELECT abos.treasury_safe_responsibles_set($1,$2,$3,$4::jsonb) AS value";
     return this.operationalFinanceFunction<SafeOpeningBalanceResult | SafesWorkspace>(executor, sql, token, [JSON.stringify(payload)],
       "Safe command is unavailable");
+  }
+
+  /** What the receive, transfer and pay forms need (0047). */
+  async moneyOptions(executor: SqlExecutor, token: string): Promise<MoneyOptions> {
+    return this.operationalFinanceFunction<MoneyOptions>(executor,
+      "SELECT abos.treasury_money_options($1,$2,$3) AS value", token, [], "Money movements are unavailable");
+  }
+
+  /** One money movement (0047): receive cash, transfer, or pay against a payable, posted through the kernel. */
+  async moneyCommand(executor: SqlExecutor, token: string, command: MoneyCommand): Promise<MoneyResult> {
+    const { action, ...payload } = command;
+    const sql = action === "receive-cash" ? "SELECT abos.treasury_receipt_record($1,$2,$3,$4::jsonb) AS value"
+      : action === "transfer" ? "SELECT abos.treasury_transfer_record($1,$2,$3,$4::jsonb) AS value"
+        : "SELECT abos.treasury_payment_record($1,$2,$3,$4::jsonb) AS value";
+    return this.operationalFinanceFunction<MoneyResult>(executor, sql, token, [JSON.stringify(payload)], "Money movement is unavailable");
   }
 
   /** Atomic direct capital lane; proofs are generated server-side, never accepted from a browser. */

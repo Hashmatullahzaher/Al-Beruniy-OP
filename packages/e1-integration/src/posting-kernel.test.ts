@@ -26,7 +26,7 @@ const PERMISSIONS = ["shareholder.setup.manage", "shareholder.capital-receipt.re
   "finance.capital-receipt.prepare", "finance.capital-receipt.post", "finance.report.operational.read",
   "finance.expense.create", "finance.expense.read"];
 // 0046 activates OPENING_BALANCE.
-const ACTIVE = ["DIRECT_SHAREHOLDER_CAPITAL", "OPENING_BALANCE", "OPERATIONAL_EXPENSE", "TEMPORARY_FUNDING", "TEMPORARY_FUNDING_SETTLEMENT"];
+const ACTIVE = ["CASH_RECEIPT", "DIRECT_SHAREHOLDER_CAPITAL", "OPENING_BALANCE", "OPERATIONAL_EXPENSE", "PAYMENT", "TEMPORARY_FUNDING", "TEMPORARY_FUNDING_SETTLEMENT", "TREASURY_TRANSFER"];
 
 type Session = { proof: string; runtimeDigest: string; tokenDigest: string };
 type Fixture = { world: SyntheticWorld; actor: Session; safe: string; category: string; otherExpense: string; shareholder: string };
@@ -125,7 +125,7 @@ if (databaseUrl() === undefined) {
       assert.deepEqual(rows.filter((r) => r.status === "ACTIVE").map((r) => r.source_type), ACTIVE);
       assert.deepEqual(rows.filter((r) => r.status === "FROZEN").map((r) => r.source_type), ["SHAREHOLDER_CAPITAL_CONTRIBUTION_RECEIPT"]);
       assert.deepEqual(rows.filter((r) => r.status === "PLANNED").map((r) => r.source_type).sort(),
-        ["CASH_RECEIPT", "COUNT_DIFFERENCE", "PAYMENT", "REVERSAL", "TREASURY_TRANSFER"]);
+        ["COUNT_DIFFERENCE", "REVERSAL"]);
       const kernel = (await h.pool.query<{ d: string }>("SELECT pg_get_functiondef('abos.posting_kernel_validate()'::regprocedure) AS d")).rows[0]?.d ?? "";
       for (const row of rows.filter((r) => r.status === "ACTIVE")) {
         assert.equal(row.line_count, 2, row.source_type);

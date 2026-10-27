@@ -180,9 +180,11 @@ if (databaseUrl() === undefined) {
       const sources = await harness.pool.query<{ source_type: string; status: string }>(
         "SELECT source_type, status FROM abos.posting_sources WHERE status <> 'PLANNED' ORDER BY source_type");
       assert.deepEqual(sources.rows, [
-        { source_type: "DIRECT_SHAREHOLDER_CAPITAL", status: "ACTIVE" }, { source_type: "OPENING_BALANCE", status: "ACTIVE" },
-        { source_type: "OPERATIONAL_EXPENSE", status: "ACTIVE" }, { source_type: "SHAREHOLDER_CAPITAL_CONTRIBUTION_RECEIPT", status: "FROZEN" },
-        { source_type: "TEMPORARY_FUNDING", status: "ACTIVE" }, { source_type: "TEMPORARY_FUNDING_SETTLEMENT", status: "ACTIVE" }]);
+        { source_type: "CASH_RECEIPT", status: "ACTIVE" }, { source_type: "DIRECT_SHAREHOLDER_CAPITAL", status: "ACTIVE" },
+        { source_type: "OPENING_BALANCE", status: "ACTIVE" }, { source_type: "OPERATIONAL_EXPENSE", status: "ACTIVE" },
+        { source_type: "PAYMENT", status: "ACTIVE" }, { source_type: "SHAREHOLDER_CAPITAL_CONTRIBUTION_RECEIPT", status: "FROZEN" },
+        { source_type: "TEMPORARY_FUNDING", status: "ACTIVE" }, { source_type: "TEMPORARY_FUNDING_SETTLEMENT", status: "ACTIVE" },
+        { source_type: "TREASURY_TRANSFER", status: "ACTIVE" }]);
       const definition = await harness.pool.query<{ definition: string }>(
         "SELECT pg_get_functiondef('abos.posting_kernel_validate()'::regprocedure) AS definition");
       for (const marker of ["OPERATIONAL_EXPENSE", "TEMPORARY_FUNDING", "TEMPORARY_FUNDING_SETTLEMENT", "DIRECT_SHAREHOLDER_CAPITAL"]) {

@@ -253,6 +253,16 @@ export const migrationCatalog = [
     checksumSha256: "5176103a6c8003c97f9f8a61959c5e7a9e6fe6a1d529c992145be793f7c662e0",
     relativePath: "infrastructure/database/migrations/0046_v1_treasury_opening_balances.sql",
   },
+  {
+    id: "0047_v1_basic_money_movements",
+    checksumSha256: "e4da71747ba728a95aca96cc416613c48bb6d120a56a894ba69edd4e9d0462e9",
+    relativePath: "infrastructure/database/migrations/0047_v1_basic_money_movements.sql",
+  },
+  {
+    id: "0048_v1_expense_payment_kind",
+    checksumSha256: "0d66c0e3670899e6d6ab371c5dbfadd560e6fa8acca0099b3e6e0a94b334f61f",
+    relativePath: "infrastructure/database/migrations/0048_v1_expense_payment_kind.sql",
+  },
 ] as const satisfies readonly MigrationDefinition[];
 
 const migrationTableSql = `
