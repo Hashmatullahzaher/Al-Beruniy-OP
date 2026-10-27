@@ -186,11 +186,18 @@ if (databaseUrl() === undefined) {
       return outcomes;
     }
 
+    const common = new Map<string, string[]>();
     /** Every row the writers touch, with ids and hashes replaced by order of appearance. */
     async function projection(outcomes: unknown[]): Promise<string> {
       const tables: Record<string, unknown[]> = {};
       for (const [table, order] of PROJECTION) {
-        tables[table] = (await h.pool.query<{ r: unknown }>(`SELECT to_jsonb(x) AS r FROM abos.${table} x ORDER BY ${order}`)).rows.map((row) => row.r);
+        // Only columns that exist in both catalogues are compared: a column a later migration adds (always null
+        // for these sources) is not accounting output of either writer.
+        const columns = (await h.pool.query<{ c: string }>("SELECT column_name AS c FROM information_schema.columns WHERE table_schema = 'abos' AND table_name = $1", [table])).rows.map((r) => r.c);
+        const shared = common.get(table) ?? columns;
+        common.set(table, shared.filter((c) => columns.includes(c)));
+        tables[table] = (await h.pool.query<{ r: Record<string, unknown> }>(`SELECT to_jsonb(x) AS r FROM abos.${table} x ORDER BY ${order}`)).rows
+          .map((row) => Object.fromEntries(Object.entries(row.r).filter(([key]) => common.get(table)!.includes(key))));
       }
       const labels = new Map<string, string>();
       const label = (value: string, kind: string) => {

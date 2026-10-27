@@ -150,6 +150,15 @@ export const PERMISSION_COPY: Readonly<Record<string, PermissionCopy>> = {
     label: { en: "Set up Treasury accounts for daily Finance", fa: "تنظیم حساب‌های خزانه برای مالی روزانه" },
     allows: { en: "Add and edit the safes, cash boxes, bank and Saraf accounts that daily expenses are paid from, each linked to a Chart of Accounts account in its own currency. Does not record any transaction.", fa: "افزودن و ویرایش صندوق‌ها، صندوقچه‌ها، حساب‌های بانکی و صراف که مصارف روزانه از آن‌ها پرداخت می‌شود؛ هر کدام به یک حساب جدول حساب‌ها با واحد پول خودش وصل است. هیچ معامله‌ای ثبت نمی‌کند." }
   },
+  // Safes (0045/0046).
+  "treasury.safe.read": {
+    label: { en: "See Safes and their balances", fa: "دیدن صندوق‌ها و موجودی آن‌ها" },
+    allows: { en: "See every Safe of the company with its real book balance, opening balance and recent movements. The balance always counts every recorded movement; details outside the person's projects, departments or cost centers stay hidden.", fa: "دیدن هر صندوق شرکت با موجودی واقعی دفتری، موجودی افتتاحیه و حرکات اخیر آن. موجودی همیشه هر حرکت ثبت‌شده را حساب می‌کند؛ جزئیات خارج از پروژه‌ها، بخش‌ها یا مراکز هزینهٔ شخص پنهان می‌ماند." }
+  },
+  "treasury.opening-balance.record": {
+    label: { en: "Set Safe opening balances", fa: "ثبت موجودی افتتاحیهٔ صندوق" },
+    allows: { en: "Record the opening balance of a Safe once, at the business start. It is recorded in the books at once and is never edited; a mistake is corrected by reversal.", fa: "ثبت موجودی افتتاحیهٔ یک صندوق برای یک بار، در آغاز کار. فوراً در دفاتر ثبت می‌شود و هرگز ویرایش نمی‌شود؛ اشتباه با برگشت اصلاح می‌شود." }
+  },
   "finance.expense-category.manage": {
     label: { en: "Set up expense types", fa: "تنظیم انواع مصرف" },
     allows: { en: "Add and edit the expense types people choose when recording an expense, each linked to an expense account in the Chart of Accounts. Does not record any transaction.", fa: "افزودن و ویرایش انواع مصرف که هنگام ثبت مصرف انتخاب می‌شوند؛ هر کدام به یک حساب مصرف در جدول حساب‌ها وصل است. هیچ معامله‌ای ثبت نمی‌کند." }

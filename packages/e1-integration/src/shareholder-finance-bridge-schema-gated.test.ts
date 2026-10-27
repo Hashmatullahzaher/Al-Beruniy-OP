@@ -110,10 +110,14 @@ if (databaseUrl() === undefined) {
                 ? "(to_jsonb(t)-ARRAY['finance_workflow_policy_version_id','approval_required','policy_released_by_user_account_id','policy_released_at','policy_release_reason']::text[])"
                 : tablename === "shareholder_profiles"
                   ? "(to_jsonb(t)-ARRAY['capital_note','capital_document_agreement_id']::text[])"
-                  : ["posting_intents", "subledger_entries"].includes(tablename)
-                    ? "(to_jsonb(t)-'direct_capital_receipt_id')"
-                    : "to_jsonb(t)";
-              const filter = tablename === "finance_workflow_types" ? "WHERE workflow_type<>'CHART_OF_ACCOUNTS'" : "";
+                  : tablename === "posting_intents"
+                    ? "(to_jsonb(t)-ARRAY['direct_capital_receipt_id','treasury_opening_balance_id']::text[])"
+                    : tablename === "subledger_entries"
+                      ? "(to_jsonb(t)-'direct_capital_receipt_id')"
+                      : "to_jsonb(t)";
+              // 0046 adds two permission codes to the catalogue; every earlier row stays byte-for-byte.
+              const filter = tablename === "finance_workflow_types" ? "WHERE workflow_type<>'CHART_OF_ACCOUNTS'"
+                : tablename === "permission_catalogue" ? "WHERE permission_code NOT IN ('treasury.safe.read','treasury.opening-balance.record')" : "";
               rows.push([tablename, (await client.query(`SELECT count(*)::text AS count,
                 md5(COALESCE(string_agg(${row}::text,'' ORDER BY ${row}::text),'')) AS hash
                 FROM abos.${tablename} t ${filter}`)).rows[0]]);

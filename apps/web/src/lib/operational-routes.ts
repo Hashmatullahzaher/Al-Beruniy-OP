@@ -29,6 +29,8 @@ export const operationalRoutes: ReadonlyArray<{ readonly path: string; readonly 
   { path: "/dashboard", icon: "overview", en: "My dashboard", fa: "داشبورد من", section: "home", visible: () => true },
   // Daily Finance work.
   { path: "/finance/record-expense", icon: "coins", en: "Record expense", fa: "ثبت مصرف", section: "daily", visible: (can) => can("finance.expense.create") },
+  // Safes: real book balances and opening balances (0045/0046).
+  { path: "/finance/safes", icon: "coins", en: "Safes", fa: "صندوق‌ها", section: "daily", visible: (can) => can("treasury.safe.read") || can("treasury.opening-balance.record") },
   { path: "/finance/transactions", icon: "reports-analytics", en: "Daily transactions", fa: "معاملات روزانه", section: "daily", visible: (can) => can("finance.expense.read") },
   // Temporary funding stays reachable by its own route and permissions, but is kept out of ordinary
   // navigation until the owner asks for it; a one-person company does not need the extra lane.

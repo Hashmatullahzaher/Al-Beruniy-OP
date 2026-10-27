@@ -112,3 +112,19 @@ stays at trunk `0aa6512` / migration 0040 throughout unless an entry says otherw
 - On a restored copy of post-0044 production: signed-in direct capital and expense posted through the
   kernel with the reviewed shape; kernel, equivalence and posting suites 77/77 at the deployed SHA.
 - Test-harness debt TH-1 recorded in `OPEN_ITEMS.md`.
+
+## Slice 3 — one Safe model, opening balances and real balances (0045, 0046)
+
+- Branch `claude/slice3-safes` (base `b5a8f2e`). Design `docs/03-architecture/SAFE_BALANCES.md`; report
+  `docs/04-delivery/V1_SAFES_SLICE3.md`.
+- 0045: one subledger sign convention (debit +, credit -) enforced by the kernel; temporary-funding payable
+  re-signed (writers, validators, workspace); one internal balance read model used by the daily report and
+  temporary funding, so a Safe balance never depends on the reader's scope.
+- 0046: OPENING_BALANCE source through the kernel (Dr Safe, Cr opening balance equity resolved to exactly
+  one account), one immutable opening balance per Safe, lifecycle ACTIVE/INACTIVE/CLOSED, optional
+  responsible people, permissions `treasury.safe.read` and `treasury.opening-balance.record`, read-only
+  legacy link view; Safes page in English and Dari.
+- Validation: full integration 282/282 on a fresh database; unit 169/169; typecheck, lint, build; browser
+  Safes 7/7 plus relevant suites 29 passed (6 fixture-gated skips); smoke 9/9; real-database browser check
+  with credentials outside the source tree; restored post-0044 production copy upgraded with only the
+  intended changes. Not deployed.
