@@ -248,6 +248,11 @@ export const migrationCatalog = [
     checksumSha256: "3bbc150bd6fc614460f766f635261fa810323cdacbd98d3baa37563b0797466e",
     relativePath: "infrastructure/database/migrations/0045_v1_subledger_sign_and_balances.sql",
   },
+  {
+    id: "0046_v1_treasury_opening_balances",
+    checksumSha256: "b82b74c0ce90161d28151241b37d9cd68a82ae2a7dddef8af4e8abdabc188dd6",
+    relativePath: "infrastructure/database/migrations/0046_v1_treasury_opening_balances.sql",
+  },
 ] as const satisfies readonly MigrationDefinition[];
 
 const migrationTableSql = `

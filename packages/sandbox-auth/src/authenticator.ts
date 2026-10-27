@@ -3,6 +3,9 @@ import type { SqlExecutor } from "@abos/database";
 import { sandboxGateFingerprint, TREASURY_PERMISSIONS } from "@abos/contracts";
 import type {
   DirectCapitalWorkspace,
+  SafeOpeningBalanceResult,
+  SafesCommand,
+  SafesWorkspace,
   DirectCapitalResult,
   DirectShareholderCommand,
   CostCenterId,
@@ -507,6 +510,22 @@ export class SandboxAuthenticator {
       [],
       "Shareholder contributions are unavailable"
     );
+  }
+
+  /** Safes with balances derived from posted movements (0045/0046); treasury.safe.read or a Safe responsibility. */
+  async safesWorkspace(executor: SqlExecutor, token: string): Promise<SafesWorkspace> {
+    return this.operationalFinanceFunction<SafesWorkspace>(executor,
+      "SELECT abos.treasury_safes_workspace($1,$2,$3) AS value", token, [], "Safes are unavailable");
+  }
+
+  /** Opening balance (posted through the posting kernel) or the responsible people of a Safe. */
+  async safesCommand(executor: SqlExecutor, token: string, command: SafesCommand): Promise<SafeOpeningBalanceResult | SafesWorkspace> {
+    const { action, ...payload } = command;
+    const sql = action === "record-opening-balance"
+      ? "SELECT abos.treasury_opening_balance_record($1,$2,$3,$4::jsonb) AS value"
+      : "SELECT abos.treasury_safe_responsibles_set($1,$2,$3,$4::jsonb) AS value";
+    return this.operationalFinanceFunction<SafeOpeningBalanceResult | SafesWorkspace>(executor, sql, token, [JSON.stringify(payload)],
+      "Safe command is unavailable");
   }
 
   /** Atomic direct capital lane; proofs are generated server-side, never accepted from a browser. */

@@ -242,12 +242,12 @@ export function TemporaryFundingWorkspace() {
           <section className="module-content-card tf-panel" aria-labelledby="tf-safe-heading">
             <h2 id="tf-safe-heading"><AppIcon name="coins" size={18} /> {fa ? "صندوق فزیکی (حرکات نقد)" : "Physical Safe (cash movements)"}</h2>
             <p className="admin-hint">{fa
-              ? "فقط پولی که واقعاً در صندوق گذاشته شده آن را افزایش می‌دهد. مصرفی که تمویل‌کننده مستقیماً پرداخت کرده، صندوق را تغییر نمی‌دهد. تا موجودی افتتاحیه تأیید نشود، این‌ها حرکات ثبت‌شده‌اند نه موجودی."
-              : "Only cash actually put into the Safe increases it. An expense the provider paid directly never changes the Safe. Until an opening balance is approved, these are recorded movements, not a balance."}</p>
+              ? "فقط پولی که واقعاً در صندوق گذاشته شده آن را افزایش می‌دهد. مصرفی که تمویل‌کننده مستقیماً پرداخت کرده، صندوق را تغییر نمی‌دهد. موجودی دفتری همهٔ حرکات ثبت‌شدهٔ صندوق، از جمله موجودی افتتاحیه، را حساب می‌کند."
+              : "Only cash actually put into the Safe increases it. An expense the provider paid directly never changes the Safe. The book balance counts every recorded movement of the Safe, including its opening balance."}</p>
             {workspace.safePositions.length === 0 ? <p>{fa ? "هیچ حساب خزانه فعالی نیست." : "No active Treasury account."}</p> : (
               <table className="rates-table"><thead><tr>
                 <th>{fa ? "حساب" : "Account"}</th>
-                <th>{fa ? "حرکات ثبت‌شده" : "Recorded movements"}</th>
+                <th>{fa ? "موجودی دفتری" : "Book balance"}</th>
                 <th>{fa ? "از تمویل موقت" : "From temporary funding"}</th>
                 <th>{fa ? "بازپرداخت‌ها" : "Repayments"}</th>
               </tr></thead><tbody>{workspace.safePositions.map((position) => (

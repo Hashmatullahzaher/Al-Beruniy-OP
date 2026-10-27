@@ -180,8 +180,8 @@ if (databaseUrl() === undefined) {
       const sources = await harness.pool.query<{ source_type: string; status: string }>(
         "SELECT source_type, status FROM abos.posting_sources WHERE status <> 'PLANNED' ORDER BY source_type");
       assert.deepEqual(sources.rows, [
-        { source_type: "DIRECT_SHAREHOLDER_CAPITAL", status: "ACTIVE" }, { source_type: "OPERATIONAL_EXPENSE", status: "ACTIVE" },
-        { source_type: "SHAREHOLDER_CAPITAL_CONTRIBUTION_RECEIPT", status: "FROZEN" },
+        { source_type: "DIRECT_SHAREHOLDER_CAPITAL", status: "ACTIVE" }, { source_type: "OPENING_BALANCE", status: "ACTIVE" },
+        { source_type: "OPERATIONAL_EXPENSE", status: "ACTIVE" }, { source_type: "SHAREHOLDER_CAPITAL_CONTRIBUTION_RECEIPT", status: "FROZEN" },
         { source_type: "TEMPORARY_FUNDING", status: "ACTIVE" }, { source_type: "TEMPORARY_FUNDING_SETTLEMENT", status: "ACTIVE" }]);
       const definition = await harness.pool.query<{ definition: string }>(
         "SELECT pg_get_functiondef('abos.posting_kernel_validate()'::regprocedure) AS definition");
@@ -286,6 +286,10 @@ if (databaseUrl() === undefined) {
         const report = await call<{ treasuryMovements: { treasuryAccountId: string; after: string }[] }>(fixture.executor,
           "SELECT abos.operational_finance_daily_report($1,$2,$3,$4::date) AS value", [...args(fixture.sessions.creator), DATE]);
         assert.equal(report.treasuryMovements.find((x) => x.treasuryAccountId === fixture.safeId)?.after, "400.00");
+        // 0045: the canonical read model counts the funding as an inflow of the Safe.
+        const balance = (await harness.pool.query(`SELECT inflows::text AS inflows, outflows::text AS outflows, book_balance::text AS book
+          FROM abos.treasury_account_balances($1, NULL, $2)`, [fixture.world.legalEntityId, fixture.safeId])).rows[0];
+        assert.deepEqual(balance, { inflows: "400.00", outflows: "0", book: "400.00" });
         await assert.rejects(() => record(fixture, fixture.sessions.creator, { ...modeB(fixture, "5.00"), treasuryAccountId: fixture.bankId }),
           /Treasury account on a CASH asset account is required/, "Mode B funds a Safe, cash box or petty cash only");
       } finally { await fixture.close(); }

@@ -1,7 +1,7 @@
 # One Safe model, opening balances and derived balances (Slice 3)
 
-Status: design for Slice 3, written from the schema of trunk `b5a8f2e` (production runs 0044) and a
-read-only inspection of production on 2026-10-27. Implemented in migrations 0045 and 0046.
+Status: implemented in migrations 0045 and 0046 (see `docs/04-delivery/V1_SAFES_SLICE3.md`); written from the schema of trunk `b5a8f2e` (production runs 0044) and a
+read-only inspection of production on 2026-10-27.
 
 ## 1. Facts the design starts from
 
