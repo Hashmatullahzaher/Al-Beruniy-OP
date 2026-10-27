@@ -1,6 +1,6 @@
 # Posting kernel and source registry (Slice 2)
 
-Status: Slice 2. Migration 0043 (validation) is implemented; section 4 (0044, writer) is the design that follows it.
+Status: Slice 2, implemented in migrations 0043 (validation) and 0044 (writer).
 Binding rules: one operational lane per business event; one posting kernel plus a source registry;
 small per-source validators; static `CASE` dispatch; no dynamic SQL; no E1 or 0036-bridge
 repointing; byte-equivalent accounting output for existing sources.

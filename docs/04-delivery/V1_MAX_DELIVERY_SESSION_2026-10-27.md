@@ -76,3 +76,18 @@ stays at trunk `0aa6512` / migration 0040 throughout unless an entry says otherw
   lint clean.
 - Upgrade of the restored production copy at 0042: exactly 0043 applied, rerun a no-op, 88/89 tables
   byte-identical (only the migration registry +1) plus the new 11-row registry. Not deployed.
+- Merged to `v1/main` at `d335846`.
+
+## Slice 2 part 2 — migration 0044, posting kernel writer
+
+- Branch `claude/slice2-kernel-writer` (base `d335846`). Report: `docs/04-delivery/V1_POSTING_KERNEL_SLICE2.md`.
+- `posting_kernel_draft` / `posting_kernel_commit` (caller's rights, operational Finance owner only) write
+  and post the intent, draft journal, lines and subledgers; expense and direct capital writers restated
+  verbatim except for their posting block. Temporary funding, the 0036 bridge and E1 untouched.
+- Byte-equivalent output proven by running one scenario (expenses on both routes, replays, exact
+  decimals, all four capital methods, declaration allocation, pending-month opening, refusals) on a 0043
+  database and on the full catalogue: every touched row and every call outcome identical; a deliberate
+  kernel mutation is caught.
+- Full integration on a fresh database 270/270; unit 169/169; typecheck 12/12; lint clean; build 11/11.
+  Production-shaped copy 0043→0044: 89/90 tables byte-identical (registry +1); writers keep owner,
+  security, `search_path` and grants. Not deployed.
