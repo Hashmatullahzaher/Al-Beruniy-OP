@@ -1,9 +1,10 @@
 # Shareholder setup on the Kabul business day — migration 0042
 
 Status: IMPLEMENTED on branch `claude/0042-shareholder-business-day` (base `v1/main` at
-`769941c512cd732969e3e1d66152c2052f0238f2`, the SHA production runs since the 0041 deployment).
-Validated on disposable databases only. **Not deployed**; production deployment needs separate owner
-authorization.
+`769941c512cd732969e3e1d66152c2052f0238f2`, the SHA production runs since the 0041 deployment),
+validated on disposable databases only and merged to `v1/main`. Checksum
+`e9fbb93c21b978c70a57dff73405c66eef825174dc4685004a98ce1ab91b8a50`. **Not deployed**; production
+deployment needs separate owner authorization.
 
 ## 1. The defect (finding D3-F1)
 
@@ -98,3 +99,15 @@ lanes. They are deliberately not in 0042 and are recorded in `OPEN_ITEMS.md`:
 | `temporary_funding_workspace` | temporary funding | provider kind (shareholder/employee) judged on the UTC day |
 
 Recommended: one small migration after the posting kernel, same technique and same tests.
+
+## 7. Validation (disposable databases only)
+
+| Check | Result |
+|---|---|
+| Red run without 0042 | 3/3 failed as intended (setup workspace reported 2026-10-26 while Kabul was on 2026-10-27) |
+| New boundary suite with 0042 | 3/3 passed |
+| Full integration, fresh database (31 fresh installs 0001→0042) | 263/263 |
+| Explicit reruns: business day, shareholder setup and contributions, direct capital, calendar, expense posting (period opening), identity hardening, Finance configuration (session provenance), security ownership, restricted role, historical upgrade | 103/103 |
+| Unit / typecheck / lint / build | 169/169; 12/12; clean; 11/11 tasks, 12 pages |
+| Browser (shareholder setup and contributions, direct capital, D3 acceptance, shell) | 24/24 |
+| Upgrade of a restored copy of production (post-0041 dump `755eb55e…`) through the guarded helper `apply_catalog_0042.mts` | exactly 0042 applied; rerun refused; 88/89 tables identical, only `schema_migrations` 40→41; no shareholder-lane function reads `current_date`; only the setup owner gained `business_today()` |
