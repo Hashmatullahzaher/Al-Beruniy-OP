@@ -191,7 +191,7 @@ if (databaseUrl() === undefined) {
           "operational_expense_actor_in_scope", "operational_expense_json",
           "operational_expense_post", "operational_expense_workspace",
           "operational_expense_create", "operational_expense_approve",
-          "validate_operational_journal_posting", "validate_operational_treasury_reversal_link"
+          "posting_kernel_validate", "validate_expense_journal", "validate_operational_treasury_reversal_link"
         ]]
       );
       assert.deepEqual(publicExecute.rows, []);

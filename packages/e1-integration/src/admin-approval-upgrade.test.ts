@@ -11,10 +11,10 @@ import { seedSyntheticWorld, SYNTHETIC_AUTH_CONFIGURATION } from "./synthetic-wo
 const PREDECESSOR = "0038_v1_shareholder_capital_activation";
 const MIGRATION = "0039_v1_admin_approval_controls";
 const NEW_TABLES = ["finance_workflow_policy_commands", "ledger_account_policy_releases", "direct_capital_receipts", "direct_capital_receipt_allocations",
-  "permission_retirements"] as const;
+  "permission_retirements", "posting_sources"] as const;
 // 0041 seeds the retirement register (schema metadata, like the workflow catalogue row) and lets only the
 // identity runtime read it; every other new table stays empty and unreachable from every runtime.
-const SEEDED_ROWS: Readonly<Record<string, number>> = { permission_retirements: 12 };
+const SEEDED_ROWS: Readonly<Record<string, number>> = { permission_retirements: 12, posting_sources: 11 };
 const READ_ONLY_RUNTIME: Readonly<Record<string, string>> = { permission_retirements: "abos_v1_identity_runtime" };
 const NEW_GOVERNANCE_COLUMNS = [
   "finance_workflow_policy_version_id", "approval_required", "policy_released_by_user_account_id",
@@ -99,17 +99,17 @@ if (databaseUrl() === undefined) {
           const beforeRegistry = (await client.query("SELECT * FROM abos.schema_migrations ORDER BY migration_id")).rows;
           const governanceBefore = (await client.query("SELECT to_jsonb(g) AS row FROM abos.ledger_account_governance g ORDER BY ledger_account_id")).rows;
           assert.equal(governanceBefore.length, 3);
-          assert.deepEqual(await applyMigrations(tx, migrations), [MIGRATION, "0040_v1_direct_shareholder_capital", "0041_v1_retire_synthetic_lane", "0042_v1_shareholder_business_day"]);
+          assert.deepEqual(await applyMigrations(tx, migrations), [MIGRATION, "0040_v1_direct_shareholder_capital", "0041_v1_retire_synthetic_lane", "0042_v1_shareholder_business_day", "0043_v1_posting_kernel"]);
           const afterTables = await tableNames(client);
           assert.deepEqual(afterTables.filter((name) => !beforeTables.includes(name)), [...NEW_TABLES].sort());
           assert.deepEqual(await snapshots(client, beforeTables), beforeBusiness,
             "all historical columns in every business/security table are byte-for-byte preserved");
-          assert.deepEqual((await client.query("SELECT * FROM abos.schema_migrations WHERE migration_id<>ALL($1::text[]) ORDER BY migration_id", [[MIGRATION, "0040_v1_direct_shareholder_capital", "0041_v1_retire_synthetic_lane", "0042_v1_shareholder_business_day"]])).rows,
+          assert.deepEqual((await client.query("SELECT * FROM abos.schema_migrations WHERE migration_id<>ALL($1::text[]) ORDER BY migration_id", [[MIGRATION, "0040_v1_direct_shareholder_capital", "0041_v1_retire_synthetic_lane", "0042_v1_shareholder_business_day", "0043_v1_posting_kernel"]])).rows,
             beforeRegistry, "all 0001-0038 registry values, checksums and timestamps are unchanged");
           const upgraded = (await client.query("SELECT checksum_sha256 FROM abos.schema_migrations WHERE migration_id=$1", [MIGRATION])).rows;
           assert.equal(upgraded.length, 1, "0039 recorded exactly once");
           assert.equal(upgraded[0]?.checksum_sha256, migrations[index]?.checksumSha256);
-          assert.equal(Number((await client.query("SELECT count(*) AS n FROM abos.schema_migrations")).rows[0]?.n), beforeRegistry.length + 4);
+          assert.equal(Number((await client.query("SELECT count(*) AS n FROM abos.schema_migrations")).rows[0]?.n), beforeRegistry.length + 5);
           assert.deepEqual((await client.query(`SELECT to_jsonb(g)-$1::text[] AS row
             FROM abos.ledger_account_governance g ORDER BY ledger_account_id`, [NEW_GOVERNANCE_COLUMNS])).rows, governanceBefore);
           const governanceAdded = (await client.query(`SELECT approval_required,finance_workflow_policy_version_id,
