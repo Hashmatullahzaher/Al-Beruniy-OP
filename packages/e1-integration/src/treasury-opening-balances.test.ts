@@ -322,5 +322,42 @@ if (databaseUrl() === undefined) {
       const ws = await workspace(f.actor);
       assert.deepEqual(ws.safes.map((s) => s.status), ["ACTIVE", "CLOSED"], "active Safes first, closed last");
     });
+
+    test("a Safe closed while a capital receipt is in flight never ends CLOSED with money: the posting is refused", async () => {
+      const f = await fixture();
+      // Adversarial review of 0046: direct capital first reads the Safe before its receipt row references it. A
+      // disposable trigger pauses it right there, so a close commits inside that window deterministically. Every
+      // source validator re-checks that the Safe is ACTIVE when the journal posts (after the source row holds a
+      // key-share lock on the Safe), so the posting is refused and the closed Safe keeps a zero balance.
+      const hold = await h.pool.connect();
+      const pause = `aa_kt_pause_${randomUUID().slice(0, 8)}`;
+      try {
+        await hold.query("SELECT pg_advisory_lock(7171)");
+        await h.pool.query(`CREATE FUNCTION abos.${pause}() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN
+          PERFORM pg_advisory_xact_lock(7171); RETURN NEW; END $$`);
+        await h.pool.query(`CREATE TRIGGER ${pause} BEFORE INSERT ON abos.direct_capital_receipts FOR EACH ROW EXECUTE FUNCTION abos.${pause}()`);
+        const outcome = call("direct_shareholder_receive", f.actor, {
+          shareholderProfileId: f.shareholder, fundingMethod: "CASH", amount: "10", currencyCode: "USD", receiptDate: "2026-09-03",
+          destinationAccountId: f.second, providerName: null, itemDescription: null, expenseLedgerAccountId: null,
+          paymentReference: "SYN-RACE", note: null, ...keys() })
+          .then(() => "posted", (error: Error) => error.message);
+        let paused = false;
+        for (let i = 0; i < 400 && !paused; i++) {
+          paused = Boolean((await h.pool.query("SELECT 1 FROM pg_locks WHERE locktype = 'advisory' AND objid = 7171 AND NOT granted")).rowCount);
+          if (!paused) await new Promise((resolve) => setTimeout(resolve, 50));
+        }
+        assert.ok(paused, "the receipt is paused after reading the Safe and before writing anything that references it");
+        await upsert(f, f.second, f.secondLedger, "CLOSED", 1);
+        await hold.query("SELECT pg_advisory_unlock(7171)");
+        assert.match(await outcome, /an active base-currency Treasury account on a CASH asset account is required/);
+      } finally {
+        await hold.query("SELECT pg_advisory_unlock_all()").catch(() => undefined);
+        hold.release();
+        await h.pool.query(`DROP TRIGGER IF EXISTS ${pause} ON abos.direct_capital_receipts`);
+      }
+      const closed = await safeOf(f, f.second);
+      assert.deepEqual([closed.status, closed.balance.book], ["CLOSED", "0"], "a closed Safe keeps a zero book balance");
+      assert.equal((await h.pool.query("SELECT count(*)::int AS n FROM abos.subledger_entries WHERE operational_treasury_account_id = $1", [f.second])).rows[0]?.n, 0);
+    });
   });
 }

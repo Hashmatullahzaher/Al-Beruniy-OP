@@ -250,7 +250,7 @@ export const migrationCatalog = [
   },
   {
     id: "0046_v1_treasury_opening_balances",
-    checksumSha256: "b82b74c0ce90161d28151241b37d9cd68a82ae2a7dddef8af4e8abdabc188dd6",
+    checksumSha256: "5176103a6c8003c97f9f8a61959c5e7a9e6fe6a1d529c992145be793f7c662e0",
     relativePath: "infrastructure/database/migrations/0046_v1_treasury_opening_balances.sql",
   },
 ] as const satisfies readonly MigrationDefinition[];

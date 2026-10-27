@@ -128,3 +128,8 @@ stays at trunk `0aa6512` / migration 0040 throughout unless an entry says otherw
   Safes 7/7 plus relevant suites 29 passed (6 fixture-gated skips); smoke 9/9; real-database browser check
   with credentials outside the source tree; restored post-0044 production copy upgraded with only the
   intended changes. Not deployed.
+- Merged to `v1/main` at `bce4369`. Final adversarial review afterwards: no exploitable defect; the
+  opening-balance validator now re-checks that the Safe is ACTIVE like every other source validator (0046
+  amended before any preserved deployment, checksum `5176103a…`); new regression test for a close during an
+  in-flight capital receipt; full integration 283/283; production-shaped upgrade still only the intended
+  changes; no table-wide write grant added. Report section 4 of `V1_SAFES_SLICE3.md`. Not deployed.
