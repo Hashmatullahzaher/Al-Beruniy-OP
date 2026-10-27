@@ -246,7 +246,7 @@ if (databaseUrl() === undefined) {
         ]);
         assert.deepEqual(await subledgers(harness, posted.journalId!), [{
           line: 2, type: "TEMPORARY_FUNDING_PAYABLE", party: fixture.individualPartyId, funding: created.id,
-          settlement: null, treasury: null, amount: "250.00", currency: "USD"
+          settlement: null, treasury: null, amount: "-250.00", currency: "USD"
         }]);
         assert.equal(await safeMovement(harness, fixture.safeId), "0", "the Safe never moves for a direct payment");
         const intent = await harness.pool.query<{ kind: string; source_type: string; policy: string; mapping: string; version: number; journals: string }>(`
@@ -278,7 +278,7 @@ if (databaseUrl() === undefined) {
         ]);
         assert.deepEqual(await subledgers(harness, posted.journalId!), [
           { line: 1, type: "OPERATIONAL_TREASURY", party: null, funding: null, settlement: null, treasury: fixture.safeId, amount: "400.00", currency: "USD" },
-          { line: 2, type: "TEMPORARY_FUNDING_PAYABLE", party: fixture.organizationPartyId, funding: posted.id, settlement: null, treasury: null, amount: "400.00", currency: "USD" }
+          { line: 2, type: "TEMPORARY_FUNDING_PAYABLE", party: fixture.organizationPartyId, funding: posted.id, settlement: null, treasury: null, amount: "-400.00", currency: "USD" }
         ]);
         assert.equal(await safeMovement(harness, fixture.safeId), "400.00");
         // The Safe balance the daily report shows includes the funding: a balance counts every source.
@@ -314,7 +314,7 @@ if (databaseUrl() === undefined) {
           { line: 2, ledger: fixture.world.cashLedgerAccountId, party: null, debit: "0", credit: "40.00", source: "TEMPORARY_FUNDING_SETTLEMENT" }
         ]);
         assert.deepEqual(await subledgers(harness, journal), [
-          { line: 1, type: "TEMPORARY_FUNDING_PAYABLE", party: fixture.individualPartyId, funding: funding.id, settlement: first.settlement.id, treasury: null, amount: "-40.00", currency: "USD" },
+          { line: 1, type: "TEMPORARY_FUNDING_PAYABLE", party: fixture.individualPartyId, funding: funding.id, settlement: first.settlement.id, treasury: null, amount: "40.00", currency: "USD" },
           { line: 2, type: "OPERATIONAL_TREASURY", party: null, funding: null, settlement: null, treasury: fixture.safeId, amount: "-40.00", currency: "USD" }
         ]);
         assert.equal(await providerBalance(harness, fixture.individualPartyId), "60.00");
@@ -890,8 +890,9 @@ async function safeMovement(harness: Harness, treasuryId: string): Promise<strin
   return result.rows[0]!.total;
 }
 
+/** The amount owed to a provider: the payable is a credit, recorded negative by the 0045 convention. */
 async function providerBalance(harness: Harness, partyId: string): Promise<string> {
-  const result = await harness.pool.query<{ total: string }>(`SELECT COALESCE(sum(entry.base_amount), 0)::text AS total
+  const result = await harness.pool.query<{ total: string }>(`SELECT COALESCE(-sum(entry.base_amount), 0)::text AS total
     FROM abos.subledger_entries entry JOIN abos.journal_lines line ON line.id = entry.journal_line_id
     JOIN abos.journals journal ON journal.id = line.journal_id
    WHERE entry.subledger_type = 'TEMPORARY_FUNDING_PAYABLE' AND entry.business_party_id = $1 AND journal.status = 'POSTED'`, [partyId]);

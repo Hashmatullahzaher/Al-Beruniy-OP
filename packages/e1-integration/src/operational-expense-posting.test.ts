@@ -838,8 +838,10 @@ if (databaseUrl() === undefined) {
         assert.deepEqual(report.totalsByCurrency, [{ currency: "USD", count: 2, amount: "199.75" }]);
         assert.deepEqual(report.baseTotal, { currency: "USD", amount: "199.75" });
         assert.equal(report.pendingApproval.count, 0);
+        // 0045: the Safe position is the Safe's real balance. The hidden project's expense stays out of
+        // the reader's expense figures above, but its money left the Safe and is counted here.
         assert.deepEqual(report.treasuryMovements.map((row) => [row.treasuryAccountId, row.before, row.day, row.after]),
-          [[fixture.treasuryId, "-40.00", "-199.75", "-239.75"]]);
+          [[fixture.treasuryId, "-40.00", "-1199.75", "-1239.75"]]);
         // Someone without the read permission gets nothing.
         const noRead = await sessionFor(harness, world, world.counterId);
         await assert.rejects(() => dailyReport(fixture.executor, noRead.args, "2026-09-22"), /missing finance\.expense\.read/i);
