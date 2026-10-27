@@ -203,14 +203,19 @@ if (databaseUrl() === undefined) {
     });
 
     test("Operational V1 expense posting remains unchanged", async () => {
-      const validators = await harness.pool.query<{ operational: boolean; expense: boolean }>(`
-        SELECT to_regprocedure('abos.validate_operational_journal_posting()') IS NOT NULL AS operational,
-               to_regprocedure('abos.operational_expense_post(uuid,uuid)') IS NOT NULL AS expense`);
-      assert.deepEqual(validators.rows[0], { operational: true, expense: true });
+      // 0043: the posting kernel dispatches expense to its validator; the 0036 bridge stays a FROZEN
+      // registry entry validated by its own lane.
+      const validators = await harness.pool.query<{ kernel: boolean; expense: boolean; post: boolean }>(`
+        SELECT to_regprocedure('abos.posting_kernel_validate()') IS NOT NULL AS kernel,
+               to_regprocedure('abos.validate_expense_journal(abos.journals,abos.posting_intents)') IS NOT NULL AS expense,
+               to_regprocedure('abos.operational_expense_post(uuid,uuid)') IS NOT NULL AS post`);
+      assert.deepEqual(validators.rows[0], { kernel: true, expense: true, post: true });
       const definition = await harness.pool.query<{ definition: string }>(
-        "SELECT pg_get_functiondef('abos.validate_operational_journal_posting()'::regprocedure) AS definition");
-      assert.match(definition.rows[0]?.definition ?? "", /OPERATIONAL_EXPENSE/);
-      assert.match(definition.rows[0]?.definition ?? "", /SHAREHOLDER_CAPITAL_CONTRIBUTION_RECEIPT/);
+        "SELECT pg_get_functiondef('abos.posting_kernel_validate()'::regprocedure) AS definition");
+      assert.match(definition.rows[0]?.definition ?? "", /WHEN 'OPERATIONAL_EXPENSE' THEN PERFORM abos\.validate_expense_journal/);
+      const bridge = await harness.pool.query<{ status: string }>(
+        "SELECT status FROM abos.posting_sources WHERE source_type = 'SHAREHOLDER_CAPITAL_CONTRIBUTION_RECEIPT'");
+      assert.deepEqual(bridge.rows, [{ status: "FROZEN" }]);
     });
 
     test("same-currency shareholder receipt follows receipt to custody to approval to posting", async () => {

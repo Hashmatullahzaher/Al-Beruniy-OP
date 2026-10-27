@@ -175,16 +175,23 @@ if (databaseUrl() === undefined) {
       assert.equal(await scalar(harness,
         "SELECT count(*) FROM abos.permission_catalogue WHERE permission_code LIKE '%temporary-funding.revers%'"), 0);
       // No reserved Shareholder-Finance name is reused and validators keep every 0036 branch.
+      // 0043: every source keeps its branch - a registry row the kernel dispatches (or, for the 0036 bridge,
+      // a FROZEN row validated by its own lane) - and one kernel trigger replaces three validators.
+      const sources = await harness.pool.query<{ source_type: string; status: string }>(
+        "SELECT source_type, status FROM abos.posting_sources WHERE status <> 'PLANNED' ORDER BY source_type");
+      assert.deepEqual(sources.rows, [
+        { source_type: "DIRECT_SHAREHOLDER_CAPITAL", status: "ACTIVE" }, { source_type: "OPERATIONAL_EXPENSE", status: "ACTIVE" },
+        { source_type: "SHAREHOLDER_CAPITAL_CONTRIBUTION_RECEIPT", status: "FROZEN" },
+        { source_type: "TEMPORARY_FUNDING", status: "ACTIVE" }, { source_type: "TEMPORARY_FUNDING_SETTLEMENT", status: "ACTIVE" }]);
       const definition = await harness.pool.query<{ definition: string }>(
-        "SELECT pg_get_functiondef('abos.validate_operational_journal_posting()'::regprocedure) AS definition");
-      for (const marker of ["OPERATIONAL_EXPENSE", "SHAREHOLDER_CAPITAL_CONTRIBUTION_RECEIPT", "TEMPORARY_FUNDING_SETTLEMENT"]) {
-        assert.match(definition.rows[0]?.definition ?? "", new RegExp(marker));
+        "SELECT pg_get_functiondef('abos.posting_kernel_validate()'::regprocedure) AS definition");
+      for (const marker of ["OPERATIONAL_EXPENSE", "TEMPORARY_FUNDING", "TEMPORARY_FUNDING_SETTLEMENT", "DIRECT_SHAREHOLDER_CAPITAL"]) {
+        assert.match(definition.rows[0]?.definition ?? "", new RegExp("WHEN '" + marker + "' THEN"));
       }
       const triggers = await harness.pool.query<{ tgname: string }>(`SELECT tgname FROM pg_trigger
         WHERE tgrelid = 'abos.journals'::regclass AND tgname LIKE 'journals_operational%' ORDER BY tgname`);
       assert.deepEqual(triggers.rows.map((row) => row.tgname), [
-        "journals_operational_capital_posting_guard", "journals_operational_posting_guard",
-        "journals_operational_temporary_funding_posting_guard"]);
+        "journals_operational_capital_posting_guard", "journals_operational_kernel_guard"]);
     });
 
     test("payable mapping accepts only a controlled LIABILITY and is evidence-backed and append-only", async () => {

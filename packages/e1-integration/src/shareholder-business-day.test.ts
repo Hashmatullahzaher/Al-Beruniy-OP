@@ -230,7 +230,9 @@ if (databaseUrl() === undefined) {
           const functionsBefore = await functions();
           const registryBefore = (await client.query("SELECT * FROM abos.schema_migrations ORDER BY migration_id")).rows;
 
-          assert.deepEqual(await applyMigrations(tx, migrations), [MIGRATION], "exactly 0042 is applied");
+          // 0042 alone, exactly as the runner executes it; later migrations are applied by the runner afterwards.
+          await client.query(migrations[index]!.sql);
+          await client.query("INSERT INTO abos.schema_migrations(migration_id,checksum_sha256) VALUES($1,$2)", [MIGRATION, migrations[index]!.checksumSha256]);
 
           assert.deepEqual(await snapshot(), rowsBefore, "every business and security table is byte-for-byte unchanged");
           assert.deepEqual((await client.query("SELECT * FROM abos.schema_migrations WHERE migration_id <> $1 ORDER BY migration_id", [MIGRATION])).rows,
@@ -261,7 +263,8 @@ if (databaseUrl() === undefined) {
             }
           }
           assert.deepEqual(changed.sort(), [...RESTATED].sort(), "exactly the eight shareholder setup functions are restated");
-          assert.deepEqual(await applyMigrations(tx, migrations), [], "repeating the runner is a no-op");
+          assert.deepEqual(await applyMigrations(tx, migrations), migrations.slice(index + 1).map((m) => m.id),
+            "the runner accepts the recorded 0042 and applies only what follows it");
         } finally {
           await client.query("ROLLBACK");
           client.release();

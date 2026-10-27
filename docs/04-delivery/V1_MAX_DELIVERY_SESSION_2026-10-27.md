@@ -61,3 +61,18 @@ stays at trunk `0aa6512` / migration 0040 throughout unless an entry says otherw
 - Eight functions restated (the approved seven plus the profile role trigger, which blocks the same
   flow); one grant. Details: `docs/04-delivery/V1_SHAREHOLDER_BUSINESS_DAY_0042.md`.
 - Follow-up finding D3-F2 (six other lanes) recorded in `OPEN_ITEMS.md`.
+
+## Slice 2 part 1 — migration 0043, posting kernel validation and source registry
+
+- Branch `claude/slice2-posting-kernel` (base `a6a2c51`). Design: `docs/03-architecture/POSTING_KERNEL.md`.
+- `abos.posting_sources`: 11 lock-only rows (4 ACTIVE, the 0036 bridge FROZEN, 6 PLANNED); read only by
+  the operational Finance owner.
+- One kernel trigger replaces three validators that each re-implemented the shared invariants; four
+  small source validators reached by a static `CASE`; no dynamic SQL; the bridge trigger and E1 untouched.
+  Writers unchanged, so posted output is unchanged by construction.
+- Tests: new `posting-kernel.test.ts` (registry, privileges, static arms, fault injection into real
+  postings for every shared invariant and for source-only rules, draft-before-post, posted immutability,
+  PLANNED and unregistered sources) 5/5; full integration on a fresh database 268/268; unit, typecheck,
+  lint clean.
+- Upgrade of the restored production copy at 0042: exactly 0043 applied, rerun a no-op, 88/89 tables
+  byte-identical (only the migration registry +1) plus the new 11-row registry. Not deployed.
