@@ -71,9 +71,14 @@ test.describe("V1 workflow approval policy", () => {
 
     await expect(page.getByRole("heading", { level: 1, name: "Workflow approvals" })).toBeVisible();
     await expect(page.locator(".policy-card")).toHaveCount(9);
-    await expect(page.locator(".policy-card .treasury-chip", { hasText: "Not configured" })).toHaveCount(9);
+    // 0049 Simple Mode: the five daily-money workflows record in one save until a setting is saved.
+    await expect(page.locator(".policy-card .treasury-chip", { hasText: "Not configured" })).toHaveCount(4);
+    await expect(page.locator(".policy-card .treasury-chip", { hasText: "Approval OFF (default)" })).toHaveCount(5);
+    const transfer = page.locator(".policy-card").filter({ has: page.getByRole("heading", { name: "Treasury transfer", exact: true }) });
+    await expect(transfer.locator(".policy-toggle input")).toBeDisabled();
+    await expect(transfer).toContainText("Approval is not available for this workflow yet");
 
-    // Missing policy is explicit. Saving OFF creates v1; changing to ON creates v2 and keeps v1.
+    // Saving OFF creates v1; changing to ON creates v2 and keeps v1.
     const expense = page.locator(".policy-card").filter({ has: page.getByRole("heading", { name: "Expense", exact: true }) });
     await expense.getByLabel("Reason for this change").fill("Owner-directed synthetic preview default");
     await expense.getByRole("button", { name: "Save new version" }).click();

@@ -26,7 +26,7 @@ const workspace = () => ({
   safes: [account(safeId, "Main Safe", "SAFE", "USD", "500"), account(sarafId, "Saraf Hamid", "SARAF", "USD", "0"),
     account(afnId, "Afghani box", "CASH_BOX", "AFN", "0")]
 });
-type Settings = Record<string, "READY" | "APPROVAL_REQUIRED" | "NOT_SAVED">;
+type Settings = Record<string, "READY" | "APPROVAL_REQUIRED">;
 const options = (settings: Settings = {}, can: Partial<Record<"canReceive" | "canTransfer" | "canPay" | "canRecordExpense", boolean>> = {}) => ({
   baseCurrency: "USD", today: "2026-10-27", canReceive: true, canTransfer: true, canPay: true, canRecordExpense: true, ...can,
   settings: { OTHER_INCOME: "READY", TREASURY_TRANSFER: "READY", SUPPLIER_PAYMENT: "READY", SALARY_PAYMENT: "READY", ...settings },
@@ -172,12 +172,12 @@ test("paying an expense goes through the expense lane with its kind and may wait
     description: "Door repair", reference: "INV-88", originalAmount: "45", currencyCode: "USD", businessDate: "2026-10-27", paymentKind: "OTHER" } });
 });
 
-test("an unsaved approval setting blocks the save, and refusals keep the same request", async ({ page }) => {
-  await mock(page, { money: options({ OTHER_INCOME: "NOT_SAVED" }) });
+test("an explicit approval-required setting blocks the save, and refusals keep the same request", async ({ page }) => {
+  await mock(page, { money: options({ OTHER_INCOME: "APPROVAL_REQUIRED" }) });
   await page.goto("/finance/safes");
   await page.getByRole("region", { name: "Main Safe" }).getByRole("button", { name: "Receive cash" }).click();
   const blocked = page.getByRole("form", { name: "Receive cash — Main Safe" });
-  await expect(blocked.getByRole("status")).toContainText("approval setting has not been saved yet");
+  await expect(blocked.getByRole("status")).toContainText("requires approval for this");
   await blocked.getByLabel("Amount *").fill("10");
   await blocked.getByLabel("Or a name").fill("Tenant");
   await blocked.getByLabel("Income account *").selectOption(incomeId);
@@ -195,6 +195,23 @@ test("an unsaved approval setting blocks the save, and refusals keep the same re
   await form.getByRole("button", { name: "Save" }).click();
   expect(commands).toHaveLength(2);
   expect(commands[1]!.body.idempotencyKey).toBe(commands[0]!.body.idempotencyKey);
+});
+
+test("a Safe shows what it holds, warns before overdrawing, and the database refusal is explained", async ({ page }) => {
+  await mock(page, { refuse: { status: 422, code: "INSUFFICIENT_FUNDS",
+    message: "The Safe does not hold enough money for this. A Safe, cash box or petty cash can never go below zero." } });
+  await page.goto("/finance/safes");
+  await page.getByRole("region", { name: "Main Safe" }).getByRole("button", { name: "Transfer" }).click();
+  const form = page.getByRole("form", { name: "Transfer — Main Safe" });
+  await expect(form).toContainText("Available in this Safe: 500 USD");
+  await form.getByLabel("To which account? *").selectOption(sarafId);
+  await form.getByLabel("Amount *").fill("500.01");
+  await expect(form.getByRole("status")).toContainText("more than the Safe holds");
+  await form.getByRole("button", { name: "Save" }).click();
+  await expect(form.getByRole("alert")).toContainText("can never go below zero");
+  // A Saraf account may go below zero, so it shows no limit.
+  await page.getByRole("region", { name: "Saraf Hamid" }).getByRole("button", { name: "Transfer" }).click();
+  await expect(page.getByRole("form", { name: "Transfer — Saraf Hamid" })).not.toContainText("Available in this Safe");
 });
 
 test("without a movement permission, and on foreign-currency Safes, no movement can be started", async ({ page }) => {

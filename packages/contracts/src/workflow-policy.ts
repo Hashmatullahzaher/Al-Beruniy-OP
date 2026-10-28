@@ -16,6 +16,9 @@ export type FinanceWorkflowType = (typeof FINANCE_WORKFLOW_TYPES)[number];
 
 export const financeWorkflowTypeSchema = z.enum(FINANCE_WORKFLOW_TYPES);
 
+/** 0049 Simple Mode: these workflows record in one save (approval OFF) until a setting is saved. */
+export const SIMPLE_MODE_DEFAULT_WORKFLOWS: readonly FinanceWorkflowType[] = ["OTHER_INCOME", "EXPENSE", "SUPPLIER_PAYMENT", "SALARY_PAYMENT", "TREASURY_TRANSFER"];
+
 export const financeWorkflowPolicyUpdateSchema = z.object({
   approvalRequired: z.boolean(),
   expectedVersion: z.number().int().min(0),
@@ -37,6 +40,8 @@ export interface FinanceWorkflowPolicy {
   readonly workflowType: FinanceWorkflowType;
   readonly labelEn: string;
   readonly labelFa: string;
+  /** 0049: false where the lane has no approval path yet; ON cannot be saved there. */
+  readonly approvalAvailable: boolean;
   readonly configured: boolean;
   readonly policyVersionId: string | null;
   readonly version: number;

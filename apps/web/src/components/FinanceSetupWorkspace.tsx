@@ -210,10 +210,10 @@ export function FinanceSetupWorkspace() {
     { ok: view.legalEntity.baseCurrency !== null,
       text: view.legalEntity.baseCurrency ? (fa ? `واحد پول پایه: ${view.legalEntity.baseCurrency}` : `Base currency: ${view.legalEntity.baseCurrency}`)
         : (fa ? "واحد پول پایه شرکت هنوز تصویب نشده است." : "The company's base currency is not approved yet.") },
-    { ok: approval === "UNKNOWN" ? null : approval === "OFF" || approval === "ON",
+    { ok: approval === "UNKNOWN" ? null : true,
       text: approval === "OFF" ? (fa ? "تأیید مصارف: خاموش — مصارف فوراً ثبت می‌شوند." : "Expense approval: OFF — expenses are recorded at once.")
         : approval === "ON" ? (fa ? "تأیید مصارف: روشن — هر مصرف به تأیید شخص دیگری نیاز دارد." : "Expense approval: ON — each expense needs another person's approval.")
-          : approval === "NOT_SET" ? (fa ? "تنظیم تأیید مصارف هنوز انتخاب نشده است." : "The expense approval setting has not been chosen yet.")
+          : approval === "NOT_SET" ? (fa ? "تأیید مصارف: خاموش (پیش‌فرض) — مصارف فوراً ثبت می‌شوند." : "Expense approval: OFF (default) — expenses are recorded at once.")
             : (fa ? "تنظیم تأیید مصارف را مدیر سیستم در «تأیید جریان‌ها» انتخاب می‌کند." : "A System Administrator chooses the expense approval setting in Workflow approvals."),
       href: "/admin/finance-workflows", link: fa ? "تأیید جریان‌ها" : "Workflow approvals" },
     { ok: view.treasuryAccounts.some((item) => item.status === "ACTIVE"),

@@ -178,3 +178,25 @@ stays at trunk `0aa6512` / migration 0040 throughout unless an entry says otherw
 - The real-database check also found a late-save UI race, now fixed.
 - Not deployed.
 
+## Slice 4 corrections — 0049 (owner decisions of 2026-10-28)
+
+- Branch `claude/slice4-corrections` (base `742028a`); report section 7 of `V1_MONEY_MOVEMENTS_SLICE4.md`.
+- **Cash-like accounts.** SAFE, CASH_BOX and PETTY_CASH never go below zero.
+  - Checked in the posting kernel's journal trigger, under `FOR NO KEY UPDATE` on the Treasury account, from posted movements.
+  - Covers every lane and is backdate-proof.
+  - SARAF may go negative.
+- **Simple Mode.** A missing approval setting means OFF.
+  - The record's policy reference is then NULL; nothing is seeded.
+  - An explicit OFF posts and an explicit ON is never bypassed.
+  - EXPENSE OR the payment kind's setting governs an expense.
+- **Approval switches.** ON is unavailable for OTHER_INCOME, TREASURY_TRANSFER, SUPPLIER_PAYMENT, SALARY_PAYMENT and CUSTOMER_RECEIPT.
+- **Not done here:** AFN inflows are a missing Slice 6 capability; attachments are deferred to the document vault.
+- **Validation:**
+  - targeted 94/94;
+  - full integration 300/300 (test PostgreSQL raised to 1 GB after repeated OOM at 512 MB);
+  - unit 169/169; typecheck, lint, build;
+  - browser 67 passed; smoke 10/10;
+  - real-database browser check, including a refused overdraft;
+  - production-shaped upgrade (Step A from `742028a`: 0047+0048; Step B: 0049) with zero journals and no backfill.
+- Not deployed.
+

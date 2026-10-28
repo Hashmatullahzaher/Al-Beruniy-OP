@@ -298,7 +298,9 @@ if (databaseUrl() === undefined) {
     });
 
     test("settlement: partial, full, over-settlement, duplicates, exact payable, no expense repost", async () => {
-      const fixture = await setupFixture(harness);
+      // Repays more than the account ever received, to prove the payable figures: a bank account, outside the
+      // 0049 cash-like rule (proven on a real Safe in the guard test below and in money-movements-corrections).
+      const fixture = await setupFixture(harness, "BANK");
       try {
         const funding = await postFunding(fixture, modeA(fixture, "100.00"));
         const expenseLines = await scalar(harness, `SELECT count(*) FROM abos.journal_lines WHERE ledger_account_id = '${fixture.expenseLedgerId}'`);
@@ -347,7 +349,9 @@ if (databaseUrl() === undefined) {
     });
 
     test("concurrency: one approval posts once; concurrent settlements cannot exceed the payable", async () => {
-      const fixture = await setupFixture(harness);
+      // Repays more than the account ever received, to prove the payable figures: a bank account, outside the
+      // 0049 cash-like rule (proven on a real Safe in the guard test below and in money-movements-corrections).
+      const fixture = await setupFixture(harness, "BANK");
       try {
         const created = await record(fixture, fixture.sessions.creator, modeA(fixture, "100.00"));
         const approvals = await Promise.allSettled([
@@ -478,8 +482,8 @@ if (databaseUrl() === undefined) {
       } finally { await fixture.close(); }
     });
 
-    test("reversal is fail-closed and the Safe non-negative guard stays dormant", async () => {
-      const fixture = await setupFixture(harness);
+    test("reversal is fail-closed and, since 0049, a Safe cannot be spent below what it holds", async () => {
+      const fixture = await setupFixture(harness, "SAFE");
       try {
         const funding = await postFunding(fixture, modeB(fixture, "10.00"));
         const evidence = await evidenceRow(harness, fixture.world, "REVERSAL_REASON");
@@ -488,21 +492,26 @@ if (databaseUrl() === undefined) {
           VALUES ($1, $1, 'Synthetic reversal attempt', $2, $3)`, [funding.journalId, fixture.world.bootstrapUserId, evidence]),
         /temporary funding reversal is not active/);
         assert.equal((await workspaceOf(fixture, fixture.sessions.creator)).capability.reversalAvailable, false);
-        // Dormant guard: a Safe-funded expense far beyond recorded Safe cash still posts exactly as before 0037.
+        // 0049 (owner decision of 2026-10-28): the guard is active. The Safe holds the 10.00 the provider paid
+        // in; an expense beyond it is refused when it would post, and spending exactly 10.00 brings it to zero.
         await grant(harness, fixture.world, fixture.world.intentCreatorId, "finance.expense.create");
-        const created = await call<{ expense: { id: string; version: number } }>(fixture.executor,
+        const create = async (amount: string) => call<{ expense: { id: string; version: number } }>(fixture.executor,
           "SELECT abos.operational_expense_create($1,$2,$3,$4::jsonb) AS value",
-          [...args(fixture.sessions.creator), JSON.stringify(expensePayload(fixture.safeId, fixture.categoryId, "900.00"))]);
-        const posted = await call<{ expense: { status: string } }>(fixture.executor,
+          [...args(fixture.sessions.creator), JSON.stringify(expensePayload(fixture.safeId, fixture.categoryId, amount))]);
+        const approve = async (created: { expense: { id: string; version: number } }) => call<{ expense: { status: string } }>(fixture.executor,
           "SELECT abos.operational_expense_approve($1,$2,$3,$4,$5,$6) AS value",
           [...args(fixture.sessions.approver), created.expense.id, created.expense.version, "Synthetic approval note"]);
-        assert.equal(posted.expense.status, "POSTED");
-        assert.equal(await safeMovement(harness, fixture.safeId), "-890.00");
+        await assert.rejects(async () => approve(await create("900.00")), /not enough money in Synthetic Main Safe/);
+        assert.equal(await safeMovement(harness, fixture.safeId), "10.00");
+        assert.equal((await approve(await create("10.00"))).expense.status, "POSTED");
+        assert.equal(await safeMovement(harness, fixture.safeId), "0.00");
       } finally { await fixture.close(); }
     });
 
     test("provider identity: never from the request, required, bound per funding, and enforced on approvals", async () => {
-      const fixture = await setupFixture(harness);
+      // Repays more than the account ever received, to prove the payable figures: a bank account, outside the
+      // 0049 cash-like rule (proven on a real Safe in the guard test below and in money-movements-corrections).
+      const fixture = await setupFixture(harness, "BANK");
       try {
         const { world, sessions } = fixture;
         // (1)(9) The request cannot supply or forge the provider's user identity or its profile version.
@@ -681,10 +690,10 @@ if (databaseUrl() === undefined) {
 // Fixture
 // ---------------------------------------------------------------------------------------------------
 
-async function setupFixture(harness: Harness): Promise<Fixture> {
+async function setupFixture(harness: Harness, safeType: "BANK" | "SAFE" = "SAFE"): Promise<Fixture> {
   await resetSchema(harness.pool);
   const world = await seedSyntheticWorld(harness.executor);
-  const lane = await configureExpenseLane(harness, world);
+  const lane = await configureExpenseLane(harness, world, safeType);
   const q = (sql: string, parameters: readonly unknown[] = []) => harness.executor.query(sql, parameters);
   const bankId = randomUUID(); const policyId = randomUUID();
   const bankLedgerId = await ledger(harness, world, `SYN-BNK-${bankId.slice(0, 6)}`, "ASSET", "CASH");
@@ -746,13 +755,18 @@ async function setupFixture(harness: Harness): Promise<Fixture> {
 }
 
 /** Synthetic Operational V1 expense configuration (Safe, category, approval-required EXPENSE policy, grants). */
-async function configureExpenseLane(harness: Harness, world: SyntheticWorld): Promise<{ safeId: string; categoryId: string; expenseLedgerId: string }> {
+/**
+ * The lane's Treasury account is a Safe. The tests that deliberately repay more than the Safe ever received
+ * use a bank account instead (outside the 0049 cash-like rule), so their exact payable figures stay
+ * unchanged; the rule itself is proven on a real Safe in the guard test and in money-movements-corrections.
+ */
+async function configureExpenseLane(harness: Harness, world: SyntheticWorld, safeType: "BANK" | "SAFE" = "SAFE"): Promise<{ safeId: string; categoryId: string; expenseLedgerId: string }> {
   const safeId = randomUUID(); const categoryId = randomUUID();
   const expenseLedgerId = await ledger(harness, world, `SYN-EXP-${safeId.slice(0, 6)}`, "EXPENSE", null);
   await harness.executor.query(`INSERT INTO abos.operational_treasury_accounts (id, legal_entity_id, name_en, name_fa, account_type,
       currency_code, ledger_account_id, status, version, created_by_user_account_id, last_changed_by_user_account_id)
-    VALUES ($1,$2,'Synthetic Main Safe','صندوق اصلی آزمایشی','SAFE','USD',$3,'ACTIVE',1,$4,$4)`,
-  [safeId, world.legalEntityId, world.cashLedgerAccountId, world.bootstrapUserId]);
+    VALUES ($1,$2,'Synthetic Main Safe','صندوق اصلی آزمایشی',$5,'USD',$3,'ACTIVE',1,$4,$4)`,
+  [safeId, world.legalEntityId, world.cashLedgerAccountId, world.bootstrapUserId, safeType]);
   await harness.executor.query(`INSERT INTO abos.operational_expense_categories (id, legal_entity_id, category_code, name_en, name_fa,
       ledger_account_id, status, version, created_by_user_account_id, last_changed_by_user_account_id)
     VALUES ($1,$2,'SYN-OPS','Synthetic Operations','عملیات آزمایشی',$3,'ACTIVE',1,$4,$4)`,

@@ -138,6 +138,10 @@ if (databaseUrl() === undefined) {
         VALUES($1,$2,'GREGORIAN',2026,'FY 2026','۱۴۰۵','2026-10-01','2026-10-31',$3)`, [fiscalYear, entity, by]);
       await h.pool.query(`INSERT INTO abos.accounting_periods(id,legal_entity_id,period_name,starts_on,ends_on,status,fiscal_year_id,period_sequence,period_name_fa)
         VALUES($1,$2,'2026-10','2026-10-01','2026-10-31','PENDING',$3,1,'میزان')`, [id(9007), entity, fiscalYear]);
+      // A month that exists and is CLOSED: no posting may open or use it, in either catalogue.
+      await h.pool.query(`INSERT INTO abos.accounting_periods(id,legal_entity_id,period_name,starts_on,ends_on,status,
+          opened_by_user_account_id,opened_at,closed_by_user_account_id,closed_at)
+        VALUES($1,$2,'2026-08','2026-08-01','2026-08-31','CLOSED',$3,clock_timestamp(),$3,clock_timestamp())`, [id(9008), entity, by]);
       const creator = await session(world.intentCreatorId, entity);
       const approver = await session(world.approverId, entity);
       const outcomes: unknown[] = [];
@@ -147,27 +151,13 @@ if (databaseUrl() === undefined) {
       const expense = (n: number, extra: object = {}) => call<{ expense: { id: string; version: number } }>("operational_expense_create", creator, {
         treasuryAccountId: safe, expenseCategoryId: category, payeeBusinessPartyId: null, projectId: null, departmentId: null,
         costCenterId: null, reference: `SYN-EQ-${n}`, description: `Synthetic equivalence expense ${n}`, note: null,
-        businessDate: "2026-09-22", originalAmount: "125.50", currencyCode: "USD", exchangeRateId: null,
+        businessDate: "2026-09-24", originalAmount: "125.50", currencyCode: "USD", exchangeRateId: null,
         correlationId: id(n), idempotencyKey: `equivalence-expense-${n}`, ...extra });
       const receive = (n: number, extra: object) => call("direct_shareholder_receive", creator, {
         shareholderProfileId: holder, fundingMethod: "CASH", amount: "600", currencyCode: "USD", receiptDate: "2026-09-23",
         destinationAccountId: safe, providerName: null, itemDescription: null, expenseLedgerAccountId: null,
         paymentReference: `SYN-EQ-CAP-${n}`, note: null, correlationId: id(n), idempotencyKey: `equivalence-capital-${n}`, ...extra });
 
-      await attempt("expense posts directly", () => expense(1));
-      await attempt("expense replays", () => expense(1));
-      await attempt("expense with a payee and an exact decimal", () => expense(2, { payeeBusinessPartyId: world.businessPartyId, originalAmount: "0.01" }));
-      await attempt("expense on a month that is not open is refused", () => expense(3, { businessDate: "2026-10-05" }));
-      await policy("EXPENSE", 2, true);
-      const pending = await call<{ expense: { id: string; version: number } }>("operational_expense_create", creator, {
-        treasuryAccountId: safe, expenseCategoryId: category, payeeBusinessPartyId: null, projectId: null, departmentId: null,
-        costCenterId: null, reference: "SYN-EQ-4", description: "Synthetic approval-route expense", note: null,
-        businessDate: "2026-09-24", originalAmount: "1000.000001", currencyCode: "USD", exchangeRateId: null,
-        correlationId: id(4), idempotencyKey: "equivalence-expense-4" });
-      outcomes.push(["expense awaits approval", pending]);
-      await attempt("approval posts the expense", async () => (await runtime.query<{ value: unknown }>(
-        "SELECT abos.operational_expense_approve($1,$2,$3,$4,$5,$6) AS value",
-        [approver.proof, approver.runtimeDigest, approver.tokenDigest, pending.expense.id, pending.expense.version, "Synthetic approval"])).rows[0]?.value);
 
       const added = await call<{ shareholderProfileId: string }>("direct_shareholder_add", creator, {
         displayName: "Synthetic Equivalence Holder", agreedTotal: "1000", currencyCode: "USD", externalReference: null, note: null,
@@ -182,7 +172,27 @@ if (databaseUrl() === undefined) {
       await attempt("capital opens a pending month once", () => receive(15, { receiptDate: "2026-10-05", amount: "10" }));
       await attempt("capital in a month outside the calendar is refused", () => receive(16, { receiptDate: "2026-07-05" }));
       await attempt("capital in a foreign currency is refused", () => receive(17, { currencyCode: "AFN" }));
+      // 0049: a Safe is spent only after money arrives, so capital is received first and expenses are dated after it.
+      await attempt("expense posts directly", () => expense(1));
+      await attempt("expense replays", () => expense(1));
+      await attempt("expense with a payee and an exact decimal", () => expense(2, { payeeBusinessPartyId: world.businessPartyId, originalAmount: "0.01" }));
+      await attempt("expense in a CLOSED month is refused", () => expense(3, { businessDate: "2026-08-14" }));
+      await attempt("expense outside the financial calendar is refused", () => expense(5, { businessDate: "2026-07-05" }));
+      await policy("EXPENSE", 2, true);
+      const pending = await call<{ expense: { id: string; version: number } }>("operational_expense_create", creator, {
+        treasuryAccountId: safe, expenseCategoryId: category, payeeBusinessPartyId: null, projectId: null, departmentId: null,
+        costCenterId: null, reference: "SYN-EQ-4", description: "Synthetic approval-route expense", note: null,
+        businessDate: "2026-09-24", originalAmount: "1000.000001", currencyCode: "USD", exchangeRateId: null,
+        correlationId: id(4), idempotencyKey: "equivalence-expense-4" });
+      outcomes.push(["expense awaits approval", pending]);
+      await attempt("approval posts the expense", async () => (await runtime.query<{ value: unknown }>(
+        "SELECT abos.operational_expense_approve($1,$2,$3,$4,$5,$6) AS value",
+        [approver.proof, approver.runtimeDigest, approver.tokenDigest, pending.expense.id, pending.expense.version, "Synthetic approval"])).rows[0]?.value);
       void asset;
+      // The closed month refuses for the same reason in both catalogues: it is not an open period.
+      const closed = outcomes.find((o) => Array.isArray(o) && o[0] === "expense in a CLOSED month is refused") as [string, string, string] | undefined;
+      assert.equal(closed?.[1], "refused");
+      assert.match(closed?.[2] ?? "", /an open accounting period must cover the expense date/);
       return outcomes;
     }
 

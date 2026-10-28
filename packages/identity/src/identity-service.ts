@@ -1254,6 +1254,9 @@ function translateDatabaseError(error: unknown): unknown {
   if (code === "23514" && /only a super administrator can grant administration/.test(message)) {
     return new IdentityError("SUPER_ADMIN_REQUIRED", "Only a Super Administrator can give administration access.");
   }
+  if (code === "23514" && /approval is not available for/.test(message)) {
+    return new IdentityError("VALIDATION_FAILED", "Approval is not available for this workflow yet. It records in one save until Advanced Controls are added.");
+  }
   if (code === "23514" && /not available/.test(message)) {
     return new IdentityError("VALIDATION_FAILED", "Some selected permissions are not available in this version.");
   }

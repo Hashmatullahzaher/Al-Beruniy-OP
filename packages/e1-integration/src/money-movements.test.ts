@@ -193,11 +193,10 @@ if (databaseUrl() === undefined) {
         /accounts payable needs the person or organization it was owed to/, "accounts payable is kept per supplier");
     });
 
-    test("refusals: wrong account kinds, currencies, dates, inactive or foreign accounts, unsaved or approval settings - nothing written", async () => {
+    test("refusals: wrong account kinds, currencies, dates, inactive or foreign accounts, approval settings - nothing written", async () => {
+      // 0049: an unsaved setting is the Simple Mode default and records in one save (money-movements-corrections).
       const f = await fixture({ policies: false });
       const before = await counts();
-      await assert.rejects(() => receive(f), /the OTHER_INCOME approval setting has not been saved yet/);
-      await assert.rejects(() => transfer(f), /the TREASURY_TRANSFER approval setting has not been saved yet/);
       for (const workflow of POLICIES) await policy(f.world, workflow, false);
       await policy(f.world, "TREASURY_TRANSFER", true);
       await assert.rejects(() => transfer(f), /the TREASURY_TRANSFER setting requires approval/);
@@ -223,6 +222,7 @@ if (databaseUrl() === undefined) {
 
     test("an expense paid as salary follows SALARY_PAYMENT; other kinds and none follow their settings; the kind is immutable", async () => {
       const f = await fixture();
+      await receive(f, { amount: "500.00", businessDate: "2026-09-10" });
       const expense = (extra: object) => call<{ expense: { id: string; status: string; paymentKind?: string } }>("operational_expense_create", f.actor, {
         treasuryAccountId: f.safe, expenseCategoryId: f.category, payeeBusinessPartyId: null, projectId: null, departmentId: null, costCenterId: null,
         reference: `SAL-${randomUUID().slice(0, 6)}`, description: "Synthetic salary", note: null, businessDate: "2026-09-13", originalAmount: "30.00",
@@ -242,7 +242,9 @@ if (databaseUrl() === undefined) {
       await assert.rejects(() => expense({ paymentKind: "GIFT" }), /complete valid expense details are required/);
       const routes = (await h.pool.query(`SELECT e.payment_kind AS k, v.workflow_type AS w FROM abos.operational_expenses e
         JOIN abos.finance_workflow_policy_versions v ON v.id = e.workflow_policy_version_id ORDER BY e.created_at`)).rows;
-      assert.deepEqual(routes.map((r) => [r.k, r.w]), [[null, "EXPENSE"], ["SALARY", "SALARY_PAYMENT"], ["SUPPLIER", "SUPPLIER_PAYMENT"], ["OTHER", "EXPENSE"]]);
+      // 0049: the stored route is the deciding setting. Salary approval ON decides the salary expense; with
+      // the EXPENSE and supplier settings both OFF, the EXPENSE setting is the one referenced.
+      assert.deepEqual(routes.map((r) => [r.k, r.w]), [[null, "EXPENSE"], ["SALARY", "SALARY_PAYMENT"], ["SUPPLIER", "EXPENSE"], ["OTHER", "EXPENSE"]]);
       await assert.rejects(() => h.pool.query("UPDATE abos.operational_expenses SET payment_kind='OTHER', version=version+1, updated_at=clock_timestamp() WHERE id=$1",
         [salary.expense.id]), /accounting identity of an operational expense cannot change/);
     });

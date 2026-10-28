@@ -1981,5 +1981,7 @@ button.review-context { border: 0; border-inline-start: 1px solid rgba(102, 142,
 .money-form fieldset { display: flex; flex-wrap: wrap; gap: 14px; margin: 0; padding: 6px 0; border: 0; }
 .money-form fieldset legend { margin-bottom: 4px; font-size: 12px; }
 .money-form small { display: block; margin-top: 4px; opacity: .8; }
+.money-form .money-over { color: #f2c38a; opacity: 1; }
+.policy-unavailable { display: block; color: #f2c38a; }
 .table-scroll { overflow-x: auto; }
 @media (max-width: 760px) { .safe-figures { grid-template-columns: repeat(2, minmax(0, 1fr)); } .safe-opening-form { grid-template-columns: minmax(0, 1fr); } .safe-book { text-align: start; } }

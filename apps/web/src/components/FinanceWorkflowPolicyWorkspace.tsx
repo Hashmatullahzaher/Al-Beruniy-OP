@@ -1,8 +1,9 @@
 "use client";
 
-import type {
-  FinanceWorkflowPolicy,
-  FinanceWorkflowPolicyWorkspace as PolicyWorkspace
+import {
+  SIMPLE_MODE_DEFAULT_WORKFLOWS,
+  type FinanceWorkflowPolicy,
+  type FinanceWorkflowPolicyWorkspace as PolicyWorkspace
 } from "@abos/contracts";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -117,11 +118,14 @@ export function FinanceWorkflowPolicyWorkspace() {
           {workspace.policies.map((policy) => {
             const draft = drafts[policy.workflowType] ?? { approvalRequired: false, changeReason: "" };
             const changed = policy.approvalRequired !== draft.approvalRequired || !policy.configured;
+            const simpleDefault = SIMPLE_MODE_DEFAULT_WORKFLOWS.includes(policy.workflowType);
+            // ON cannot be chosen where the lane has no approval path yet; an existing ON can still be turned off.
+            const onLocked = !policy.approvalAvailable && !draft.approvalRequired;
             return <article className="module-content-card policy-card" key={policy.workflowType}>
               <header>
                 <div><p>{fa ? "نوع جریان" : "WORKFLOW"}</p><h2>{fa ? policy.labelFa : policy.labelEn}</h2></div>
-                <span className={`treasury-chip ${!policy.configured ? "danger" : policy.approvalRequired ? "gold" : "ok"}`}>
-                  {!policy.configured ? (fa ? "پیکربندی نشده" : "Not configured") :
+                <span className={`treasury-chip ${!policy.configured ? (simpleDefault ? "ok" : "danger") : policy.approvalRequired ? "gold" : "ok"}`}>
+                  {!policy.configured ? (simpleDefault ? (fa ? "تأیید خاموش (پیش‌فرض)" : "Approval OFF (default)") : (fa ? "پیکربندی نشده" : "Not configured")) :
                     policy.approvalRequired ? (fa ? "تأیید روشن" : "Approval ON") : (fa ? "تأیید خاموش" : "Approval OFF")}
                 </span>
               </header>
@@ -131,11 +135,15 @@ export function FinanceWorkflowPolicyWorkspace() {
                   <input
                     type="checkbox"
                     checked={draft.approvalRequired}
+                    disabled={onLocked}
                     onChange={(event) => setDrafts({ ...drafts, [policy.workflowType]: { ...draft, approvalRequired: event.target.checked } })}
                     aria-describedby={`policy-help-${policy.workflowType}`}
                   />
                   <span>{fa ? "تأیید لازم است" : "Approval required"}: <strong>{draft.approvalRequired ? (fa ? "روشن" : "ON") : (fa ? "خاموش" : "OFF")}</strong></span>
                 </label>
+                {!policy.approvalAvailable ? <small className="policy-unavailable">{fa
+                  ? "تأیید برای این جریان هنوز در دسترس نیست؛ تا افزوده شدن کنترل‌های پیشرفته با یک ذخیره ثبت می‌شود."
+                  : "Approval is not available for this workflow yet. It records in one save until Advanced Controls are added."}</small> : null}
                 <small id={`policy-help-${policy.workflowType}`}>{draft.approvalRequired ?
                   (fa ? "بازبینی مستقل طبق قواعد این جریان لازم است." : "Independent review follows this workflow’s existing rules.") :
                   (fa ? "تأیید جداگانه لازم نیست؛ تحویل خزانه، شواهد، صلاحیت و دوره مالی همچنان کنترل می‌شود." : "No separate approval is required; custody, evidence, permissions and accounting-period controls still apply.")}</small>

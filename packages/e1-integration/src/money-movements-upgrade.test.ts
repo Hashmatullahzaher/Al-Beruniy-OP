@@ -115,11 +115,20 @@ if (databaseUrl() === undefined) {
           } } as never, migrations);
         } finally { client.release(); }
       });
-      assert.deepEqual(applied, ["0047_v1_basic_money_movements", "0048_v1_expense_payment_kind"]);
+      assert.deepEqual(applied, ["0047_v1_basic_money_movements", "0048_v1_expense_payment_kind", "0049_v1_slice4_corrections"]);
 
       const rowAfter = (await h.pool.query("SELECT to_jsonb(e) - 'payment_kind' AS r, payment_kind FROM abos.operational_expenses e WHERE id = $1", [pending.expense.id])).rows[0];
       assert.deepEqual(rowAfter?.r, rowBefore, "the pre-0048 expense row is unchanged");
       assert.equal(rowAfter?.payment_kind, null, "nothing is backfilled");
+
+      // 0049: the Safe must hold the money when the expense posts, so it receives some first.
+      const revenue = randomUUID();
+      await h.pool.query(`INSERT INTO abos.ledger_accounts (id,legal_entity_id,account_code,account_name,account_type,control_account_type,posting_allowed,account_currency_code,status)
+        VALUES ($1,$2,'SYN-UP-INC','Synthetic upgrade income','REVENUE',NULL,true,'USD','ACTIVE')`, [revenue, entity]);
+      await grant(h.executor, world, world.intentCreatorId, ["treasury.receipt.record"]);
+      await call("treasury_receipt_record", await session(world.intentCreatorId, entity), JSON.stringify({ treasuryAccountId: safe, amount: "100.00",
+        currencyCode: "USD", businessDate: "2026-09-15", payerBusinessPartyId: null, payerName: "Synthetic payer", revenueLedgerAccountId: revenue,
+        reference: null, note: null, idempotencyKey: `upgrade-receipt-${randomUUID()}`, correlationId: randomUUID() }));
 
       const approver = await session(world.approverId, entity);
       const approved = await call<{ expense: Record<string, unknown> & { status: string } }>("operational_expense_approve", approver,

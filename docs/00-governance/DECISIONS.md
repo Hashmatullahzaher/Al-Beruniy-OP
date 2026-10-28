@@ -108,3 +108,15 @@ Additional architecture requirements:
 Slice 1 was approved on 2026-10-27 with two modifications: the `packages/sandbox-auth` rename is
 deferred out of Slice 1, and `/shareholders/legacy` must expose no action that depends on a retired
 API. The official trunk is `v1/main`, created at the production SHA `817974a9947bdab967f0f1a0f7a1fc4d25bb777b`.
+
+## Owner decisions — Slice 4 corrections — 2026-10-28
+
+Slice 4 source (0047/0048) was accepted. Its production deployment is held for these corrections,
+implemented in migration 0049 (`docs/03-architecture/MONEY_MOVEMENTS.md` section 5).
+
+1. **Negative balances.**
+   - SAFE, CASH_BOX and PETTY_CASH must never go below zero. This is enforced transactionally in PostgreSQL, is concurrency-safe and is based on posted movements; it is not a UI warning.
+   - SARAF may go below zero, because a negative net position is an amount owed to the Saraf.
+2. **Simple Mode approval defaults.** A missing approval setting for a routine workflow means approval OFF. An explicit ON is never weakened. A switch whose lane has no Advanced pending/confirm path must not be able to make the workflow unusable; it is shown as unavailable until Advanced Controls exist.
+3. **Attachments** on receipts and payments are deferred to the generalized document-vault slice.
+
