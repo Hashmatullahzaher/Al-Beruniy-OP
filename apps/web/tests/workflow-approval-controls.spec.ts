@@ -5,7 +5,7 @@ const timestamp = "2026-10-19T08:00:00Z";
 const actor = { userAccountId: "10000000-0000-4000-8000-000000000001", loginIdentifier: "synthetic.policy", displayName: "Synthetic Policy Admin", jobTitle: "Test only", legalEntityName: "Synthetic Test Company", permissions: ["admin.finance-workflow.manage", "finance.ledger-account.manage"], sessionExpiresAt: "2099-01-01T00:00:00Z" };
 
 test("policy UI retains retry identity, appends versions, shows history and supports tablet Dari", async ({ page }) => {
-  const policy = { workflowType: "CHART_OF_ACCOUNTS", labelEn: "Chart of Accounts", labelFa: "جدول حساب‌ها", configured: true, policyVersionId: "policy-v1", version: 1, approvalRequired: true, changeReason: "Synthetic initial policy", configuredAt: timestamp, configuredBy: actor.displayName, history: [{ policyVersionId: "policy-v1", version: 1, approvalRequired: true, changeReason: "Synthetic initial policy", configuredAt: timestamp, configuredBy: actor.displayName }] };
+  const policy = { workflowType: "CHART_OF_ACCOUNTS", labelEn: "Chart of Accounts", labelFa: "جدول حساب‌ها", approvalAvailable: true, configured: true, policyVersionId: "policy-v1", version: 1, approvalRequired: true, changeReason: "Synthetic initial policy", configuredAt: timestamp, configuredBy: actor.displayName, history: [{ policyVersionId: "policy-v1", version: 1, approvalRequired: true, changeReason: "Synthetic initial policy", configuredAt: timestamp, configuredBy: actor.displayName }] };
   const commands: Record<string, unknown>[] = [];
   await page.route("**/api/v1/auth/me", (route) => route.fulfill({ json: { ok: true, data: actor } }));
   await page.route("**/api/v1/admin/finance-workflows", async (route) => {

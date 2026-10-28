@@ -1,7 +1,8 @@
-# Slice 4 — receive cash, transfer and pay (migrations 0047 and 0048)
+# Slice 4 — receive cash, transfer and pay (migrations 0047, 0048 and 0049)
 
-Status: IMPLEMENTED and validated on disposable databases only. **Not deployed**: production stays at
-0046 until the owner separately authorizes 0047 and 0048. Design: `docs/03-architecture/MONEY_MOVEMENTS.md`.
+Status: IMPLEMENTED and validated on disposable databases only, including the 0049 corrections of the owner
+decisions of 2026-10-28 (section 7). **Not deployed**: production stays at 0046 until the owner authorizes
+the final chain 0047 → 0048 → 0049. Design: `docs/03-architecture/MONEY_MOVEMENTS.md`.
 
 ## 1. Definition of done
 
@@ -108,30 +109,104 @@ Checksums: 0047 `e4da71747ba728a95aca96cc416613c48bb6d120a56a894ba69edd4e9d0462e
 
 ## 4. Before the owner uses it on production
 
-- Deploying 0047 and 0048 needs separate authorization.
+- Deploying the chain 0047 → 0048 → 0049 needs separate authorization; 0049 must be deployed with the other two, never left out.
 - After deployment, the owner needs to set up the following:
   - an income account (REVENUE, no control) for receipts;
   - a payable account (LIABILITY, AP or no control) for payable payments;
   - a Saraf Treasury account, in Finance setup, if Saraf transfers are wanted.
 - Settings in Workflow approvals:
-  - production has OTHER_INCOME, TREASURY_TRANSFER and SUPPLIER_PAYMENT saved with approval off;
-  - SALARY_PAYMENT and EXPENSE are not saved yet, so salary payments and expenses of kind OTHER refuse until they are.
+  - none is required. With 0049, Simple Mode records receipts, transfers, payments and expenses in one save.
+  - production's saved OFF settings for OTHER_INCOME, TREASURY_TRANSFER and SUPPLIER_PAYMENT stay as they are.
+- A Safe can only be spent once it holds money, so the opening balance of کسه comes first.
 - Permissions: `treasury.receipt.record`, `treasury.transfer.record`, `treasury.payment.record`; paying an expense also needs `finance.expense.create`.
 - The Safe کسه shows 0 until its opening balance is recorded (opening equity is still MISSING on production).
 
 ## 5. Not in Slice 4 (recorded in `OPEN_ITEMS.md`)
 
-- Whether a Safe or Saraf account may go below zero. Today nothing refuses it, exactly like expenses.
-- An approval flow for receipts, transfers and payable payments. Today they refuse when their setting requires approval.
+- An approval (pending/confirm) flow for receipts, transfers and payable payments. ON cannot be saved for them until Advanced Controls exist (0049).
+- Whether BANK and OTHER Treasury accounts may go below zero (not covered by the 2026-10-28 decision).
 - Foreign-currency movements, which need an exchange-rate snapshot (Slice 6).
-- The optional attachment on a receipt. The only document store today belongs to capital agreements (0033/0034). A movement attachment needs a general document model, which is a separate design decision; it was not invented here.
+- Attachments on receipts and payments: deferred to the generalized document-vault slice (owner decision of 2026-10-28).
 - Customer receivables (Sales/AR) and shareholder money (shareholder lane) are deliberately not receipts here.
 - Correcting a movement waits for the REVERSAL source (Slice 5).
 
 ## 6. Test infrastructure note
 
-The disposable test PostgreSQL container (512 MB limit) was OOM-killed once during a full integration
-run. Every later test then failed to connect; the server log shows one kill (signal 9) and recovery. The rerun on a fresh
-database passed 290/290, with container memory at the 512 MB limit (most of it likely page cache). This is not a product defect.
-Raising the container's memory limit is a test-infrastructure follow-up.
+**Test-infrastructure debt (not a product defect).** At its former 512 MB memory limit, the disposable test
+PostgreSQL container (`abos-direct-capital-test-0040`) was OOM-killed (signal 9) three times during full
+integration runs. Each time it happened in the same direct-capital immutability test, and every later test then
+failed to connect while the server recovered. The first kill happened before 0049 existed.
+
+**Current requirement.** The disposable test PostgreSQL needs at least 1 GB:
+- the limit was raised with `docker update --memory 1g --memory-swap 1536m`;
+- a recreated container must be given the same limit;
+- the integration suite was not weakened to fit 512 MB.
+
+## 7. Corrections before production (0049, owner decisions of 2026-10-28)
+
+0049 is a follow-up migration after 0048 (design: `MONEY_MOVEMENTS.md` section 5).
+
+**1. Negative balances.**
+- SAFE, CASH_BOX and PETTY_CASH can never go below zero.
+- SARAF may go below zero (an amount owed to the Saraf). BANK and OTHER are not covered by the decision and are unchanged (open item).
+- Where the check runs: one function, called by the posting kernel's journal trigger. It therefore covers every lane that takes money out:
+  - expense, also when posted at approval;
+  - payment;
+  - transfer;
+  - temporary-funding repayment.
+- How it is safe under concurrency: it takes `FOR NO KEY UPDATE` on the Treasury account row, the existing Safe row-lock family. A concurrent spender waits, and then sees the first one's committed movement.
+- What it computes: from posted movements, exactly as the 0045 read model does, the lowest balance from the movement's date onward. A backdated spend cannot overdraw either.
+- No balance is stored.
+
+**2. Simple Mode defaults.**
+- A missing setting means approval OFF for:
+  - receipts (OTHER_INCOME);
+  - transfers;
+  - supplier and salary payments;
+  - expenses.
+- The record's policy reference is then NULL, meaning no explicit setting. Nothing is seeded.
+- The validators accept NULL only while no relevant setting requires approval.
+- An explicit OFF is referenced, and an explicit ON still governs.
+- An expense needs approval when its EXPENSE setting **or** its payment kind's setting is ON. This closes a gap where choosing kind "Supplier" could have bypassed an EXPENSE approval.
+
+**Unsupported switches.**
+- Approval ON is refused, by the database command and greyed out on the Workflow approvals page, for:
+  - OTHER_INCOME;
+  - TREASURY_TRANSFER;
+  - SUPPLIER_PAYMENT;
+  - SALARY_PAYMENT;
+  - CUSTOMER_RECEIPT.
+- OFF can always be saved.
+- CHART_OF_ACCOUNTS, EXPENSE, TEMPORARY_FUNDING and SHAREHOLDER_CAPITAL_RECEIPT keep ON, because each has an approval path. Capital ON routes to the 0039 Capital Requests lane, unchanged.
+
+**3. Attachments** are deferred to the document-vault slice.
+
+**Known limitation (Slice 6, not 0049).** AFN Safes cannot yet receive ordinary operational inflows, because the money lanes are base-currency only. AFN payments or expenses from such Safes are therefore refused: no book funds exist. This is not a defect in the non-negative guard; it is the missing FX / AFN capability of Slice 6 (`OPEN_ITEMS.md`).
+
+**Tests changed by the decisions.**
+- The kernel-equivalence scenario now receives capital before it spends, and dates its expenses after the
+  capital. Both catalogue builds still run the identical scenario.
+- Capital now opens October, so the old "month not open" case would no longer refuse. It is replaced by a
+  genuine CLOSED month (a disposable August 2026 period, closed with closer and time). The scenario asserts that
+  an expense dated in it is refused with "an open accounting period must cover the expense date" in both
+  builds.
+- The "outside the financial calendar" refusal stays as its own, separate case.
+- Older expense, temporary-funding and kernel-equivalence suites spent from unfunded Safes. Their fixtures now use a bank account, so every exact figure they prove stays the same.
+- The temporary-funding test that asserted the guard was "dormant" now asserts it is active, on a real Safe.
+- The 0047 suite no longer expects an unsaved setting to be refused.
+
+**Validation of 0049 (disposable databases only; test PostgreSQL at 1 GB).**
+
+| Check | Result |
+|---|---|
+| Targeted sequence: 0049 corrections, the money suites and upgrade, kernel and kernel equivalence (genuine CLOSED month), temporary funding, expense posting, direct capital, approval policy and switches, admin-approval upgrade | 94/94 |
+| 0049 suite on real Safes. It covers:<br>• exact-balance spend;<br>• one cent over by payment, transfer and expense;<br>• backdated spend;<br>• refusal at approval;<br>• concurrent overdraw (two expenses; payment with expense; transfers with payment);<br>• idempotent replay;<br>• inbound receipt;<br>• SARAF negative;<br>• cross-company and unauthorized access;<br>• Simple Mode without settings;<br>• explicit OFF and ON;<br>• kind cannot bypass EXPENSE;<br>• unsupported ON refused. | 10/10 |
+| Full integration, fresh database 0001 → 0049 (fresh install) | 300/300, no OOM |
+| Unit / typecheck / lint / build | 169/169; 12/12; clean; 11/11 |
+| Browser: full mocked suite / smoke | 67 passed, 15 database-gated skips / 10/10 |
+| Real-database browser check: no saved approval setting at all; receive, transfers both ways, payable and expense payments through the forms; then an overdraft of 550.01 against 550.00 | • every movement posted;<br>• the overdraft was refused by PostgreSQL (HTTP 422 `INSUFFICIENT_FUNDS`, form hint shown) with nothing written;<br>• 5 journals, one per event;<br>• 5 records carry the Simple Mode default;<br>• Dari RTL at 390 px without overflow. |
+| Production-shaped upgrade (restored production at 0046)<br>Step A: from trunk `742028a`, 0047 + 0048 in one runner transaction<br>Step B: 0049 | Step A: only the intended changes (+3 permissions, 3 sources ACTIVE, 3 new empty tables; 89/92 tables identical).<br>Step B: only the migration registry changed (94/95 tables identical).<br>Both steps:<br>• rerun a no-op;<br>• 0 journals, 0 intents, 0 subledger entries;<br>• no runtime table or column write;<br>• no balance column;<br>• SECURITY DEFINER functions 115 (0049 adds none);<br>• Safe کسه still 0;<br>• latest saved settings all OFF. |
+
+0049 checksum: `955126f1e9ff993e4a3e828a699d1642cba3edd8ce743bbeba26fb87f8ed3d71`.
+
 

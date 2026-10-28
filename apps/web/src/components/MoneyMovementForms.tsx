@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { api, errorText } from "@/components/AdminUsersWorkspace";
-import { localizedName } from "@/components/OperationalFinanceShared";
+import { localizedName, money } from "@/components/OperationalFinanceShared";
 import type { Copy } from "@/lib/access-copy";
 
 export type MoneyKind = "receive" | "transfer" | "pay";
@@ -29,7 +29,7 @@ const KIND_COPY: Readonly<Record<PaymentKind, Copy>> = {
 
 /** Dari for the refusal codes of moneyErrorResponse and the expense lane. */
 const ERROR_FA: Readonly<Record<string, string>> = {
-  SETTING_NOT_SAVED: "تنظیم تأیید آن هنوز ذخیره نشده است. مدیر سیستم آن را در «تأیید جریان‌ها» ذخیره می‌کند.",
+  INSUFFICIENT_FUNDS: "صندوق برای این کار پول کافی ندارد. صندوق، صندوقچه و تنخواه هرگز زیر صفر نمی‌رود.",
   APPROVAL_NOT_AVAILABLE: "شرکت برای این مورد تأیید لازم دارد که هنوز برای آن در دسترس نیست. برای ثبت با یک ذخیره، تأیید را در «تأیید جریان‌ها» خاموش کنید.",
   SAME_ACCOUNT: "دو حساب متفاوت انتخاب کنید.",
   CURRENCY_MISMATCH: "هر دو حساب باید یک واحد پول داشته باشند.",
@@ -100,9 +100,8 @@ export function MoneyMovementForm({ kind, safe, options, fa, close, done }: Read
   const others = options.treasuryAccounts.filter((other) => other.id !== safe.id && other.currencyCode === safe.currencyCode);
   // The expense lane (0048) reads the salary or supplier setting by kind and EXPENSE otherwise; it can wait for approval.
   const kindSetting = options.settings[paymentKind === "SALARY" ? "SALARY_PAYMENT" : "SUPPLIER_PAYMENT"];
-  const expenseSetting = paymentKind === "OTHER"
-    ? (expenseOptions === null ? null : !expenseOptions.policyConfigured ? "NOT_SAVED" : expenseOptions.approvalRequired ? "WAITS" : "READY")
-    : kindSetting === "APPROVAL_REQUIRED" ? "WAITS" : kindSetting;
+  // 0049: an expense waits when its EXPENSE setting or its kind's setting is ON; an unsaved setting is OFF.
+  const expenseSetting = expenseOptions?.approvalRequired || (paymentKind !== "OTHER" && kindSetting === "APPROVAL_REQUIRED") ? "WAITS" : "READY";
   const setting = kind === "pay"
     ? (payFor === "payable" ? kindSetting : expenseSetting)
     : options.settings[SETTING_FOR[kind] ?? ""];
@@ -110,7 +109,7 @@ export function MoneyMovementForm({ kind, safe, options, fa, close, done }: Read
   // Accounts payable is kept per supplier: its payee must be chosen from the list, not typed.
   const partyRequired = kind === "pay" && payFor === "payable" && options.payableAccounts.some((item) => item.id === account && item.requiresParty);
   const counterparty = party !== "" || (!partyRequired && name.trim() !== "");
-  const valid = amountValid && date !== "" && date <= options.today && setting !== "NOT_SAVED" && setting !== "APPROVAL_REQUIRED" && (
+  const valid = amountValid && date !== "" && date <= options.today && setting !== "APPROVAL_REQUIRED" && (
     kind === "receive" ? account !== "" && counterparty
       : kind === "transfer" ? destination !== ""
         : payFor === "payable" ? account !== "" && counterparty
@@ -150,9 +149,11 @@ export function MoneyMovementForm({ kind, safe, options, fa, close, done }: Read
     close();
   };
 
-  const settingNotice = setting === "NOT_SAVED"
-    ? (fa ? "تنظیم تأیید این مورد هنوز ذخیره نشده است (مدیر سیستم، «تأیید جریان‌ها»)." :"Its approval setting has not been saved yet (System Administrator, Workflow approvals).")
-    : setting === "WAITS"
+  // The database is authoritative; this only tells the person before saving (0049).
+  const cashLike = safe.accountType === "SAFE" || safe.accountType === "CASH_BOX" || safe.accountType === "PETTY_CASH";
+  const spends = kind === "transfer" || kind === "pay";
+  const overdraws = cashLike && spends && amountValid && Number(amount.trim()) > Number(safe.balance.book);
+  const settingNotice = setting === "WAITS"
       ? (fa ? "این پرداخت پس از ذخیره منتظر تأیید می‌ماند." : "This payment will wait for approval after it is saved.")
       : setting === "APPROVAL_REQUIRED"
         ? (fa ? "شرکت برای این مورد تأیید لازم دارد که هنوز برای آن در دسترس نیست." : "The company requires approval for this, which is not available for it yet.")
@@ -226,7 +227,9 @@ export function MoneyMovementForm({ kind, safe, options, fa, close, done }: Read
       </> : null}
 
       <label><span>{fa ? "مبلغ *" : "Amount *"}</span>
-        <input inputMode="decimal" dir="ltr" value={amount} required autoComplete="off" onChange={(event) => change(setAmount)(event.target.value)} /></label>
+        <input inputMode="decimal" dir="ltr" value={amount} required autoComplete="off" onChange={(event) => change(setAmount)(event.target.value)} />
+        {cashLike && spends ? <small>{fa ? "موجود در این صندوق: " : "Available in this Safe: "}<span dir="ltr">{money(safe.balance.book, safe.currencyCode)}</span></small> : null}
+        {overdraws ? <small className="money-over" role="status">{fa ? "این مبلغ بیشتر از موجودی صندوق است؛ صندوق زیر صفر نمی‌رود." : "This is more than the Safe holds; a Safe cannot go below zero."}</small> : null}</label>
       <label><span>{fa ? "واحد پول" : "Currency"}</span><input dir="ltr" value={safe.currencyCode} readOnly aria-readonly="true" /></label>
       <label><span>{fa ? "تاریخ *" : "Date *"}</span>
         <input type="date" dir="ltr" value={date} max={options.today} required onChange={(event) => change(setDate)(event.target.value)} /></label>

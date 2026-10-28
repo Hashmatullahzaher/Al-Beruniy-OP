@@ -48,8 +48,8 @@ approval OFF (Simple Mode: Save posts); audit and outbox.
   control AP or no control (temporary-funding, shareholder-loan and Saraf liabilities are refused:
   they have their own lanes).
 
-Insufficient funds are not refused, exactly like expenses today; whether a physical Safe may go
-negative is recorded as an owner-policy question.
+Sufficient funds (0049, owner decision of 2026-10-28): a SAFE, CASH_BOX or PETTY_CASH account never
+goes below zero; a SARAF account may. See section 5.
 
 ## 3. Pay for an expense (migration 0048)
 
@@ -65,3 +65,41 @@ kind behave exactly as before, including their replay fingerprints.
 On the Safes page each active Safe/Saraf offers **Receive cash**, **Transfer** and **Pay**. Pay asks
 what was paid for: an expense type (expense lane) or a payable account (PAYMENT source). Each form
 saves once; the Safe's balance and movements update from posted movements.
+
+## 5. Corrections before production (migration 0049, owner decisions of 2026-10-28)
+
+**Sufficient funds.** One check in the posting kernel's journal trigger covers every lane that takes money
+out: expense, payment, transfer and temporary-funding repayment, including an expense posted at approval.
+For each SAFE, CASH_BOX or PETTY_CASH account the journal credits, the check:
+
+1. takes `FOR NO KEY UPDATE` on the Treasury account row. This is the row-lock family the Safe writers
+   already use. It does not conflict with the key-share locks that source rows hold, so recording stays
+   concurrent and only spending queues.
+2. computes the account's lowest balance from the movement's date onward. It counts posted movements
+   exactly as the 0045 read model does, plus this journal.
+3. refuses below zero ("not enough money in …").
+
+Notes:
+
+- A backdated spend cannot overdraw the day it is dated.
+- SARAF accounts are exempt (an amount owed to the Saraf). BANK and OTHER are not covered by the decision
+  and stay unlimited (open item).
+- No balance is stored.
+
+**Simple Mode default.** A workflow without a saved approval setting records in one save. The record's
+policy reference is NULL, meaning "no explicit setting", and nothing is seeded. Validators accept NULL only
+while no setting of that workflow requires approval. An explicit OFF is referenced; an explicit ON still
+governs.
+
+An expense needs approval when its EXPENSE setting or its payment kind's setting is ON. A kind can
+therefore never bypass the expense approval.
+
+**Unsupported approval switches.** Approval ON cannot be saved for OTHER_INCOME, TREASURY_TRANSFER,
+SUPPLIER_PAYMENT, SALARY_PAYMENT or CUSTOMER_RECEIPT. Their lanes have no pending/confirm path until
+Advanced Controls. Workflow approvals shows these switches as unavailable; OFF can always be saved.
+
+CHART_OF_ACCOUNTS, EXPENSE, TEMPORARY_FUNDING and SHAREHOLDER_CAPITAL_RECEIPT keep ON:
+
+- the Chart of Accounts, expense and temporary-funding lanes have approval paths;
+- capital ON routes to the 0039 Capital Requests lane, unchanged.
+

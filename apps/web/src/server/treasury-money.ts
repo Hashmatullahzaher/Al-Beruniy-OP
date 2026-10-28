@@ -79,8 +79,8 @@ export async function moneyPost(request: Request): Promise<Response> {
 
 /** Refusals written by 0047, translated to stable codes; the page shows them in English or Dari. */
 const MONEY_REFUSALS: readonly { readonly pattern: RegExp; readonly status: number; readonly code: string; readonly message: string }[] = [
-  { pattern: /approval setting has not been saved yet/i, status: 422, code: "SETTING_NOT_SAVED",
-    message: "Its approval setting has not been saved yet. The System Administrator saves it in Workflow approvals." },
+  { pattern: /not enough money in .* its balance would fall below zero/i, status: 422, code: "INSUFFICIENT_FUNDS",
+    message: "The Safe does not hold enough money for this. A Safe, cash box or petty cash can never go below zero." },
   { pattern: /setting requires approval, which is not available/i, status: 422, code: "APPROVAL_NOT_AVAILABLE",
     message: "The company requires approval for this, which is not available for it yet. Turn approval off in Workflow approvals to record it in one save." },
   { pattern: /needs two different accounts/i, status: 422, code: "SAME_ACCOUNT", message: "Choose two different accounts." },

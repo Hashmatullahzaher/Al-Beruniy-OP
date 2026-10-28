@@ -108,7 +108,8 @@ export interface SafeOpeningBalanceResult {
 export const SAFE_PERMISSIONS = ["treasury.safe.read", "treasury.opening-balance.record"] as const;
 
 /** Slice 4 (0047): receive cash, transfer and pay against a payable, each one save through the posting kernel. */
-export type MoneySettingStatus = "READY" | "APPROVAL_REQUIRED" | "NOT_SAVED";
+/** A missing setting is READY: Simple Mode records in one save (0049). */
+export type MoneySettingStatus = "READY" | "APPROVAL_REQUIRED";
 export type PaymentKind = "SUPPLIER" | "CONTRACTOR" | "SALARY" | "OTHER";
 export const PAYMENT_KINDS: readonly PaymentKind[] = ["SUPPLIER", "CONTRACTOR", "SALARY", "OTHER"];
 

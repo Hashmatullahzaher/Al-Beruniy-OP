@@ -912,11 +912,13 @@ async function configureEntity(
      VALUES ($1,$2,$3,'Synthetic Operational Expense','EXPENSE',true,'USD','ACTIVE')`,
     [expenseLedgerId, world.legalEntityId, `SYN-EXP-${expenseLedgerId.slice(0, 8)}`]
   );
+  // A bank account: these suites prove the expense lane's own rules with exact figures. The 0049 rule
+  // that a Safe, cash box or petty cash never goes below zero is proven in money-movements-corrections.
   await harness.executor.query(
     `INSERT INTO abos.operational_treasury_accounts
        (id, legal_entity_id, name_en, account_type, currency_code, ledger_account_id,
         status, version, created_by_user_account_id, last_changed_by_user_account_id)
-     VALUES ($1,$2,'Synthetic Operational Safe','SAFE',$3,$4,'ACTIVE',1,$5,$5)`,
+     VALUES ($1,$2,'Synthetic Operational Safe','BANK',$3,$4,'ACTIVE',1,$5,$5)`,
     [treasuryId, world.legalEntityId, currencyCode, treasuryLedgerId, world.bootstrapUserId]
   );
   await harness.executor.query(

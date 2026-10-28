@@ -221,6 +221,9 @@ const SETUP_REFUSALS: readonly {
   readonly code: string;
   readonly message: string;
 }[] = [
+  // 0049: every lane that takes money out of a Safe, cash box or petty cash.
+  { pattern: /not enough money in .* its balance would fall below zero/i, status: 422, code: "INSUFFICIENT_FUNDS",
+    message: "The Safe does not hold enough money for this. A Safe, cash box or petty cash can never go below zero." },
   { pattern: /cash or bank Treasury account requires an ACTIVE posting CASH asset account/i, status: 422, code: "CASH_ACCOUNT_REQUIRED",
     message: "Link a safe, cash box or bank account to an active cash account in the Chart of Accounts." },
   { pattern: /Saraf Treasury account requires a posting SARAF control account/i, status: 422, code: "SARAF_ACCOUNT_REQUIRED",

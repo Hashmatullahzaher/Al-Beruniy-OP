@@ -102,7 +102,8 @@ export interface OperationalExpenseView {
   readonly baseAmount: string | null;
   readonly baseCurrency: SupportedCurrency;
   readonly exchangeRateSnapshot: OperationalExpenseExchangeRateSnapshot | null;
-  readonly workflowPolicyVersionId: string;
+  /** null: no saved setting, recorded in Simple Mode (approval OFF), 0049. */
+  readonly workflowPolicyVersionId: string | null;
   /** 0048: set when the expense was paid from the Pay screen; chooses the governing approval setting. */
   readonly paymentKind?: "SUPPLIER" | "CONTRACTOR" | "SALARY" | "OTHER" | null;
   readonly approvalRequired: boolean;

@@ -142,7 +142,6 @@ export function RecordExpenseWorkspace() {
 
   const setupGaps: string[] = [];
   if (options) {
-    if (!options.policyConfigured) setupGaps.push(fa ? "تنظیم تأیید مصارف هنوز انتخاب نشده است (مدیر سیستم)." : "The expense approval setting has not been chosen yet (System Administrator).");
     if (!options.baseCurrency) setupGaps.push(fa ? "واحد پول پایه شرکت هنوز تصویب نشده است." : "The company's base currency is not approved yet.");
     if (options.treasuryAccounts.length === 0) setupGaps.push(fa ? "هیچ حساب خزانه فعالی (صندوق، بانک یا صراف) تنظیم نشده است." : "No active Treasury account (safe, bank or Saraf) is set up.");
     if (options.expenseCategories.length === 0) setupGaps.push(fa ? "هیچ دسته مصرف فعالی تنظیم نشده است." : "No active expense category is set up.");
