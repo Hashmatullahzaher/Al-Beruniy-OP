@@ -40,7 +40,8 @@ const SOURCE_COPY: Readonly<Record<string, Copy>> = {
   TEMPORARY_FUNDING_SETTLEMENT: { en: "Temporary funding repaid", fa: "بازپرداخت تمویل موقت" },
   CASH_RECEIPT: { en: "Cash received", fa: "پول دریافت‌شده" },
   TREASURY_TRANSFER: { en: "Transfer", fa: "انتقال" },
-  PAYMENT: { en: "Payment", fa: "پرداخت" }
+  PAYMENT: { en: "Payment", fa: "پرداخت" },
+  REVERSAL: { en: "Reversal", fa: "برگشت" }
 };
 
 /** Dari for the refusal codes returned by safesErrorResponse. */

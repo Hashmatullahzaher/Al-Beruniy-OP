@@ -269,8 +269,8 @@ if (databaseUrl() === undefined) {
         await client.query("BEGIN");
         await client.query("SET LOCAL ROLE abos_v1_operational_finance_owner");
         await assert.rejects(() => client.query(`SELECT abos.posting_kernel_draft(gen_random_uuid(), gen_random_uuid(), gen_random_uuid(),
-          'REVERSAL', gen_random_uuid(), 1, 'USD', 1, 'USD', '2026-09-22', gen_random_uuid(), 'X', gen_random_uuid(), 'k', 'VALIDATED',
-          gen_random_uuid(), ARRAY[]::abos.posting_kernel_line[])`), /posting source REVERSAL is not active/);
+          'COUNT_DIFFERENCE', gen_random_uuid(), 1, 'USD', 1, 'USD', '2026-09-22', gen_random_uuid(), 'X', gen_random_uuid(), 'k', 'VALIDATED',
+          gen_random_uuid(), ARRAY[]::abos.posting_kernel_line[])`), /posting source COUNT_DIFFERENCE is not active/);
       } finally { await client.query("ROLLBACK"); client.release(); }
     });
   });

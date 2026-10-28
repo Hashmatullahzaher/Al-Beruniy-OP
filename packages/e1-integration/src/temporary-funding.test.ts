@@ -182,7 +182,7 @@ if (databaseUrl() === undefined) {
       assert.deepEqual(sources.rows, [
         { source_type: "CASH_RECEIPT", status: "ACTIVE" }, { source_type: "DIRECT_SHAREHOLDER_CAPITAL", status: "ACTIVE" },
         { source_type: "OPENING_BALANCE", status: "ACTIVE" }, { source_type: "OPERATIONAL_EXPENSE", status: "ACTIVE" },
-        { source_type: "PAYMENT", status: "ACTIVE" }, { source_type: "SHAREHOLDER_CAPITAL_CONTRIBUTION_RECEIPT", status: "FROZEN" },
+        { source_type: "PAYMENT", status: "ACTIVE" }, { source_type: "REVERSAL", status: "ACTIVE" }, { source_type: "SHAREHOLDER_CAPITAL_CONTRIBUTION_RECEIPT", status: "FROZEN" },
         { source_type: "TEMPORARY_FUNDING", status: "ACTIVE" }, { source_type: "TEMPORARY_FUNDING_SETTLEMENT", status: "ACTIVE" },
         { source_type: "TREASURY_TRANSFER", status: "ACTIVE" }]);
       const definition = await harness.pool.query<{ definition: string }>(

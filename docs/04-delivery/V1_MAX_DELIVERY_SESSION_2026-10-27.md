@@ -242,3 +242,21 @@ stays at trunk `0aa6512` / migration 0040 throughout unless an entry says otherw
 - Nothing was seeded: no income, payable or Saraf account, no opening-balance equity, no opening balance, no money
   movement.
 
+## Slice 5 — period close / reopen and reversal posting (0050)
+
+- Branch `claude/slice5-periods-reversals` (base `bb1811a`).
+- Design: `docs/03-architecture/PERIODS_AND_REVERSALS.md`. Report: `docs/04-delivery/V1_PERIODS_REVERSALS_SLICE5.md`.
+- **Close** (`finance.period.manage`): a preview with summary, pending items and warnings; refuses only an unposted journal.
+- **Reopen** (`finance.period.reopen`): a reason is required; history and count are kept; Advanced Mode needs a second person (`PERIOD_REOPEN`).
+- **REVERSAL** is an ACTIVE kernel source with an exact-inverse validator, posted by one writer:
+  - direct in Simple Mode (`finance.reversal.direct`), or approval-posts in Advanced Mode (`JOURNAL_REVERSAL`);
+  - date policy: the original date while that month is open, otherwise the business day; never a silent reopen.
+- Direct capital becomes reversible; temporary funding stays non-reversible. Read models account for reversals.
+- The synthetic-only E1 reversal screen is retired. New screens: Financial periods and Journal reversals.
+- **Validation:**
+  - Slice 5 suite 10/10; full integration 310/310;
+  - unit 169/169; typecheck, lint, build 11/11;
+  - browser 75 passed; smoke 12/12;
+  - post-deployment production copy upgraded 0049 → 0050 with zero backfill and zero journals.
+- 0050 checksum `6e112c0649aa…`. Not deployed.
+

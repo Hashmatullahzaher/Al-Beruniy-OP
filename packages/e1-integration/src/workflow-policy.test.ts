@@ -43,7 +43,7 @@ if (databaseUrl() === undefined) {
 
         const initial = await identity.financeWorkflowPolicies(admin);
         assert.equal(initial.canManage, false, "Super Administrator does not receive policy authority implicitly");
-        assert.equal(initial.policies.length, 9, "canonical workflows include TEMPORARY_FUNDING and CHART_OF_ACCOUNTS");
+        assert.equal(initial.policies.length, 11, "canonical workflows include TEMPORARY_FUNDING, CHART_OF_ACCOUNTS, PERIOD_REOPEN and JOURNAL_REVERSAL");
         assert.ok(initial.policies.every((policy) => !policy.configured && policy.approvalRequired === null));
 
         const policyRole = await identity.createRole(admin, {
