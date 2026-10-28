@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
 
-import { ReversalRequestsWorkspace } from "@/components/ReversalRequestsWorkspace";
+import { JournalReversalsWorkspace } from "@/components/JournalReversalsWorkspace";
 
 export const metadata: Metadata = {
   title: "Journal reversals",
-  description: "Finance users request reversals of posted journals; the Finance Manager approves or rejects them."
+  description: "Correct a posted transaction with an exact, linked reversal: directly in Simple mode, or requested and approved by another person."
 };
 export const dynamic = "force-dynamic";
 
 export default function ReversalRequestsPage() {
-  return <ReversalRequestsWorkspace />;
+  return <JournalReversalsWorkspace />;
 }

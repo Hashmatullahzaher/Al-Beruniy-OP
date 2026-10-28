@@ -67,7 +67,7 @@ if (databaseUrl() === undefined) {
                 p.proconfig AS config, has_function_privilege('public', p.oid, 'EXECUTE') AS public_execute
            FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace JOIN pg_roles r ON r.oid = p.proowner
           WHERE n.nspname = 'abos' AND p.prosecdef ORDER BY 1`);
-      assert.equal(rows.rows.length, 115, "every restricted entry point through the 0047 money-movement slice is accounted for");
+      assert.equal(rows.rows.length, 127, "every restricted entry point through the 0050 period and reversal slice is accounted for");
       for (const fn of rows.rows) {
         assert.ok((FUNCTION_OWNERS as readonly string[]).includes(fn.owner), `${fn.signature} is owned by ${fn.owner}`);
         assert.equal(fn.superuser, false, fn.signature);
@@ -187,6 +187,13 @@ if (databaseUrl() === undefined) {
         treasury_transfer_record: "abos_v1_operational_finance_owner",
         treasury_payment_record: "abos_v1_operational_finance_owner",
         treasury_money_options: "abos_v1_operational_finance_owner",
+        // 0050: period close / reopen and reversal posting through the REVERSAL source of the kernel.
+        finance_periods_workspace: "abos_v1_operational_finance_owner", finance_period_close_preview: "abos_v1_operational_finance_owner",
+        finance_period_close: "abos_v1_operational_finance_owner", finance_period_reopen: "abos_v1_operational_finance_owner",
+        finance_period_reopen_request: "abos_v1_operational_finance_owner", finance_period_reopen_decide: "abos_v1_operational_finance_owner",
+        finance_journal_reversal_workspace: "abos_v1_operational_finance_owner", finance_journal_reversal_direct: "abos_v1_operational_finance_owner",
+        finance_journal_reversal_request: "abos_v1_operational_finance_owner", finance_journal_reversal_decide: "abos_v1_operational_finance_owner",
+        finance_journal_reversal_post_approved: "abos_v1_operational_finance_owner", finance_journal_reversal_withdraw: "abos_v1_operational_finance_owner",
         // WP #17 (0023): reversal requests (request -> Finance Manager decision; posting fail-closed).
         finance_reversal_requests_view: "abos_e1_finance_owner", finance_reversal_request_create: "abos_e1_finance_owner",
         finance_reversal_request_decide: "abos_e1_finance_owner", finance_reversal_request_withdraw: "abos_e1_finance_owner"

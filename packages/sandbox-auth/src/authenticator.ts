@@ -3,9 +3,15 @@ import type { SqlExecutor } from "@abos/database";
 import { sandboxGateFingerprint, TREASURY_PERMISSIONS } from "@abos/contracts";
 import type {
   DirectCapitalWorkspace,
+  JournalReversalCommand,
+  JournalReversalResult,
+  JournalReversalWorkspace,
   MoneyCommand,
   MoneyOptions,
   MoneyResult,
+  PeriodClosePreview,
+  PeriodCommand,
+  PeriodsWorkspace,
   SafeOpeningBalanceResult,
   SafesCommand,
   SafesWorkspace,
@@ -544,6 +550,42 @@ export class SandboxAuthenticator {
       : action === "transfer" ? "SELECT abos.treasury_transfer_record($1,$2,$3,$4::jsonb) AS value"
         : "SELECT abos.treasury_payment_record($1,$2,$3,$4::jsonb) AS value";
     return this.operationalFinanceFunction<MoneyResult>(executor, sql, token, [JSON.stringify(payload)], "Money movement is unavailable");
+  }
+
+  /** Slice 5 (0050): accounting months with their close / reopen state and history. */
+  async periodsWorkspace(executor: SqlExecutor, token: string): Promise<PeriodsWorkspace> {
+    return this.operationalFinanceFunction<PeriodsWorkspace>(executor,
+      "SELECT abos.finance_periods_workspace($1,$2,$3) AS value", token, [], "Financial periods are unavailable");
+  }
+
+  /** What closing a month means before it is confirmed (0050). */
+  async periodClosePreview(executor: SqlExecutor, token: string, periodId: string): Promise<PeriodClosePreview> {
+    return this.operationalFinanceFunction<PeriodClosePreview>(executor,
+      "SELECT abos.finance_period_close_preview($1,$2,$3,$4::uuid) AS value", token, [periodId], "Financial periods are unavailable");
+  }
+
+  /** Close, reopen, request or decide a reopen (0050). */
+  async periodCommand(executor: SqlExecutor, token: string, command: PeriodCommand): Promise<unknown> {
+    const { action, ...payload } = command;
+    const fn = { close: "finance_period_close", reopen: "finance_period_reopen", "request-reopen": "finance_period_reopen_request",
+      "decide-reopen": "finance_period_reopen_decide" }[action];
+    return this.operationalFinanceFunction<unknown>(executor, `SELECT abos.${fn}($1,$2,$3,$4::jsonb) AS value`, token,
+      [JSON.stringify(payload)], "Financial periods are unavailable");
+  }
+
+  /** Reversible journals and reversal requests (0050). */
+  async journalReversalWorkspace(executor: SqlExecutor, token: string): Promise<JournalReversalWorkspace> {
+    return this.operationalFinanceFunction<JournalReversalWorkspace>(executor,
+      "SELECT abos.finance_journal_reversal_workspace($1,$2,$3) AS value", token, [], "Journal reversals are unavailable");
+  }
+
+  /** One reversal command through the REVERSAL source of the posting kernel (0050). */
+  async journalReversalCommand(executor: SqlExecutor, token: string, command: JournalReversalCommand): Promise<JournalReversalResult> {
+    const { action, ...payload } = command;
+    const fn = { reverse: "finance_journal_reversal_direct", request: "finance_journal_reversal_request", decide: "finance_journal_reversal_decide",
+      "post-approved": "finance_journal_reversal_post_approved", withdraw: "finance_journal_reversal_withdraw" }[action];
+    return this.operationalFinanceFunction<JournalReversalResult>(executor, `SELECT abos.${fn}($1,$2,$3,$4::jsonb) AS value`, token,
+      [JSON.stringify(payload)], "Journal reversals are unavailable");
   }
 
   /** Atomic direct capital lane; proofs are generated server-side, never accepted from a browser. */
