@@ -1,8 +1,9 @@
 # Slice 4 — receive cash, transfer and pay (migrations 0047, 0048 and 0049)
 
-Status: IMPLEMENTED and validated on disposable databases only, including the 0049 corrections of the owner
-decisions of 2026-10-28 (section 7). **Not deployed**: production stays at 0046 until the owner authorizes
-the final chain 0047 → 0048 → 0049. Design: `docs/03-architecture/MONEY_MOVEMENTS.md`.
+Status: **DEPLOYED to production on 2026-10-28** at trunk `76c89b3` (0047 → 0048 → 0049, owner authorization of
+2026-10-28; record in `V1_MAX_DELIVERY_SESSION_2026-10-27.md`), including the 0049 corrections of the owner decisions
+of 2026-10-28 (section 7). BANK and OTHER stay unlimited in Slice 4 by owner decision (BANK needs a later overdraft /
+credit-limit policy; OTHER waits for its business meaning). Design: `docs/03-architecture/MONEY_MOVEMENTS.md`.
 
 ## 1. Definition of done
 

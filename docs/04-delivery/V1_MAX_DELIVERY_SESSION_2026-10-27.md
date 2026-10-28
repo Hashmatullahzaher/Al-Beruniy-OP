@@ -200,3 +200,45 @@ stays at trunk `0aa6512` / migration 0040 throughout unless an entry says otherw
   - production-shaped upgrade (Step A from `742028a`: 0047+0048; Step B: 0049) with zero journals and no backfill.
 - Not deployed.
 
+## Production deployment 0047 → 0048 → 0049 (owner authorization of 2026-10-28)
+
+- Deployed trunk SHA `76c89b3c382f1922a05f3880a2c1a44ad45c9c9a`, in the reviewed two pinned steps through
+  `apply_catalog_slice4.mts`:
+  - Step A from `742028a`: 0047 and 0048 in one runner transaction;
+  - Step B from `76c89b3`: 0049.
+- Checksums: 0047 `e4da7174…`, 0048 `0d66c0e3…`, 0049 `955126f1…`.
+- Package `AlBeruniyOS/backups/deployment-0047-0049-20261028-222703`, 105 files sealed.
+  - Pre-0047 dump sha256 `085daeaf05c4896bd7c50df6acc238f28f31d0487a3b3aebf10d3a419850dacd`.
+  - Test restore: 92/92 tables identical.
+  - Vault snapshot and role inventory taken, with no password lines.
+- Rehearsal on the restored copy: production then matched it table for table after each step (94/94 tables,
+  excluding the migration registry) and inventory for inventory.
+- After Step A:
+  - the catalogue grew by exactly the three money permissions;
+  - CASH_RECEIPT, TREASURY_TRANSFER and PAYMENT became ACTIVE;
+  - three empty source tables were added;
+  - the runtime gained EXECUTE on exactly four entry points.
+- After Step B: only the migration registry changed.
+- Both steps:
+  - 0 journals, 12 periods PENDING, Safe کسه book 0;
+  - no runtime table or column write; PUBLIC executes nothing;
+  - 115 SECURITY DEFINER functions; no balance column.
+- Read-only behaviour proof on production:
+  - the guard is wired into the kernel for SAFE, CASH_BOX and PETTY_CASH, under a row lock, with SARAF exempt;
+  - missing EXPENSE and SALARY_PAYMENT settings resolve to OFF;
+  - the latest explicit OFF settings post directly;
+  - the historical explicit ON versions are honoured;
+  - unsupported switches are locked.
+- Runtime and startup guard repinned to `76c89b3`; health ok.
+- Live checks:
+  - 10 pages 200; data APIs 401 without a session;
+  - smoke 8/8 and browser 44/44 (HTTP-mocked specs only).
+- Disposable post-deployment copy:
+  - a disposable user signed in; 9 pages rendered;
+  - the money settings were all READY, and approval ON for transfers was refused;
+  - the Receive, Transfer and Pay forms opened on کسه;
+  - on the copy, a 10.01 payment was refused against 10.00 and an exact 10.00 posted.
+- Vault reconciliation CLEAN.
+- Nothing was seeded: no income, payable or Saraf account, no opening-balance equity, no opening balance, no money
+  movement.
+
