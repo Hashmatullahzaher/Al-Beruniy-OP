@@ -260,3 +260,18 @@ stays at trunk `0aa6512` / migration 0040 throughout unless an entry says otherw
   - post-deployment production copy upgraded 0049 → 0050 with zero backfill and zero journals.
 - 0050 checksum `6e112c0649aa…`. Not deployed.
 
+## Slice 5 corrections — 0050 amended (owner decisions of 2026-10-29)
+
+- Simple Mode self-correction:
+  - `finance.reversal.direct` may reverse one's own recorded or approved transaction;
+  - the link records `reversal_mode = DIRECT` and `self_reversal`, and the audit records `selfReversal`;
+  - Advanced Mode keeps database-enforced independence.
+- Effective opening balance: a reversal of an opening balance counts in the Safe's opening figure (2,500 reversed → 0). The original and the reversal stay visible.
+- Capital declaration allocations after a reversal: deferred (legacy capital cleanup debt).
+- **Validation:**
+  - Slice 5 suite 12/12; full integration 312/312 (fresh database);
+  - unit 169/169; typecheck 12/12; lint clean; production build 11/11;
+  - browser 76 passed (and a transient first-compile timeout, green on rerun); smoke 12/12;
+  - post-0049 production dump upgraded to the final 0050: 91/95 tables identical, 0 journals, no runtime table write, definer functions 115 → 127.
+- Final 0050 checksum `07cde8b9572f…`. The previous checksum was never deployed.
+

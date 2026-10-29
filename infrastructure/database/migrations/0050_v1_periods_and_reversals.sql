@@ -109,6 +109,83 @@ DROP TRIGGER direct_capital_reversal_disabled ON abos.journal_reversal_links;
 ALTER TABLE abos.treasury_opening_balances DROP CONSTRAINT treasury_opening_balances_operational_treasury_account_id_key;
 CREATE INDEX treasury_opening_balances_account_idx ON abos.treasury_opening_balances (operational_treasury_account_id);
 
+-- Simple Mode self-correction (owner decision of 2026-10-29): the immutable link records how the reversal was
+-- authorised and whether it corrects the reverser's own transaction.
+ALTER TABLE abos.journal_reversal_links
+  ADD COLUMN reversal_mode text NOT NULL DEFAULT 'APPROVED_REQUEST' CHECK (reversal_mode IN ('DIRECT', 'APPROVED_REQUEST')),
+  ADD COLUMN self_reversal boolean NOT NULL DEFAULT false;
+ALTER TABLE abos.journal_reversal_links
+  ADD CONSTRAINT journal_reversal_links_self_only_direct CHECK (NOT self_reversal OR reversal_mode = 'DIRECT');
+
+-- Segregation of duties, restated. A DIRECT reversal (Simple Mode, finance.reversal.direct) may correct the
+-- reverser's own transaction, flagged truthfully; it is refused while reversals require approval. Every other
+-- reversal keeps database-enforced independence from whoever prepared, approved or posted the original.
+CREATE OR REPLACE FUNCTION abos.enforce_reversal_segregation_of_duties()
+RETURNS trigger LANGUAGE plpgsql AS $sod$
+DECLARE original_poster uuid; reversal_poster uuid; entity uuid; participants uuid[];
+BEGIN
+  SELECT posted_by_user_account_id, legal_entity_id INTO original_poster, entity FROM abos.journals WHERE id = NEW.original_journal_id;
+  SELECT posted_by_user_account_id INTO reversal_poster FROM abos.journals WHERE id = NEW.reversal_journal_id;
+  IF original_poster IS NULL OR reversal_poster IS NULL THEN
+    RAISE EXCEPTION 'a reversal link requires both journals to record their posting actor';
+  END IF;
+  participants := abos.reversal_journal_participants(NEW.original_journal_id);
+  IF NEW.reversal_mode = 'DIRECT' THEN
+    IF abos.workflow_setting_requires_approval(entity, 'JOURNAL_REVERSAL') THEN
+      RAISE EXCEPTION 'a direct reversal is not available while reversals require approval';
+    END IF;
+    IF reversal_poster <> NEW.approved_by_user_account_id THEN
+      RAISE EXCEPTION 'a direct reversal is posted by the person who authorised it';
+    END IF;
+    IF NEW.self_reversal IS DISTINCT FROM (NEW.approved_by_user_account_id = ANY (participants)) THEN
+      RAISE EXCEPTION 'a direct reversal must record truthfully whether it corrects the reverser''s own transaction';
+    END IF;
+    RETURN NEW;
+  END IF;
+  IF original_poster = reversal_poster THEN
+    RAISE EXCEPTION 'the actor who posted a journal cannot also post its reversal';
+  END IF;
+  IF NEW.approved_by_user_account_id = original_poster THEN
+    RAISE EXCEPTION 'the actor who posted a journal cannot approve its reversal';
+  END IF;
+  IF NEW.approved_by_user_account_id = ANY (participants) OR reversal_poster = ANY (participants) THEN
+    RAISE EXCEPTION 'whoever prepared, approved or posted a journal cannot approve or post its reversal';
+  END IF;
+  RETURN NEW;
+END
+$sod$;
+
+-- The Treasury balance read model (0045), restated: a reversal of an opening balance belongs to the opening
+-- figure, so a fully reversed 2,500 opening balance shows an effective opening of 0 (owner decision of
+-- 2026-10-29). The book balance is unchanged: it is still the sum of every posted movement.
+CREATE OR REPLACE FUNCTION abos.treasury_account_balances(p_entity uuid, p_as_of date, p_account uuid)
+RETURNS TABLE(operational_treasury_account_id uuid, currency_code text, opening_balance numeric, inflows numeric, outflows numeric,
+  book_balance numeric, movement_count bigint, last_movement_date date)
+LANGUAGE sql STABLE SET search_path TO 'pg_catalog', 'pg_temp' AS $balances$
+  SELECT account.id, account.currency_code,
+         COALESCE(sum(movement.amount) FILTER (WHERE movement.opening), 0),
+         COALESCE(sum(movement.amount) FILTER (WHERE NOT movement.opening AND movement.amount > 0), 0),
+         COALESCE(-sum(movement.amount) FILTER (WHERE NOT movement.opening AND movement.amount < 0), 0),
+         COALESCE(sum(movement.amount), 0),
+         count(movement.amount),
+         max(movement.effective_date)
+    FROM abos.operational_treasury_accounts account
+    LEFT JOIN LATERAL (
+      SELECT entry.original_amount AS amount, journal.accounting_effective_date AS effective_date,
+             entry.source_type = 'OPENING_BALANCE' OR (entry.source_type = 'REVERSAL' AND EXISTS (
+               SELECT 1 FROM abos.journals original JOIN abos.posting_intents intent ON intent.id = original.posting_intent_id
+                WHERE original.id = entry.source_id AND intent.source_type = 'OPENING_BALANCE')) AS opening
+        FROM abos.subledger_entries entry
+        JOIN abos.journal_lines line ON line.id = entry.journal_line_id
+        JOIN abos.journals journal ON journal.id = line.journal_id AND journal.status = 'POSTED'
+       WHERE entry.subledger_type = 'OPERATIONAL_TREASURY'
+         AND entry.operational_treasury_account_id = account.id
+         AND entry.legal_entity_id = account.legal_entity_id
+         AND (p_as_of IS NULL OR journal.accounting_effective_date <= p_as_of)) movement ON true
+   WHERE account.legal_entity_id = p_entity AND (p_account IS NULL OR account.id = p_account)
+   GROUP BY account.id, account.currency_code
+$balances$;
+
 -- ---------------------------------------------------------------------------------------------
 -- 4. The reversal validator (static kernel dispatch) and the one internal reversal writer.
 -- ---------------------------------------------------------------------------------------------
@@ -167,7 +244,7 @@ CREATE FUNCTION abos.reversal_post(p_entity uuid, p_actor uuid, p_approver uuid,
   p_request uuid, p_correlation uuid, p_mode text)
 RETURNS jsonb LANGUAGE plpgsql SET search_path = pg_catalog, pg_temp AS $post$
 DECLARE o abos.journals%ROWTYPE; oi abos.posting_intents%ROWTYPE; src abos.posting_sources%ROWTYPE; blocker text;
-  period_status text; day date; period uuid; l record; result jsonb; ref text;
+  period_status text; day date; period uuid; l record; result jsonb; ref text; self boolean;
   lines abos.posting_kernel_line[] := ARRAY[]::abos.posting_kernel_line[];
   reversal uuid := gen_random_uuid(); intent uuid := gen_random_uuid(); evidence uuid := gen_random_uuid();
 BEGIN
@@ -188,9 +265,13 @@ BEGIN
   IF o.processing_model <> 'OPERATIONAL_V1' OR src.status IS DISTINCT FROM 'ACTIVE' OR NOT src.reversible THEN
     RAISE EXCEPTION 'this kind of transaction cannot be reversed yet' USING ERRCODE = 'check_violation';
   END IF;
-  IF p_actor = ANY (abos.reversal_journal_participants(p_journal)) OR p_approver = ANY (abos.reversal_journal_participants(p_journal)) THEN
+  -- Simple Mode (DIRECT): the reverser may correct their own transaction; it is flagged as a self-correction.
+  -- Approved requests keep independence from whoever prepared, approved or posted the original.
+  self := p_actor = ANY (abos.reversal_journal_participants(p_journal));
+  IF p_mode <> 'DIRECT' AND (self OR p_approver = ANY (abos.reversal_journal_participants(p_journal))) THEN
     RAISE EXCEPTION 'whoever prepared, approved or posted a journal cannot reverse it' USING ERRCODE = 'insufficient_privilege';
   END IF;
+  self := self AND p_mode = 'DIRECT';
   SELECT status INTO period_status FROM abos.accounting_periods WHERE id = o.accounting_period_id FOR SHARE;
   IF period_status = 'OPEN' THEN
     day := o.accounting_effective_date; period := o.accounting_period_id;
@@ -222,10 +303,12 @@ BEGIN
   INSERT INTO abos.evidence_references (id, legal_entity_id, document_id, evidence_kind, evidence_version, sha256, completed_at)
   VALUES (evidence, p_entity, COALESCE(p_request, reversal), 'REVERSAL_REASON', 1,
           encode(sha256(convert_to(p_reason, 'UTF8')), 'hex'), clock_timestamp());
-  INSERT INTO abos.journal_reversal_links (original_journal_id, reversal_journal_id, reason, approved_by_user_account_id, evidence_reference_id)
-  VALUES (p_journal, reversal, p_reason, p_approver, evidence);
+  INSERT INTO abos.journal_reversal_links (original_journal_id, reversal_journal_id, reason, approved_by_user_account_id, evidence_reference_id,
+    reversal_mode, self_reversal)
+  VALUES (p_journal, reversal, p_reason, p_approver, evidence, CASE WHEN p_mode = 'DIRECT' THEN 'DIRECT' ELSE 'APPROVED_REQUEST' END, self);
   result := jsonb_build_object('originalJournalId', p_journal, 'originalReference', o.journal_reference, 'reversalJournalId', reversal,
-    'reference', ref, 'effectiveDate', day, 'postedInOriginalPeriod', period = o.accounting_period_id, 'status', 'POSTED', 'replayed', false);
+    'reference', ref, 'effectiveDate', day, 'postedInOriginalPeriod', period = o.accounting_period_id, 'selfReversal', self,
+    'status', 'POSTED', 'replayed', false);
   PERFORM abos.money_audit(p_actor, p_entity, p_correlation, 'JOURNAL_REVERSAL_POSTED', 'JOURNAL', reversal,
     result || jsonb_build_object('mode', p_mode, 'requestId', p_request, 'approvedBy', p_approver, 'reason', p_reason));
   RETURN result;
@@ -450,7 +533,8 @@ BEGIN
             'debit', l.base_debit::text, 'credit', l.base_credit::text) ORDER BY l.line_number)
           FROM abos.journal_lines l JOIN abos.ledger_accounts a ON a.id = l.ledger_account_id WHERE l.journal_id = j.id),
         'reversal', (SELECT jsonb_build_object('journalId', rj.id, 'reference', rj.journal_reference, 'date', rj.accounting_effective_date,
-            'reason', link.reason) FROM abos.journal_reversal_links link JOIN abos.journals rj ON rj.id = link.reversal_journal_id
+            'reason', link.reason, 'selfReversal', link.self_reversal, 'mode', link.reversal_mode)
+            FROM abos.journal_reversal_links link JOIN abos.journals rj ON rj.id = link.reversal_journal_id
           WHERE link.original_journal_id = j.id)) AS row
         FROM abos.journals j JOIN abos.posting_intents i ON i.id = j.posting_intent_id
         JOIN abos.posting_sources s ON s.source_type = i.source_type AND s.status = 'ACTIVE' AND s.reversible
@@ -1180,8 +1264,11 @@ BEGIN
         'openingBalance', (SELECT jsonb_build_object('id', ob.id, 'amount', ob.amount::text, 'currencyCode', ob.currency_code,
             'asOfDate', ob.as_of_date, 'reference', ob.reference, 'note', ob.note, 'transactionReference', ob.transaction_reference,
             'journalId', ob.journal_id, 'recordedAt', ob.created_at)
+          || COALESCE((SELECT jsonb_build_object('reversal', jsonb_build_object('journalId', link.reversal_journal_id,
+               'reference', reversal.journal_reference, 'date', reversal.accounting_effective_date, 'reason', link.reason))
+             FROM abos.journal_reversal_links link JOIN abos.journals reversal ON reversal.id = link.reversal_journal_id
+            WHERE link.original_journal_id = ob.journal_id), '{}'::jsonb)
           FROM abos.treasury_opening_balances ob WHERE ob.operational_treasury_account_id = account.id
-           AND NOT EXISTS (SELECT 1 FROM abos.journal_reversal_links link WHERE link.original_journal_id = ob.journal_id)
          ORDER BY ob.created_at DESC LIMIT 1),
         'responsibles', COALESCE((SELECT jsonb_agg(jsonb_build_object('userAccountId', u.id, 'displayName', u.display_name)
             ORDER BY u.display_name, u.id)
@@ -1321,7 +1408,7 @@ GRANT SELECT ON abos.journal_reversal_requests, abos.journal_reversal_links TO a
 GRANT INSERT (id, legal_entity_id, journal_id, reason, status, requested_by_user_account_id),
       UPDATE (status, decided_by_user_account_id, decided_at, decision_note, version)
   ON abos.journal_reversal_requests TO abos_v1_operational_finance_owner;
-GRANT INSERT (original_journal_id, reversal_journal_id, reason, approved_by_user_account_id, evidence_reference_id)
+GRANT INSERT (original_journal_id, reversal_journal_id, reason, approved_by_user_account_id, evidence_reference_id, reversal_mode, self_reversal)
   ON abos.journal_reversal_links TO abos_v1_operational_finance_owner;
 
 REVOKE ALL ON FUNCTION

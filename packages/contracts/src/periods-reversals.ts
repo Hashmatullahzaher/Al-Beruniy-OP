@@ -77,10 +77,13 @@ export interface ReversibleJournalView {
   readonly postedBy: string | null;
   readonly periodStatus: AccountingPeriodStatus;
   readonly blocker: ReversalBlocker | null;
-  /** The viewer prepared, approved or posted it, so the viewer can neither reverse it nor ask or decide. */
+  /** The viewer prepared, approved or posted it. Simple Mode: the viewer may still reverse it directly (a flagged self-correction).
+   *  Advanced Mode: the viewer can neither ask for its reversal nor decide or post it. */
   readonly viewerIsParticipant: boolean;
   readonly lines: readonly { readonly lineNumber: number; readonly accountCode: string; readonly accountName: string; readonly debit: string; readonly credit: string }[];
-  readonly reversal: { readonly journalId: string; readonly reference: string; readonly date: string; readonly reason: string } | null;
+  readonly reversal: { readonly journalId: string; readonly reference: string; readonly date: string; readonly reason: string;
+    /** Simple Mode self-correction: the reverser had recorded or approved the original. */
+    readonly selfReversal: boolean; readonly mode: "DIRECT" | "APPROVED_REQUEST" } | null;
 }
 
 export type JournalReversalRequestStatus = "REQUESTED" | "APPROVED" | "REJECTED" | "WITHDRAWN";
@@ -126,6 +129,7 @@ export interface JournalReversalResult {
   readonly effectiveDate?: string;
   /** false: the original month was closed, so the reversal posted on the business day in the current month. */
   readonly postedInOriginalPeriod?: boolean;
+  readonly selfReversal?: boolean;
   readonly requestId?: string;
   readonly status: string;
   readonly replayed: boolean;

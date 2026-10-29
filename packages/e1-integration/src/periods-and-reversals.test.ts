@@ -319,6 +319,62 @@ if (databaseUrl() === undefined) {
       assert.equal(shown?.reversal?.reason, "Synthetic correction of a mistaken entry", "the expense shows its reversal");
     });
 
+    test("Simple Mode self-correction: the poster with finance.reversal.direct reverses their own entry, flagged and audited", async () => {
+      const f = await fixture();
+      await grant(h.executor, f.world, f.world.intentCreatorId, ["finance.reversal.direct"]);
+      await receive(f, "300.00");
+      const own = await pay(f, "40.00");
+      const posted = await reverse(f, own.journalId, f.creator);
+      assert.equal((posted as Posted & { selfReversal: boolean }).selfReversal, true);
+      assert.equal(await book(f), "300.00");
+      const link = (await h.pool.query("SELECT reversal_mode AS m, self_reversal AS s, approved_by_user_account_id AS a FROM abos.journal_reversal_links WHERE original_journal_id = $1",
+        [own.journalId])).rows[0];
+      assert.deepEqual(link, { m: "DIRECT", s: true, a: f.world.intentCreatorId });
+      const audit = (await h.pool.query("SELECT after_state->>'selfReversal' AS s, after_state->>'mode' AS m FROM abos.audit_records WHERE entity_id = $1 AND action = 'JOURNAL_REVERSAL_POSTED'",
+        [posted.reversalJournalId])).rows[0];
+      assert.deepEqual(audit, { s: "true", m: "DIRECT" });
+      await assert.rejects(() => reverse(f, own.journalId, f.creator), /already been reversed/, "still exactly one reversal");
+      const other = await pay(f, "10.00");
+      await reverse(f, other.journalId, f.reverser);
+      assert.equal((await h.pool.query("SELECT self_reversal AS s FROM abos.journal_reversal_links WHERE original_journal_id = $1", [other.journalId])).rows[0]?.s, false);
+      // Advanced Mode: no self-approval and no direct path; the database refuses a forged direct link too.
+      await policy(f.world, "JOURNAL_REVERSAL", true);
+      const third = await pay(f, "5.00");
+      await assert.rejects(() => reverse(f, third.journalId, f.creator), /requires an approved request/);
+      await assert.rejects(() => call("finance_journal_reversal_request", f.creator, { journalId: third.journalId, reason: "Synthetic own correction request" }),
+        /finance\.reversal\.request|cannot request/);
+      await assert.rejects(() => h.pool.query(`INSERT INTO abos.journal_reversal_links (original_journal_id, reversal_journal_id, reason, approved_by_user_account_id,
+          evidence_reference_id, reversal_mode, self_reversal) SELECT $1, reversal_journal_id, 'forged', $2, evidence_reference_id, 'DIRECT', true
+          FROM abos.journal_reversal_links WHERE original_journal_id = $3`, [third.journalId, f.world.intentCreatorId, own.journalId]),
+        /not available while reversals require approval|duplicate key|reversal link requires|REVERSAL intent/);
+    });
+
+    test("a fully reversed opening balance shows an effective opening of 0, a book of 0, and keeps both entries in the history", async () => {
+      const f = await fixture();
+      await ledger(f.entity, "SYN-S5-OBE", "EQUITY", "OPENING_BALANCE_EQUITY");
+      await grant(h.executor, f.world, f.world.intentCreatorId, ["treasury.opening-balance.record"]);
+      const opening = await call<{ journalId: string; reference: string }>("treasury_opening_balance_record", f.creator, { treasuryAccountId: f.safe,
+        amount: "2500.00", currencyCode: "USD", asOfDate: "2026-09-01", reference: "Counted on day one", note: null, ...keys() });
+      const figures = async () => (await h.pool.query(`SELECT opening_balance::text AS o, inflows::text AS i, outflows::text AS x, book_balance::text AS b
+        FROM abos.treasury_account_balances($1, NULL, $2)`, [f.entity, f.safe])).rows[0];
+      assert.deepEqual(await figures(), { o: "2500.00", i: "0", x: "0", b: "2500.00" });
+      const reversal = await reverse(f, opening.journalId);
+      assert.deepEqual(await figures(), { o: "0.00", i: "0", x: "0", b: "0.00" }, "effective opening 0, book 0, nothing counted as money in or out");
+      const safes = await call<{ safes: { id: string; balance: { opening: string; book: string };
+        openingBalance: { amount: string; asOfDate: string; reference: string | null; journalId: string; reversal?: { journalId: string; date: string; reason: string } } | null;
+        movements: { journalId: string; sourceType: string; direction: string; amount: string }[] }[] }>("treasury_safes_workspace", f.creator);
+      const safe = safes.safes.find((s) => s.id === f.safe);
+      assert.deepEqual([safe?.balance.opening, safe?.balance.book], ["0.00", "0.00"]);
+      assert.deepEqual([safe?.openingBalance?.amount, safe?.openingBalance?.asOfDate, safe?.openingBalance?.reference, safe?.openingBalance?.journalId],
+        ["2500.00", "2026-09-01", "Counted on day one", opening.journalId], "the original opening balance is kept");
+      assert.deepEqual([safe?.openingBalance?.reversal?.journalId, safe?.openingBalance?.reversal?.reason],
+        [reversal.reversalJournalId, "Synthetic correction of a mistaken entry"], "with its reversal");
+      assert.deepEqual(safe?.movements.map((m) => [m.journalId, m.sourceType, m.direction, m.amount]).sort(),
+        [[opening.journalId, "OPENING_BALANCE", "IN", "2500.00"], [reversal.reversalJournalId, "REVERSAL", "OUT", "2500.00"]].sort(), "both stay in the history");
+      assert.equal(Number((await h.pool.query("SELECT count(*) FROM abos.treasury_opening_balances WHERE journal_id = $1", [opening.journalId])).rows[0]?.count), 1,
+        "the original record is neither deleted nor changed");
+    });
+
     test("a reversed opening balance can be recorded again; privileges stay narrow", async () => {
       const f = await fixture();
       await ledger(f.entity, "SYN-S5-OBE", "EQUITY", "OPENING_BALANCE_EQUITY");
