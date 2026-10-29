@@ -57,14 +57,22 @@ test("@smoke Simple Mode reverses a payment directly with a reason, showing the 
   expect(String(commands[0]!.idempotencyKey)).toMatch(/^reversal-/);
 });
 
-test("the person who recorded a transaction cannot reverse it, and a closed month reverses today", async ({ page }) => {
+test("Simple Mode lets the recorder correct their own entry as a self-correction; a closed month reverses today", async ({ page }) => {
   await mock(page);
   await page.goto("/finance/reversals");
-  const own = page.getByRole("row", { name: /RC-20261013-BBB/ });
-  await expect(own).toContainText("You recorded it; another person must reverse it");
-  await expect(own.getByRole("button")).toHaveCount(0);
+  await page.getByRole("row", { name: /RC-20261013-BBB/ }).getByRole("button", { name: "Reverse" }).click();
+  await expect(page.getByRole("form", { name: "Reverse RC-20261013-BBB" })).toContainText("recorded in the audit trail as a self-correction");
+  await page.getByRole("form", { name: "Reverse RC-20261013-BBB" }).getByRole("button", { name: "Cancel" }).click();
   await page.getByRole("row", { name: /PY-20260912-CCC/ }).getByRole("button", { name: "Reverse" }).click();
   await expect(page.getByRole("form", { name: "Reverse PY-20260912-CCC" })).toContainText("Its month is closed: the reversal posts today (2026-10-28)");
+});
+
+test("with approvals on, the person who recorded a transaction can neither reverse it nor ask for its reversal", async ({ page }) => {
+  await mock(page, { approval: true });
+  await page.goto("/finance/reversals");
+  const own = page.getByRole("row", { name: /RC-20261013-BBB/ });
+  await expect(own).toContainText("You recorded it; with approvals on, another person must reverse it");
+  await expect(own.getByRole("button")).toHaveCount(0);
 });
 
 test("Advanced Mode requests a reversal; the requester may only withdraw; refusals are explained", async ({ page }) => {

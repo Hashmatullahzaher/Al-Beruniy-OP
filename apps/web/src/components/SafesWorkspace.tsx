@@ -204,7 +204,7 @@ function SafeCard({ safe, workspace, fa, t, busy, formOpen, toggleForm, closeFor
 }>) {
   const name = localizedName(safe, fa);
   const headingId = `safe-${safe.id}`;
-  const canOpen = workspace.canRecordOpeningBalance && safe.status === "ACTIVE" && safe.openingBalance === null
+  const canOpen = workspace.canRecordOpeningBalance && safe.status === "ACTIVE" && (safe.openingBalance === null || safe.openingBalance.reversal !== undefined)
     && workspace.openingEquity.status === "READY" && safe.currencyCode === workspace.baseCurrency;
   // Movements are offered on active accounts in the accounting currency, the only currency 0047 posts.
   const movable = moneyOptions !== null && safe.status === "ACTIVE" && safe.currencyCode === moneyOptions.baseCurrency;
@@ -242,7 +242,10 @@ function SafeCard({ safe, workspace, fa, t, busy, formOpen, toggleForm, closeFor
         {safe.openingBalance
           ? <>{fa ? "موجودی افتتاحیه ثبت شد: " : "Opening balance recorded: "}<strong dir="ltr">{money(safe.openingBalance.amount, safe.openingBalance.currencyCode)}</strong>
             {fa ? " به تاریخ " : " as of "}<span dir="ltr">{safe.openingBalance.asOfDate}</span>
-            {safe.openingBalance.reference ? <> · {safe.openingBalance.reference}</> : null}</>
+            {safe.openingBalance.reference ? <> · {safe.openingBalance.reference}</> : null}
+            {safe.openingBalance.reversal ? <> — {fa ? "برگشت شد به تاریخ " : "reversed on "}<span dir="ltr">{safe.openingBalance.reversal.date}</span>
+              {" · "}<span dir="ltr">{safe.openingBalance.reversal.reference}</span>{" · "}{safe.openingBalance.reversal.reason}{". "}
+              {fa ? "موجودی افتتاحیهٔ مؤثر: " : "Effective opening balance: "}<strong dir="ltr">{money(safe.balance.opening, safe.currencyCode)}</strong></> : null}</>
           : (fa ? "هنوز موجودی افتتاحیه ثبت نشده است." : "No opening balance has been recorded yet.")}
         {canOpen && !formOpen ? <> <button className="treasury-button gold" type="button" onClick={toggleForm}>{fa ? "ثبت موجودی افتتاحیه" : "Set opening balance"}</button></> : null}
       </p>

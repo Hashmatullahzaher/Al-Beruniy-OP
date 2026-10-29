@@ -76,7 +76,11 @@ The original journal never changes. The original journal row is locked, so a con
 - Rejecting needs a note; the requester may withdraw.
 - A request approved earlier (before 0050) can be posted by an approver.
 
-**Segregation of duties (existing baseline, kept).** Whoever prepared, approved or posted the original cannot request, approve, post or directly reverse it. This applies in Simple Mode too; whether to relax it for one-person companies is an owner question (`OPEN_ITEMS.md`).
+**Segregation of duties (owner decision of 2026-10-29).**
+- **Simple Mode (DIRECT).** The user holding `finance.reversal.direct` may correct a transaction they recorded or approved.
+  - The link records `reversal_mode = DIRECT` and `self_reversal = true`, and the audit carries `selfReversal`.
+  - The restated link trigger accepts a DIRECT link only while the JOURNAL_REVERSAL setting does not require approval, only when it is posted by its authoriser, and only with a truthful self flag.
+- **Advanced Mode and approved requests.** Whoever prepared, approved or posted the original can neither request, approve nor post its reversal. This is enforced by the request guard, the writer and the link trigger.
 
 **Reversible sources.**
 
@@ -98,6 +102,7 @@ The original journal never changes. The original journal row is locked, so a con
 - An expense shows its reversal.
 - The capital workspace no longer counts a reversed receipt as contributed and labels it REVERSED.
 - A reversed opening balance can be recorded again: the one-per-Safe rule now counts only opening balances that have not been reversed.
+- The Safe's opening figure is the effective amount: the 0045 read model counts the reversal of an opening balance inside the opening figure, so a fully reversed 2,500 shows 0. The card and the movement history keep the original, its reversal, the date and the reason.
 
 ## 4. Permissions and settings (0050)
 

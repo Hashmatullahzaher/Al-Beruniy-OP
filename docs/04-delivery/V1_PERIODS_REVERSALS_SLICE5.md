@@ -47,28 +47,26 @@ until the owner separately authorizes 0050. Design: `docs/03-architecture/PERIOD
 - **Retired:** the 0040 trigger that refused every direct-capital reversal (the validator and link guards now decide), and the synthetic-only E1 reversal screen and routes (`/api/v1/finance/reversals`). `/finance/reversals` now runs the operational lane.
 - **Screens:** Financial periods (`/finance/periods`) and Journal reversals (`/finance/reversals`), in English and Dari, phone-width safe.
 
-## 3. Validation (disposable databases only; test PostgreSQL at 1 GB)
+## 3. Validation of the final amended 0050 (disposable databases only; test PostgreSQL at 1 GB)
 
 | Check | Result |
 |---|---|
-| Slice 5 suite `periods-and-reversals.test.ts` | 10/10 |
-| Updated suites (kernel, kernel equivalence, admin-approval upgrade, money upgrade and corrections, security ownership, bridge schema, temporary funding, workflow policy) with the Slice 5 suite | 73/73 |
-| Full integration, fresh database 0001 → 0050 (fresh install) | 310/310, no OOM |
-| Unit / typecheck / lint / build | 169/169; 12/12; clean; 11/11 |
-| Browser: full mocked suite (including the new periods 4/4 and reversals 4/4) | 75 passed, 14 database-gated skips |
-| Smoke | 12/12. The first run under concurrent integration load had one transient failure that did not repeat. |
-| Production-shaped upgrade: the post-deployment production dump (0049), restored and upgraded to 0050 | • only 0050 applied; rerun a no-op;<br>• changed: workflow types +2, permission catalogue +2, the posting registry (REVERSAL ACTIVE, direct capital reversible), the migration registry, two new empty tables;<br>• 91/95 tables identical;<br>• 0 journals, intents and subledger entries;<br>• periods unchanged (12 PENDING); Safe کسه 0;<br>• no runtime table write; no balance column;<br>• SECURITY DEFINER functions 115 → 127 (exactly the 12 new entry points). |
+| Slice 5 suite `periods-and-reversals.test.ts`<br>(includes self-correction, Advanced Mode independence, concurrency, the opening balance 2,500 → reversed → effective 0 regression) | 12/12 |
+| Full integration, fresh database 0001 → 0050 (fresh install) | 312/312, no OOM |
+| Unit / typecheck / lint / production build | 169/169; 12/12; clean; 11/11 |
+| Browser: full mocked suite (periods, reversals with self-correction and the Advanced participant, Safes with a reversed opening balance) | 76 passed, 14 database-gated skips;<br>1 first-compile timeout in `shell.spec.ts`, which passed on rerun (9/9) and in smoke |
+| Smoke | 12/12 |
+| Production-shaped upgrade: the post-0049 production dump (sha256 `b67dbe78…`), restored and upgraded to the final 0050 | • only 0050 applied; rerun a no-op;<br>• changed: workflow types +2, permission catalogue +2, the posting registry (REVERSAL ACTIVE, direct capital reversible), the migration registry, two new empty tables, and two new link columns on the empty `journal_reversal_links`;<br>• 91/95 tables byte-identical (zero backfill);<br>• 0 journals, intents, subledger entries and reversal links (no migration-created journal);<br>• periods unchanged (12 PENDING); settings unchanged; Safe کسه opening 0, book 0;<br>• no runtime table write; no balance column;<br>• SECURITY DEFINER functions 115 → 127 (exactly the 12 new entry points). |
 
-0050 checksum: `6e112c0649aa8a8f7d963c92d121caf2b29f0ef8614eec8d22c58b2cad41de67`.
+Final 0050 checksum: `07cde8b9572f24f2546406b7278818442f718f03bccf9cf38867411258fc870d` (replaces `6e112c06…`, which was never deployed).
 
-**Known limitation (informational only).** A reversed direct-capital receipt keeps its allocation rows against an optional capital declaration (`direct_capital_receipt_allocations`).
+**Deferred by owner decision: legacy capital cleanup debt.** A reversed direct-capital receipt keeps its allocation rows against an optional capital declaration (`direct_capital_receipt_allocations`).
 - The capital workspace's "contributed" and "remaining" already exclude reversed receipts.
 - The allocations feed only the frozen legacy request lane; no money, posting or balance depends on them.
-- A later slice may exclude reversed receipts there too (`OPEN_ITEMS.md`).
 
 ## 4. Before the owner uses it on production
 
-- Deploying 0050 needs separate authorization.
+- Deployment of the final reviewed 0050 was authorized by the owner on 2026-10-29 (guarded backup → restore → rehearsal → apply → verify; no real transaction for verification).
 - After deployment, grant the new permissions as needed:
   - `finance.period.manage` to close a month;
   - `finance.period.reopen` to reopen;
@@ -76,8 +74,24 @@ until the owner separately authorizes 0050. Design: `docs/03-architecture/PERIOD
   - `finance.reversal.request` / `finance.reversal.approve` for the request path.
 - Nothing changes until a month is closed or a reversal is made. No setting needs to be saved: Simple Mode is the default.
 
-## 5. Open owner decisions (recorded in `OPEN_ITEMS.md`)
+## 5. Owner decisions of 2026-10-29 (0050 amended before deployment)
 
-- Whether Simple Mode may let the person who posted a transaction reverse it themselves. Today, as before, whoever prepared, approved or posted it can neither reverse, request nor decide its reversal.
-- Whether the Safe's "Opening balance" figure should net a reversed opening balance. The book balance is already correct.
+**Self-correction (Simple Mode).**
+- A user with `finance.reversal.direct` may reverse their own recorded or approved transaction.
+- The reason stays mandatory, and the original stays immutable.
+- The reversal is a new exact-inverse journal with an immutable link carrying `reversal_mode = DIRECT` and `self_reversal = true`. The audit carries `selfReversal`, the actor, the date, the reason and both journals.
+- Duplicate and concurrent reversal stay impossible: the journal lock plus the link's primary key.
+
+**Advanced Mode** keeps database-enforced independence:
+- direct reversal is refused;
+- a participant can neither request, approve nor post;
+- a DIRECT link is refused by the trigger while approval is required.
+
+**Effective opening balance.** A fully reversed 2,500 shows an effective opening balance of 0 and a book of 0, and counts as neither money in nor money out. The card shows the original opening balance with its reversal (date, reference, reason). The movement history keeps both lines, and the original record is neither deleted nor changed.
+
+**Deferred:** capital declaration allocations after a reversal (legacy capital cleanup debt).
+
+## 6. Remaining known debt (`OPEN_ITEMS.md`)
+
+- Legacy capital cleanup debt (declaration allocations of reversed capital receipts).
 - Reversal of temporary funding and its settlements (needs its own design).

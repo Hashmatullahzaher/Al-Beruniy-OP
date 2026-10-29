@@ -120,3 +120,16 @@ implemented in migration 0049 (`docs/03-architecture/MONEY_MOVEMENTS.md` section
 2. **Simple Mode approval defaults.** A missing approval setting for a routine workflow means approval OFF. An explicit ON is never weakened. A switch whose lane has no Advanced pending/confirm path must not be able to make the workflow unusable; it is shown as unavailable until Advanced Controls exist.
 3. **Attachments** on receipts and payments are deferred to the generalized document-vault slice.
 
+## Owner decisions — Slice 5 corrections — 2026-10-29
+
+Implemented by amending 0050 before it was deployed. The amendment is the same migration, with a new checksum.
+
+1. **Simple Mode self-correction approved.**
+   - A user with `finance.reversal.direct` may reverse a transaction they recorded or approved.
+   - Conditions: a mandatory reason; an immutable original; a new exact-inverse journal; an immutable link.
+   - The link records `reversal_mode = DIRECT` and `self_reversal = true`, and the audit flags `selfReversal`.
+   - Duplicate and concurrent reversal stay impossible.
+   - Advanced Mode (independent approval) keeps database-enforced independence: nobody approves their own reversal.
+2. **The opening balance shown is the effective accounting amount.** A fully reversed 2,500 opening balance shows 0; the book still derives from posted movements; the original opening balance, its reversal and their links stay visible. The read model changes, not the history.
+3. **Capital declaration allocations after a reversal: deferred.** This is legacy capital cleanup debt, to be normalized when the retired capital-request / declaration model is consolidated.
+

@@ -101,6 +101,22 @@ test("an opening balance is saved once with the Safe's currency fixed and one re
   expect(String(commands[0]!.idempotencyKey)).toMatch(/^opening-/);
 });
 
+test("a reversed opening balance keeps the original and its reversal visible, shows the effective opening and can be set again", async ({ page }) => {
+  const view = workspace();
+  const main = view.safes[0]!;
+  main.balance = { ...main.balance, opening: "0.00", book: "874.50" };
+  main.openingBalance = { id: "ob1", amount: "2500.00", currencyCode: "USD", asOfDate: "2026-09-01", reference: "Counted on day one", note: null,
+    transactionReference: "OB-20260901-XYZ", journalId: "j0", recordedAt: "2026-09-01T05:00:00Z",
+    reversal: { journalId: "rv1", reference: "RV-20260905-AAA", date: "2026-09-05", reason: "Counted twice" } };
+  await mock(page, { view });
+  await page.goto("/finance/safes");
+  const card = page.getByRole("region", { name: "Main Safe" });
+  await expect(card).toContainText("Opening balance recorded: 2,500.00 USD as of 2026-09-01 · Counted on day one");
+  await expect(card).toContainText("reversed on 2026-09-05 · RV-20260905-AAA · Counted twice");
+  await expect(card).toContainText("Effective opening balance: 0.00 USD");
+  await expect(card.getByRole("button", { name: "Set opening balance" })).toBeVisible();
+});
+
 test("refusals are shown in business language and the form keeps its request", async ({ page }) => {
   const { commands } = await mock(page, { refuse: { status: 409, code: "OPENING_EXISTS",
     message: "This Safe already has an opening balance. A posted opening balance is corrected by reversal, never edited." } });

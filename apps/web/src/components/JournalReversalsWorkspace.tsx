@@ -93,14 +93,16 @@ export function JournalReversalsWorkspace() {
 
   const direct = workspace?.canReverseDirectly ?? false;
   const action = (journal: ReversibleJournalView): "reverse" | "request" | null => {
-    if (!workspace || journal.reversal || journal.blocker || journal.viewerIsParticipant) return null;
+    if (!workspace || journal.reversal || journal.blocker) return null;
+    // Simple Mode: the permitted person may correct their own entry (recorded as a self-correction).
     if (direct) return "reverse";
-    return workspace.canRequest ? "request" : null;
+    // Advanced Mode: whoever recorded or approved it can neither ask for nor approve its reversal.
+    return workspace.canRequest && !journal.viewerIsParticipant ? "request" : null;
   };
   const why = (journal: ReversibleJournalView): string | null => {
     if (journal.reversal) return null;
     if (journal.blocker === "OPEN_REQUEST" || journal.blocker === "APPROVED_REQUEST") return fa ? "درخواست برگشت دارد" : "Has a reversal request";
-    if (journal.viewerIsParticipant) return fa ? "شما آن را ثبت کرده‌اید؛ شخص دیگری باید برگشت دهد" : "You recorded it; another person must reverse it";
+    if (journal.viewerIsParticipant) return fa ? "شما آن را ثبت کرده‌اید؛ در حالت تأیید شخص دیگری باید برگشت دهد" : "You recorded it; with approvals on, another person must reverse it";
     return null;
   };
 
@@ -137,7 +139,8 @@ export function JournalReversalsWorkspace() {
                   <td dir="ltr">{journal.date}</td><td dir="ltr">{journal.reference}</td>
                   <td>{t(SOURCE_COPY[journal.sourceType] ?? { en: journal.sourceType, fa: journal.sourceType })}</td>
                   <td dir="ltr">{money(journal.amount, journal.currency)}</td><td>{journal.postedBy ?? "—"}</td>
-                  <td>{journal.reversal ? <span>{fa ? "برگشت شد: " : "Reversed: "}<span dir="ltr">{journal.reversal.reference}</span> · <span dir="ltr">{journal.reversal.date}</span></span>
+                  <td>{journal.reversal ? <span>{fa ? "برگشت شد: " : "Reversed: "}<span dir="ltr">{journal.reversal.reference}</span> · <span dir="ltr">{journal.reversal.date}</span>
+                      {journal.reversal.selfReversal ? <> · <em>{fa ? "اصلاح توسط خود ثبت‌کننده" : "self-correction"}</em></> : null}</span>
                     : kind ? <button className="treasury-button" type="button" disabled={busy} onClick={() => setOpen({ id: journal.id, reason: "", request: identity() })}>
                         {kind === "reverse" ? (fa ? "برگشت" : "Reverse") : (fa ? "درخواست برگشت" : "Request reversal")}</button>
                       : <small className="admin-hint">{why(journal) ?? "—"}</small>}</td>
@@ -157,6 +160,9 @@ export function JournalReversalsWorkspace() {
                         ? (fa ? `برگشت در همان تاریخ ${journal.date} ثبت می‌شود.` : `The reversal posts on the same date, ${journal.date}.`)
                         : (fa ? `ماه آن بسته است؛ برگشت امروز (${workspace.today}) در ماه جاری ثبت می‌شود و اصل دست نمی‌خورد.`
                           : `Its month is closed: the reversal posts today (${workspace.today}) in the current month; the original stays as it is.`)}</p>
+                      {kind === "reverse" && journal.viewerIsParticipant ? <p className="admin-hint" role="note">{fa
+                        ? "این اصلاح ثبت خود شماست و به‌عنوان «اصلاح توسط خود ثبت‌کننده» در حسابرسی می‌ماند."
+                        : "This corrects your own entry; it is recorded in the audit trail as a self-correction."}</p> : null}
                       <label><span>{fa ? "دلیل *" : "Reason *"}</span>
                         <textarea rows={2} maxLength={1000} value={open.reason} onChange={(event) => setOpen({ ...open, reason: event.target.value, request: identity() })} /></label>
                       <div className="admin-form-actions">

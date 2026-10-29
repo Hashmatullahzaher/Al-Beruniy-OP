@@ -9,7 +9,7 @@ export type SafeStatus = "ACTIVE" | "INACTIVE" | "CLOSED";
 export type OpeningEquityStatus = "READY" | "MISSING" | "AMBIGUOUS" | "INVALID";
 
 export interface SafeBalance {
-  /** Movements recorded by the opening-balance source. */
+  /** Movements recorded by the opening-balance source, net of their reversals (the effective opening balance, 0050). */
   readonly opening: string;
   /** Other money in, as a positive figure. */
   readonly inflows: string;
@@ -42,6 +42,8 @@ export interface SafeOpeningBalance {
   readonly transactionReference: string;
   readonly journalId: string;
   readonly recordedAt: string;
+  /** 0050: the opening balance was reversed; the Safe's opening figure is then the effective amount (0 when fully reversed). */
+  readonly reversal?: { readonly journalId: string; readonly reference: string; readonly date: string; readonly reason: string };
 }
 
 export interface SafeView {
