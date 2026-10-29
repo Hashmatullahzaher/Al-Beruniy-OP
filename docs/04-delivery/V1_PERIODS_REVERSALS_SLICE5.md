@@ -1,7 +1,8 @@
 # Slice 5 — period close / reopen and reversal posting (migration 0050)
 
-Status: IMPLEMENTED and validated on disposable databases only. **Not deployed**: production stays at 0049
-until the owner separately authorizes 0050. Design: `docs/03-architecture/PERIODS_AND_REVERSALS.md`.
+Status: **DEPLOYED to production on 2026-10-29** at trunk `39cca7e` (final 0050, checksum `07cde8b9…`, owner
+authorization of 2026-10-29; record in `V1_MAX_DELIVERY_SESSION_2026-10-27.md`). Design:
+`docs/03-architecture/PERIODS_AND_REVERSALS.md`.
 
 ## 1. Definition of done
 

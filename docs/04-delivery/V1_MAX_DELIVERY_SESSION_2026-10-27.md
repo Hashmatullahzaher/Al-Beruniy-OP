@@ -275,3 +275,38 @@ stays at trunk `0aa6512` / migration 0040 throughout unless an entry says otherw
   - post-0049 production dump upgraded to the final 0050: 91/95 tables identical, 0 journals, no runtime table write, definer functions 115 → 127.
 - Final 0050 checksum `07cde8b9572f…`. The previous checksum was never deployed.
 
+## Production deployment of the final 0050 (owner authorization of 2026-10-29)
+
+- Deployed trunk SHA `39cca7e6b03a70184ae0cf5eb501142014379bf7`: exactly 0050 (checksum
+  `07cde8b9572f24f2546406b7278818442f718f03bccf9cf38867411258fc870d`), through the guarded `apply_catalog_0050.mts`.
+  - The helper is pinned to the commit, the predecessor 0049 and the checksums.
+  - It refused a rerun, a wrong commit and a wrong database.
+- Package `AlBeruniyOS/backups/deployment-0050-20261029-093326`, 87 files sealed.
+  - Pre-0050 dump sha256 `7473d57322fd0461847e2a0abea07302eb94af7c566f81be7686850542998383`.
+  - Test restore: 95/95 tables identical.
+  - Vault snapshot and role inventory taken, with no password lines.
+- Before: production was byte-identical to the end of the 0049 deployment.
+- Rehearsal on the restored copy: production then matched it on 96/96 tables (excluding the migration registry) and inventory for inventory.
+- Changed by 0050:
+  - workflow types +2 (PERIOD_REOPEN, JOURNAL_REVERSAL), permission catalogue +2 (`finance.period.reopen`, `finance.reversal.direct`);
+  - the posting registry: REVERSAL ACTIVE, direct capital reversible;
+  - two new empty tables, two new columns on the empty reversal links.
+  - No user or role received a permission.
+- After:
+  - 0 journals, intents, subledger entries and reversal links;
+  - 12 periods PENDING; Safe کسه opening 0, book 0;
+  - settings unchanged; no runtime table write; PUBLIC executes no definer;
+  - SECURITY DEFINER functions 115 → 127; no balance column.
+- Runtime and startup guard repinned to `39cca7e`; health ok.
+- Live checks:
+  - 11 pages 200, including `/finance/periods` and `/finance/reversals`;
+  - data APIs 401 without a session; a cross-origin POST 403;
+  - smoke 10/10 and browser 54/54 (HTTP-mocked specs only).
+- Disposable post-deployment copy:
+  - a disposable user signed in; 8 pages rendered;
+  - PERIOD_REOPEN and JOURNAL_REVERSAL default to Simple Mode and can be switched to approval;
+  - on the copy only, a 10.00 receipt was reversed by its own recorder: a DIRECT link flagged `self_reversal`, Safe back to 0.00, and a second reversal refused (ALREADY_REVERSED).
+  - A first run failed only its final assertion, on number formatting ("0" against "0.00"); the rerun on a fresh copy passed.
+- Vault reconciliation CLEAN.
+- Nothing was seeded and no real transaction was created: no account, opening balance, money movement, close or reversal.
+
