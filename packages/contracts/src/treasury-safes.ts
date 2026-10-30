@@ -1,3 +1,5 @@
+import type { FxSetupView } from "./fx-policy.ts";
+
 /**
  * Safes (migrations 0045 and 0046): one canonical Treasury account model whose balances are always
  * derived from posted movements, and an opening balance that is a real posting (Dr the Safe, Cr
@@ -17,6 +19,8 @@ export interface SafeBalance {
   readonly outflows: string;
   /** opening + inflows - outflows: the sum of every posted movement of the Safe. */
   readonly book: string;
+  /** 0051: the same movements in the accounting currency (each valued at its own posted rate snapshot). */
+  readonly baseBook?: string;
   readonly movementCount: number;
   readonly lastMovementDate: string | null;
 }
@@ -87,6 +91,8 @@ export interface SafeOpeningBalanceCommand {
   readonly asOfDate: string;
   readonly reference: string | null;
   readonly note: string | null;
+  /** 0051: the as-of day's rate to use when that day has several (a foreign-currency Safe only). */
+  readonly exchangeRateId?: string | null;
   readonly idempotencyKey: string;
   readonly correlationId: string;
 }
@@ -103,6 +109,8 @@ export interface SafeOpeningBalanceResult {
   readonly openingBalanceId: string;
   readonly journalId: string;
   readonly reference: string;
+  readonly baseAmount?: string;
+  readonly fxConversionId?: string | null;
   readonly status: "POSTED";
   readonly replayed: boolean;
 }
@@ -129,6 +137,8 @@ export interface MoneyOptions {
   /** requiresParty: an accounts-payable control account, kept per supplier, so a free-text payee is not enough. */
   readonly payableAccounts: readonly { readonly id: string; readonly code: string; readonly name: string; readonly requiresParty: boolean }[];
   readonly parties: readonly { readonly id: string; readonly name: string }[];
+  /** 0051: the FX setup of each foreign currency held by an active account; SETUP_REQUIRED cannot post yet. */
+  readonly fx: readonly FxSetupView[];
 }
 
 interface MoneyRequest {
@@ -137,6 +147,8 @@ interface MoneyRequest {
   readonly businessDate: string;
   readonly reference: string | null;
   readonly note: string | null;
+  /** 0051: the day's rate to use when that day has several (a foreign-currency movement only). */
+  readonly exchangeRateId?: string | null;
   readonly idempotencyKey: string;
   readonly correlationId: string;
 }
@@ -170,6 +182,11 @@ export interface MoneyResult {
   readonly movementId: string;
   readonly journalId: string;
   readonly reference: string;
+  /** 0051: the native amount and currency, and the accounting amount posted. */
+  readonly currencyCode?: string;
+  readonly amount?: string;
+  readonly baseAmount?: string;
+  readonly fxConversionId?: string | null;
   readonly status: "POSTED";
   readonly replayed: boolean;
 }

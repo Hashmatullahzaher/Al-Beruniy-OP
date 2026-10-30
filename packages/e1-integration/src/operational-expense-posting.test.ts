@@ -437,7 +437,7 @@ if (databaseUrl() === undefined) {
         );
         const posted = await createExpense(fixture.executor, fixture.creatorSession,
           expensePayload(fixture, { originalAmount: "7000", currencyCode: "AFN", exchangeRateId: rateId }));
-        assert.equal(posted.expense.baseAmount, "100");
+        assert.equal(posted.expense.baseAmount, "100.00");
         assert.equal(posted.expense.exchangeRateSnapshot?.exchangeRateId, rateId);
         assert.equal(posted.expense.exchangeRateSnapshot?.rate, "70");
         const snapshotId = posted.expense.exchangeRateSnapshot?.id;
@@ -544,7 +544,12 @@ if (databaseUrl() === undefined) {
           () => createExpense(fixture.executor, fixture.creatorSession,
             expensePayload(fixture, { expenseCategoryId: other.categoryId })),
           /same-entity Treasury account and expense category/i);
-        // An AFN Treasury account of our own, but the other company's rate.
+        // An AFN Treasury account of our own (and our FX difference account, 0051), but the other company's rate.
+        await harness.executor.query(
+          `INSERT INTO abos.ledger_accounts (id, legal_entity_id, account_code, account_name, account_type, control_account_type,
+             posting_allowed, account_currency_code, status)
+           VALUES ($1, $2, 'SYN-FX-DIFF', 'Synthetic FX difference', 'EXPENSE', 'FX_DIFFERENCE', true, 'USD', 'ACTIVE')`,
+          [randomUUID(), fixture.world.legalEntityId]);
         const afnTreasury = randomUUID();
         await harness.executor.query(
           `INSERT INTO abos.operational_treasury_accounts
@@ -659,7 +664,13 @@ if (databaseUrl() === undefined) {
           () => createExpense(fixture.executor, fixture.creatorSession,
             expensePayload(fixture, { originalAmount: "7000", currencyCode: "AFN", exchangeRateId: yesterday })),
           /not a current USD\/AFN rate/i);
-        // A result that is not exact is refused: no rounding policy is approved.
+        // 0051: under an EXACT_ONLY FX policy a result that is not exact is refused (the default rounds half up).
+        await harness.executor.query(
+          `INSERT INTO abos.fx_policy_versions (id, legal_entity_id, currency_code, version, effective_from, base_scale, rounding_mode,
+             fx_difference_ledger_account_id, reason, created_by_user_account_id, correlation_id)
+           SELECT $1, $2, 'AFN', 1, '2026-01-01', 2, 'EXACT_ONLY', id, 'Synthetic exact-only policy', $3, $4
+             FROM abos.ledger_accounts WHERE legal_entity_id = $2 AND control_account_type = 'FX_DIFFERENCE'`,
+          [randomUUID(), fixture.world.legalEntityId, fixture.world.bootstrapUserId, randomUUID()]);
         await harness.executor.query(
           `INSERT INTO abos.exchange_rates
              (id, legal_entity_id, rate_date, rate_source, unit_currency_code,
@@ -669,7 +680,7 @@ if (databaseUrl() === undefined) {
         await assert.rejects(
           () => createExpense(fixture.executor, fixture.creatorSession,
             expensePayload(fixture, { originalAmount: "100", currencyCode: "AFN" })),
-          /not exact; rounding policy is not approved/i);
+          /not exact to 2 decimal places at this rate, and the AFN FX policy is exact-only/i);
         for (const amount of ["NaN", "Infinity", "1e3", "-5", "0", "0.00", " 12"]) {
           await assert.rejects(
             () => createExpense(fixture.executor, fixture.creatorSession,
@@ -680,7 +691,7 @@ if (databaseUrl() === undefined) {
         const posted = await createExpense(fixture.executor, fixture.creatorSession,
           expensePayload(fixture, { originalAmount: "3500.00", currencyCode: "AFN" }));
         assert.equal(posted.expense.originalAmount, "3500.00");
-        assert.equal(posted.expense.baseAmount, "50", "exact base amount, no spurious trailing digits");
+        assert.equal(posted.expense.baseAmount, "50.00", "the accounting amount at the policy's 2 decimal places");
       } finally {
         await fixture.close();
       }
@@ -883,6 +894,14 @@ async function setupFixture(
   await resetSchema(harness.pool);
   const world = await seedSyntheticWorld(harness.executor);
   const configured = await configureEntity(harness, world, approvalRequired, currencyCode);
+  if (currencyCode === "AFN") {
+    // 0051: a foreign-currency posting needs the company's FX difference account (an income or expense account).
+    await harness.executor.query(
+      `INSERT INTO abos.ledger_accounts (id, legal_entity_id, account_code, account_name, account_type, control_account_type,
+         posting_allowed, account_currency_code, status)
+       VALUES ($1, $2, 'SYN-FX-DIFF', 'Synthetic FX difference', 'EXPENSE', 'FX_DIFFERENCE', true, 'USD', 'ACTIVE')`,
+      [randomUUID(), world.legalEntityId]);
+  }
   await ensureLogin(harness);
   const connection = await restrictedFinance();
   const creator = await sessionFor(harness, world, world.intentCreatorId);

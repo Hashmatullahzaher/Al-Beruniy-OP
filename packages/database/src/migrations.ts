@@ -273,6 +273,11 @@ export const migrationCatalog = [
     checksumSha256: "07cde8b9572f24f2546406b7278818442f718f03bccf9cf38867411258fc870d",
     relativePath: "infrastructure/database/migrations/0050_v1_periods_and_reversals.sql",
   },
+  {
+    id: "0051_v1_fx_policy_and_afn",
+    checksumSha256: "fb385c551d0167d8aa6305d176a0bab09f896f0d63659602b2394e7ac88050f2",
+    relativePath: "infrastructure/database/migrations/0051_v1_fx_policy_and_afn.sql",
+  },
 ] as const satisfies readonly MigrationDefinition[];
 
 const migrationTableSql = `

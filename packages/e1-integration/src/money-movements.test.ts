@@ -208,7 +208,8 @@ if (databaseUrl() === undefined) {
       await assert.rejects(() => receive(f, { treasuryAccountId: "nope" }), /choose a valid treasuryAccountId/);
       const { rows: [{ tomorrow }] } = await h.pool.query("SELECT (abos.business_today() + 1)::text AS tomorrow");
       await assert.rejects(() => receive(f, { businessDate: tomorrow }), /a movement cannot be dated after today/);
-      await assert.rejects(() => receive(f, { treasuryAccountId: f.afnSafe, currencyCode: "AFN" }), /approved accounting currency only/);
+      // 0051: AFN posts through the FX policy; without an FX difference account it is a setup error and nothing is written.
+      await assert.rejects(() => receive(f, { treasuryAccountId: f.afnSafe, currencyCode: "AFN" }), /FX setup: no FX difference account/);
       await assert.rejects(() => transfer(f, { destinationTreasuryAccountId: f.afnSafe }), /holds AFN, not USD/);
       await assert.rejects(() => transfer(f, { destinationTreasuryAccountId: f.safe }), /a transfer needs two different accounts/);
       await assert.rejects(() => receive(f, { businessDate: "2026-07-05" }), /no accounting period covers 2026-07-05/);

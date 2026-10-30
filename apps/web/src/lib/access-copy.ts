@@ -179,7 +179,12 @@ export const PERMISSION_COPY: Readonly<Record<string, PermissionCopy>> = {
   },
   "finance.reversal.direct": {
     label: { en: "Reverse transactions directly", fa: "برگشت مستقیم معاملات" },
-    allows: { en: "Correct a posted transaction with an exact reversal and a written reason, in one save, when the company does not require approval for reversals. Never a transaction the person recorded or approved.", fa: "اصلاح معاملهٔ ثبت‌شده با برگشت دقیق و دلیل نوشته‌شده، با یک ذخیره، وقتی شرکت برای برگشت تأیید نخواهد. هرگز معامله‌ای که خود شخص ثبت یا تأیید کرده است." }
+    allows: { en: "Correct a posted transaction with an exact reversal and a written reason, in one save, when the company does not require approval for reversals. This includes the person's own entry, which is recorded in the audit trail as a self-correction.", fa: "اصلاح معاملهٔ ثبت‌شده با برگشت دقیق و دلیل نوشته‌شده، با یک ذخیره، وقتی شرکت برای برگشت تأیید نخواهد. ثبت خود شخص هم شامل است و در حسابرسی به‌عنوان «اصلاح توسط خود ثبت‌کننده» می‌ماند." }
+  },
+  // FX policy (0051).
+  "finance.fx-policy.manage": {
+    label: { en: "Manage the FX policy", fa: "مدیریت پالیسی اسعار" },
+    allows: { en: "Save how money in another currency is recorded in the accounting currency: rounding, decimal places and the FX difference account, effective from a date. Earlier policies are kept and recorded movements never change.", fa: "ذخیرهٔ اینکه پول به واحد پول دیگر چگونه به واحد پول حسابداری ثبت شود: گرد کردن، ارقام اعشار و حساب تفاوت تبادله اسعار، مؤثر از یک تاریخ. پالیسی‌های قبلی نگه داشته می‌شوند و حرکات ثبت‌شده تغییر نمی‌کنند." }
   },
   "finance.expense-category.manage": {
     label: { en: "Set up expense types", fa: "تنظیم انواع مصرف" },

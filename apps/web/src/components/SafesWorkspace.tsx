@@ -6,8 +6,9 @@ import { useCallback, useEffect, useState } from "react";
 
 import { AccessGate, api, errorText } from "@/components/AdminUsersWorkspace";
 import { AppIcon } from "@/components/AppIcon";
+import { FxConversionField, type FxChoice } from "@/components/FxConversionField";
 import { useLocale } from "@/components/LocaleProvider";
-import { MONEY_ACTION_COPY, MoneyMovementForm, type MoneyKind } from "@/components/MoneyMovementForms";
+import { MONEY_ACTION_COPY, MONEY_ERROR_FA, MoneyMovementForm, type MoneyKind } from "@/components/MoneyMovementForms";
 import { localizedName, money } from "@/components/OperationalFinanceShared";
 import { StageZeroPageHeader } from "@/components/StageZeroWorkspace";
 import type { Copy } from "@/lib/access-copy";
@@ -65,7 +66,7 @@ const ERROR_FA: Readonly<Record<string, string>> = {
 };
 
 function safeError(error: { code: string; message: string }, locale: "en" | "fa"): string {
-  if (locale === "fa") return ERROR_FA[error.code] ?? errorText(error, locale);
+  if (locale === "fa") return ERROR_FA[error.code] ?? MONEY_ERROR_FA[error.code] ?? errorText(error, locale);
   if (error.code === "NETWORK") return "The server could not be reached. Try again; the same request will not be recorded twice.";
   return error.message || errorText(error, locale);
 }
@@ -205,9 +206,12 @@ function SafeCard({ safe, workspace, fa, t, busy, formOpen, toggleForm, closeFor
   const name = localizedName(safe, fa);
   const headingId = `safe-${safe.id}`;
   const canOpen = workspace.canRecordOpeningBalance && safe.status === "ACTIVE" && (safe.openingBalance === null || safe.openingBalance.reversal !== undefined)
-    && workspace.openingEquity.status === "READY" && safe.currencyCode === workspace.baseCurrency;
-  // Movements are offered on active accounts in the accounting currency, the only currency 0047 posts.
-  const movable = moneyOptions !== null && safe.status === "ACTIVE" && safe.currencyCode === moneyOptions.baseCurrency;
+    && workspace.openingEquity.status === "READY";
+  // 0051: movements are offered on active accounts in the accounting currency or a foreign currency the company holds;
+  // a foreign-currency form shows the day's rate and the accounting amount, or what setup is missing.
+  const movable = moneyOptions !== null && safe.status === "ACTIVE"
+    && (safe.currencyCode === moneyOptions.baseCurrency || moneyOptions.fx.some((item) => item.currencyCode === safe.currencyCode));
+  const foreign = workspace.baseCurrency !== null && safe.currencyCode !== workspace.baseCurrency;
   const moneyKinds: MoneyKind[] = !movable ? [] : [
     ...(moneyOptions.canReceive ? ["receive" as const] : []),
     ...(moneyOptions.canTransfer ? ["transfer" as const] : []),
@@ -228,6 +232,8 @@ function SafeCard({ safe, workspace, fa, t, busy, formOpen, toggleForm, closeFor
         <div className="safe-book" aria-label={fa ? "موجودی دفتری" : "Book balance"}>
           <span>{fa ? "موجودی دفتری" : "Book balance"}</span>
           <strong dir="ltr">{money(safe.balance.book, safe.currencyCode)}</strong>
+          {foreign && safe.balance.baseBook !== undefined && workspace.baseCurrency ? <small>{fa ? "در دفاتر: " : "In the books: "}
+            <span dir="ltr">{money(safe.balance.baseBook, workspace.baseCurrency)}</span></small> : null}
         </div>
       </header>
 
@@ -250,7 +256,8 @@ function SafeCard({ safe, workspace, fa, t, busy, formOpen, toggleForm, closeFor
         {canOpen && !formOpen ? <> <button className="treasury-button gold" type="button" onClick={toggleForm}>{fa ? "ثبت موجودی افتتاحیه" : "Set opening balance"}</button></> : null}
       </p>
 
-      {canOpen && formOpen ? <OpeningBalanceForm safe={safe} today={workspace.today} fa={fa} busy={busy} post={post} close={closeForm} /> : null}
+      {canOpen && formOpen ? <OpeningBalanceForm safe={safe} today={workspace.today} baseCurrency={workspace.baseCurrency} fa={fa} busy={busy} post={post}
+        close={closeForm} /> : null}
 
       {moneyKinds.length > 0 ? (
         <div className="money-actions" role="group" aria-label={fa ? `حرکت پول — ${name}` : `Move money — ${name}`}>
@@ -296,8 +303,8 @@ function SafeCard({ safe, workspace, fa, t, busy, formOpen, toggleForm, closeFor
   );
 }
 
-function OpeningBalanceForm({ safe, today, fa, busy, post, close }: Readonly<{
-  safe: SafeView; today: string; fa: boolean; busy: boolean;
+function OpeningBalanceForm({ safe, today, baseCurrency, fa, busy, post, close }: Readonly<{
+  safe: SafeView; today: string; baseCurrency: string | null; fa: boolean; busy: boolean;
   post: (body: Record<string, unknown>, done: Copy) => Promise<boolean>; close: () => void;
 }>) {
   const [amount, setAmount] = useState("");
@@ -307,7 +314,8 @@ function OpeningBalanceForm({ safe, today, fa, busy, post, close }: Readonly<{
   // One request identity per filled-in form: a retry after an unknown outcome replays instead of doubling.
   const [identity, setIdentity] = useState(requestIdentity);
   const change = <T,>(set: (value: T) => void) => (value: T) => { set(value); setIdentity(requestIdentity()); };
-  const valid = AMOUNT.test(amount.trim()) && /[1-9]/.test(amount) && asOfDate !== "" && asOfDate <= today;
+  const [fx, setFx] = useState<FxChoice>({ exchangeRateId: null, ready: true });
+  const valid = AMOUNT.test(amount.trim()) && /[1-9]/.test(amount) && asOfDate !== "" && asOfDate <= today && fx.ready;
   const label = fa ? `موجودی افتتاحیهٔ ${localizedName(safe, fa)}` : `Opening balance of ${localizedName(safe, fa)}`;
   return (
     <form className="admin-form expense-form safe-opening-form" aria-label={label}
@@ -315,7 +323,8 @@ function OpeningBalanceForm({ safe, today, fa, busy, post, close }: Readonly<{
         event.preventDefault();
         if (!valid) return;
         const ok = await post({ action: "record-opening-balance", treasuryAccountId: safe.id, amount: amount.trim(),
-          currencyCode: safe.currencyCode, asOfDate, reference: reference.trim() || null, note: note.trim() || null, ...identity },
+          currencyCode: safe.currencyCode, asOfDate, reference: reference.trim() || null, note: note.trim() || null,
+          exchangeRateId: fx.exchangeRateId, ...identity },
         { en: "Opening balance recorded. The Safe now shows its real book balance.", fa: "موجودی افتتاحیه ثبت شد. صندوق اکنون موجودی واقعی دفتری خود را نشان می‌دهد." });
         if (ok) close();
       }}>
@@ -326,6 +335,7 @@ function OpeningBalanceForm({ safe, today, fa, busy, post, close }: Readonly<{
         <input dir="ltr" value={safe.currencyCode} readOnly aria-readonly="true" /></label>
       <label><span>{fa ? "به تاریخ *" : "As of *"}</span>
         <input type="date" dir="ltr" value={asOfDate} max={today} required onChange={(event) => change(setAsOfDate)(event.target.value)} /></label>
+      <FxConversionField currency={safe.currencyCode} baseCurrency={baseCurrency} date={asOfDate} amount={amount} fa={fa} onChange={setFx} />
       <label><span>{fa ? "مرجع (اختیاری)" : "Reference (optional)"}</span>
         <input value={reference} maxLength={120} onChange={(event) => change(setReference)(event.target.value)} /></label>
       <label className="wide"><span>{fa ? "یادداشت (اختیاری)" : "Note (optional)"}</span>

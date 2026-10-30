@@ -6,6 +6,7 @@ import { IdentityError } from "@abos/identity";
 import { financeHandoffRuntime } from "@/server/finance-handoff";
 import { assertMutation, readBody, sessionToken } from "@/server/identity";
 import { operationalFinanceErrorResponse, restrictedFinanceAuthenticator } from "@/server/operational-finance";
+import { fxRefusal } from "@/server/fx-refusals";
 
 /**
  * Safes (migrations 0045/0046) through the restricted Finance runtime only. PostgreSQL derives the
@@ -37,6 +38,7 @@ export function safesCommand(body: Record<string, unknown>): SafesCommand {
     case "record-opening-balance":
       return { action: "record-opening-balance", treasuryAccountId: id("treasuryAccountId"), amount: text("amount"),
         currencyCode: text("currencyCode"), asOfDate: text("asOfDate"), reference: nullable("reference"), note: nullable("note"),
+        exchangeRateId: UUID.test(text("exchangeRateId")) ? text("exchangeRateId") : null,
         // The browser keeps one request identity per filled-in form, so a retry replays instead of doubling.
         idempotencyKey: nullable("idempotencyKey") ?? `opening-${randomUUID()}`,
         correlationId: UUID.test(text("correlationId")) ? text("correlationId") : randomUUID() };
@@ -111,7 +113,7 @@ export function safesErrorResponse(error: unknown): Response {
   const sqlState = error !== null && typeof error === "object" && "code" in error ? String((error as { readonly code: unknown }).code) : "";
   // Authority and session failures go through the shared translation; their texts never reach people verbatim.
   if (sqlState === "42501") return operationalFinanceErrorResponse(error);
-  const known = message === "" ? undefined : SAFE_REFUSALS.find((refusal) => refusal.pattern.test(message));
+  const known = message === "" ? undefined : fxRefusal(error) ?? SAFE_REFUSALS.find((refusal) => refusal.pattern.test(message));
   if (known !== undefined) return json({ ok: false, error: { code: known.code, message: known.message } }, known.status);
   return operationalFinanceErrorResponse(error);
 }

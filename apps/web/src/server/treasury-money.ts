@@ -4,6 +4,7 @@ import { PAYMENT_KINDS, type MoneyCommand, type PaymentKind } from "@abos/contra
 import { IdentityError } from "@abos/identity";
 
 import { financeHandoffRuntime } from "@/server/finance-handoff";
+import { fxRefusal } from "@/server/fx-refusals";
 import { assertMutation, readBody, sessionToken } from "@/server/identity";
 import { operationalFinanceErrorResponse, restrictedFinanceAuthenticator } from "@/server/operational-finance";
 
@@ -36,7 +37,7 @@ export function moneyCommand(body: Record<string, unknown>): MoneyCommand {
   };
   const common = {
     amount: text("amount"), currencyCode: text("currencyCode"), businessDate: text("businessDate"),
-    reference: nullable("reference"), note: nullable("note"),
+    reference: nullable("reference"), note: nullable("note"), exchangeRateId: optionalId("exchangeRateId"),
     // The browser keeps one request identity per filled-in form, so a retry replays instead of doubling.
     idempotencyKey: nullable("idempotencyKey") ?? `money-${randomUUID()}`,
     correlationId: UUID.test(text("correlationId")) ? text("correlationId") : randomUUID()
@@ -92,6 +93,7 @@ const MONEY_REFUSALS: readonly { readonly pattern: RegExp; readonly status: numb
   { pattern: /was not found in this legal entity/i, status: 404, code: "ACCOUNT_NOT_FOUND", message: "That account is not available for your company." },
   { pattern: /choose an active income account/i, status: 422, code: "INCOME_ACCOUNT_REQUIRED",
     message: "Choose an active income account in the accounting currency." },
+  { pattern: /choose an enabled currency/i, status: 422, code: "CURRENCY_NOT_AVAILABLE", message: "This currency is not enabled for the company." },
   { pattern: /choose an active payable account/i, status: 422, code: "PAYABLE_ACCOUNT_REQUIRED",
     message: "Choose an active payable account in the accounting currency." },
   { pattern: /accounts payable needs the person or organization/i, status: 422, code: "SUPPLIER_REQUIRED",
@@ -113,7 +115,7 @@ export function moneyErrorResponse(error: unknown): Response {
   const message = error instanceof Error ? error.message : "";
   const sqlState = error !== null && typeof error === "object" && "code" in error ? String((error as { readonly code: unknown }).code) : "";
   if (sqlState === "42501") return operationalFinanceErrorResponse(error);
-  const known = message === "" || error instanceof IdentityError ? undefined : MONEY_REFUSALS.find((refusal) => refusal.pattern.test(message));
+  const known = message === "" || error instanceof IdentityError ? undefined : fxRefusal(error) ?? MONEY_REFUSALS.find((refusal) => refusal.pattern.test(message));
   if (known !== undefined) return json({ ok: false, error: { code: known.code, message: known.message } }, known.status);
   return operationalFinanceErrorResponse(error);
 }

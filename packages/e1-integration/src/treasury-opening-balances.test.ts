@@ -137,7 +137,7 @@ if (databaseUrl() === undefined) {
       const f = await fixture();
       const empty = await safeOf(f);
       assert.equal(empty.openingBalance, null);
-      assert.deepEqual(empty.balance, { opening: "0", inflows: "0", outflows: "0", book: "0", movementCount: 0, lastMovementDate: null });
+      assert.deepEqual(empty.balance, { opening: "0", inflows: "0", outflows: "0", book: "0", baseBook: "0", movementCount: 0, lastMovementDate: null });
       assert.deepEqual(empty.legacyLink, { locationName: (await h.pool.query("SELECT location_name FROM abos.cash_locations WHERE id=$1", [f.world.cashLocationId])).rows[0]?.location_name,
         activationStatus: (await h.pool.query("SELECT activation_status FROM abos.cash_location_currency_accounts WHERE id=$1", [f.world.cashAccountId])).rows[0]?.activation_status },
       "the legacy account on the same ledger is linked, read-only");
@@ -160,12 +160,12 @@ if (databaseUrl() === undefined) {
       assert.equal((await h.pool.query("SELECT count(*)::int AS n FROM abos.outbox_events WHERE event_type = 'finance.treasury-opening-balance.posted' AND aggregate_id = $1", [posted.openingBalanceId])).rows[0]?.n, 1);
 
       let safe = await safeOf(f);
-      assert.deepEqual(safe.balance, { opening: "2500.00", inflows: "0", outflows: "0", book: "2500.00", movementCount: 1, lastMovementDate: "2026-09-01" });
+      assert.deepEqual(safe.balance, { opening: "2500.00", inflows: "0", outflows: "0", book: "2500.00", baseBook: "2500.00", movementCount: 1, lastMovementDate: "2026-09-01" });
       assert.deepEqual(safe.openingBalance && [safe.openingBalance.amount, safe.openingBalance.asOfDate, safe.openingBalance.journalId], ["2500.00", "2026-09-01", posted.journalId]);
       await capital(f, "1000");
       await expense(f, "125.50");
       safe = await safeOf(f);
-      assert.deepEqual(safe.balance, { opening: "2500.00", inflows: "1000", outflows: "125.50", book: "3374.50", movementCount: 3, lastMovementDate: "2026-09-04" });
+      assert.deepEqual(safe.balance, { opening: "2500.00", inflows: "1000", outflows: "125.50", book: "3374.50", baseBook: "3374.50", movementCount: 3, lastMovementDate: "2026-09-04" });
       assert.deepEqual(safe.movements.map((m) => [m.direction, m.amount, m.sourceType]),
         [["OUT", "125.50", "OPERATIONAL_EXPENSE"], ["IN", "1000", "DIRECT_SHAREHOLDER_CAPITAL"], ["IN", "2500.00", "OPENING_BALANCE"]]);
       // The ledger agrees with the Safe.

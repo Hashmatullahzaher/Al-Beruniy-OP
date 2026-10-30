@@ -21,6 +21,7 @@ import {
 
 import { financeHandoffRuntime } from "@/server/finance-handoff";
 import { json, SESSION_COOKIE, TreasuryUnavailableError } from "@/server/treasury";
+import { fxRefusal } from "@/server/fx-refusals";
 
 /**
  * Server-only adapter for the protected Operational V1 Finance configuration functions.
@@ -258,7 +259,7 @@ function knownSetupRefusal(error: unknown) {
 /** Translate an expense-entry-point failure into business language; unknown failures stay opaque. */
 export function operationalExpenseErrorResponse(error: unknown) {
   const message = error instanceof Error ? error.message : "";
-  const known = message === "" ? undefined : EXPENSE_REFUSALS.find((refusal) => refusal.pattern.test(message));
+  const known = message === "" ? undefined : fxRefusal(error) ?? EXPENSE_REFUSALS.find((refusal) => refusal.pattern.test(message));
   if (known !== undefined) {
     return json({ ok: false, error: { code: known.code, message: known.message } }, known.status);
   }

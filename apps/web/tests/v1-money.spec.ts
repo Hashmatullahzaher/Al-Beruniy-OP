@@ -27,7 +27,10 @@ const workspace = () => ({
     account(afnId, "Afghani box", "CASH_BOX", "AFN", "0")]
 });
 type Settings = Record<string, "READY" | "APPROVAL_REQUIRED">;
-const options = (settings: Settings = {}, can: Partial<Record<"canReceive" | "canTransfer" | "canPay" | "canRecordExpense", boolean>> = {}) => ({
+const fxReady = [{ currencyCode: "AFN", status: "READY", policy: { versionId: null, version: 0, effectiveFrom: null, roundingMode: "HALF_UP", baseScale: 2,
+  fxDifferenceAccountId: "73000000-0000-4000-8000-000000000020", isDefault: true } }];
+const options = (settings: Settings = {}, can: Partial<Record<"canReceive" | "canTransfer" | "canPay" | "canRecordExpense", boolean>> = {},
+  fx: readonly object[] = []) => ({
   baseCurrency: "USD", today: "2026-10-27", canReceive: true, canTransfer: true, canPay: true, canRecordExpense: true, ...can,
   settings: { OTHER_INCOME: "READY", TREASURY_TRANSFER: "READY", SUPPLIER_PAYMENT: "READY", SALARY_PAYMENT: "READY", ...settings },
   treasuryAccounts: [
@@ -36,7 +39,8 @@ const options = (settings: Settings = {}, can: Partial<Record<"canReceive" | "ca
     { id: sarafId, nameEn: "Saraf Hamid", nameFa: null, accountType: "SARAF", currencyCode: "USD" }],
   incomeAccounts: [{ id: incomeId, code: "R-900", name: "Other income" }],
   payableAccounts: [{ id: payableId, code: "L-200", name: "Accounts payable", requiresParty: true }],
-  parties: [{ id: partyId, name: "Kabul Builders" }]
+  parties: [{ id: partyId, name: "Kabul Builders" }],
+  fx
 });
 const none = { requiresProject: false, requiresDepartment: false, requiresCostCenter: false };
 const expenseOptions = { expenseCategories: [{ id: categoryId, code: "EX-REPAIR", nameEn: "Repairs", nameFa: "ترمیمات", ...none },
@@ -214,7 +218,7 @@ test("a Safe shows what it holds, warns before overdrawing, and the database ref
   await expect(page.getByRole("form", { name: "Transfer — Saraf Hamid" })).not.toContainText("Available in this Safe");
 });
 
-test("without a movement permission, and on foreign-currency Safes, no movement can be started", async ({ page }) => {
+test("without a movement permission, and on a currency the company holds no FX information for, no movement can be started", async ({ page }) => {
   await mock(page, { permissions: ["treasury.safe.read"], money: null });
   await page.goto("/finance/safes");
   await expect(page.getByRole("region", { name: "Main Safe" }).getByLabel("Book balance")).toContainText("500 USD");
@@ -242,4 +246,66 @@ test("Dari labels and RTL remain usable at phone width", async ({ page }) => {
   await expect(form.getByLabel("نوع مصرف *").locator("option")).toHaveText(["انتخاب کنید", "ترمیمات"]);
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflow).toBeLessThanOrEqual(1);
+});
+
+// 0051: AFN movements. The conversion itself (rate snapshot, rounding, accounting amount) is proven by fx-afn-posting.
+const marketRate = "73000000-0000-4000-8000-000000000030";
+const sarafRate = "73000000-0000-4000-8000-000000000031";
+async function mockPreview(page: Page, setup: "READY" | "SETUP_REQUIRED") {
+  const asked: string[] = [];
+  await page.route("**/api/v1/finance/fx-preview*", async (route) => {
+    const query = new URL(route.request().url()).searchParams;
+    asked.push(query.toString());
+    const rates = [{ id: marketRate, source: "MARKET", sarafName: null, unitCurrency: "USD", quoteCurrency: "AFN", rate: "70" },
+      { id: sarafRate, source: "SARAF", sarafName: "Saraf Hamid", unitCurrency: "USD", quoteCurrency: "AFN", rate: "72" }];
+    const chosen = rates.find((item) => item.id === query.get("exchangeRateId"));
+    const amount = Number(query.get("amount") ?? "0");
+    await route.fulfill({ json: { ok: true, data: { currencyCode: "AFN", baseCurrency: "USD", businessDate: query.get("businessDate"),
+      setup: setup === "READY" ? fxReady[0] : { currencyCode: "AFN", status: "SETUP_REQUIRED", message: "FX setup: no FX difference account." },
+      rates: setup === "READY" ? rates : [],
+      preview: chosen && amount > 0 ? { exact: (amount / Number(chosen.rate)).toFixed(20), base: (amount / Number(chosen.rate)).toFixed(2),
+        difference: "0", exchangeRateId: chosen.id } : null } } });
+  });
+  return asked;
+}
+
+test("an AFN box receives cash at the chosen rate of the day and shows the amount recorded in the books", async ({ page }) => {
+  const { commands } = await mock(page, { money: options({}, {}, fxReady) });
+  const asked = await mockPreview(page, "READY");
+  await page.goto("/finance/safes");
+  const box = page.getByRole("region", { name: "Afghani box" });
+  await box.getByRole("button", { name: "Receive cash" }).click();
+  const form = page.getByRole("form", { name: "Receive cash — Afghani box" });
+  await expect(form.getByLabel("Currency")).toHaveValue("AFN");
+  await form.getByLabel("Amount *").fill("7000");
+  await form.getByLabel("Or a name").fill("Shop tenant");
+  await form.getByLabel("Income account *").selectOption(incomeId);
+  const save = form.getByRole("button", { name: "Save" });
+  await expect(save).toBeDisabled();
+  await form.getByLabel("Rate for this day *").selectOption(marketRate);
+  const recorded = form.getByRole("status").filter({ hasText: "Recorded in the books as" });
+  await expect(recorded).toContainText("100.00 USD");
+  await expect(recorded).toContainText("rounded half up, 2 decimal places");
+  await expect(save).toBeEnabled();
+  await save.click();
+  await expect(page.getByRole("status").filter({ hasText: "Money received and recorded." })).toBeVisible();
+  expect(commands).toHaveLength(1);
+  expect(commands[0]).toMatchObject({ url: "/api/v1/finance/money", body: { action: "receive-cash", treasuryAccountId: afnId, amount: "7000",
+    currencyCode: "AFN", exchangeRateId: marketRate } });
+  expect(asked.some((query) => query.includes("currencyCode=AFN") && query.includes("amount=7000"))).toBe(true);
+});
+
+test("without an FX difference account an AFN form says what to set up and cannot be saved", async ({ page }) => {
+  const { commands } = await mock(page, { money: options({}, {}, [{ currencyCode: "AFN", status: "SETUP_REQUIRED", message: "FX setup" }]) });
+  await mockPreview(page, "SETUP_REQUIRED");
+  await page.goto("/finance/safes");
+  await page.getByRole("region", { name: "Afghani box" }).getByRole("button", { name: "Receive cash" }).click();
+  const form = page.getByRole("form", { name: "Receive cash — Afghani box" });
+  await form.getByLabel("Amount *").fill("7000");
+  await form.getByLabel("Or a name").fill("Shop tenant");
+  await form.getByLabel("Income account *").selectOption(incomeId);
+  await expect(form.getByRole("note").filter({ hasText: "Foreign-currency posting is not set up yet" })).toBeVisible();
+  await expect(form.getByRole("link", { name: "FX policy" })).toHaveAttribute("href", "/finance/fx-policy");
+  await expect(form.getByRole("button", { name: "Save" })).toBeDisabled();
+  expect(commands).toHaveLength(0);
 });

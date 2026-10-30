@@ -12,6 +12,10 @@ import type {
   PeriodClosePreview,
   PeriodCommand,
   PeriodsWorkspace,
+  FxPolicyCommand,
+  FxPolicyResult,
+  FxPolicyWorkspace,
+  FxPreview,
   SafeOpeningBalanceResult,
   SafesCommand,
   SafesWorkspace,
@@ -550,6 +554,25 @@ export class SandboxAuthenticator {
       : action === "transfer" ? "SELECT abos.treasury_transfer_record($1,$2,$3,$4::jsonb) AS value"
         : "SELECT abos.treasury_payment_record($1,$2,$3,$4::jsonb) AS value";
     return this.operationalFinanceFunction<MoneyResult>(executor, sql, token, [JSON.stringify(payload)], "Money movement is unavailable");
+  }
+
+  /** Slice 6 (0051): the FX policy per currency, its history and the FX difference account. */
+  async fxPolicyWorkspace(executor: SqlExecutor, token: string): Promise<FxPolicyWorkspace> {
+    return this.operationalFinanceFunction<FxPolicyWorkspace>(executor,
+      "SELECT abos.finance_fx_policy_workspace($1,$2,$3) AS value", token, [], "FX policy is unavailable");
+  }
+
+  /** Saves a new FX policy version (finance.fx-policy.manage). */
+  async fxPolicySet(executor: SqlExecutor, token: string, command: FxPolicyCommand): Promise<FxPolicyResult> {
+    return this.operationalFinanceFunction<FxPolicyResult>(executor,
+      "SELECT abos.finance_fx_policy_set($1,$2,$3,$4::jsonb) AS value", token, [JSON.stringify(command)], "FX policy is unavailable");
+  }
+
+  /** The day's rates and the accounting amount a foreign-currency movement would post; writes nothing. */
+  async fxPreview(executor: SqlExecutor, token: string, request: { currencyCode: string; businessDate: string; amount?: string | null;
+    exchangeRateId?: string | null }): Promise<FxPreview> {
+    return this.operationalFinanceFunction<FxPreview>(executor,
+      "SELECT abos.treasury_fx_preview($1,$2,$3,$4::jsonb) AS value", token, [JSON.stringify(request)], "FX preview is unavailable");
   }
 
   /** Slice 5 (0050): accounting months with their close / reopen state and history. */
