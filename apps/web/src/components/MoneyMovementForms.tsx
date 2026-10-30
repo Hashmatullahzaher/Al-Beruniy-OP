@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { api, errorText } from "@/components/AdminUsersWorkspace";
+import { FxConversionField, type FxChoice } from "@/components/FxConversionField";
 import { localizedName, money } from "@/components/OperationalFinanceShared";
 import type { Copy } from "@/lib/access-copy";
 
@@ -28,7 +29,7 @@ const KIND_COPY: Readonly<Record<PaymentKind, Copy>> = {
 };
 
 /** Dari for the refusal codes of moneyErrorResponse and the expense lane. */
-const ERROR_FA: Readonly<Record<string, string>> = {
+export const MONEY_ERROR_FA: Readonly<Record<string, string>> = {
   INSUFFICIENT_FUNDS: "صندوق برای این کار پول کافی ندارد. صندوق، صندوقچه و تنخواه هرگز زیر صفر نمی‌رود.",
   APPROVAL_NOT_AVAILABLE: "شرکت برای این مورد تأیید لازم دارد که هنوز برای آن در دسترس نیست. برای ثبت با یک ذخیره، تأیید را در «تأیید جریان‌ها» خاموش کنید.",
   SAME_ACCOUNT: "دو حساب متفاوت انتخاب کنید.",
@@ -47,11 +48,20 @@ const ERROR_FA: Readonly<Record<string, string>> = {
   ALREADY_SUBMITTED_DIFFERENTLY: "این فرم قبلاً با جزئیات دیگری فرستاده شده است. دوباره شروع کنید.",
   INVALID_AMOUNT: "یک مبلغ مثبت مانند 250 یا 250.50 وارد کنید.",
   VALIDATION_FAILED: "بعضی جزئیات ناقص یا نادرست است.",
+  FX_SETUP_REQUIRED: "ثبت به اسعار خارجی تنظیم نشده است: یک حساب عاید یا مصرف با کنترل «تفاوت تبادله اسعار» در جدول حساب‌ها بسازید.",
+  FX_SETUP_AMBIGUOUS: "چند حساب کنترل «تفاوت تبادله اسعار» دارند. در پالیسی اسعار یکی را تعیین کنید.",
+  FX_SETUP_INVALID: "حساب تفاوت تبادله اسعار قابل استفاده نیست. آن را در جدول حساب‌ها یا پالیسی اسعار بررسی کنید.",
+  CONVERSION_NOT_EXACT: "این مبلغ با نرخ انتخاب‌شده دقیق تبدیل نمی‌شود و پالیسی اسعار این واحد پول فقط دقیق است.",
+  AMOUNT_TOO_SMALL: "این مبلغ برای تبدیل بسیار کوچک است: به واحد پول حسابداری صفر می‌شود.",
+  RATE_MISSING: "برای این تاریخ نرخ اسعار ثبت نشده است. ابتدا نرخ همان روز را ثبت کنید.",
+  RATE_CHOICE_REQUIRED: "برای این تاریخ چند نرخ وجود دارد. نرخ این حرکت را انتخاب کنید.",
+  RATE_INVALID: "نرخ انتخاب‌شده نرخ جاری این تاریخ نیست.",
+  CURRENCY_NOT_AVAILABLE: "این واحد پول برای شرکت فعال نیست.",
   NETWORK: "سرور در دسترس نیست. دوباره تلاش کنید؛ همان درخواست دوباره ثبت نمی‌شود."
 };
 
 function moneyError(error: { code: string; message: string }, locale: "en" | "fa"): string {
-  if (locale === "fa") return ERROR_FA[error.code] ?? errorText(error, locale);
+  if (locale === "fa") return MONEY_ERROR_FA[error.code] ?? errorText(error, locale);
   if (error.code === "NETWORK") return "The server could not be reached. Try again; the same request will not be recorded twice.";
   return error.message || errorText(error, locale);
 }
@@ -84,6 +94,7 @@ export function MoneyMovementForm({ kind, safe, options, fa, close, done }: Read
   const [request, setRequest] = useState(identity);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fx, setFx] = useState<FxChoice>({ exchangeRateId: null, ready: true });
   const change = <T,>(set: (value: T) => void) => (value: T) => { set(value); setRequest(identity()); };
 
   useEffect(() => {
@@ -109,7 +120,7 @@ export function MoneyMovementForm({ kind, safe, options, fa, close, done }: Read
   // Accounts payable is kept per supplier: its payee must be chosen from the list, not typed.
   const partyRequired = kind === "pay" && payFor === "payable" && options.payableAccounts.some((item) => item.id === account && item.requiresParty);
   const counterparty = party !== "" || (!partyRequired && name.trim() !== "");
-  const valid = amountValid && date !== "" && date <= options.today && setting !== "APPROVAL_REQUIRED" && (
+  const valid = amountValid && date !== "" && date <= options.today && setting !== "APPROVAL_REQUIRED" && fx.ready && (
     kind === "receive" ? account !== "" && counterparty
       : kind === "transfer" ? destination !== ""
         : payFor === "payable" ? account !== "" && counterparty
@@ -120,7 +131,7 @@ export function MoneyMovementForm({ kind, safe, options, fa, close, done }: Read
     if (!valid || busy) return;
     setBusy(true); setError(null);
     const common = { amount: amount.trim(), currencyCode: safe.currencyCode, businessDate: date, reference: reference.trim() || null,
-      note: note.trim() || null, ...request };
+      note: note.trim() || null, exchangeRateId: fx.exchangeRateId, ...request };
     let result: Awaited<ReturnType<typeof api<unknown>>>;
     if (kind === "receive") {
       result = await api<MoneyResult>(MONEY, "POST", { action: "receive-cash", ...common, treasuryAccountId: safe.id,
@@ -135,7 +146,7 @@ export function MoneyMovementForm({ kind, safe, options, fa, close, done }: Read
       // An expense keeps its one model: the expense lane, with the payment kind choosing the approval setting.
       result = await api(EXPENSES, "POST", { treasuryAccountId: safe.id, expenseCategoryId: category, payeeBusinessPartyId: party || null,
         projectId: null, departmentId: null, costCenterId: null, reference: reference.trim(), description: description.trim(),
-        note: note.trim() || null, businessDate: date, originalAmount: amount.trim(), currencyCode: safe.currencyCode, exchangeRateId: null,
+        note: note.trim() || null, businessDate: date, originalAmount: amount.trim(), currencyCode: safe.currencyCode, exchangeRateId: fx.exchangeRateId,
         paymentKind, correlationId: request.correlationId, idempotencyKey: request.idempotencyKey });
     }
     setBusy(false);
@@ -233,6 +244,7 @@ export function MoneyMovementForm({ kind, safe, options, fa, close, done }: Read
       <label><span>{fa ? "واحد پول" : "Currency"}</span><input dir="ltr" value={safe.currencyCode} readOnly aria-readonly="true" /></label>
       <label><span>{fa ? "تاریخ *" : "Date *"}</span>
         <input type="date" dir="ltr" value={date} max={options.today} required onChange={(event) => change(setDate)(event.target.value)} /></label>
+      <FxConversionField currency={safe.currencyCode} baseCurrency={options.baseCurrency} date={date} amount={amount} fa={fa} onChange={setFx} />
       <label><span>{kind === "pay" && payFor === "expense" ? (fa ? "مرجع *" : "Reference *") : (fa ? "مرجع (اختیاری)" : "Reference (optional)")}</span>
         <input value={reference} maxLength={120} onChange={(event) => change(setReference)(event.target.value)} /></label>
       <label className="wide"><span>{fa ? "یادداشت (اختیاری)" : "Note (optional)"}</span>

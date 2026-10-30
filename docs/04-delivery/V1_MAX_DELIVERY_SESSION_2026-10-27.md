@@ -310,3 +310,17 @@ stays at trunk `0aa6512` / migration 0040 throughout unless an entry says otherw
 - Vault reconciliation CLEAN.
 - Nothing was seeded and no real transaction was created: no account, opening balance, money movement, close or reversal.
 
+## Slice 6 — FX policy and AFN operational posting (0051)
+
+- Branch `claude/slice6-fx-afn` (base `c3ebef1`, after the final 0050 was deployed). Design: `docs/03-architecture/FX_POLICY_AND_AFN.md`. Report: `docs/04-delivery/V1_FX_AFN_SLICE6.md`.
+- **FX policy** per company and currency: append-only, effective-dated versions; HALF_UP is the default and EXACT_ONLY is available; the scale and the FX difference account are part of the policy.
+- **FX difference account:** the Chart of Accounts control `FX_DIFFERENCE`. A missing or ambiguous account is a setup error, and nothing is created automatically.
+- **One conversion** (`fx_convert`): an immutable rate snapshot, exact decimal arithmetic, and an immutable conversion record.
+- **AFN lanes:** receipts, payments, same-currency transfers, opening balances and expenses, through the existing kernel and Treasury model.
+- **Validation:**
+  - FX suite 7/7; full integration 319/319;
+  - unit 169/169; typecheck, lint, build;
+  - smoke 13/13; browser 80 passed;
+  - post-0050 production dump upgraded to 0051 with zero backfill and zero journals.
+- 0051 checksum `fb385c551d01…`. **Not deployed**: production deployment of 0051 is not authorized.
+

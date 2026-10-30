@@ -32,7 +32,8 @@ const CONTROLS: Readonly<Record<ControlType, Copy>> = {
   OTHER: { en: "Other control", fa: "کنترل دیگر" },
   TEMPORARY_FUNDING_PAYABLE: { en: "Temporary funding payable", fa: "بدهی تمویل موقت" },
   SHAREHOLDER_CONTRIBUTED_ASSETS: { en: "Shareholder contributed assets", fa: "دارایی‌های آوردهٔ سهامدار" },
-  OPENING_BALANCE_EQUITY: { en: "Opening balance equity", fa: "سرمایهٔ موجودی افتتاحیه" }
+  OPENING_BALANCE_EQUITY: { en: "Opening balance equity", fa: "سرمایهٔ موجودی افتتاحیه" },
+  FX_DIFFERENCE: { en: "FX difference", fa: "تفاوت تبادله اسعار" }
 };
 const REVIEW_COPY: Readonly<Record<string, Copy>> = {
   PENDING_REVIEW: { en: "Awaiting review", fa: "در انتظار بازبینی" },

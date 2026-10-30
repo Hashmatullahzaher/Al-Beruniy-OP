@@ -119,7 +119,7 @@ if (databaseUrl() === undefined) {
                       : "to_jsonb(t)";
               // 0046 adds two permission codes to the catalogue; every earlier row stays byte-for-byte.
               const filter = tablename === "finance_workflow_types" ? "WHERE workflow_type NOT IN ('CHART_OF_ACCOUNTS','PERIOD_REOPEN','JOURNAL_REVERSAL')"
-                : tablename === "permission_catalogue" ? "WHERE permission_code NOT IN ('treasury.safe.read','treasury.opening-balance.record','treasury.receipt.record','treasury.transfer.record','treasury.payment.record','finance.period.reopen','finance.reversal.direct')" : "";
+                : tablename === "permission_catalogue" ? "WHERE permission_code NOT IN ('treasury.safe.read','treasury.opening-balance.record','treasury.receipt.record','treasury.transfer.record','treasury.payment.record','finance.period.reopen','finance.reversal.direct','finance.fx-policy.manage')" : "";
               rows.push([tablename, (await client.query(`SELECT count(*)::text AS count,
                 md5(COALESCE(string_agg(${row}::text,'' ORDER BY ${row}::text),'')) AS hash
                 FROM abos.${tablename} t ${filter}`)).rows[0]]);
