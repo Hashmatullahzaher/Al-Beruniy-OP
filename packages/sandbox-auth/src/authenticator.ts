@@ -16,6 +16,9 @@ import type {
   FxPolicyResult,
   FxPolicyWorkspace,
   FxPreview,
+  AccountStatementView,
+  JournalDetailView,
+  TrialBalanceView,
   SafeOpeningBalanceResult,
   SafesCommand,
   SafesWorkspace,
@@ -559,6 +562,24 @@ export class SandboxAuthenticator {
       "SELECT abos.treasury_fx_preview($1,$2,$3,$4::jsonb) AS value", token, [JSON.stringify(request)], "FX preview is unavailable");
   }
 
+  /** Slice 7 (0053): the trial balance for a period, a date range or as of a date. */
+  async trialBalance(executor: SqlExecutor, token: string, request: Record<string, unknown>): Promise<TrialBalanceView> {
+    return this.operationalFinanceFunction<TrialBalanceView>(executor,
+      "SELECT abos.finance_trial_balance($1,$2,$3,$4::jsonb) AS value", token, [JSON.stringify(request)], "Trial balance is unavailable");
+  }
+
+  /** One account's statement: opening, lines with a running balance, closing (0053). */
+  async accountStatement(executor: SqlExecutor, token: string, request: Record<string, unknown>): Promise<AccountStatementView> {
+    return this.operationalFinanceFunction<AccountStatementView>(executor,
+      "SELECT abos.finance_account_statement($1,$2,$3,$4::jsonb) AS value", token, [JSON.stringify(request)], "Account statement is unavailable");
+  }
+
+  /** One posted journal with its lines, source and reversal links (0053). */
+  async journalDetail(executor: SqlExecutor, token: string, journalId: string): Promise<JournalDetailView> {
+    return this.operationalFinanceFunction<JournalDetailView>(executor,
+      "SELECT abos.finance_journal_detail($1,$2,$3,$4::uuid) AS value", token, [journalId], "Journal is unavailable");
+  }
+
   /** 0052: the company's financial years, each ACTIVE or CLOSED, with its months for reporting. */
   async financialYearsWorkspace(executor: SqlExecutor, token: string): Promise<FinancialYearsWorkspace> {
     return this.operationalFinanceFunction<FinancialYearsWorkspace>(executor,
@@ -571,7 +592,7 @@ export class SandboxAuthenticator {
       "SELECT abos.finance_financial_year_close_preview($1,$2,$3,$4::uuid) AS value", token, [fiscalYearId], "Financial years are unavailable");
   }
 
-  /** Close a financial year (0052): every month of it closes; no journal changes. A second close replays. */
+  /** Close a financial year (0052): the year itself is closed; no month row and no journal changes. A second close replays. */
   async financialYearClose(executor: SqlExecutor, token: string, command: { fiscalYearId: string; correlationId: string }): Promise<FinancialYearCloseResult> {
     return this.operationalFinanceFunction<FinancialYearCloseResult>(executor,
       "SELECT abos.finance_financial_year_close($1,$2,$3,$4::jsonb) AS value", token, [JSON.stringify(command)], "Financial years are unavailable");

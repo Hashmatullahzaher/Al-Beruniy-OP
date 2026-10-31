@@ -4,13 +4,15 @@ import { errorResponse, json } from "@/server/treasury";
 /** Read-only posted activity through the restricted Finance database credential. */
 export interface GeneralLedgerLine {
   readonly journalId: string;
-  readonly journalReference: string;
+  /** 0053: null on a line outside the reader's scope (its amounts are always shown). */
+  readonly journalReference: string | null;
   readonly lineNumber: number;
   readonly accountId: string;
   readonly accountCode: string;
   readonly accountName: string;
+  /** RESTRICTED on a line outside the reader's scope. */
   readonly sourceType: string;
-  readonly sourceId: string;
+  readonly sourceId: string | null;
   readonly accountingPeriodId: string;
   readonly accountingEffectiveDate: string;
   readonly postedAt: string;
@@ -19,6 +21,7 @@ export interface GeneralLedgerLine {
   readonly baseCurrency: string;
   readonly baseDebit: string;
   readonly baseCredit: string;
+  readonly restricted: boolean;
 }
 
 export interface GeneralLedgerTotal {

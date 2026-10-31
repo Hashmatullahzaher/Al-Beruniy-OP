@@ -41,8 +41,10 @@ interface Activity {
   readonly currencyTotals: readonly (Amounts & { readonly baseCurrency: string; readonly accountCount: string })[];
 }
 interface Line {
-  readonly journalId: string; readonly journalReference: string; readonly lineNumber: number; readonly accountId: string;
+  readonly journalId: string; readonly journalReference: string | null; readonly lineNumber: number; readonly accountId: string;
   readonly accountingEffectiveDate: string; readonly postedAt: string;
+  /** 0053: a line outside the reader's scope keeps its amounts; its reference and source are hidden. */
+  readonly restricted: boolean; readonly sourceType: string; readonly sourceId: string | null;
   readonly baseCurrency: string; readonly baseDebit: string; readonly baseCredit: string;
   readonly originalCurrency: string | null; readonly originalAmount: string | null;
 }
@@ -162,7 +164,9 @@ if (databaseUrl() === undefined) {
       await assert.rejects(() => activityOf(token, "2026-09-30", "2026-09-01"), sqlState("22023"));
     });
 
-    test("project, department and cost-center scope is conjunctive and live in the summary and in every page", async () => {
+    // 0053: scope masks detail and never changes money. Totals and line counts are the company's for every reader; a line
+    // outside the reader's live, conjunctive scope is returned with its amounts but without its reference and source.
+    test("project, department and cost-center scope is conjunctive and live: it masks lines in every page, never totals", async () => {
       const { world, token } = await freshWorld(harness);
       const projectId = randomUUID(); const departmentId = randomUUID(); const costCenterId = randomUUID();
       await harness.executor.query("INSERT INTO abos.projects (id, legal_entity_id, code, name, active) VALUES ($1,$2,'GLA-P','Synthetic GL project',true)", [projectId, world.legalEntityId]);
@@ -184,28 +188,30 @@ if (databaseUrl() === undefined) {
           cash: activity.accounts.find((row) => row.accountCode === "1010-USD")?.debitTotal,
           lineCount: activity.currencyTotals.map((row) => row.lineCount).join(","),
           paged: lines.length,
-          firstPageTotal: (await pageOf(token, ...RANGE)).totals?.[0]?.lineCount
+          firstPageTotal: (await pageOf(token, ...RANGE)).totals?.[0]?.lineCount,
+          masked: lines.filter((line) => line.restricted && line.journalReference === null && line.sourceType === "RESTRICTED" && line.sourceId === null).length
         };
       };
-      assert.deepEqual(await view(), { cash: "1", lineCount: "2", paged: 2, firstPageTotal: "2" }, "dimensioned lines are hidden without grants");
+      const ALL = { cash: "7", lineCount: "6", paged: 6, firstPageTotal: "6" };
+      assert.deepEqual(await view(), { ...ALL, masked: 4 }, "without grants the dimensioned lines are masked, never removed"); 
       const grantScope = (kind: string, id: string) => harness.executor.query(
         `INSERT INTO abos.user_scope_grants (user_account_id, legal_entity_id, scope_kind, scope_id, granted_by_user_account_id)
          VALUES ($1,$2,$3,$4,$5)`, [world.approverId, world.legalEntityId, kind, id, world.bootstrapUserId]);
       await grantScope("PROJECT", projectId);
-      assert.deepEqual(await view(), { cash: "5", lineCount: "4", paged: 4, firstPageTotal: "4" }, "project grant alone reveals project-only lines");
+      assert.deepEqual(await view(), { ...ALL, masked: 2 }, "project grant alone reveals project-only lines");
       await grantScope("DEPARTMENT", departmentId);
-      assert.equal((await view()).cash, "5", "two of three scopes are not enough");
+      assert.equal((await view()).masked, 2, "two of three scopes are not enough");
       await grantScope("COST_CENTER", costCenterId);
-      assert.deepEqual(await view(), { cash: "7", lineCount: "6", paged: 6, firstPageTotal: "6" }, "all live grants reveal every line");
+      assert.deepEqual(await view(), { ...ALL, masked: 0 }, "all live grants reveal every line");
       await harness.executor.query(
         `UPDATE abos.user_scope_grants SET revoked_at = clock_timestamp()
           WHERE user_account_id = $1 AND legal_entity_id = $2 AND scope_kind = 'COST_CENTER'`, [world.approverId, world.legalEntityId]);
-      assert.deepEqual(await view(), { cash: "5", lineCount: "4", paged: 4, firstPageTotal: "4" }, "revocation hides the lines again immediately");
+      assert.deepEqual(await view(), { ...ALL, masked: 2 }, "revocation masks the lines again immediately");
       // A grant held by someone else never widens this actor's view.
       await harness.executor.query(
         `INSERT INTO abos.user_scope_grants (user_account_id, legal_entity_id, scope_kind, scope_id, granted_by_user_account_id)
          VALUES ($1,$2,'COST_CENTER',$3,$4)`, [world.intentCreatorId, world.legalEntityId, costCenterId, world.bootstrapUserId]);
-      assert.equal((await view()).cash, "5");
+      assert.equal((await view()).masked, 2);
     });
 
     test("legal-entity isolation, account filter outside the entity, forged tokens and foreign runtimes", async () => {
@@ -328,7 +334,7 @@ if (databaseUrl() === undefined) {
       }
     });
 
-    test("a tampered or foreign cursor is only a position and never reveals another entity's or out-of-scope lines", async () => {
+    test("a tampered or foreign cursor is only a position and never reveals another entity's lines or out-of-scope detail", async () => {
       const { world, token } = await freshWorld(harness);
       const projectId = randomUUID();
       await harness.executor.query("INSERT INTO abos.projects (id, legal_entity_id, code, name, active) VALUES ($1,$2,'GLC-P','Synthetic cursor project',true)", [projectId, world.legalEntityId]);
@@ -343,8 +349,10 @@ if (databaseUrl() === undefined) {
         { accountId: second.cash2, debit: "777" }, { accountId: second.capital2, credit: "777" }], second.fixture);
 
       const visibleKeys = (await walk(token, ...RANGE, null, 100)).map(key);
-      assert.equal(visibleKeys.length, 12);
-      const forbidden = (line: Line) => line.journalId === foreign || line.journalId === hidden;
+      assert.equal(visibleKeys.length, 14, "the out-of-scope journal's two lines are included, masked");
+      // Forbidden: any foreign line, or the out-of-scope journal's detail (it may appear only masked).
+      const forbidden = (line: Line) => line.journalId === foreign
+        || (line.journalId === hidden && (!line.restricted || line.journalReference !== null || line.sourceId !== null));
 
       // A position crafted from the foreign journal's and the hidden journal's own sort keys: the
       // caller still gets only its own visible lines after that position.
