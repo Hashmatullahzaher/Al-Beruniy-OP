@@ -1,6 +1,11 @@
 # Financial Year Close replaces the monthly close / reopen (migration 0052)
 
-Status: IMPLEMENTED and validated on disposable databases only. **Not deployed**: production stays at 0051 until the owner authorizes 0052.
+Status: **DEPLOYED to production on 2026-10-31** at trunk `c2e281730d088998a31dd6fcc99c2ea5720878f3` (checksum `229eb206bbfa964f215567509a89e2cc4f456b10de4e5052b90cafb15aac087c`; conditional owner authorization of 2026-10-31).
+- Applied through the guarded `apply_catalog_0052.mts`, which refused a wrong commit, a rerun and a wrong database in the rehearsal.
+- Before the apply: the pre-0052 dump test-restored to 99/99 identical tables.
+- On production: only `fiscal_years` (three new NULL columns), `permission_retirements` (+1) and `schema_migrations` (+1) changed; 0 journals; the one financial year is ACTIVE; 12 months PENDING; the runtime can call only the three year entry points; vault reconciliation CLEAN.
+- Live checks: the protected routes passed; smoke 10/10; browser 47/47. A disposable post-deployment copy restored identical (99 tables) and showed the closed-year refusal and the reopen refusal inside a rolled-back transaction.
+- No real financial transaction was created.
 Owner correction of 2026-10-31: Al-Beruniy closes a financial year, never a month (`DECISIONS.md`). Design: `docs/03-architecture/PERIODS_AND_REVERSALS.md` §2.
 
 ## 1. Inspection findings (before the change)
