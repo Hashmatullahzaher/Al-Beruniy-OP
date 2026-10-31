@@ -189,14 +189,14 @@ test("an explicit approval-required setting blocks the save, and refusals keep t
   await expect(blocked.getByRole("button", { name: "Save" })).toBeDisabled();
 
   await page.unrouteAll({ behavior: "ignoreErrors" });
-  const { commands } = await mock(page, { refuse: { status: 422, code: "PERIOD_CLOSED", message: "The month covering this date is closed. Choose another date." } });
+  const { commands } = await mock(page, { refuse: { status: 422, code: "PERIOD_CLOSED", message: "The financial year of this date is closed. Choose a date in an active financial year." } });
   await page.reload();
   await page.getByRole("region", { name: "Main Safe" }).getByRole("button", { name: "Transfer" }).click();
   const form = page.getByRole("form", { name: "Transfer — Main Safe" });
   await form.getByLabel("To which account? *").selectOption(sarafId);
   await form.getByLabel("Amount *").fill("10");
   await form.getByRole("button", { name: "Save" }).click();
-  await expect(form.getByRole("alert")).toContainText("The month covering this date is closed.");
+  await expect(form.getByRole("alert")).toContainText("The financial year of this date is closed.");
   await form.getByRole("button", { name: "Save" }).click();
   expect(commands).toHaveLength(2);
   expect(commands[1]!.body.idempotencyKey).toBe(commands[0]!.body.idempotencyKey);

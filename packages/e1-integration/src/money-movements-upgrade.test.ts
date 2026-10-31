@@ -115,7 +115,7 @@ if (databaseUrl() === undefined) {
           } } as never, migrations);
         } finally { client.release(); }
       });
-      assert.deepEqual(applied, ["0047_v1_basic_money_movements", "0048_v1_expense_payment_kind", "0049_v1_slice4_corrections", "0050_v1_periods_and_reversals", "0051_v1_fx_policy_and_afn"]);
+      assert.deepEqual(applied, ["0047_v1_basic_money_movements", "0048_v1_expense_payment_kind", "0049_v1_slice4_corrections", "0050_v1_periods_and_reversals", "0051_v1_fx_policy_and_afn", "0052_v1_financial_year_close"]);
 
       const rowAfter = (await h.pool.query("SELECT to_jsonb(e) - 'payment_kind' AS r, payment_kind FROM abos.operational_expenses e WHERE id = $1", [pending.expense.id])).rows[0];
       assert.deepEqual(rowAfter?.r, rowBefore, "the pre-0048 expense row is unchanged");

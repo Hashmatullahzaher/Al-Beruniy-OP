@@ -298,7 +298,7 @@ if (databaseUrl() === undefined) {
       assert.deepEqual(Object.fromEntries(workspace.policies.map((p) => [p.workflowType, p.approvalAvailable])), {
         CHART_OF_ACCOUNTS: true, SHAREHOLDER_CAPITAL_RECEIPT: true, CUSTOMER_RECEIPT: false, OTHER_INCOME: false, EXPENSE: true,
         SUPPLIER_PAYMENT: false, SALARY_PAYMENT: false, TREASURY_TRANSFER: false, TEMPORARY_FUNDING: true,
-        PERIOD_REOPEN: true, JOURNAL_REVERSAL: true });
+        JOURNAL_REVERSAL: true });
     });
   });
 }

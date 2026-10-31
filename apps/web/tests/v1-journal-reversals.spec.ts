@@ -59,14 +59,14 @@ test("@smoke Simple Mode reverses a payment directly with a reason, showing the 
   expect(String(commands[0]!.idempotencyKey)).toMatch(/^reversal-/);
 });
 
-test("Simple Mode lets the recorder correct their own entry as a self-correction; a closed month reverses today", async ({ page }) => {
+test("Simple Mode lets the recorder correct their own entry as a self-correction; a closed financial year reverses today", async ({ page }) => {
   await mock(page);
   await page.goto("/finance/reversals");
   await page.getByRole("row", { name: /RC-20261013-BBB/ }).getByRole("button", { name: "Reverse" }).click();
   await expect(page.getByRole("form", { name: "Reverse RC-20261013-BBB" })).toContainText("recorded in the audit trail as a self-correction");
   await page.getByRole("form", { name: "Reverse RC-20261013-BBB" }).getByRole("button", { name: "Cancel" }).click();
   await page.getByRole("row", { name: /PY-20260912-CCC/ }).getByRole("button", { name: "Reverse" }).click();
-  await expect(page.getByRole("form", { name: "Reverse PY-20260912-CCC" })).toContainText("Its month is closed: the reversal posts today (2026-10-28)");
+  await expect(page.getByRole("form", { name: "Reverse PY-20260912-CCC" })).toContainText("Its financial year is closed: the reversal posts today (2026-10-28)");
 });
 
 test("with approvals on, the person who recorded a transaction can neither reverse it nor ask for its reversal", async ({ page }) => {

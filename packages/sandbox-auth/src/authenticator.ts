@@ -9,9 +9,9 @@ import type {
   MoneyCommand,
   MoneyOptions,
   MoneyResult,
-  PeriodClosePreview,
-  PeriodCommand,
-  PeriodsWorkspace,
+  FinancialYearClosePreview,
+  FinancialYearCloseResult,
+  FinancialYearsWorkspace,
   FxPolicyCommand,
   FxPolicyResult,
   FxPolicyWorkspace,
@@ -37,7 +37,6 @@ import type {
   OperationalExpenseWorkspaceQuery,
   OperationalFinanceDailyReport,
   OperationalFinanceConfigurationWorkspace,
-  OperationalPeriodOpen,
   OperationalTreasuryAccountUpsert,
   ProjectId,
   SandboxAuthorization,
@@ -452,21 +451,6 @@ export class SandboxAuthenticator {
     );
   }
 
-  /** Open one pending period through the separately permissioned database entry point. */
-  async openOperationalFinancePeriod(
-    executor: SqlExecutor,
-    token: string,
-    input: OperationalPeriodOpen
-  ): Promise<OperationalFinanceConfigurationWorkspace> {
-    return this.operationalFinanceFunction<OperationalFinanceConfigurationWorkspace>(
-      executor,
-      "SELECT abos.finance_open_accounting_period($1,$2,$3,$4::uuid,$5::integer,$6) AS value",
-      token,
-      [input.periodId, input.expectedVersion, input.reason],
-      "Opening the accounting period returned no result"
-    );
-  }
-
   /** Read scoped operational expenses through the restricted Finance runtime. */
   async operationalExpenseWorkspace(
     executor: SqlExecutor,
@@ -575,25 +559,22 @@ export class SandboxAuthenticator {
       "SELECT abos.treasury_fx_preview($1,$2,$3,$4::jsonb) AS value", token, [JSON.stringify(request)], "FX preview is unavailable");
   }
 
-  /** Slice 5 (0050): accounting months with their close / reopen state and history. */
-  async periodsWorkspace(executor: SqlExecutor, token: string): Promise<PeriodsWorkspace> {
-    return this.operationalFinanceFunction<PeriodsWorkspace>(executor,
-      "SELECT abos.finance_periods_workspace($1,$2,$3) AS value", token, [], "Financial periods are unavailable");
+  /** 0052: the company's financial years, each ACTIVE or CLOSED, with its months for reporting. */
+  async financialYearsWorkspace(executor: SqlExecutor, token: string): Promise<FinancialYearsWorkspace> {
+    return this.operationalFinanceFunction<FinancialYearsWorkspace>(executor,
+      "SELECT abos.finance_financial_years_workspace($1,$2,$3) AS value", token, [], "Financial years are unavailable");
   }
 
-  /** What closing a month means before it is confirmed (0050). */
-  async periodClosePreview(executor: SqlExecutor, token: string, periodId: string): Promise<PeriodClosePreview> {
-    return this.operationalFinanceFunction<PeriodClosePreview>(executor,
-      "SELECT abos.finance_period_close_preview($1,$2,$3,$4::uuid) AS value", token, [periodId], "Financial periods are unavailable");
+  /** What closing a financial year means before it is confirmed (0052). Reads only. */
+  async financialYearClosePreview(executor: SqlExecutor, token: string, fiscalYearId: string): Promise<FinancialYearClosePreview> {
+    return this.operationalFinanceFunction<FinancialYearClosePreview>(executor,
+      "SELECT abos.finance_financial_year_close_preview($1,$2,$3,$4::uuid) AS value", token, [fiscalYearId], "Financial years are unavailable");
   }
 
-  /** Close, reopen, request or decide a reopen (0050). */
-  async periodCommand(executor: SqlExecutor, token: string, command: PeriodCommand): Promise<unknown> {
-    const { action, ...payload } = command;
-    const fn = { close: "finance_period_close", reopen: "finance_period_reopen", "request-reopen": "finance_period_reopen_request",
-      "decide-reopen": "finance_period_reopen_decide" }[action];
-    return this.operationalFinanceFunction<unknown>(executor, `SELECT abos.${fn}($1,$2,$3,$4::jsonb) AS value`, token,
-      [JSON.stringify(payload)], "Financial periods are unavailable");
+  /** Close a financial year (0052): every month of it closes; no journal changes. A second close replays. */
+  async financialYearClose(executor: SqlExecutor, token: string, command: { fiscalYearId: string; correlationId: string }): Promise<FinancialYearCloseResult> {
+    return this.operationalFinanceFunction<FinancialYearCloseResult>(executor,
+      "SELECT abos.finance_financial_year_close($1,$2,$3,$4::jsonb) AS value", token, [JSON.stringify(command)], "Financial years are unavailable");
   }
 
   /** Reversible journals and reversal requests (0050). */

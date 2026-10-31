@@ -10,7 +10,8 @@ export const FINANCE_WORKFLOW_TYPES = [
   "SALARY_PAYMENT",
   "TREASURY_TRANSFER",
   "TEMPORARY_FUNDING",
-  "PERIOD_REOPEN",
+  // PERIOD_REOPEN (0050) is withdrawn by 0052: Al-Beruniy closes a financial year, never a month. Its catalogue row stays
+  // in the database for history; the settings page no longer lists it and it can no longer be set.
   "JOURNAL_REVERSAL"
 ] as const;
 
@@ -20,7 +21,7 @@ export const financeWorkflowTypeSchema = z.enum(FINANCE_WORKFLOW_TYPES);
 
 /** 0049 Simple Mode: these workflows record in one save (approval OFF) until a setting is saved. */
 export const SIMPLE_MODE_DEFAULT_WORKFLOWS: readonly FinanceWorkflowType[] = ["OTHER_INCOME", "EXPENSE", "SUPPLIER_PAYMENT", "SALARY_PAYMENT", "TREASURY_TRANSFER",
-  "PERIOD_REOPEN", "JOURNAL_REVERSAL"];
+  "JOURNAL_REVERSAL"];
 
 export const financeWorkflowPolicyUpdateSchema = z.object({
   approvalRequired: z.boolean(),

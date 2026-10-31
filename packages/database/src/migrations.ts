@@ -278,6 +278,11 @@ export const migrationCatalog = [
     checksumSha256: "9a79e03cca74308f957f169b981593c5df57d0fe1eccd99abd382d1e9885abd9",
     relativePath: "infrastructure/database/migrations/0051_v1_fx_policy_and_afn.sql",
   },
+  {
+    id: "0052_v1_financial_year_close",
+    checksumSha256: "229eb206bbfa964f215567509a89e2cc4f456b10de4e5052b90cafb15aac087c",
+    relativePath: "infrastructure/database/migrations/0052_v1_financial_year_close.sql",
+  },
 ] as const satisfies readonly MigrationDefinition[];
 
 const migrationTableSql = `

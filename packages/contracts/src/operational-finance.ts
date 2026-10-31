@@ -52,14 +52,6 @@ export const operationalExpenseCategoryUpsertSchema = z.object({
 
 export type OperationalExpenseCategoryUpsert = z.infer<typeof operationalExpenseCategoryUpsertSchema>;
 
-export const operationalPeriodOpenSchema = z.object({
-  periodId: opaqueUuidSchema,
-  expectedVersion: z.number().int().min(1),
-  reason: z.string().trim().min(5).max(500)
-}).strict();
-
-export type OperationalPeriodOpen = z.infer<typeof operationalPeriodOpenSchema>;
-
 export interface OperationalTreasuryAccountView {
   readonly id: string;
   readonly nameEn: string;

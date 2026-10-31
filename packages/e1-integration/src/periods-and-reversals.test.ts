@@ -6,16 +6,17 @@ import pg from "pg";
 import { PostgresExecutor } from "@abos/persistence";
 import { identityDatabaseProof } from "@abos/sandbox-auth";
 
-import { addSecondEntity, grant } from "./currency-fixtures.ts";
+import { grant } from "./currency-fixtures.ts";
 import { databaseUrl, MISSING_DATABASE_MESSAGE, openHarness, resetSchema, type Harness } from "./harness.ts";
 import { issueOperationalSession } from "./operational-session.ts";
 import { seedSyntheticWorld, SYNTHETIC_AUTH_CONFIGURATION, type SyntheticWorld } from "./synthetic-world.ts";
 
 /**
- * Migration 0050 (Slice 5): period close / reopen and REVERSAL posting through the one kernel.
- * Simple Mode reopens and reverses directly; Advanced Mode needs a second person. A reversal is an exact
- * inverse linked immutably to its original, on the original date while that month is open and otherwise
- * on the business day. The original journal never changes.
+ * Migration 0050 (Slice 5): REVERSAL posting through the one kernel. Simple Mode reverses directly; Advanced
+ * Mode needs a second person. A reversal is an exact inverse linked immutably to its original, on the original
+ * date while that date's financial year is open and otherwise on the business day. The original journal never
+ * changes. The monthly close / reopen of 0050 is retired by 0052 (financial-year-close.test.ts covers the year
+ * close and a reversal after it).
  */
 
 const MARKER = SYNTHETIC_AUTH_CONFIGURATION.runtimeMarker;
@@ -79,9 +80,9 @@ if (databaseUrl() === undefined) {
         "treasury.payment.record", "finance.expense.create", "finance.expense.read", "finance.report.operational.read",
         "shareholder.setup.manage", "shareholder.capital-receipt.read", "shareholder.capital-receipt.record",
         "finance.capital-receipt.prepare", "finance.capital-receipt.post"]);
-      await grant(h.executor, world, world.reverserId, ["finance.reversal.direct", "finance.period.manage", "finance.period.reopen",
+      await grant(h.executor, world, world.reverserId, ["finance.reversal.direct", "finance.period.manage",
         "finance.report.operational.read", "finance.expense.read"]);
-      await grant(h.executor, world, world.treasuryManagerId, ["finance.reversal.request", "finance.period.reopen"]);
+      await grant(h.executor, world, world.treasuryManagerId, ["finance.reversal.request"]);
       await grant(h.executor, world, world.approverId, ["finance.reversal.approve", "finance.expense.approve", "finance.expense.read"]);
       await grant(h.executor, world, world.treasuryApproverId, ["finance.period.manage"]);
       const [{ today }] = (await h.pool.query<{ today: string }>("SELECT abos.business_today()::text AS today")).rows as [{ today: string }];
@@ -131,75 +132,6 @@ if (databaseUrl() === undefined) {
         l.business_party_id AS party, e.subledger_type AS sub, e.operational_treasury_account_id AS safe, e.original_amount::text AS amount
       FROM abos.journal_lines l LEFT JOIN abos.subledger_entries e ON e.journal_line_id = l.id WHERE l.journal_id = $1 ORDER BY l.line_number`, [journal])).rows;
     const journalRow = async (journal: string) => (await h.pool.query("SELECT to_jsonb(j) AS r FROM abos.journals j WHERE id = $1", [journal])).rows[0]?.r;
-    const periodOf = async (id: string) => (await h.pool.query("SELECT status, operational_version AS v FROM abos.accounting_periods WHERE id = $1", [id])).rows[0] as { status: string; v: number };
-    const close = (f: Fixture, period: string, version: number, s = f.reverser) => call<Record<string, unknown>>("finance_period_close", s, { periodId: period, expectedVersion: version });
-
-    test("closing a month shows its summary first, changes no journal, and then refuses every posting into it", async () => {
-      const f = await fixture();
-      const receipt = await receive(f, "100.00");
-      // An expense waiting for approval is shown as pending; it does not block the close.
-      await policy(f.world, "EXPENSE", true);
-      await call("operational_expense_create", f.creator, { treasuryAccountId: f.safe, expenseCategoryId: f.category, payeeBusinessPartyId: null,
-        projectId: null, departmentId: null, costCenterId: null, reference: "S5-PEND", description: "Synthetic pending expense", note: null,
-        businessDate: "2026-09-11", originalAmount: "5.00", currencyCode: "USD", exchangeRateId: null, ...keys() });
-      const before = await journalRow(receipt.journalId);
-      const preview = await call<{ summary: { postedJournals: number; debits: string; credits: string }; unpostedJournals: number; warnings: string[];
-        period: { status: string; version: number }; pending: { expensesAwaitingApproval: number } }>("finance_period_close_preview", f.reverser, f.september);
-      assert.equal(preview.pending.expensesAwaitingApproval, 1);
-      assert.deepEqual([preview.period.status, preview.summary.postedJournals, preview.summary.debits, preview.summary.credits, preview.unpostedJournals],
-        ["OPEN", 1, "100.00", "100.00", 0]);
-      await assert.rejects(() => close(f, f.september, preview.period.version, f.creator), /finance\.period\.manage/);
-      await assert.rejects(() => close(f, f.september, preview.period.version + 7), /changed; reload/);
-      const closed = await close(f, f.september, preview.period.version);
-      assert.equal((closed.period as { status: string }).status, "CLOSED");
-      assert.equal((await close(f, f.september, preview.period.version)).replayed, true, "closing twice is a replay");
-      assert.deepEqual(await journalRow(receipt.journalId), before, "closing changes no journal");
-      await assert.rejects(() => receive(f, "1.00"), /cannot be reopened automatically|open accounting period/);
-      await assert.rejects(() => pay(f, "1.00"), /cannot be reopened automatically|open accounting period/);
-      const events = (await h.pool.query("SELECT action, from_status AS f, to_status AS t FROM abos.accounting_period_events WHERE accounting_period_id = $1", [f.september])).rows;
-      assert.deepEqual(events, [{ action: "CLOSED", f: "OPEN", t: "CLOSED" }]);
-      assert.equal(Number((await h.pool.query("SELECT count(*) FROM abos.audit_records WHERE action = 'ACCOUNTING_PERIOD_CLOSED' AND entity_id = $1", [f.september])).rows[0]?.count), 1);
-    });
-
-    test("Simple Mode reopens directly with a reason; history and count are kept; others are refused", async () => {
-      const f = await fixture();
-      await receive(f, "100.00");
-      await close(f, f.september, (await periodOf(f.september)).v);
-      const v = (await periodOf(f.september)).v;
-      await assert.rejects(() => call("finance_period_reopen", f.reverser, { periodId: f.september, expectedVersion: v, reason: "no" }), /reason for reopening/);
-      await assert.rejects(() => call("finance_period_reopen", f.manager, { periodId: f.september, expectedVersion: v, reason: "Synthetic late invoice" }),
-        /finance\.period\.reopen/, "closing authority alone cannot reopen");
-      const other = await addSecondEntity(h.executor, f.world, ["finance.period.reopen", "finance.period.manage"]);
-      const outsider = session((await issueOperationalSession(h, other.userId, other.legalEntityId)).token);
-      await assert.rejects(() => call("finance_period_reopen", outsider, { periodId: f.september, expectedVersion: v, reason: "Synthetic late invoice" }),
-        /does not exist in this legal entity/, "another company cannot reopen it");
-      await call("finance_period_reopen", f.reverser, { periodId: f.september, expectedVersion: v, reason: "Synthetic late invoice" });
-      assert.equal((await periodOf(f.september)).status, "OPEN");
-      await receive(f, "1.00");
-      const workspace = await call<{ periods: { id: string; reopenCount: number; status: string }[]; history: { action: string; reason: string | null }[] }>(
-        "finance_periods_workspace", f.reverser);
-      assert.equal(workspace.periods.find((p) => p.id === f.september)?.reopenCount, 1);
-      assert.deepEqual(workspace.history.map((e) => [e.action, e.reason]), [["REOPENED", "Synthetic late invoice"], ["CLOSED", null]]);
-    });
-
-    test("Advanced Mode reopens only with a second person; the asker cannot confirm; rejecting needs a note", async () => {
-      const f = await fixture();
-      await policy(f.world, "PERIOD_REOPEN", true);
-      await close(f, f.september, (await periodOf(f.september)).v);
-      const v = (await periodOf(f.september)).v;
-      await assert.rejects(() => call("finance_period_reopen", f.reverser, { periodId: f.september, expectedVersion: v, reason: "Synthetic late invoice" }),
-        /second person to reopen/);
-      const asked = await call<{ requestId: string }>("finance_period_reopen_request", f.requester, { periodId: f.september, expectedVersion: v, reason: "Synthetic late invoice" });
-      await assert.rejects(() => call("finance_period_reopen_decide", f.requester, { requestId: asked.requestId, expectedVersion: 1, decision: "CONFIRMED" }),
-        /second person must confirm/);
-      await assert.rejects(() => call("finance_period_reopen_decide", f.reverser, { requestId: asked.requestId, expectedVersion: 1, decision: "REJECTED" }),
-        /say why/);
-      assert.equal((await periodOf(f.september)).status, "CLOSED");
-      await call("finance_period_reopen_decide", f.reverser, { requestId: asked.requestId, expectedVersion: 1, decision: "CONFIRMED" });
-      assert.equal((await periodOf(f.september)).status, "OPEN");
-      const actions = (await h.pool.query("SELECT action FROM abos.accounting_period_events WHERE accounting_period_id = $1 ORDER BY occurred_at", [f.september])).rows.map((r) => r.action);
-      assert.deepEqual(actions, ["CLOSED", "REOPEN_REQUESTED", "REOPENED"]);
-    });
 
     test("a direct reversal posts the exact inverse, restores the Safe, keeps the original and links them immutably", async () => {
       const f = await fixture();
@@ -268,24 +200,6 @@ if (databaseUrl() === undefined) {
       const second = await pay(f, "10.00");
       await assert.rejects(() => call("finance_journal_reversal_request", f.creator, { journalId: second.journalId, reason: "Synthetic own correction" }),
         /finance\.reversal\.request|cannot request/);
-    });
-
-    test("a closed original month: the reversal posts on the business day in the current month and the original stays", async () => {
-      const f = await fixture();
-      const receipt = await receive(f, "80.00");
-      await close(f, f.september, (await periodOf(f.september)).v);
-      const posted = await reverse(f, receipt.journalId);
-      assert.deepEqual([posted.effectiveDate, posted.postedInOriginalPeriod], [f.today, false]);
-      const journal = (await h.pool.query("SELECT accounting_period_id AS p FROM abos.journals WHERE id = $1", [posted.reversalJournalId])).rows[0];
-      assert.equal(journal?.p, f.currentPeriod);
-      assert.equal((await periodOf(f.september)).status, "CLOSED", "the closed month is not reopened");
-      assert.equal(await book(f), "0.00");
-      // When the current month is closed too, nothing is reopened silently: the reversal is refused.
-      const other = await receive(f, "5.00", f.today).catch(() => null);
-      if (other) {
-        await close(f, f.currentPeriod, (await periodOf(f.currentPeriod)).v);
-        await assert.rejects(() => reverse(f, other.journalId), /cannot be reopened automatically|open accounting period/);
-      }
     });
 
     test("two people reversing the same journal at once: exactly one reversal", async () => {
@@ -393,7 +307,8 @@ if (databaseUrl() === undefined) {
           ORDER BY 1`)).rows;
       for (const fn of entry) {
         assert.equal(fn.everyone, false, `${fn.name}: PUBLIC`);
-        assert.equal(fn.runtime, fn.definer, `${fn.name}: only entry points are callable by the runtime`);
+        // 0052: the monthly close / reopen entry points are retired and no longer callable by the runtime.
+        assert.equal(fn.runtime, fn.definer && !String(fn.name).startsWith("finance_period"), `${fn.name}: only live entry points are callable by the runtime`);
       }
       const writes = (await h.pool.query(`SELECT c.relname FROM pg_class c WHERE c.relnamespace = 'abos'::regnamespace
           AND c.relname IN ('accounting_period_events','accounting_period_reopen_requests','journal_reversal_links','journal_reversal_requests')

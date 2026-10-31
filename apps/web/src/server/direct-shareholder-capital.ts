@@ -37,8 +37,8 @@ function directCapitalErrorResponse(error: unknown): Response {
   const known =
     /no accounting period covers/i.test(message)
       ? ["PERIOD_MISSING", "No month in your financial year covers this date. Generate the financial year first."]
-    : /cannot be reopened automatically/i.test(message)
-      ? ["PERIOD_CLOSED", "The month covering this date is closed. Choose another date or reopen the month in Finance."]
+    : /financial year covering .* is closed|cannot be reopened automatically/i.test(message)
+      ? ["PERIOD_CLOSED", "The financial year of this date is closed. Choose a date in an active financial year."]
     : /contributed assets" account/i.test(message)
       ? ["ASSET_ACCOUNT_REQUIRED", "Create one active \"shareholder contributed assets\" account in the Chart of Accounts before recording an asset."]
     : /expense account/i.test(message)

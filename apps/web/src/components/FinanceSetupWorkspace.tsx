@@ -29,11 +29,12 @@ const ACCOUNT_TYPE_COPY: Readonly<Record<OperationalTreasuryAccountType, Copy>> 
   OTHER: { en: "Other cash account", fa: "حساب نقدی دیگر" }
 };
 
+/** Months are never opened or closed by hand (0052): a month is usable while its financial year is active. */
 const PERIOD_STATUS_COPY: Readonly<Record<OperationalAccountingPeriodView["status"], Copy>> = {
-  PENDING: { en: "Not open yet", fa: "هنوز باز نشده" },
-  OPEN: { en: "Open", fa: "باز" },
-  SOFT_CLOSED: { en: "Closing", fa: "در حال بستن" },
-  CLOSED: { en: "Closed", fa: "بسته" }
+  PENDING: { en: "Active", fa: "فعال" },
+  OPEN: { en: "Active", fa: "فعال" },
+  SOFT_CLOSED: { en: "Active", fa: "فعال" },
+  CLOSED: { en: "Closed with its financial year", fa: "با سال مالی بسته شد" }
 };
 
 /** Dari for the set-up refusals the server returns (codes from operationalFinanceErrorResponse). */
@@ -102,7 +103,6 @@ export function FinanceSetupWorkspace() {
   const [busy, setBusy] = useState(false);
   const [account, setAccount] = useState<AccountDraft | null>(null);
   const [category, setCategory] = useState<CategoryDraft | null>(null);
-  const [opening, setOpening] = useState<{ id: string; reason: string } | null>(null);
 
   const apply = useCallback((result: Awaited<ReturnType<typeof api<OperationalFinanceConfigurationWorkspace>>>) => {
     if (!result.ok) {
@@ -145,8 +145,8 @@ export function FinanceSetupWorkspace() {
 
   if (gate) {
     return <div className="module-workspace"><AccessGate state={gate} fa={fa} what={{
-      en: "Finance setup needs one of: set up Treasury accounts, set up expense types, or open accounting periods.",
-      fa: "تنظیمات مالی به یکی از این صلاحیت‌ها نیاز دارد: تنظیم حساب‌های خزانه، تنظیم انواع مصرف یا باز کردن دوره‌های حسابداری."
+      en: "Finance setup needs one of: set up Treasury accounts, set up expense types, or close the financial year.",
+      fa: "تنظیمات مالی به یکی از این صلاحیت‌ها نیاز دارد: تنظیم حساب‌های خزانه، تنظیم انواع مصرف یا بستن سال مالی."
     }} /></div>;
   }
 
@@ -186,18 +186,6 @@ export function FinanceSetupWorkspace() {
     await done(true, fa ? "نوع مصرف ذخیره شد." : "Expense type saved.");
   };
 
-  const openPeriod = async (period: OperationalAccountingPeriodView) => {
-    if (!opening) return;
-    setBusy(true); setMessage(null);
-    const result = await api<OperationalFinanceConfigurationWorkspace>(`/api/v1/finance/operations/periods/${period.id}/open`, "POST", {
-      expectedVersion: period.version, reason: opening.reason.trim()
-    });
-    setBusy(false);
-    if (!result.ok) { setMessage({ tone: "error", text: setupErrorText(result.error, fa) }); return; }
-    setOpening(null);
-    await done(true, fa ? "دوره حسابداری باز شد." : "Accounting period opened.");
-  };
-
   const ledgerChoices = view === null || account === null ? [] : view.options.treasuryLedgerAccounts.filter((ledger) =>
     ledger.controlType === (account.accountType === "SARAF" ? "SARAF" : "CASH")
     && (account.currencyCode === "" || ledger.currencyCode === account.currencyCode));
@@ -226,11 +214,11 @@ export function FinanceSetupWorkspace() {
         ? (fa ? "ابتدا در جدول حساب‌ها یک حساب مصرف قابل ثبت بسازید." : "First add a postable expense account in the Chart of Accounts.")
         : (fa ? `انواع مصرف فعال: ${view.expenseCategories.filter((item) => item.status === "ACTIVE").length}` : `Active expense types: ${view.expenseCategories.filter((item) => item.status === "ACTIVE").length}`),
       href: "/finance/accounts", link: fa ? "جدول حساب‌ها" : "Chart of Accounts" },
-    { ok: view.periods.some((item) => item.status === "OPEN"),
+    { ok: view.periods.some((item) => item.status !== "CLOSED"),
       text: view.periods.length === 0
         ? (fa ? "هنوز سال مالی ایجاد نشده است؛ آن را در «تقویم مالی» ایجاد کنید." : "No financial year has been generated yet; generate it in Financial calendar.")
-        : view.periods.some((item) => item.status === "OPEN") ? (fa ? "دست‌کم یک دوره حسابداری باز است." : "At least one accounting period is open.")
-          : (fa ? "هیچ دوره حسابداری باز نیست؛ دوره جاری را پایین‌تر باز کنید." : "No accounting period is open; open the current period below."),
+        : view.periods.some((item) => item.status !== "CLOSED") ? (fa ? "یک سال مالی فعال است؛ معاملات با تاریخ آن ثبت می‌شوند." : "A financial year is active; transactions dated in it can be recorded.")
+          : (fa ? "همه سال‌های مالی بسته‌اند؛ سال مالی بعدی را در «تقویم مالی» ایجاد کنید." : "Every financial year is closed; generate the next one in Financial calendar."),
       href: "/finance/calendar", link: fa ? "تقویم مالی" : "Financial calendar" }
   ];
 
@@ -307,7 +295,7 @@ export function FinanceSetupWorkspace() {
             ) : null}
             {view.treasuryAccounts.length === 0 ? <p className="treasury-placeholder">{fa ? "هنوز حساب خزانه‌ای تنظیم نشده است." : "No Treasury account has been set up yet."}</p> : (
               <table className="rates-table">
-                <thead><tr><th>{fa ? "نام" : "Name"}</th><th>{fa ? "نوع" : "Type"}</th><th>{fa ? "واحد پول" : "Currency"}</th><th>{fa ? "حساب" : "Account"}</th><th>{fa ? "وضعیت" : "Status"}</th><th /></tr></thead>
+                <thead><tr><th>{fa ? "نام" : "Name"}</th><th>{fa ? "نوع" : "Type"}</th><th>{fa ? "واحد پول" : "Currency"}</th><th>{fa ? "حساب" : "Account"}</th><th>{fa ? "وضعیت" : "Status"}</th></tr></thead>
                 <tbody>{view.treasuryAccounts.map((item: OperationalTreasuryAccountView) => (
                   <tr key={item.id}>
                     <td data-label={fa ? "نام" : "Name"}>{localizedName(item, fa)}{item.sarafName ? <small className="rates-used">{item.sarafName}</small> : null}</td>
@@ -355,7 +343,7 @@ export function FinanceSetupWorkspace() {
             ) : null}
             {view.expenseCategories.length === 0 ? <p className="treasury-placeholder">{fa ? "هنوز نوع مصرفی تنظیم نشده است." : "No expense type has been set up yet."}</p> : (
               <table className="rates-table">
-                <thead><tr><th>{fa ? "کد" : "Code"}</th><th>{fa ? "نام" : "Name"}</th><th>{fa ? "حساب" : "Account"}</th><th>{fa ? "وضعیت" : "Status"}</th><th /></tr></thead>
+                <thead><tr><th>{fa ? "کد" : "Code"}</th><th>{fa ? "نام" : "Name"}</th><th>{fa ? "حساب" : "Account"}</th><th>{fa ? "وضعیت" : "Status"}</th></tr></thead>
                 <tbody>{view.expenseCategories.map((item: OperationalExpenseCategoryView) => (
                   <tr key={item.id}>
                     <td data-label={fa ? "کد" : "Code"} dir="ltr">{item.categoryCode}</td>
@@ -372,30 +360,23 @@ export function FinanceSetupWorkspace() {
           </section>
 
           <section className="module-content-card">
-            <div className="module-card-heading"><div><p>{fa ? "دوره‌ها" : "PERIODS"}</p><h2>{fa ? "دوره‌های حسابداری" : "Accounting periods"}</h2></div></div>
+            <div className="module-card-heading"><div><p>{fa ? "سال مالی" : "FINANCIAL YEAR"}</p><h2>{fa ? "ماه‌های سال مالی" : "Months of the financial year"}</h2></div></div>
             {view.periods.length === 0 ? <p className="treasury-placeholder">{fa ? "هنوز سال مالی ایجاد نشده است. آن را در «تقویم مالی» ایجاد کنید." : "No financial year has been generated yet. Generate it in Financial calendar."}</p> : (
               <table className="rates-table">
-                <thead><tr><th>{fa ? "دوره" : "Period"}</th><th>{fa ? "از" : "From"}</th><th>{fa ? "تا" : "To"}</th><th>{fa ? "وضعیت" : "Status"}</th><th /></tr></thead>
+                <thead><tr><th>{fa ? "دوره" : "Period"}</th><th>{fa ? "از" : "From"}</th><th>{fa ? "تا" : "To"}</th><th>{fa ? "وضعیت" : "Status"}</th></tr></thead>
                 <tbody>{view.periods.map((period) => (
                   <tr key={period.id}>
-                    <td data-label={fa ? "دوره" : "Period"}>{localizedName(period, fa)}{period.openedBy ? <small className="rates-used">{fa ? "باز شده توسط " : "Opened by "}{period.openedBy}</small> : null}</td>
+                    <td data-label={fa ? "دوره" : "Period"}>{localizedName(period, fa)}</td>
                     <td data-label={fa ? "از" : "From"}>{period.startsOn}</td>
                     <td data-label={fa ? "تا" : "To"}>{period.endsOn}</td>
-                    <td data-label={fa ? "وضعیت" : "Status"}><em className={`treasury-chip ${period.status === "OPEN" ? "" : "muted"}`}>{PERIOD_STATUS_COPY[period.status][locale]}</em></td>
-                    <td>{view.permissions.canManagePeriods && period.status === "PENDING" ? (opening?.id === period.id ? (
-                      <form className="admin-form rates-correction" aria-label={fa ? "باز کردن دوره" : "Open period"} onSubmit={(event) => { event.preventDefault(); void openPeriod(period); }}>
-                        <label><span>{fa ? "دلیل" : "Reason"}</span><input value={opening.reason} minLength={5} maxLength={500} required onChange={(event) => setOpening({ id: period.id, reason: event.target.value })} /></label>
-                        <div className="rates-actions">
-                          <button type="submit" className="treasury-button gold" disabled={busy || opening.reason.trim().length < 5}>{fa ? "باز کردن" : "Open period"}</button>
-                          <button type="button" className="treasury-button" onClick={() => setOpening(null)}>{fa ? "لغو" : "Cancel"}</button>
-                        </div>
-                      </form>
-                    ) : <button type="button" className="treasury-button" onClick={() => setOpening({ id: period.id, reason: "" })}>{fa ? "باز کردن" : "Open"}</button>) : null}</td>
+                    <td data-label={fa ? "وضعیت" : "Status"}><em className={`treasury-chip ${period.status === "CLOSED" ? "muted" : ""}`}>{PERIOD_STATUS_COPY[period.status][locale]}</em></td>
                   </tr>
                 ))}</tbody>
               </table>
             )}
-            <p className="admin-hint">{fa ? "بستن دوره‌ها هنوز در دسترس نیست؛ پالیسی آن باید تصویب شود." : "Closing periods is not available yet; its policy still needs approval."}</p>
+            <p className="admin-hint">{fa
+              ? "ماه‌ها فقط تاریخ‌ها را برای گزارش‌ها گروه‌بندی می‌کنند و باز یا بسته نمی‌شوند. در پایان سال، سال مالی را در صفحهٔ «سال مالی» ببندید."
+              : "Months only group dates for reports; they are not opened or closed. At year end, close the financial year on the Financial year page."}</p>
           </section>
         </>
       )}

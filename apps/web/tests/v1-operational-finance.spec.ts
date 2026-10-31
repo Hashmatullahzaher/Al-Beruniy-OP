@@ -143,14 +143,11 @@ test.describe("V1 operational finance setup", () => {
     await type.getByRole("button", { name: "Save" }).click();
     await expect(page.getByRole("status").filter({ hasText: "Expense type saved" })).toBeVisible();
 
-    // Open the pending period.
-    const pending = page.locator("tr").filter({ hasText: "Synthetic 2026-10" });
-    await expect(pending).toContainText("Not open yet");
-    await pending.getByRole("button", { name: "Open" }).click();
-    await pending.getByLabel("Reason").fill("Synthetic: October opens for recording");
-    await pending.getByRole("button", { name: "Open period" }).click();
-    await expect(page.getByRole("status").filter({ hasText: "Accounting period opened" })).toBeVisible();
-    await expect(page.locator("tr").filter({ hasText: "Synthetic 2026-10" })).toContainText("Open");
+    // 0052: a month is never opened by hand. It is active with its financial year and opens itself when recorded in.
+    const month = page.locator("tr").filter({ hasText: "Synthetic 2026-10" });
+    await expect(month).toContainText("Active");
+    await expect(month.getByRole("button")).toHaveCount(0);
+    await expect(page.getByText("Months only group dates for reports")).toBeVisible();
     await expect(page.locator(".setup-checklist li.missing")).toHaveCount(0);
     await expectNoTechnicalTerms(page);
 
@@ -202,12 +199,17 @@ async function configureSyntheticOperationalFinance(options: { readonly setupInT
          posting_allowed, account_currency_code, status)
        VALUES ($1,$2,'SYN-6100','Synthetic Office Supplies Expense','EXPENSE',true,'USD','ACTIVE')`, [expenseLedger, entity]);
     if (options.setupInTheApp === true) {
-      // Only what other screens own: the approval policy (Workflow approvals), a pending period
-      // (Financial calendar) and the setup and expense permissions (Roles). Treasury accounts, expense
-      // types and opening the period are done through the Finance setup page.
+      // Only what other screens own: the approval policy (Workflow approvals), the financial year and its month
+      // (Financial calendar) and the setup and expense permissions (Roles). Treasury accounts and expense types are
+      // set up through the Finance setup page; the month opens itself when the expense is recorded (0052).
+      const fiscalYear = randomUUID();
       await client.query(
-        `INSERT INTO abos.accounting_periods (id, legal_entity_id, period_name, starts_on, ends_on)
-         VALUES ($1,$2,'Synthetic 2026-10','2026-10-01','2026-10-31')`, [randomUUID(), entity]);
+        `INSERT INTO abos.fiscal_years (id, legal_entity_id, calendar_kind, fiscal_year, label_en, label_fa, starts_on, ends_on,
+           generated_by_user_account_id)
+         VALUES ($1,$2,'GREGORIAN',2026,'Synthetic FY 2026','سال مالی ۲۰۲۶','2026-01-01','2026-12-31',$3)`, [fiscalYear, entity, bootstrap]);
+      await client.query(
+        `INSERT INTO abos.accounting_periods (id, legal_entity_id, period_name, starts_on, ends_on, fiscal_year_id, period_sequence)
+         VALUES ($1,$2,'Synthetic 2026-10','2026-10-01','2026-10-31',$3,10)`, [randomUUID(), entity, fiscalYear]);
       await client.query(
         `INSERT INTO abos.finance_workflow_policy_versions (id, legal_entity_id, workflow_type, version, approval_required,
            configured_by_user_account_id, change_reason)

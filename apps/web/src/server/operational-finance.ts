@@ -8,7 +8,6 @@ import type {
   OperationalExpenseWorkspaceQuery,
   OperationalFinanceDailyReport,
   OperationalFinanceConfigurationWorkspace,
-  OperationalPeriodOpen,
   OperationalTreasuryAccountUpsert
 } from "@abos/contracts";
 import { IdentityError } from "@abos/identity";
@@ -100,17 +99,6 @@ export async function upsertOperationalExpenseCategory(
   );
 }
 
-export async function openOperationalFinancePeriod(
-  input: OperationalPeriodOpen
-): Promise<OperationalFinanceConfigurationWorkspace> {
-  const finance = financeHandoffRuntime();
-  return operationalFinanceRuntime().authenticator.openOperationalFinancePeriod(
-    finance.executor,
-    await operationalFinanceToken(),
-    input
-  );
-}
-
 /** The shared restricted-runtime authenticator, for other server modules (company dashboard). */
 export function restrictedFinanceAuthenticator(): SandboxAuthenticator {
   return operationalFinanceRuntime().authenticator;
@@ -191,8 +179,10 @@ const EXPENSE_REFUSALS: readonly {
     message: "The chosen exchange rate is not a current rate for this date." },
   { pattern: /not exact; rounding policy is not approved/i, status: 422, code: "CONVERSION_NOT_EXACT",
     message: "This amount cannot be converted exactly at the chosen rate, and rounding rules are not approved yet." },
-  { pattern: /open accounting period must cover|no open accounting period covers/i, status: 422, code: "PERIOD_NOT_OPEN",
-    message: "No open accounting period covers this date." },
+  { pattern: /financial year covering .* is closed|cannot be reopened automatically/i, status: 422, code: "PERIOD_CLOSED",
+    message: "The financial year of this date is closed. Choose a date in an active financial year." },
+  { pattern: /open accounting period must cover|no open accounting period covers|no accounting period covers/i, status: 422, code: "PERIOD_NOT_OPEN",
+    message: "No financial year covers this date. Set up the financial year first." },
   { pattern: /approval policy is not configured/i, status: 422, code: "POLICY_NOT_CONFIGURED",
     message: "Expense approval settings are not configured for this company yet." },
   { pattern: /no approved base currency/i, status: 422, code: "BASE_CURRENCY_NOT_APPROVED",

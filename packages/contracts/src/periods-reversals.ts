@@ -1,69 +1,57 @@
 /**
- * Slice 5 (migration 0050): closing and reopening accounting months, and reversing posted journals
- * through the one posting kernel. Amounts are exact decimal strings.
+ * Slice 5 (migration 0050): reversing posted journals through the one posting kernel, and (migration 0052) closing a
+ * financial year. Al-Beruniy closes a financial year, never a month: months only group dates for reporting and the
+ * fiscal calendar, open themselves when something is recorded, and close with their year. Amounts are exact decimal
+ * strings.
  */
 
+/** A month's internal state, for the calendar and reporting only. Users never close or reopen a month. */
 export type AccountingPeriodStatus = "PENDING" | "OPEN" | "SOFT_CLOSED" | "CLOSED";
 
-export interface PeriodReopenRequestView {
-  readonly id: string;
-  readonly reason: string;
-  readonly version: number;
-  readonly requestedBy: string | null;
-  readonly requestedAt: string;
-  readonly viewerIsRequester: boolean;
-}
+/**
+ * ACTIVE: transactions dated in the year may be recorded. CLOSED: the year was closed (stored on the year itself,
+ * fiscal_years.closed_at); every posting dated in it is refused by the journal guard, whatever its month rows say.
+ */
+export type FinancialYearStatus = "ACTIVE" | "CLOSED";
 
-export interface AccountingPeriodView {
+export interface FinancialYearView {
   readonly id: string;
-  readonly name: string;
-  readonly nameFa: string | null;
+  readonly label: string;
+  readonly labelFa: string | null;
+  readonly calendarKind: "GREGORIAN" | "SOLAR_HIJRI" | "CUSTOM";
   readonly startsOn: string;
   readonly endsOn: string;
-  readonly status: AccountingPeriodStatus;
-  readonly version: number;
-  readonly openedBy: string | null;
-  readonly openedAt: string | null;
-  readonly closedBy: string | null;
+  readonly status: FinancialYearStatus;
   readonly closedAt: string | null;
-  readonly reopenCount: number;
+  readonly closedBy: string | null;
   readonly postedJournals: number;
-  readonly reopenRequest: PeriodReopenRequestView | null;
+  /** The year's months, for reporting only. */
+  readonly months: readonly { readonly id: string; readonly name: string; readonly nameFa: string | null; readonly startsOn: string; readonly endsOn: string }[];
 }
 
-export type PeriodEventAction = "CLOSED" | "REOPENED" | "REOPEN_REQUESTED" | "REOPEN_REJECTED" | "REOPEN_WITHDRAWN";
-
-export interface PeriodsWorkspace {
+export interface FinancialYearsWorkspace {
   readonly today: string;
-  /** Advanced Mode: the PERIOD_REOPEN setting is ON, so a second person confirms every reopen. */
-  readonly reopenNeedsSecondPerson: boolean;
   readonly canClose: boolean;
-  readonly canReopen: boolean;
-  readonly periods: readonly AccountingPeriodView[];
-  readonly history: readonly {
-    readonly periodName: string; readonly periodNameFa: string | null; readonly action: PeriodEventAction;
-    readonly fromStatus: string; readonly toStatus: string; readonly reason: string | null; readonly actor: string | null; readonly at: string;
-  }[];
+  readonly years: readonly FinancialYearView[];
 }
 
-export type PeriodCloseWarning = "EARLIER_MONTH_OPEN" | "CONTAINS_TODAY" | "NO_POSTING";
+export type FinancialYearCloseWarning = "YEAR_NOT_ENDED" | "EARLIER_YEAR_ACTIVE";
 
-export interface PeriodClosePreview {
-  readonly period: { readonly id: string; readonly name: string; readonly nameFa: string | null; readonly startsOn: string; readonly endsOn: string;
-    readonly status: AccountingPeriodStatus; readonly version: number };
+export interface FinancialYearClosePreview {
+  readonly year: FinancialYearView;
   readonly summary: { readonly postedJournals: number; readonly debits: string; readonly credits: string };
-  /** A journal of the month that is not posted: the one integrity problem that refuses a close. */
+  /** A journal of the year that is not posted: the one integrity problem that refuses a close. */
   readonly unpostedJournals: number;
   readonly pending: { readonly expensesAwaitingApproval: number; readonly reversalRequests: number; readonly temporaryFundingDecisions: number };
-  readonly warnings: readonly PeriodCloseWarning[];
+  readonly warnings: readonly FinancialYearCloseWarning[];
 }
 
-export type PeriodCommand =
-  | { readonly action: "close"; readonly periodId: string; readonly expectedVersion: number }
-  | { readonly action: "reopen"; readonly periodId: string; readonly expectedVersion: number; readonly reason: string }
-  | { readonly action: "request-reopen"; readonly periodId: string; readonly expectedVersion: number; readonly reason: string }
-  | { readonly action: "decide-reopen"; readonly requestId: string; readonly expectedVersion: number;
-      readonly decision: "CONFIRMED" | "REJECTED" | "WITHDRAWN"; readonly note: string | null };
+export interface FinancialYearCloseResult {
+  readonly fiscalYearId: string;
+  readonly status: "CLOSED";
+  readonly replayed: boolean;
+  readonly year: FinancialYearView;
+}
 
 export type ReversalBlocker = "NOT_FOUND" | "NOT_POSTED" | "IS_REVERSAL" | "ALREADY_REVERSED" | "APPROVED_REQUEST" | "OPEN_REQUEST";
 
