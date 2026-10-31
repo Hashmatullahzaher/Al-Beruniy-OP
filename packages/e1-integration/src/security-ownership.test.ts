@@ -67,7 +67,7 @@ if (databaseUrl() === undefined) {
                 p.proconfig AS config, has_function_privilege('public', p.oid, 'EXECUTE') AS public_execute
            FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace JOIN pg_roles r ON r.oid = p.proowner
           WHERE n.nspname = 'abos' AND p.prosecdef ORDER BY 1`);
-      assert.equal(rows.rows.length, 134, "every restricted entry point through the 0052 financial year close is accounted for");
+      assert.equal(rows.rows.length, 137, "every restricted entry point through the 0053 reporting slice is accounted for");
       for (const fn of rows.rows) {
         assert.ok((FUNCTION_OWNERS as readonly string[]).includes(fn.owner), `${fn.signature} is owned by ${fn.owner}`);
         assert.equal(fn.superuser, false, fn.signature);
@@ -202,6 +202,9 @@ if (databaseUrl() === undefined) {
         finance_financial_year_close_preview: "abos_v1_operational_finance_owner",
         finance_financial_year_close: "abos_v1_operational_finance_owner",
         journal_financial_year_guard: "abos_v1_operational_finance_owner",
+        // 0053: the trial balance, the account statement and the journal detail (masked, never filtered).
+        finance_trial_balance: "abos_v1_operational_finance_owner", finance_account_statement: "abos_v1_operational_finance_owner",
+        finance_journal_detail: "abos_v1_operational_finance_owner",
         // WP #17 (0023): reversal requests (request -> Finance Manager decision; posting fail-closed).
         finance_reversal_requests_view: "abos_e1_finance_owner", finance_reversal_request_create: "abos_e1_finance_owner",
         finance_reversal_request_decide: "abos_e1_finance_owner", finance_reversal_request_withdraw: "abos_e1_finance_owner"
@@ -454,10 +457,16 @@ if (databaseUrl() === undefined) {
           [first, projectId, departmentId, costCenterId]
         );
       });
-      const scopedCount = async () => restricted("finance", async (db) => (await db.query<{
-        readonly value: { readonly returnedLineCount: number };
-      }>("SELECT abos.finance_general_ledger($1, DATE '2026-01-01', DATE '2026-12-31', NULL) AS value", [operationalSession.token])).rows[0]?.value.returnedLineCount);
-      assert.equal(await scopedCount(), 0, "dimensioned lines are hidden without scope grants");
+      // 0053: scope masks a line's detail and never removes it, so the ledger always returns both lines; what scope
+      // decides is how many of them show their reference and source.
+      const scopedCount = async () => {
+        const value = await restricted("finance", async (db) => (await db.query<{
+          readonly value: { readonly returnedLineCount: number; readonly lines: readonly { readonly restricted: boolean }[] };
+        }>("SELECT abos.finance_general_ledger($1, DATE '2026-01-01', DATE '2026-12-31', NULL) AS value", [operationalSession.token])).rows[0]?.value);
+        assert.equal(value?.returnedLineCount, 2, "lines outside the reader's scope are masked, never filtered out");
+        return value?.lines.filter((line) => !line.restricted).length;
+      };
+      assert.equal(await scopedCount(), 0, "dimensioned lines show no detail without scope grants");
       for (const [kind, scopeId] of [
         ["PROJECT", projectId], ["DEPARTMENT", departmentId], ["COST_CENTER", costCenterId]
       ] as const) {
@@ -468,13 +477,13 @@ if (databaseUrl() === undefined) {
           [prepared.world.approverId, prepared.world.legalEntityId, kind, scopeId, prepared.world.bootstrapUserId]
         );
       }
-      assert.equal(await scopedCount(), 2, "all applicable live scope grants reveal the lines");
+      assert.equal(await scopedCount(), 2, "all applicable live scope grants reveal the lines' detail");
       await harness.executor.query(
         `UPDATE abos.user_scope_grants SET revoked_at=clock_timestamp()
           WHERE user_account_id=$1 AND legal_entity_id=$2 AND scope_kind='DEPARTMENT' AND scope_id=$3`,
         [prepared.world.approverId, prepared.world.legalEntityId, departmentId]
       );
-      assert.equal(await scopedCount(), 0, "revoking one applicable scope hides the lines immediately");
+      assert.equal(await scopedCount(), 0, "revoking one applicable scope masks the lines' detail immediately");
 
       // Even the Finance owner, which wrote the journal, cannot alter it now that it is posted.
       await asRole("abos_e1_finance_owner", async (client) => {

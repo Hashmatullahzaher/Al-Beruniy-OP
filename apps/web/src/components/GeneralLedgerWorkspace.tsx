@@ -1,8 +1,10 @@
 "use client";
 
 import { formatDual } from "@abos/calendar";
+import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
+import { JournalDetailPanel, SourceCell } from "@/components/AccountStatementWorkspace";
 import { AccessGate, api, errorText } from "@/components/AdminUsersWorkspace";
 import { StageZeroPageHeader } from "@/components/StageZeroWorkspace";
 import { useLocale } from "@/components/LocaleProvider";
@@ -69,6 +71,8 @@ export function GeneralLedgerWorkspace() {
   const [busy, setBusy] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [moreProblem, setMoreProblem] = useState<ApiError | null>(null);
+  // 0053: ?journalId= opens that journal (its lines, source and reversal links) above the ledger.
+  const journalId = useSearchParams().get("journalId");
 
   const apply = useCallback(([ledger, summary]: Awaited<ReturnType<typeof requestBoth>>) => {
     setBusy(false);
@@ -139,6 +143,8 @@ export function GeneralLedgerWorkspace() {
         title={{ en: "General Ledger activity", fa: "فعالیت دفتر کل" }}
         description={{ en: "Read-only journal lines posted in this legal entity, with exact amounts and source references.",
           fa: "ردیف‌های ثبت‌شدهٔ ژورنال این شرکت، همراه با مبلغ دقیق و مرجع منبع، فقط برای مشاهده." }} />
+      <p className="admin-hint">{fa ? "برای موجودی‌ها و توازن، " : "For balances and the debit = credit proof, see the "}
+        <a href="/finance/trial-balance">{fa ? "بیلانس آزمایشی" : "Trial balance"}</a>{fa ? " را ببینید." : "."}</p>
 
       <div className="finance-boundary-banner" role="note">
         <span aria-hidden="true">ⓘ</span>
@@ -146,6 +152,7 @@ export function GeneralLedgerWorkspace() {
           <strong>{fa ? "این فهرست صورت مالی رسمی نیست؛ مانده‌های افتتاحیه و دوره‌های بسته‌شده هنوز تکمیل نشده‌اند." : "This activity list is not an official financial statement. Opening positions and period close are not complete."}</strong></div>
         <em>{fa ? "فقط خواندنی" : "READ ONLY"}</em>
       </div>
+      {journalId ? <JournalDetailPanel journalId={journalId} fa={fa} /> : null}
 
       <section className="module-content-card" aria-label={fa ? "فیلتر گزارش" : "Report filters"}>
         <div className="module-card-heading"><div><p>{fa ? "فیلترها" : "FILTERS"}</p><h2>{fa ? "بازه و حساب" : "Date range and account"}</h2></div></div>
@@ -269,13 +276,17 @@ function ActivityRow({ row, fa }: { readonly row: AccountActivityRow; readonly f
 
 function LedgerLine({ line, fa, dual }: { readonly line: GeneralLedgerLine; readonly fa: boolean; readonly dual: (iso: string) => string }) {
   return <li className="module-content-card">
-    <div className="module-card-heading"><div><p>{line.journalReference} · #{line.lineNumber}</p><h2>{line.accountCode} · {line.accountName}</h2></div>
+    <div className="module-card-heading"><div><p>{line.restricted ? (fa ? "حرکت محدود" : "Restricted movement")
+      : <a href={`/finance/general-ledger?journalId=${line.journalId}`}>{line.journalReference}</a>} · #{line.lineNumber}</p>
+      <h2>{line.accountCode} · {line.accountName}</h2></div>
       <span>{dual(line.accountingEffectiveDate)}</span></div>
     <dl style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 165px), 1fr))", gap: 10, padding: 14, margin: 0 }}>
       <div><dt className="admin-hint">{fa ? "بدهکار" : "Debit"}</dt><dd dir="ltr" style={{ margin: 0 }}>{line.baseCurrency} {amount(line.baseDebit)}</dd></div>
       <div><dt className="admin-hint">{fa ? "بستانکار" : "Credit"}</dt><dd dir="ltr" style={{ margin: 0 }}>{line.baseCurrency} {amount(line.baseCredit)}</dd></div>
       <div><dt className="admin-hint">{fa ? "مبلغ اصلی" : "Original amount"}</dt><dd dir="ltr" style={{ margin: 0 }}>{line.originalCurrency && line.originalAmount ? `${line.originalCurrency} ${amount(line.originalAmount)}` : "—"}</dd></div>
-      <div><dt className="admin-hint">{fa ? "منبع" : "Source"}</dt><dd style={{ margin: 0, overflowWrap: "anywhere" }}>{line.sourceType} · {line.sourceId}</dd></div>
+      <div><dt className="admin-hint">{fa ? "منبع" : "Source"}</dt><dd style={{ margin: 0, overflowWrap: "anywhere" }}>{line.restricted
+        ? <SourceCell source={{ type: "RESTRICTED", id: null, label: { en: "Restricted movement", fa: "حرکت محدود" }, route: null, counterparty: null }} fa={fa} />
+        : `${line.sourceType} · ${line.sourceId ?? ""}`}</dd></div>
       <div><dt className="admin-hint">{fa ? "شناسه ژورنال" : "Journal ID"}</dt><dd style={{ margin: 0, overflowWrap: "anywhere" }}>{line.journalId}</dd></div>
     </dl>
   </li>;

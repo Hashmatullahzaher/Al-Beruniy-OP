@@ -166,6 +166,10 @@ if (databaseUrl() === undefined) {
         "finance_financial_year_close_preview", f.manager, f.past);
       assert.deepEqual([preview.summary.postedJournals, preview.summary.debits, preview.summary.credits, preview.unpostedJournals, preview.warnings],
         [1, "500.00", "500.00", 0, []]);
+      // 0054: a year that has not ended, with an earlier year still active, previews with both warnings (0052 failed here).
+      const currentYear = (await h.pool.query<{ y: string }>("SELECT fiscal_year_id AS y FROM abos.accounting_periods WHERE id = $1", [f.current])).rows[0]?.y;
+      const early = await call<{ warnings: string[] }>("finance_financial_year_close_preview", f.manager, currentYear);
+      assert.deepEqual(early.warnings, ["YEAR_NOT_ENDED", "EARLIER_YEAR_ACTIVE"]);
       await assert.rejects(() => closeYear(f, f.past, f.creator), /finance\.period\.manage/);
       const monthsBefore = await months();
       const closed = await closeYear(f);
@@ -252,7 +256,7 @@ if (databaseUrl() === undefined) {
       } finally { await rr.query("ROLLBACK"); rr.release(); }
     });
 
-    test("every operational writer reaches the journal-level guard: with the lanes' own year check switched off, the guard alone refuses", async () => {
+    test("every operational writer (USD and AFN) reaches the journal-level guard: with the lanes' own year check switched off, the guard alone refuses", async () => {
       const f = await fixture();
       const u = f.world.bootstrapUserId;
       await grant(h.executor, f.world, f.world.intentCreatorId, ["treasury.transfer.record", "treasury.opening-balance.record",
@@ -274,11 +278,24 @@ if (databaseUrl() === undefined) {
         return id;
       };
       const second = await newSafe();
+      // AFN: an AFN cash ledger and Safe, and the day's market rate (the default FX policy applies).
+      const afnCash = randomUUID(); const afnSafe = randomUUID();
+      await h.pool.query(`INSERT INTO abos.ledger_accounts (id,legal_entity_id,account_code,account_name,account_type,control_account_type,posting_allowed,account_currency_code,status)
+        VALUES ($1,$2,'SYN-FY-AFN','Synthetic AFN cash','ASSET','CASH',true,'AFN','ACTIVE')`, [afnCash, f.e]);
+      await h.pool.query(`INSERT INTO abos.operational_treasury_accounts (id,legal_entity_id,name_en,account_type,currency_code,ledger_account_id,
+        status,version,created_by_user_account_id,last_changed_by_user_account_id) VALUES($1,$2,'Synthetic AFN Safe','SAFE','AFN',$3,'ACTIVE',1,$4,$4)`,
+      [afnSafe, f.e, afnCash, u]);
+      await h.pool.query(`INSERT INTO abos.exchange_rates (id,legal_entity_id,rate_date,rate_source,saraf_business_party_id,unit_currency_code,quote_currency_code,
+        rate_value,note,entered_by_user_account_id) VALUES ($1,$2,'2025-12-10','MARKET',NULL,'USD','AFN','70','Synthetic rate',$3)`, [randomUUID(), f.e, u]);
       const actor = session((await issueOperationalSession(h, f.world.intentCreatorId, f.e)).token);
       const day = "2025-12-10";
       const writers: Record<string, () => Promise<unknown>> = {
         receipt: () => call("treasury_receipt_record", actor, { treasuryAccountId: f.safe, amount: "5.00", currencyCode: "USD", businessDate: day,
           payerBusinessPartyId: null, payerName: "Synthetic payer", revenueLedgerAccountId: f.revenue, reference: null, note: null, ...keys() }),
+        afnReceipt: () => call("treasury_receipt_record", actor, { treasuryAccountId: afnSafe, amount: "700.00", currencyCode: "AFN", businessDate: day,
+          payerBusinessPartyId: null, payerName: "Synthetic AFN payer", revenueLedgerAccountId: f.revenue, reference: null, note: null, ...keys() }),
+        afnPayment: () => call("treasury_payment_record", actor, { treasuryAccountId: afnSafe, paymentKind: "SUPPLIER", payeeBusinessPartyId: null,
+          payeeName: "Synthetic AFN supplier", payableLedgerAccountId: f.payable, amount: "70.00", currencyCode: "AFN", businessDate: day, reference: null, note: null, ...keys() }),
         payment: () => call("treasury_payment_record", actor, { treasuryAccountId: f.safe, paymentKind: "SUPPLIER", payeeBusinessPartyId: null,
           payeeName: "Synthetic supplier", payableLedgerAccountId: f.payable, amount: "5.00", currencyCode: "USD", businessDate: day, reference: null, note: null, ...keys() }),
         transfer: () => call("treasury_transfer_record", actor, { sourceTreasuryAccountId: f.safe, destinationTreasuryAccountId: second, amount: "5.00",

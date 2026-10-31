@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 
 import { GeneralLedgerWorkspace } from "@/components/GeneralLedgerWorkspace";
 
@@ -9,5 +10,5 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 export default function GeneralLedgerPage() {
-  return <GeneralLedgerWorkspace />;
+  return <Suspense fallback={null}><GeneralLedgerWorkspace /></Suspense>;
 }

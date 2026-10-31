@@ -25,5 +25,6 @@ export * from "./temporary-funding.ts";
 export * from "./treasury.ts";
 export * from "./periods-reversals.ts";
 export * from "./fx-policy.ts";
+export * from "./reporting.ts";
 export * from "./treasury-safes.ts";
 export * from "./workflow-policy.ts";

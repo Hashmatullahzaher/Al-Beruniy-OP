@@ -54,6 +54,12 @@ Owner correction of 2026-10-31: Al-Beruniy closes a financial year, never a mont
 - if the close started first, the posting waits, then reads the closed year and is refused (READ COMMITTED);
 - under REPEATABLE READ, a posting whose snapshot predates the close fails with a serialization error.
 
+## 2a. Correction 0054 (found while validating 0053)
+
+The deployed close preview appended its warnings with `text[] || 'literal'`. PostgreSQL reads the literal as an array ("malformed array literal"). So previewing a year that has not ended, or one with an earlier year still active, failed with an error. On production that meant FY 2026; nothing was written, because the preview only reads.
+
+`0054_v1_financial_year_preview_warnings` restates only that function, using `array_append`. A regression test previews the current year while FY 2025 is still active, and expects both warnings. The 0052 suite had closed only a year that had already ended, which is why it missed this.
+
 ## 3. Client-facing behaviour
 
 - **Navigation:** "Financial periods" is gone. "Financial year" is shown to `finance.period.manage` and to Finance report readers. The old `/finance/periods` redirects to `/finance/financial-year`.
