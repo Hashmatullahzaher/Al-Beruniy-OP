@@ -1,7 +1,7 @@
 # Slice 6 — FX policy and AFN operational posting (migration 0051)
 
-Status: IMPLEMENTED and validated on disposable databases only. **Not deployed**: production stays at 0050 until the
-owner separately authorizes 0051. Design: `docs/03-architecture/FX_POLICY_AND_AFN.md`.
+Status: **DEPLOYED to production on 2026-10-31** at trunk `8783298` (final 0051, checksum `9a79e03c…`, owner
+authorization of 2026-10-31; record in `V1_MAX_DELIVERY_SESSION_2026-10-27.md`). Design: `docs/03-architecture/FX_POLICY_AND_AFN.md`.
 
 ## 1. Definition of done
 

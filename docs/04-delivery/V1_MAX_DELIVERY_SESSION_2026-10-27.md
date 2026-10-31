@@ -336,3 +336,39 @@ stays at trunk `0aa6512` / migration 0040 throughout unless an entry says otherw
   - smoke 13/13; browser 81 passed (plus the known first-compile shell flake, green on rerun);
   - post-0050 production dump upgraded to the final 0051: 95/97 tables identical, 0 journals, no runtime table access to the FX tables, definers 127 → 130.
 - Final 0051 checksum `9a79e03cca74308f957f169b981593c5df57d0fe1eccd99abd382d1e9885abd9`. The previous checksum `fb385c55…` was never deployed.
+
+## Production deployment of the final 0051 (owner authorization of 2026-10-31)
+
+- Deployed trunk SHA `8783298feeef88499387e81d73192a46c59754a2`: exactly 0051 (checksum
+  `9a79e03cca74308f957f169b981593c5df57d0fe1eccd99abd382d1e9885abd9`), through the guarded `apply_catalog_0051.mts`.
+  - The helper is pinned to the commit, the predecessor 0050 (`07cde8b9…`) and the checksums.
+  - It refused a rerun, a wrong commit and a wrong database.
+- Package `AlBeruniyOS/backups/deployment-0051-20261031-073556`, 86 files sealed.
+  - Pre-0051 dump sha256 `2a8de30c8e5352e1cb2ea45f46c4f03570f68a708368bf8b7f8d04f9f49618ce`.
+  - Test restore: 97/97 tables identical.
+  - Vault snapshot and role inventory taken, with no password lines.
+- Before: production was byte-identical to the end of the 0050 deployment.
+- Rehearsal on the restored copy: production then matched it on 98/98 tables (excluding the migration registry) and inventory for inventory.
+- Changed by 0051:
+  - permission catalogue +1 (`finance.fx-policy.manage`, v14);
+  - two new empty tables (`fx_policy_versions`, `fx_conversions`);
+  - the migration registry.
+  - No user or role received a permission; no business row changed.
+- After:
+  - 0 journals, intents, subledger entries, rates, snapshots, conversions and AFN accounts; no FX difference account;
+  - 12 periods PENDING; Safe کسه 0/0;
+  - no runtime table write; PUBLIC executes no definer;
+  - SECURITY DEFINER functions 127 → 130.
+- Runtime and startup guard repinned to `8783298`; health ok.
+- Live checks:
+  - 11 pages 200, including `/finance/fx-policy`;
+  - data APIs 401 without a session; a cross-origin POST 403;
+  - smoke 10/10 and browser 47/47 (HTTP-mocked specs only).
+- Disposable post-deployment copy:
+  - a disposable user signed in and 7 pages rendered;
+  - FX defaults: HALF_UP to 2 places; no FX difference account and none required;
+  - on the copy only, 7,000 AFN was received into a copy-only AFN Safe at 70 → 100.00 USD, with the conversion recording no FX difference account;
+  - a cross-currency transfer was refused (CURRENCY_MISMATCH).
+- Vault reconciliation CLEAN.
+- Nothing was seeded and no real transaction was created: no rate, AFN account, FX difference account or money movement.
+
