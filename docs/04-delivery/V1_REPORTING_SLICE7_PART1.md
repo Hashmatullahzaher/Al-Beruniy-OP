@@ -1,6 +1,12 @@
 # Slice 7 part 1 — trial balance, account statement and journal detail (migration 0053)
 
-Status: IMPLEMENTED as migration **0053**, on top of the deployed 0052 (Financial Year Close). It was built as 0052 before the owner correction and renumbered and rebased without rebuilding. Validated on disposable databases; deployment follows the owner's conditional authorization of 2026-10-31 once every check is green.
+Status: **DEPLOYED to production on 2026-10-31** at trunk `3f887a543b24c0963f4a8498163792d5d2c02dea`, together with the 0052 preview correction 0054.
+- Checksums: 0053 `2d702b1b4ddb10bf58a3e8eea3eb7a626ad3b71045951f403db7874eda917a8d`; 0054 `42f8f4f021f1fd7867d20e099c1321f6dbb78b485ef2f4431461ad1bd6f64542`.
+- Applied through the guarded `apply_catalog_0053.mts`. In the rehearsal it refused a wrong commit, a rerun and a wrong database.
+- Before the apply: the pre-0053 dump test-restored to 99/99 identical tables.
+- On production: only `schema_migrations` changed (51 → 53); 0 journals; the runtime gained only the three report entry points; vault reconciliation CLEAN.
+- Live checks: smoke 11/11; browser 51/51.
+- No real financial transaction was created.
 Design: `docs/03-architecture/V1_REPORTING_AND_FINANCIAL_STATEMENTS_DESIGN.md`. The design audit found no genuine owner decision, so implementation proceeded directly (owner instruction of 2026-10-31).
 
 ## 1. Definition of done
