@@ -172,10 +172,10 @@ export const PERMISSION_COPY: Readonly<Record<string, PermissionCopy>> = {
     label: { en: "Pay what the company owes", fa: "پرداخت آنچه شرکت بدهکار است" },
     allows: { en: "Pay a supplier, contractor, salary or other amount the company owes from a Safe or Saraf account, against a payable account, in one save. Paying an expense still needs the permission to record expenses.", fa: "پرداخت به تأمین‌کننده، قراردادی، معاش یا مبلغ دیگری که شرکت بدهکار است از صندوق یا حساب صراف، در مقابل یک حساب قابل پرداخت، با یک ذخیره. پرداخت مصرف همچنان به صلاحیت ثبت مصارف نیاز دارد." }
   },
-  // Period close / reopen and reversals (0050).
+  // Reversals (0050). The monthly reopen of 0050 is retired (0052): Al-Beruniy closes a financial year, never a month.
   "finance.period.reopen": {
-    label: { en: "Reopen a closed month", fa: "بازگشایی ماه بسته‌شده" },
-    allows: { en: "Reopen a closed accounting month with a written reason, kept in the month's history. When the company requires a second person, ask for the reopen or confirm someone else's request.", fa: "بازگشایی ماه حسابداری بسته‌شده با دلیل نوشته‌شده که در تاریخچهٔ ماه می‌ماند. اگر شرکت شخص دوم بخواهد، بازگشایی را درخواست کنید یا درخواست شخص دیگری را تأیید کنید." }
+    label: { en: "Reopen a closed month (retired)", fa: "بازگشایی ماه بسته‌شده (کنار گذاشته شده)" },
+    allows: { en: "Retired: months are not closed or reopened. A financial year is closed once, at year end.", fa: "کنار گذاشته شده: ماه‌ها بسته یا باز نمی‌شوند. سال مالی یک بار، در پایان سال، بسته می‌شود." }
   },
   "finance.reversal.direct": {
     label: { en: "Reverse transactions directly", fa: "برگشت مستقیم معاملات" },
@@ -235,8 +235,8 @@ export const PERMISSION_COPY: Readonly<Record<string, PermissionCopy>> = {
     allows: { en: "See the company-wide dashboard with its approved summary figures. It does not open Finance, Treasury, shareholder or administration records, which keep their own permissions.", fa: "دیدن داشبورد عمومی شرکت با ارقام خلاصهٔ تأییدشده. سوابق مالی، خزانه، سهامداران یا مدیریت را باز نمی‌کند؛ آن‌ها صلاحیت‌های خود را دارند." }
   },
   "finance.period.manage": {
-    label: { en: "Open accounting periods", fa: "باز کردن دوره‌های حسابداری" },
-    allows: { en: "Open a pending accounting period, with a reason, so transactions dated in it can be recorded. Closing periods is not available yet.", fa: "باز کردن یک دوره حسابداری در انتظار، با ذکر دلیل، تا معاملات با تاریخ آن دوره ثبت شوند. بستن دوره‌ها هنوز در دسترس نیست." }
+    label: { en: "Close the financial year", fa: "بستن سال مالی" },
+    allows: { en: "Close a financial year at year end, after reviewing its summary. Nothing more can be recorded in a closed financial year; its transactions and reports stay as they are.", fa: "بستن سال مالی در پایان سال، پس از دیدن خلاصهٔ آن. در سال مالی بسته چیزی ثبت نمی‌شود؛ معاملات و گزارش‌های آن همان‌طور می‌ماند." }
   }
 };
 

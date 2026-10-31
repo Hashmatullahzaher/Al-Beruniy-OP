@@ -103,7 +103,7 @@ const MONEY_REFUSALS: readonly { readonly pattern: RegExp; readonly status: numb
   { pattern: /cannot be dated after today/i, status: 422, code: "DATE_IN_FUTURE", message: "The date cannot be after today." },
   { pattern: /no accounting period covers/i, status: 422, code: "PERIOD_MISSING",
     message: "No month in your financial year covers this date. Generate the financial year first." },
-  { pattern: /cannot be reopened automatically/i, status: 422, code: "PERIOD_CLOSED", message: "The month covering this date is closed. Choose another date." },
+  { pattern: /financial year covering .* is closed|cannot be reopened automatically/i, status: 422, code: "PERIOD_CLOSED", message: "The financial year of this date is closed. Choose a date in an active financial year." },
   { pattern: /idempotency key was already used/i, status: 409, code: "ALREADY_SUBMITTED_DIFFERENTLY",
     message: "This form was already submitted with different details. Start again." },
   { pattern: /plain positive decimals|positive/i, status: 422, code: "INVALID_AMOUNT", message: "Enter a positive amount such as 250 or 250.50." },

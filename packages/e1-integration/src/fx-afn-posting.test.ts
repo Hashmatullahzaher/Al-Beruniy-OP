@@ -328,14 +328,12 @@ if (databaseUrl() === undefined) {
       await assert.rejects(() => call("treasury_fx_preview", developer, { currencyCode: "AFN", businessDate: "2026-09-10" }),
         /operational password session is required|sign in/);
       await assert.rejects(() => call("finance_fx_policy_set", developer, {}), /sign in|missing|password/);
-      // A closed month refuses an AFN posting dated in it.
-      await grant(h.executor, f.world, f.world.reverserId, ["finance.period.manage"]);
-      const manager = args((await issueOperationalSession(h, f.world.reverserId, f.e)).token);
-      const preview = await runtime.query<{ value: { period: { version: number } } }>("SELECT abos.finance_period_close_preview($1,$2,$3,$4) AS value",
-        [manager.proof, manager.runtimeDigest, manager.tokenDigest, f.world.accountingPeriodId]);
-      await call("finance_period_close", manager, { periodId: f.world.accountingPeriodId, expectedVersion: preview.rows[0]?.value.period.version });
-      await assert.rejects(() => receive(f, "70.00"), /cannot be reopened automatically|open accounting period/);
-      await assert.rejects(() => pay(f, "70.00"), /cannot be reopened automatically|open accounting period/);
+      // A month row left CLOSED (as by the retired 0050 monthly close; the fixture month has no financial year) still
+      // refuses an AFN posting dated in it; it is never reopened automatically. Year close is financial-year-close.test.ts.
+      await h.executor.query("UPDATE abos.accounting_periods SET status = 'CLOSED', closed_at = clock_timestamp(), closed_by_user_account_id = opened_by_user_account_id WHERE id = $1",
+        [f.world.accountingPeriodId]);
+      await assert.rejects(() => receive(f, "70.00"), /cannot be reopened automatically|is closed|open accounting period/);
+      await assert.rejects(() => pay(f, "70.00"), /cannot be reopened automatically|is closed|open accounting period/);
     });
 
     test("an AFN opening balance, statements and reports agree in both currencies; a reversal keeps the historical rate", async () => {

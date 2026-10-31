@@ -146,3 +146,18 @@ Implemented by amending 0051 before it was deployed. The amendment is the same m
 3. **Cross-currency Treasury transfers stay refused.** A transfer never becomes an implicit currency exchange. Currency exchange will be its own explicit source through the posting kernel, once its FX-difference accounting is designed.
 4. **The corrected `finance.reversal.direct` description stays in 0051.** In Simple Mode an authorized user may reverse their own transaction with a mandatory reason and full audit; Advanced Mode independence stays separate.
 
+## Owner correction — Financial Year Close, not Month Close — 2026-10-31
+
+Implemented by the corrective migration `0052_v1_financial_year_close`. 0050 is applied and is not changed. No row is deleted.
+
+1. **Al-Beruniy has no user-facing monthly close or reopen.**
+   - Months remain internal: date grouping, reporting, the trial balance, the fiscal calendar and period selection.
+   - Months open themselves when something dated in them is recorded.
+   - Nobody operates "Close month" or "Reopen month", and there is no monthly reopen approval.
+2. **Financial Year Close.**
+   - While a financial year is active, transactions post on valid dates within it.
+   - At year end an authorized Finance user (`finance.period.manage`) closes the financial year after a preview.
+   - After the close: posting into the year is refused; historical journals stay immutable; reports stay available.
+3. **Reopening a closed financial year is not offered.** If ever required, it must be a separate high-risk year-level action with explicit permission, a mandatory reason and full audit. No monthly reopen concept exists.
+4. **`finance.period.reopen` is retired** (it existed only for the monthly design), and the `PERIOD_REOPEN` approval setting is withdrawn.
+5. **The reversal rule is translated mechanically, not changed.** A reversal posts on the original date while the original's financial year is active, otherwise on the business day in the current financial year. The self-correction, immutable links and opening-balance behaviour of 2026-10-29 are unchanged.

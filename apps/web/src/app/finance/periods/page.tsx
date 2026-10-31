@@ -1,13 +1,8 @@
-import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 
-import { PeriodsWorkspace } from "@/components/PeriodsWorkspace";
-
-export const metadata: Metadata = {
-  title: "Financial periods",
-  description: "Close an accounting month after reviewing it, and reopen it with a written reason."
-};
 export const dynamic = "force-dynamic";
 
+/** The monthly close / reopen page is retired (0052); an old link lands on the financial year page. */
 export default function FinancialPeriodsPage() {
-  return <PeriodsWorkspace />;
+  redirect("/finance/financial-year");
 }

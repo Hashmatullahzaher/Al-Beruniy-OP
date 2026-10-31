@@ -37,7 +37,7 @@ const ERROR_FA: Readonly<Record<string, string>> = {
   IS_REVERSAL: "این خودش یک برگشت است؛ دوباره برگشت داده نمی‌شود.",
   NOT_REVERSIBLE: "این نوع معامله هنوز برگشت داده نمی‌شود.",
   OPEN_REQUEST: "این معامله درخواست برگشت باز دارد؛ درباره همان تصمیم بگیرید.",
-  PERIOD_CLOSED: "ماه جاری بسته یا موجود نیست؛ برگشت جایی برای ثبت ندارد.",
+  PERIOD_CLOSED: "سال مالی امروز بسته یا تنظیم نشده است؛ برگشت جایی برای ثبت ندارد.",
   STALE_VERSION: "در این میان تغییر کرد. دوباره بارگذاری کنید.",
   ALREADY_DECIDED: "درباره این درخواست قبلاً تصمیم گرفته شده است.",
   REASON_REQUIRED: "دلیل را بنویسید (دست‌کم ۱۰ حرف).",
@@ -158,8 +158,8 @@ export function JournalReversalsWorkspace() {
                             <td dir="ltr">{line.debit !== "0" ? `Dr ${line.debit} → Cr ${line.debit}` : `Cr ${line.credit} → Dr ${line.credit}`}</td></tr>))}</tbody></table>
                       <p className="admin-hint">{journal.periodStatus === "OPEN"
                         ? (fa ? `برگشت در همان تاریخ ${journal.date} ثبت می‌شود.` : `The reversal posts on the same date, ${journal.date}.`)
-                        : (fa ? `ماه آن بسته است؛ برگشت امروز (${workspace.today}) در ماه جاری ثبت می‌شود و اصل دست نمی‌خورد.`
-                          : `Its month is closed: the reversal posts today (${workspace.today}) in the current month; the original stays as it is.`)}</p>
+                        : (fa ? `سال مالی آن بسته است؛ برگشت امروز (${workspace.today}) در سال مالی جاری ثبت می‌شود و اصل دست نمی‌خورد.`
+                          : `Its financial year is closed: the reversal posts today (${workspace.today}) in the current financial year; the original stays as it is.`)}</p>
                       {kind === "reverse" && journal.viewerIsParticipant ? <p className="admin-hint" role="note">{fa
                         ? "این اصلاح ثبت خود شماست و به‌عنوان «اصلاح توسط خود ثبت‌کننده» در حسابرسی می‌ماند."
                         : "This corrects your own entry; it is recorded in the audit trail as a self-correction."}</p> : null}

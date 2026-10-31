@@ -278,17 +278,15 @@ if (databaseUrl() === undefined) {
           /ACTIVE posting EXPENSE account/i
         );
 
-        const opened = await openPeriod(
-          executor, session, pendingPeriodId, 1, "Owner authorized this synthetic test period opening."
-        );
-        const period = opened.periods.find((item) => item.id === pendingPeriodId);
-        assert.equal(period?.status, "OPEN");
-        assert.equal(period?.version, 2);
-        assert.equal(period?.openedBy, "Synthetic Operational Config Manager");
+        // 0052: a month is never opened by hand; the posting lanes open it, and the manual open is retired.
         await assert.rejects(
-          () => openPeriod(executor, session, pendingPeriodId, 2, "A second opening is forbidden."),
-          (error: unknown) => databaseError(error, "23514", /only a PENDING/i)
+          () => openPeriod(executor, session, pendingPeriodId, 1, "Manual opening is retired."),
+          (error: unknown) => databaseError(error, "42501", /permission denied for function/i)
         );
+        const stillPending = await harness.executor.query<{ status: string }>(
+          "SELECT status FROM abos.accounting_periods WHERE id = $1", [pendingPeriodId]
+        );
+        assert.equal(stillPending.rows[0]?.status, "PENDING");
 
         const audits = await harness.executor.query<{ action: string; actor: string }>(
           `SELECT action, actor_user_account_id AS actor
@@ -300,8 +298,7 @@ if (databaseUrl() === undefined) {
         assert.deepEqual(audits.rows.map((row) => row.action), [
           "OPERATIONAL_TREASURY_ACCOUNT_CREATED",
           "OPERATIONAL_EXPENSE_CATEGORY_CREATED",
-          "OPERATIONAL_TREASURY_ACCOUNT_UPDATED",
-          "ACCOUNTING_PERIOD_OPENED"
+          "OPERATIONAL_TREASURY_ACCOUNT_UPDATED"
         ]);
         assert.ok(audits.rows.every((row) => row.actor === user.user.id));
 
@@ -325,17 +322,6 @@ if (databaseUrl() === undefined) {
         // A second company cannot be addressed by supplying its record identifiers. Entity scope
         // is derived from the live session and is checked before any mutation.
         const other = await seedSyntheticWorld(harness.executor, { withoutSandboxAuthorization: true });
-        const otherPendingPeriod = randomUUID();
-        await harness.executor.query(
-          `INSERT INTO abos.accounting_periods
-             (id, legal_entity_id, period_name, starts_on, ends_on, status)
-           VALUES ($1, $2, 'Other Synthetic October', '2026-10-01', '2026-10-31', 'PENDING')`,
-          [otherPendingPeriod, other.legalEntityId]
-        );
-        await assert.rejects(
-          () => openPeriod(executor, session, otherPendingPeriod, 1, "Cross-company opening must fail."),
-          /does not exist in this legal entity/i
-        );
         await assert.rejects(
           () => treasuryUpsert(executor, session, {
             nameEn: "Cross-company mapping",

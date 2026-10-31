@@ -657,8 +657,8 @@ if (databaseUrl() === undefined) {
         originalAmount: "25", currencyCode: "USD", exchangeRateId: null, ...keys(), ...extra });
       const periodStatus = async () => (await h.pool.query("SELECT status FROM abos.accounting_periods WHERE id=$1", [october])).rows[0]?.status;
       const audits = async () => (await h.pool.query("SELECT count(*)::int AS n FROM abos.audit_records WHERE action='ACCOUNTING_PERIOD_OPENED'")).rows[0]?.n as number;
-      // The plain entry point still refuses, exactly as before: nothing opens a month by accident.
-      await assert.rejects(() => expense("operational_expense_create"), /period|open/i);
+      // 0052: the plain entry point opens the month itself as well (financial-year-close.test.ts); here only the
+      // one-save lane is exercised, so the month is still PENDING.
       assert.equal(await periodStatus(), "PENDING");
       // An expense that is refused leaves the month exactly as it was, with no audit row claiming otherwise.
       const before = await audits();

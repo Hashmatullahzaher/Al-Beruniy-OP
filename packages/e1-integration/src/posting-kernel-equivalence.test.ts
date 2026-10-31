@@ -22,6 +22,7 @@ import { seedSyntheticWorld, SYNTHETIC_AUTH_CONFIGURATION } from "./synthetic-wo
 const MARKER = SYNTHETIC_AUTH_CONFIGURATION.runtimeMarker;
 const PREDECESSOR = "0043_v1_posting_kernel";
 const MIGRATION = "0044_v1_posting_kernel_writer";
+const EQUIVALENT_THROUGH = "0051_v1_fx_policy_and_afn";
 const PERMISSIONS = ["shareholder.setup.manage", "shareholder.capital-receipt.read", "shareholder.capital-receipt.record",
   "finance.capital-receipt.prepare", "finance.capital-receipt.post", "finance.report.operational.read",
   "finance.expense.create", "finance.expense.read"];
@@ -224,9 +225,11 @@ if (databaseUrl() === undefined) {
     test("expense and direct capital rows are identical before and after the kernel writer", async () => {
       await buildThrough(PREDECESSOR);
       const before = await projection(await scenario());
-      await resetSchema(h.pool);
       const migrations = await loadMigrations();
       assert.ok(migrations.some((m) => m.id === MIGRATION), "0044 is registered");
+      // Compared through 0051: 0052 deliberately changes the expense lane (months open themselves; a closed month is
+      // refused as a closed financial year), which financial-year-close.test.ts proves on its own.
+      await buildThrough(EQUIVALENT_THROUGH);
       const after = await projection(await scenario());
       const posted = (await h.pool.query<{ source_type: string; n: number }>(
         "SELECT source_type, count(*)::int AS n FROM abos.journals j JOIN abos.posting_intents i ON i.id = j.posting_intent_id WHERE j.status = 'POSTED' GROUP BY 1 ORDER BY 1")).rows;

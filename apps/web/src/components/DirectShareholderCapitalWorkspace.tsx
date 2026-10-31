@@ -131,7 +131,7 @@ export function DirectShareholderCapitalWorkspace() {
         setUncertain(network);
         const errors: Record<string, [string, string]> = {
           PERIOD_MISSING: ["No month in your financial year covers this date. Ask your Finance administrator to generate the year.", "هیچ ماهی از سال مالی شما این تاریخ را پوشش نمی‌دهد. از مدیر مالی بخواهید سال مالی را بسازد."],
-          PERIOD_CLOSED: ["The month covering this date is closed. Choose another date.", "ماه این تاریخ بسته است. تاریخ دیگری انتخاب کنید."],
+          PERIOD_CLOSED: ["The financial year of this date is closed. Choose a date in an active financial year.", "سال مالی این تاریخ بسته است. تاریخی در سال مالی فعال انتخاب کنید."],
           ASSET_ACCOUNT_REQUIRED: ["Create one active “shareholder contributed assets” account in the Chart of Accounts first.", "نخست یک حساب فعال «دارایی‌های آوردهٔ سهامدار» در دفتر حساب‌ها بسازید."],
           EXPENSE_ACCOUNT_REQUIRED: ["Choose an active expense account in the accounting currency.", "یک حساب هزینهٔ فعال با واحد پول حسابداری انتخاب کنید."],
           SARAF_REQUIRED: ["Name the saraf the hawala came through.", "نام صرافی که حواله از آن آمده را بنویسید."],

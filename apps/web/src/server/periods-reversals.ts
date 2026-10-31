@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import type { JournalReversalCommand, PeriodCommand } from "@abos/contracts";
+import type { JournalReversalCommand } from "@abos/contracts";
 import { IdentityError } from "@abos/identity";
 
 import { financeHandoffRuntime } from "@/server/finance-handoff";
@@ -8,10 +8,10 @@ import { assertMutation, readBody, sessionToken } from "@/server/identity";
 import { operationalFinanceErrorResponse, restrictedFinanceAuthenticator } from "@/server/operational-finance";
 
 /**
- * Closing and reopening months, and reversing posted journals (migration 0050), through the restricted
- * Finance runtime only. PostgreSQL derives actor and company from the password session, checks the
- * permission, the Simple / Advanced setting and segregation of duties, and posts every reversal through
- * the REVERSAL source of the posting kernel.
+ * Closing a financial year (migration 0052) and reversing posted journals (migration 0050), through the restricted
+ * Finance runtime only. PostgreSQL derives actor and company from the password session, checks the permission, the
+ * Simple / Advanced setting and segregation of duties, and posts every reversal through the REVERSAL source of the
+ * posting kernel. Months are never closed or reopened by a user: they close with their financial year.
  */
 
 function json(body: unknown, status = 200): Response {
@@ -35,22 +35,6 @@ function reader(body: Record<string, unknown>) {
   return { text, id, version };
 }
 
-/** Builds exactly one known period command; unknown actions are refused before any database call. */
-export function periodCommand(body: Record<string, unknown>): PeriodCommand {
-  const { text, id, version } = reader(body);
-  switch (text("action")) {
-    case "close": return { action: "close", periodId: id("periodId", "Choose a month."), expectedVersion: version() };
-    case "reopen": return { action: "reopen", periodId: id("periodId", "Choose a month."), expectedVersion: version(), reason: text("reason") };
-    case "request-reopen": return { action: "request-reopen", periodId: id("periodId", "Choose a month."), expectedVersion: version(), reason: text("reason") };
-    case "decide-reopen": {
-      const decision = text("decision");
-      if (decision !== "CONFIRMED" && decision !== "REJECTED" && decision !== "WITHDRAWN") throw new IdentityError("VALIDATION_FAILED", "Choose a decision.");
-      return { action: "decide-reopen", requestId: id("requestId", "Choose a request."), expectedVersion: version(), decision, note: text("note") || null };
-    }
-    default: throw new IdentityError("VALIDATION_FAILED", "Unknown period action.");
-  }
-}
-
 /** Builds exactly one known reversal command. */
 export function journalReversalCommand(body: Record<string, unknown>): JournalReversalCommand {
   const { text, id, version } = reader(body);
@@ -72,24 +56,28 @@ export function journalReversalCommand(body: Record<string, unknown>): JournalRe
 
 const runtime = () => financeHandoffRuntime().executor;
 
-export async function periodsGet(): Promise<Response> {
-  try { return json({ ok: true, data: await restrictedFinanceAuthenticator().periodsWorkspace(runtime(), await sessionToken()) }); }
+export async function financialYearsGet(): Promise<Response> {
+  try { return json({ ok: true, data: await restrictedFinanceAuthenticator().financialYearsWorkspace(runtime(), await sessionToken()) }); }
   catch (error) { return slice5ErrorResponse(error); }
 }
 
-export async function periodPreviewGet(periodId: string): Promise<Response> {
+export async function financialYearPreviewGet(fiscalYearId: string): Promise<Response> {
   try {
-    if (!UUID.test(periodId)) throw new IdentityError("VALIDATION_FAILED", "Choose a month.");
-    return json({ ok: true, data: await restrictedFinanceAuthenticator().periodClosePreview(runtime(), await sessionToken(), periodId) });
+    if (!UUID.test(fiscalYearId)) throw new IdentityError("VALIDATION_FAILED", "Choose a financial year.");
+    return json({ ok: true, data: await restrictedFinanceAuthenticator().financialYearClosePreview(runtime(), await sessionToken(), fiscalYearId) });
   } catch (error) { return slice5ErrorResponse(error); }
 }
 
-export async function periodsPost(request: Request): Promise<Response> {
+/** { fiscalYearId, correlationId? }: closes the year (a repeated close replays); returns the refreshed workspace. */
+export async function financialYearClosePost(request: Request): Promise<Response> {
   try {
     assertMutation(request);
     const token = await sessionToken();
-    const result = await restrictedFinanceAuthenticator().periodCommand(runtime(), token, periodCommand(await readBody(request)));
-    return json({ ok: true, data: { result, workspace: await restrictedFinanceAuthenticator().periodsWorkspace(runtime(), token) } });
+    const { text, id } = reader(await readBody(request));
+    const command = { fiscalYearId: id("fiscalYearId", "Choose a financial year."),
+      correlationId: UUID.test(text("correlationId")) ? text("correlationId") : randomUUID() };
+    const result = await restrictedFinanceAuthenticator().financialYearClose(runtime(), token, command);
+    return json({ ok: true, data: { result, workspace: await restrictedFinanceAuthenticator().financialYearsWorkspace(runtime(), token) } });
   } catch (error) { return slice5ErrorResponse(error); }
 }
 
@@ -108,14 +96,12 @@ export async function reversalsPost(request: Request): Promise<Response> {
   } catch (error) { return slice5ErrorResponse(error); }
 }
 
-/** Refusals written by 0050 (and the guards it relies on), as stable codes; the pages show English or Dari. */
+/** Refusals written by 0050 and 0052 (and the guards they rely on), as stable codes; the pages show English or Dari. */
 const REFUSALS: readonly { readonly pattern: RegExp; readonly status: number; readonly code: string; readonly message: string }[] = [
   { pattern: /not enough money in .* its balance would fall below zero/i, status: 422, code: "INSUFFICIENT_FUNDS",
     message: "Reversing this would take the Safe below zero. A Safe, cash box or petty cash can never go below zero." },
   { pattern: /requires an approved request for reversals/i, status: 422, code: "APPROVAL_REQUIRED",
     message: "Your company requires an approved request for reversals. Send a reversal request." },
-  { pattern: /second person to reopen/i, status: 422, code: "SECOND_PERSON_REQUIRED",
-    message: "Your company requires a second person to reopen a month. Send a reopen request." },
   { pattern: /second person must confirm|person who requested a reversal cannot|requested a reversal cannot decide|only the person who asked/i, status: 403,
     code: "SECOND_PERSON_REQUIRED", message: "A different person must decide this request." },
   { pattern: /whoever prepared, approved or posted a journal|actor who posted a journal cannot/i, status: 403, code: "PARTICIPANT",
@@ -128,17 +114,17 @@ const REFUSALS: readonly { readonly pattern: RegExp; readonly status: number; re
     message: "This transaction already has a reversal request. Decide that request instead." },
   { pattern: /journal_reversal_requests_one_open|duplicate key value/i, status: 409, code: "OPEN_REQUEST",
     message: "This transaction already has an open reversal request." },
-  { pattern: /cannot be reopened automatically|no accounting period covers/i, status: 422, code: "PERIOD_CLOSED",
-    message: "The current month is closed or missing, so the reversal has nowhere to post. Reopen or open the current month first." },
-  { pattern: /journal that is not posted/i, status: 422, code: "UNPOSTED_JOURNAL", message: "The month has a journal that is not posted, so it cannot be closed." },
-  { pattern: /only an open month can be closed/i, status: 422, code: "NOT_OPEN", message: "Only an open month can be closed." },
-  { pattern: /only a closed month can be reopened/i, status: 422, code: "NOT_CLOSED", message: "Only a closed month can be reopened." },
+  { pattern: /financial year covering .* is closed|cannot be reopened automatically|no accounting period covers/i, status: 422, code: "PERIOD_CLOSED",
+    message: "Today's financial year is closed or not set up, so the reversal has nowhere to post. Set up the current financial year first." },
+  { pattern: /journal that is not posted/i, status: 422, code: "UNPOSTED_JOURNAL",
+    message: "The financial year has a journal that is not posted, so it cannot be closed." },
+  { pattern: /has no months to close/i, status: 422, code: "NO_MONTHS", message: "This financial year has no months set up, so there is nothing to close." },
   { pattern: /changed; reload|changed by someone else/i, status: 409, code: "STALE_VERSION", message: "This changed in the meantime. Reload and try again." },
   { pattern: /was already (approved|rejected|withdrawn|confirmed)/i, status: 409, code: "ALREADY_DECIDED", message: "This request was already decided." },
-  { pattern: /reason for (the reversal|reopening)/i, status: 422, code: "REASON_REQUIRED", message: "Write the reason." },
+  { pattern: /reason for the reversal/i, status: 422, code: "REASON_REQUIRED", message: "Write the reason." },
   { pattern: /say why/i, status: 422, code: "NOTE_REQUIRED", message: "Say why the request is rejected." },
   { pattern: /not found|does not exist in this legal entity/i, status: 404, code: "NOT_FOUND", message: "That is not available for your company." },
-  { pattern: /unknown (reversal|period) fields|choose a valid/i, status: 422, code: "VALIDATION_FAILED", message: "Some details are missing or not valid." }
+  { pattern: /unknown (reversal|financial year) fields|choose a valid/i, status: 422, code: "VALIDATION_FAILED", message: "Some details are missing or not valid." }
 ];
 
 export function slice5ErrorResponse(error: unknown): Response {

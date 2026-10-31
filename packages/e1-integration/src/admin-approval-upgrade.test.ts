@@ -16,7 +16,7 @@ const NEW_TABLES = ["finance_workflow_policy_commands", "ledger_account_policy_r
   "fx_policy_versions", "fx_conversions"] as const;
 // 0041 seeds the retirement register (schema metadata, like the workflow catalogue row) and lets only the
 // identity runtime read it; every other new table stays empty and unreachable from every runtime.
-const SEEDED_ROWS: Readonly<Record<string, number>> = { permission_retirements: 12, posting_sources: 11 };
+const SEEDED_ROWS: Readonly<Record<string, number>> = { permission_retirements: 13, posting_sources: 11 };
 const READ_ONLY_RUNTIME: Readonly<Record<string, string>> = { permission_retirements: "abos_v1_identity_runtime" };
 const NEW_GOVERNANCE_COLUMNS = [
   "finance_workflow_policy_version_id", "approval_required", "policy_released_by_user_account_id",
@@ -101,17 +101,17 @@ if (databaseUrl() === undefined) {
           const beforeRegistry = (await client.query("SELECT * FROM abos.schema_migrations ORDER BY migration_id")).rows;
           const governanceBefore = (await client.query("SELECT to_jsonb(g) AS row FROM abos.ledger_account_governance g ORDER BY ledger_account_id")).rows;
           assert.equal(governanceBefore.length, 3);
-          assert.deepEqual(await applyMigrations(tx, migrations), [MIGRATION, "0040_v1_direct_shareholder_capital", "0041_v1_retire_synthetic_lane", "0042_v1_shareholder_business_day", "0043_v1_posting_kernel", "0044_v1_posting_kernel_writer", "0045_v1_subledger_sign_and_balances", "0046_v1_treasury_opening_balances", "0047_v1_basic_money_movements", "0048_v1_expense_payment_kind", "0049_v1_slice4_corrections", "0050_v1_periods_and_reversals", "0051_v1_fx_policy_and_afn"]);
+          assert.deepEqual(await applyMigrations(tx, migrations), [MIGRATION, "0040_v1_direct_shareholder_capital", "0041_v1_retire_synthetic_lane", "0042_v1_shareholder_business_day", "0043_v1_posting_kernel", "0044_v1_posting_kernel_writer", "0045_v1_subledger_sign_and_balances", "0046_v1_treasury_opening_balances", "0047_v1_basic_money_movements", "0048_v1_expense_payment_kind", "0049_v1_slice4_corrections", "0050_v1_periods_and_reversals", "0051_v1_fx_policy_and_afn", "0052_v1_financial_year_close"]);
           const afterTables = await tableNames(client);
           assert.deepEqual(afterTables.filter((name) => !beforeTables.includes(name)), [...NEW_TABLES].sort());
           assert.deepEqual(await snapshots(client, beforeTables), beforeBusiness,
             "all historical columns in every business/security table are byte-for-byte preserved");
-          assert.deepEqual((await client.query("SELECT * FROM abos.schema_migrations WHERE migration_id<>ALL($1::text[]) ORDER BY migration_id", [[MIGRATION, "0040_v1_direct_shareholder_capital", "0041_v1_retire_synthetic_lane", "0042_v1_shareholder_business_day", "0043_v1_posting_kernel", "0044_v1_posting_kernel_writer", "0045_v1_subledger_sign_and_balances", "0046_v1_treasury_opening_balances", "0047_v1_basic_money_movements", "0048_v1_expense_payment_kind", "0049_v1_slice4_corrections", "0050_v1_periods_and_reversals", "0051_v1_fx_policy_and_afn"]])).rows,
+          assert.deepEqual((await client.query("SELECT * FROM abos.schema_migrations WHERE migration_id<>ALL($1::text[]) ORDER BY migration_id", [[MIGRATION, "0040_v1_direct_shareholder_capital", "0041_v1_retire_synthetic_lane", "0042_v1_shareholder_business_day", "0043_v1_posting_kernel", "0044_v1_posting_kernel_writer", "0045_v1_subledger_sign_and_balances", "0046_v1_treasury_opening_balances", "0047_v1_basic_money_movements", "0048_v1_expense_payment_kind", "0049_v1_slice4_corrections", "0050_v1_periods_and_reversals", "0051_v1_fx_policy_and_afn", "0052_v1_financial_year_close"]])).rows,
             beforeRegistry, "all 0001-0038 registry values, checksums and timestamps are unchanged");
           const upgraded = (await client.query("SELECT checksum_sha256 FROM abos.schema_migrations WHERE migration_id=$1", [MIGRATION])).rows;
           assert.equal(upgraded.length, 1, "0039 recorded exactly once");
           assert.equal(upgraded[0]?.checksum_sha256, migrations[index]?.checksumSha256);
-          assert.equal(Number((await client.query("SELECT count(*) AS n FROM abos.schema_migrations")).rows[0]?.n), beforeRegistry.length + 13);
+          assert.equal(Number((await client.query("SELECT count(*) AS n FROM abos.schema_migrations")).rows[0]?.n), beforeRegistry.length + 14);
           assert.deepEqual((await client.query(`SELECT to_jsonb(g)-$1::text[] AS row
             FROM abos.ledger_account_governance g ORDER BY ledger_account_id`, [NEW_GOVERNANCE_COLUMNS])).rows, governanceBefore);
           const governanceAdded = (await client.query(`SELECT approval_required,finance_workflow_policy_version_id,
@@ -145,7 +145,7 @@ if (databaseUrl() === undefined) {
             bool_and(frozen_lane_can_execute) AS holder FROM abos.frozen_lanes`)).rows[0];
           assert.deepEqual(lanes, { n: 14, present: true, runtime: false, holder: true });
           assert.equal(Number((await client.query(`SELECT count(*) AS n FROM abos.permission_retirements r
-            JOIN abos.permission_catalogue c USING (permission_code)`)).rows[0]?.n), 12);
+            JOIN abos.permission_catalogue c USING (permission_code)`)).rows[0]?.n), 13, "0041's twelve plus finance.period.reopen (0052)");
           // 0046: the two new codes, and OPENING_BALANCE is the one registry source it activates.
           assert.deepEqual((await client.query(`SELECT permission_code, category, availability FROM abos.permission_catalogue
             WHERE permission_code IN ('treasury.safe.read','treasury.opening-balance.record') ORDER BY 1`)).rows,

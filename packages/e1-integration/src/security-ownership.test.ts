@@ -67,7 +67,7 @@ if (databaseUrl() === undefined) {
                 p.proconfig AS config, has_function_privilege('public', p.oid, 'EXECUTE') AS public_execute
            FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace JOIN pg_roles r ON r.oid = p.proowner
           WHERE n.nspname = 'abos' AND p.prosecdef ORDER BY 1`);
-      assert.equal(rows.rows.length, 130, "every restricted entry point through the 0051 FX policy slice is accounted for");
+      assert.equal(rows.rows.length, 134, "every restricted entry point through the 0052 financial year close is accounted for");
       for (const fn of rows.rows) {
         assert.ok((FUNCTION_OWNERS as readonly string[]).includes(fn.owner), `${fn.signature} is owned by ${fn.owner}`);
         assert.equal(fn.superuser, false, fn.signature);
@@ -197,6 +197,11 @@ if (databaseUrl() === undefined) {
         // 0051: the FX policy per currency and the conversion preview.
         finance_fx_policy_workspace: "abos_v1_operational_finance_owner", finance_fx_policy_set: "abos_v1_operational_finance_owner",
         treasury_fx_preview: "abos_v1_operational_finance_owner",
+        // 0052: financial year close (the 0050 month functions above stay for history; the runtime may no longer call them).
+        finance_financial_years_workspace: "abos_v1_operational_finance_owner",
+        finance_financial_year_close_preview: "abos_v1_operational_finance_owner",
+        finance_financial_year_close: "abos_v1_operational_finance_owner",
+        journal_financial_year_guard: "abos_v1_operational_finance_owner",
         // WP #17 (0023): reversal requests (request -> Finance Manager decision; posting fail-closed).
         finance_reversal_requests_view: "abos_e1_finance_owner", finance_reversal_request_create: "abos_e1_finance_owner",
         finance_reversal_request_decide: "abos_e1_finance_owner", finance_reversal_request_withdraw: "abos_e1_finance_owner"
@@ -362,7 +367,8 @@ if (databaseUrl() === undefined) {
         `SELECT r.permission_code, c.availability, r.retired_in_migration
            FROM abos.permission_retirements r JOIN abos.permission_catalogue c USING (permission_code) ORDER BY 1`);
       assert.deepEqual(retired.rows.map((row) => row.permission_code), [...RETIRED_PERMISSION_CODES].sort());
-      assert.ok(retired.rows.every((row) => row.retired_in_migration === "0041_v1_retire_synthetic_lane"));
+      assert.ok(retired.rows.every((row) => row.retired_in_migration === (row.permission_code === "finance.period.reopen"
+        ? "0052_v1_financial_year_close" : "0041_v1_retire_synthetic_lane")));
       assert.ok(retired.rows.every((row) => row.availability === "ACTIVE" || row.availability === "UNAVAILABLE_IN_PREVIEW"), "catalogue rows are not rewritten");
       await assert.rejects(() => harness.executor.query("DELETE FROM abos.permission_retirements"), /append-only|permission denied|cannot be/i);
     });

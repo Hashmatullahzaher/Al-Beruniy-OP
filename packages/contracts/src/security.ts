@@ -59,8 +59,9 @@ export interface ServerActorContext {
 }
 
 /**
- * Permission codes retired with migration 0041 (`abos.permission_retirements`). They belong only to
- * the frozen E1 synthetic lane: the catalogue rows and every existing grant stay exactly as they
+ * Permission codes retired with migration 0041 (`abos.permission_retirements`), plus the monthly reopen
+ * retired by 0052 (Al-Beruniy closes a financial year, never a month). The 0041 codes belong only to
+ * the frozen E1 synthetic lane. For all of them the catalogue rows and every existing grant stay exactly as they
  * are, but a retired code cannot be added to a role, the role editor shows it as retired, and the
  * dashboard no longer lists it. The integration suite asserts this list equals the register.
  */
@@ -76,5 +77,6 @@ export const RETIRED_PERMISSION_CODES: ReadonlySet<string> = new Set([
   "shareholder.capital-intent.create",
   "finance.posting-intent.create",
   "finance.posting-intent.approve",
-  "finance.journal.post"
+  "finance.journal.post",
+  "finance.period.reopen"
 ]);
