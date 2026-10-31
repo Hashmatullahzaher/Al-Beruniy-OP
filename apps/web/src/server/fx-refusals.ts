@@ -5,7 +5,7 @@
 
 export const FX_REFUSALS: readonly { readonly pattern: RegExp; readonly status: number; readonly code: string; readonly message: string }[] = [
   { pattern: /FX setup: no FX difference account/i, status: 422, code: "FX_SETUP_REQUIRED",
-    message: "Foreign-currency posting is not set up: create one active income or expense account in the accounting currency with the control “FX difference” in the Chart of Accounts." },
+    message: "This would record an FX difference, which needs one active income or expense account in the accounting currency with the control “FX difference” in the Chart of Accounts." },
   { pattern: /FX setup: \d+ active accounts carry control FX_DIFFERENCE/i, status: 422, code: "FX_SETUP_AMBIGUOUS",
     message: "Several accounts carry the control “FX difference”. Save an FX policy for this currency that names one." },
   { pattern: /FX setup:/i, status: 422, code: "FX_SETUP_INVALID",

@@ -322,5 +322,17 @@ stays at trunk `0aa6512` / migration 0040 throughout unless an entry says otherw
   - unit 169/169; typecheck, lint, build;
   - smoke 13/13; browser 80 passed;
   - post-0050 production dump upgraded to 0051 with zero backfill and zero journals.
-- 0051 checksum `fb385c551d01…`. **Not deployed**: production deployment of 0051 is not authorized.
+- 0051 checksum `9a79e03cca74…`. **Not deployed**: production deployment of 0051 is not authorized.
 
+## Slice 6 correction — 0051 amended (owner decision of 2026-10-31)
+
+- An FX difference account is no longer required for ordinary foreign-currency postings: AFN receipts, Safe and Saraf funding, expenses, payments and same-currency transfers. These use one snapshot and balance exactly.
+- `abos.fx_difference_account_for` is the resolver a future difference-producing source must call; it refuses without the account.
+- The policy may name an account or none.
+- Cross-currency transfers stay refused.
+- **Validation:**
+  - FX suite 7/7; full integration 319/319 (fresh database);
+  - unit 169/169; typecheck 12/12; lint; build 11/11;
+  - smoke 13/13; browser 81 passed (plus the known first-compile shell flake, green on rerun);
+  - post-0050 production dump upgraded to the final 0051: 95/97 tables identical, 0 journals, no runtime table access to the FX tables, definers 127 → 130.
+- Final 0051 checksum `9a79e03cca74308f957f169b981593c5df57d0fe1eccd99abd382d1e9885abd9`. The previous checksum `fb385c55…` was never deployed.

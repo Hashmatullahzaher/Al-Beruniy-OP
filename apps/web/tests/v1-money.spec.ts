@@ -27,8 +27,9 @@ const workspace = () => ({
     account(afnId, "Afghani box", "CASH_BOX", "AFN", "0")]
 });
 type Settings = Record<string, "READY" | "APPROVAL_REQUIRED">;
-const fxReady = [{ currencyCode: "AFN", status: "READY", policy: { versionId: null, version: 0, effectiveFrom: null, roundingMode: "HALF_UP", baseScale: 2,
-  fxDifferenceAccountId: "73000000-0000-4000-8000-000000000020", isDefault: true } }];
+// Owner decision of 2026-10-31: ordinary AFN movements need no FX difference account (MISSING here on purpose).
+const fxReady = [{ currencyCode: "AFN", status: "READY", fxDifferenceStatus: "MISSING", policy: { versionId: null, version: 0, effectiveFrom: null,
+  roundingMode: "HALF_UP", baseScale: 2, fxDifferenceAccountId: null, fxDifferenceStatus: "MISSING", isDefault: true } }];
 const options = (settings: Settings = {}, can: Partial<Record<"canReceive" | "canTransfer" | "canPay" | "canRecordExpense", boolean>> = {},
   fx: readonly object[] = []) => ({
   baseCurrency: "USD", today: "2026-10-27", canReceive: true, canTransfer: true, canPay: true, canRecordExpense: true, ...can,
@@ -251,7 +252,7 @@ test("Dari labels and RTL remain usable at phone width", async ({ page }) => {
 // 0051: AFN movements. The conversion itself (rate snapshot, rounding, accounting amount) is proven by fx-afn-posting.
 const marketRate = "73000000-0000-4000-8000-000000000030";
 const sarafRate = "73000000-0000-4000-8000-000000000031";
-async function mockPreview(page: Page, setup: "READY" | "SETUP_REQUIRED") {
+async function mockPreview(page: Page, setup: "READY" | "NO_RATE") {
   const asked: string[] = [];
   await page.route("**/api/v1/finance/fx-preview*", async (route) => {
     const query = new URL(route.request().url()).searchParams;
@@ -261,7 +262,7 @@ async function mockPreview(page: Page, setup: "READY" | "SETUP_REQUIRED") {
     const chosen = rates.find((item) => item.id === query.get("exchangeRateId"));
     const amount = Number(query.get("amount") ?? "0");
     await route.fulfill({ json: { ok: true, data: { currencyCode: "AFN", baseCurrency: "USD", businessDate: query.get("businessDate"),
-      setup: setup === "READY" ? fxReady[0] : { currencyCode: "AFN", status: "SETUP_REQUIRED", message: "FX setup: no FX difference account." },
+      setup: fxReady[0],
       rates: setup === "READY" ? rates : [],
       preview: chosen && amount > 0 ? { exact: (amount / Number(chosen.rate)).toFixed(20), base: (amount / Number(chosen.rate)).toFixed(2),
         difference: "0", exchangeRateId: chosen.id } : null } } });
@@ -295,17 +296,17 @@ test("an AFN box receives cash at the chosen rate of the day and shows the amoun
   expect(asked.some((query) => query.includes("currencyCode=AFN") && query.includes("amount=7000"))).toBe(true);
 });
 
-test("without an FX difference account an AFN form says what to set up and cannot be saved", async ({ page }) => {
-  const { commands } = await mock(page, { money: options({}, {}, [{ currencyCode: "AFN", status: "SETUP_REQUIRED", message: "FX setup" }]) });
-  await mockPreview(page, "SETUP_REQUIRED");
+test("an AFN form for a day without a recorded rate says to record it and cannot be saved", async ({ page }) => {
+  const { commands } = await mock(page, { money: options({}, {}, fxReady) });
+  await mockPreview(page, "NO_RATE");
   await page.goto("/finance/safes");
   await page.getByRole("region", { name: "Afghani box" }).getByRole("button", { name: "Receive cash" }).click();
   const form = page.getByRole("form", { name: "Receive cash — Afghani box" });
   await form.getByLabel("Amount *").fill("7000");
   await form.getByLabel("Or a name").fill("Shop tenant");
   await form.getByLabel("Income account *").selectOption(incomeId);
-  await expect(form.getByRole("note").filter({ hasText: "Foreign-currency posting is not set up yet" })).toBeVisible();
-  await expect(form.getByRole("link", { name: "FX policy" })).toHaveAttribute("href", "/finance/fx-policy");
+  await expect(form.getByRole("note").filter({ hasText: "No AFN rate is recorded for 2026-10-27" })).toBeVisible();
+  await expect(form.getByRole("link", { name: "Exchange rates" })).toHaveAttribute("href", "/finance/exchange-rates");
   await expect(form.getByRole("button", { name: "Save" })).toBeDisabled();
   expect(commands).toHaveLength(0);
 });

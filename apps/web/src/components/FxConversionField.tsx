@@ -55,10 +55,10 @@ export function FxConversionField({ currency, baseCurrency, date, amount, fa, on
       {failed ? <p className="treasury-message error" role="alert">{failed}</p> : null}
       {preview?.setup?.status === "SETUP_REQUIRED" ? (
         <p className="admin-hint expense-warning" role="note">{fa
-          ? "ثبت به اسعار خارجی هنوز تنظیم نشده است: یک حساب عاید یا مصرف با کنترل «تفاوت تبادله اسعار» در "
-          : "Foreign-currency posting is not set up yet: create an income or expense account with the control “FX difference” in the "}
-          <Link href="/finance/accounts">{fa ? "جدول حساب‌ها" : "Chart of Accounts"}</Link>{fa ? " بسازید یا " : ", or name one in the "}
-          <Link href="/finance/fx-policy">{fa ? "پالیسی اسعار" : "FX policy"}</Link>{fa ? " تعیین کنید." : "."}</p>
+          ? "ثبت به این واحد پول فعلاً در دسترس نیست. "
+          : "Recording in this currency is not available right now. "}
+          <span dir="auto">{preview.setup.message}</span>{" "}
+          <Link href="/finance/fx-policy">{fa ? "پالیسی اسعار" : "FX policy"}</Link></p>
       ) : null}
       {preview && preview.setup?.status === "READY" && rates.length === 0 ? (
         <p className="admin-hint expense-warning" role="note">{fa ? `برای ${date} نرخ ${currency} ثبت نشده است. ابتدا آن را در ` : `No ${currency} rate is recorded for ${date}. Record it in `}

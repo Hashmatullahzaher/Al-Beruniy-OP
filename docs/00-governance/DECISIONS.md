@@ -133,3 +133,16 @@ Implemented by amending 0050 before it was deployed. The amendment is the same m
 2. **The opening balance shown is the effective accounting amount.** A fully reversed 2,500 opening balance shows 0; the book still derives from posted movements; the original opening balance, its reversal and their links stay visible. The read model changes, not the history.
 3. **Capital declaration allocations after a reversal: deferred.** This is legacy capital cleanup debt, to be normalized when the retired capital-request / declaration model is consolidated.
 
+## Owner decisions — Slice 6 FX difference account — 2026-10-31
+
+Implemented by amending 0051 before it was deployed. The amendment is the same migration, with a new checksum.
+
+1. **No FX difference account is required for ordinary foreign-currency postings.**
+   - Such a posting uses one immutable rate snapshot for the whole business event and balances exactly in the accounting currency after the configured rounding. No realized or unrealized FX difference arises.
+   - It covers the AFN receipt, Safe or Saraf funding, expense, payment and same-currency transfer.
+2. **The FX difference account is mandatory only for a source that can produce an FX difference:** AFN ↔ USD exchange, settlement at a rate different from the original recognition rate, revaluation, or any other such source.
+   - Such a source refuses with a clear setup error when the account is missing.
+   - The account is never created automatically.
+3. **Cross-currency Treasury transfers stay refused.** A transfer never becomes an implicit currency exchange. Currency exchange will be its own explicit source through the posting kernel, once its FX-difference accounting is designed.
+4. **The corrected `finance.reversal.direct` description stays in 0051.** In Simple Mode an authorized user may reverse their own transaction with a mandatory reason and full audit; Advanced Mode independence stays separate.
+
