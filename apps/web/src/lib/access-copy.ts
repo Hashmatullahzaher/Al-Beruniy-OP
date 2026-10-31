@@ -184,7 +184,7 @@ export const PERMISSION_COPY: Readonly<Record<string, PermissionCopy>> = {
   // FX policy (0051).
   "finance.fx-policy.manage": {
     label: { en: "Manage the FX policy", fa: "مدیریت پالیسی اسعار" },
-    allows: { en: "Save how money in another currency is recorded in the accounting currency: rounding, decimal places and the FX difference account, effective from a date. Earlier policies are kept and recorded movements never change.", fa: "ذخیرهٔ اینکه پول به واحد پول دیگر چگونه به واحد پول حسابداری ثبت شود: گرد کردن، ارقام اعشار و حساب تفاوت تبادله اسعار، مؤثر از یک تاریخ. پالیسی‌های قبلی نگه داشته می‌شوند و حرکات ثبت‌شده تغییر نمی‌کنند." }
+    allows: { en: "Save how money in another currency is recorded in the accounting currency: rounding, decimal places and, optionally, the FX difference account, effective from a date. Earlier policies are kept and recorded movements never change.", fa: "ذخیرهٔ اینکه پول به واحد پول دیگر چگونه به واحد پول حسابداری ثبت شود: گرد کردن، ارقام اعشار و حساب تفاوت تبادله اسعار، مؤثر از یک تاریخ. پالیسی‌های قبلی نگه داشته می‌شوند و حرکات ثبت‌شده تغییر نمی‌کنند." }
   },
   "finance.expense-category.manage": {
     label: { en: "Set up expense types", fa: "تنظیم انواع مصرف" },

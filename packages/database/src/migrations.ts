@@ -275,7 +275,7 @@ export const migrationCatalog = [
   },
   {
     id: "0051_v1_fx_policy_and_afn",
-    checksumSha256: "fb385c551d0167d8aa6305d176a0bab09f896f0d63659602b2394e7ac88050f2",
+    checksumSha256: "9a79e03cca74308f957f169b981593c5df57d0fe1eccd99abd382d1e9885abd9",
     relativePath: "infrastructure/database/migrations/0051_v1_fx_policy_and_afn.sql",
   },
 ] as const satisfies readonly MigrationDefinition[];

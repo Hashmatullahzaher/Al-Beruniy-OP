@@ -3,9 +3,12 @@
 -- 1. Permission finance.fx-policy.manage (catalogue v14) and the Chart of Accounts control FX_DIFFERENCE (an income or
 --    expense account in the accounting currency). No account is ever created by the system.
 -- 2. FX policy per legal entity and currency (append-only versions): the scale of the converted accounting amount, the
---    rounding mode (HALF_UP, the default; or EXACT_ONLY) and the FX difference account, effective from a business date.
---    With no saved version the default applies: HALF_UP to 2 decimal places, and the one active FX_DIFFERENCE account.
---    A foreign-currency posting is refused with a setup error while the FX difference account is missing or ambiguous.
+--    rounding mode (HALF_UP, the default; or EXACT_ONLY) and optionally the FX difference account, effective from a
+--    business date. With no saved version the default applies: HALF_UP to 2 decimal places.
+--    Owner decision of 2026-10-31: the FX difference account is required only by a source that can produce an FX
+--    difference (currency exchange, settlement at another rate, revaluation; none exists yet). Such a source resolves it
+--    through abos.fx_difference_account_for, which refuses with a setup error when it is missing or ambiguous. Ordinary
+--    postings that use one snapshot and balance exactly never need it.
 -- 3. One conversion for every lane: abos.fx_convert takes the day's immutable rate snapshot (0016), applies the policy
 --    in exact decimal arithmetic (no floating point) and records an immutable abos.fx_conversions row: the native amount
 --    and currency, the exact accounting amount, the rounded accounting amount, the rounding residual, the policy
@@ -14,8 +17,8 @@
 --    lines and Treasury movements keep the native amount and currency, the accounting amount and the snapshot
 --    reference. A transfer between accounts of different currencies stays refused (a currency exchange is a later slice).
 -- 5. Each journal uses one snapshot for all its lines, so every journal balances in the accounting currency and no
---    posting in this slice produces an FX difference; the account is resolved and recorded on every conversion so the
---    exchange and revaluation lanes post into the configured account.
+--    posting in this slice produces an FX difference. The conversion records the FX difference account in force when one
+--    is configured, and NULL otherwise.
 -- No existing row is changed and no journal is created by this migration.
 
 -- ---------------------------------------------------------------------------------------------
@@ -42,7 +45,8 @@ CREATE TABLE abos.fx_policy_versions (
   effective_from date NOT NULL,
   base_scale integer NOT NULL CHECK (base_scale BETWEEN 0 AND 6),
   rounding_mode text NOT NULL CHECK (rounding_mode IN ('HALF_UP', 'EXACT_ONLY')),
-  fx_difference_ledger_account_id uuid NOT NULL,
+  -- Optional: named when the company has several FX difference accounts; otherwise the one control account is used.
+  fx_difference_ledger_account_id uuid,
   reason text NOT NULL CHECK (length(btrim(reason)) BETWEEN 5 AND 500),
   created_by_user_account_id uuid NOT NULL REFERENCES abos.user_accounts(id),
   correlation_id uuid NOT NULL,
@@ -61,7 +65,8 @@ CREATE TABLE abos.fx_conversions (
   fx_policy_version_id uuid,
   rounding_mode text NOT NULL CHECK (rounding_mode IN ('HALF_UP', 'EXACT_ONLY')),
   base_scale integer NOT NULL CHECK (base_scale BETWEEN 0 AND 6),
-  fx_difference_ledger_account_id uuid NOT NULL,
+  -- The FX difference account in force when the conversion was made, if any; an ordinary conversion does not need one.
+  fx_difference_ledger_account_id uuid,
   original_amount numeric NOT NULL CHECK (original_amount > 0),
   original_currency_code text NOT NULL REFERENCES abos.currencies(code),
   base_currency_code text NOT NULL REFERENCES abos.currencies(code),
@@ -141,10 +146,11 @@ RETURNS boolean LANGUAGE sql STABLE SET search_path = pg_catalog, pg_temp AS $re
 $ready$;
 
 -- The policy in force for a currency on a business day: the highest saved version effective on or before that day, or
--- the default (HALF_UP to 2 decimal places, the one active FX_DIFFERENCE account). Raises the setup error otherwise.
+-- the default (HALF_UP to 2 decimal places). It also reports the FX difference account in force (the version's named
+-- account, else the one active FX_DIFFERENCE account) and its status, but never requires it.
 CREATE FUNCTION abos.fx_policy_resolve(p_entity uuid, p_currency text, p_day date)
 RETURNS jsonb LANGUAGE plpgsql STABLE SET search_path = pg_catalog, pg_temp AS $resolve$
-DECLARE base text; v abos.fx_policy_versions%ROWTYPE; st jsonb;
+DECLARE base text; v abos.fx_policy_versions%ROWTYPE; st jsonb; account uuid; status text;
 BEGIN
   SELECT base_currency_code INTO base FROM abos.legal_entities WHERE id = p_entity AND currency_policy_status = 'APPROVED';
   IF base IS NULL THEN
@@ -156,29 +162,45 @@ BEGIN
   SELECT * INTO v FROM abos.fx_policy_versions
    WHERE legal_entity_id = p_entity AND currency_code = p_currency AND effective_from <= p_day
    ORDER BY version DESC LIMIT 1;
-  IF FOUND THEN
-    IF NOT abos.fx_difference_account_ready(p_entity, v.fx_difference_ledger_account_id, base) THEN
-      RAISE EXCEPTION 'FX setup: the FX difference account named by the % policy is no longer an active FX difference account in %; save a new % policy',
-        p_currency, base, p_currency USING ERRCODE = 'check_violation';
-    END IF;
-    RETURN jsonb_build_object('versionId', v.id, 'version', v.version, 'effectiveFrom', v.effective_from, 'roundingMode', v.rounding_mode,
-      'baseScale', v.base_scale, 'fxDifferenceAccountId', v.fx_difference_ledger_account_id, 'isDefault', false);
+  IF v.id IS NOT NULL AND v.fx_difference_ledger_account_id IS NOT NULL THEN
+    account := v.fx_difference_ledger_account_id;
+    status := CASE WHEN abos.fx_difference_account_ready(p_entity, account, base) THEN 'READY' ELSE 'INVALID' END;
+    IF status <> 'READY' THEN account := NULL; END IF;
+  ELSE
+    st := abos.fx_difference_status(p_entity, base);
+    status := st->>'status';
+    account := CASE WHEN status = 'READY' THEN (st->'account'->>'id')::uuid END;
   END IF;
-  st := abos.fx_difference_status(p_entity, base);
-  IF st->>'status' = 'MISSING' THEN
-    RAISE EXCEPTION 'FX setup: no FX difference account. Create one active income or expense account in % with control FX_DIFFERENCE before posting in %',
-      base, p_currency USING ERRCODE = 'check_violation';
-  ELSIF st->>'status' = 'AMBIGUOUS' THEN
-    RAISE EXCEPTION 'FX setup: % active accounts carry control FX_DIFFERENCE; save an FX policy for % that names one',
-      st->>'count', p_currency USING ERRCODE = 'check_violation';
-  ELSIF st->>'status' <> 'READY' THEN
-    RAISE EXCEPTION 'FX setup: the FX difference account must be an income or expense account in % that accepts postings without dimensions',
-      base USING ERRCODE = 'check_violation';
+  IF v.id IS NOT NULL THEN
+    RETURN jsonb_build_object('versionId', v.id, 'version', v.version, 'effectiveFrom', v.effective_from, 'roundingMode', v.rounding_mode,
+      'baseScale', v.base_scale, 'fxDifferenceAccountId', account, 'fxDifferenceStatus', status, 'isDefault', false);
   END IF;
   RETURN jsonb_build_object('versionId', NULL, 'version', 0, 'effectiveFrom', NULL, 'roundingMode', 'HALF_UP', 'baseScale', 2,
-    'fxDifferenceAccountId', st->'account'->>'id', 'isDefault', true);
+    'fxDifferenceAccountId', account, 'fxDifferenceStatus', status, 'isDefault', true);
 END
 $resolve$;
+
+-- For a source that can produce an FX difference (currency exchange, settlement at another rate, revaluation): the FX
+-- difference account it must post to, or a clear setup error. No current source calls it; nothing is ever created.
+CREATE FUNCTION abos.fx_difference_account_for(p_entity uuid, p_currency text, p_day date)
+RETURNS uuid LANGUAGE plpgsql STABLE SET search_path = pg_catalog, pg_temp AS $required$
+DECLARE p jsonb; base text;
+BEGIN
+  p := abos.fx_policy_resolve(p_entity, p_currency, p_day);
+  SELECT base_currency_code INTO base FROM abos.legal_entities WHERE id = p_entity;
+  IF p->>'fxDifferenceStatus' = 'MISSING' THEN
+    RAISE EXCEPTION 'FX setup: no FX difference account. Create one active income or expense account in % with control FX_DIFFERENCE before posting an FX difference in %',
+      base, p_currency USING ERRCODE = 'check_violation';
+  ELSIF p->>'fxDifferenceStatus' = 'AMBIGUOUS' THEN
+    RAISE EXCEPTION 'FX setup: several active accounts carry control FX_DIFFERENCE; save an FX policy for % that names one',
+      p_currency USING ERRCODE = 'check_violation';
+  ELSIF p->>'fxDifferenceStatus' <> 'READY' THEN
+    RAISE EXCEPTION 'FX setup: the FX difference account for % must be an active income or expense account in % that accepts postings without dimensions',
+      p_currency, base USING ERRCODE = 'check_violation';
+  END IF;
+  RETURN (p->>'fxDifferenceAccountId')::uuid;
+END
+$required$;
 
 -- Exact decimal conversion of a positive native amount with a rate snapshot and a policy. HALF_UP rounds a half away
 -- from zero; for an inverse rate it is computed by integer division, never from a truncated quotient.
@@ -214,8 +236,8 @@ BEGIN
 END
 $amount$;
 
--- Captures the day's rate snapshot for the source and records the conversion. The setup check runs first, so a missing
--- FX difference account refuses before anything is written.
+-- Captures the day's rate snapshot for the source and records the conversion. An ordinary conversion uses one snapshot
+-- for the whole event and never needs the FX difference account (owner decision of 2026-10-31).
 CREATE FUNCTION abos.fx_convert(p_entity uuid, p_source_type text, p_source_id uuid, p_currency text, p_day date,
   p_exchange_rate_id uuid, p_actor uuid, p_amount numeric)
 RETURNS abos.fx_conversions LANGUAGE plpgsql SET search_path = pg_catalog, pg_temp AS $convert$
@@ -1459,6 +1481,7 @@ DECLARE p jsonb;
 BEGIN
   p := abos.fx_policy_resolve(p_entity, p_currency, p_day);
   RETURN jsonb_build_object('currencyCode', p_currency, 'status', 'READY', 'policy', p,
+    'fxDifferenceStatus', p->>'fxDifferenceStatus',
     'fxDifferenceAccount', (SELECT jsonb_build_object('id', id, 'code', account_code, 'name', account_name)
       FROM abos.ledger_accounts WHERE id = (p->>'fxDifferenceAccountId')::uuid AND legal_entity_id = p_entity));
 EXCEPTION WHEN check_violation THEN
@@ -1521,7 +1544,7 @@ BEGIN
     RAISE EXCEPTION 'choose a valid effective date, scale, FX difference account and version' USING ERRCODE = 'invalid_parameter_value';
   END;
   currency := p_payload->>'currencyCode'; mode := p_payload->>'roundingMode'; reason := NULLIF(btrim(p_payload->>'reason'), '');
-  IF effective IS NULL OR scale IS NULL OR expected IS NULL OR correlation IS NULL OR account IS NULL THEN
+  IF effective IS NULL OR scale IS NULL OR expected IS NULL OR correlation IS NULL THEN
     RAISE EXCEPTION 'choose a valid effective date, scale, FX difference account and version' USING ERRCODE = 'invalid_parameter_value';
   END IF;
   IF scale NOT BETWEEN 0 AND 6 THEN
@@ -1537,7 +1560,7 @@ BEGIN
   IF base IS NULL OR currency IS NULL OR currency = base OR NOT EXISTS (SELECT 1 FROM abos.currencies WHERE code = currency AND enabled) THEN
     RAISE EXCEPTION 'an FX policy is saved for an enabled currency other than the accounting currency' USING ERRCODE = 'check_violation';
   END IF;
-  IF NOT abos.fx_difference_account_ready(entity, account, base) THEN
+  IF account IS NOT NULL AND NOT abos.fx_difference_account_ready(entity, account, base) THEN
     RAISE EXCEPTION 'choose an active income or expense account in % with control FX_DIFFERENCE that accepts postings without dimensions', base
       USING ERRCODE = 'check_violation';
   END IF;
@@ -1638,14 +1661,14 @@ GRANT SELECT (base_amount, fx_conversion_id), INSERT (base_amount, fx_conversion
 
 REVOKE ALL ON FUNCTION
   abos.fx_difference_status(uuid, text), abos.fx_difference_account_ready(uuid, uuid, text), abos.fx_policy_resolve(uuid, text, date),
-  abos.fx_amount(numeric, text, text, text, text, numeric, integer, text),
+  abos.fx_difference_account_for(uuid, text, date), abos.fx_amount(numeric, text, text, text, text, numeric, integer, text),
   abos.fx_convert(uuid, text, uuid, text, date, uuid, uuid, numeric), abos.money_currency_base(uuid, text),
   abos.fx_source_matches(uuid, text, uuid, text, numeric, numeric, uuid, abos.posting_intents), abos.fx_setup_view(uuid, text, date),
   abos.fx_append_only()
   FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION
   abos.fx_difference_status(uuid, text), abos.fx_difference_account_ready(uuid, uuid, text), abos.fx_policy_resolve(uuid, text, date),
-  abos.fx_amount(numeric, text, text, text, text, numeric, integer, text),
+  abos.fx_difference_account_for(uuid, text, date), abos.fx_amount(numeric, text, text, text, text, numeric, integer, text),
   abos.fx_convert(uuid, text, uuid, text, date, uuid, uuid, numeric), abos.money_currency_base(uuid, text),
   abos.fx_source_matches(uuid, text, uuid, text, numeric, numeric, uuid, abos.posting_intents), abos.fx_setup_view(uuid, text, date)
   TO abos_v1_operational_finance_owner;

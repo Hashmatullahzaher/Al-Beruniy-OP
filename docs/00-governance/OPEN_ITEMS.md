@@ -23,11 +23,8 @@ Do not invent these. Resolve with stakeholders/official sources before dependent
   - Each journal uses one rate snapshot for all its lines, so it balances in USD; the rounding residual is recorded on the immutable conversion, not posted.
   - Currency exchange (AFN ↔ USD between Treasury accounts), settlement at a different rate and revaluation are the cases that post to the FX difference account.
   - They need journals whose lines carry different amounts (three lines), a posting-kernel extension.
-  - Until then a transfer between accounts of different currencies is refused.
-- **Implementation choice to confirm (Slice 6): the FX difference account is required before any foreign-currency posting.**
-  - A company with no `FX_DIFFERENCE` account (or several and no policy naming one) gets a clear setup error for every AFN posting, including expenses that posted exact-only before 0051.
-  - The system never creates the account.
-  - Production has no FX difference account yet, so AFN posting needs this setup step first.
+  - Until then a transfer between accounts of different currencies is refused. Currency exchange will be its own explicit source, not a transfer, once its FX-difference accounting is designed (owner decision of 2026-10-31).
+- ~~Is the FX difference account required before any foreign-currency posting? (Slice 6)~~ **Resolved 2026-10-31** (owner decision; `DECISIONS.md`): no. Ordinary postings (one snapshot, an exactly balancing journal) never need it. Only a difference-producing source (currency exchange, settlement at another rate, revaluation) requires it and refuses with a setup error without it. The account is never created automatically.
 - **Decided 2026-10-28 for Slice 4: BANK and OTHER Treasury accounts stay unlimited.** BANK is outside the current V1 operational scope and will later need an explicit overdraft / credit-limit policy; OTHER stays unchanged until its business meaning is defined.
 - **Partly resolved 2026-10-28 (owner decision 2): approval for receipts, transfers and payables.** Simple Mode is the default: a workflow without a saved setting records in one save (0049). Approval ON cannot be saved for other income, transfers, supplier and salary payments or customer receipts until Advanced Controls add their pending/confirm path; an explicit ON saved earlier is still honoured (the movement is refused with a clear message). Still open: the Advanced Controls approval path for these lanes, and who approves.
 - ~~Attachments on money movements (Slice 4)~~ **Deferred 2026-10-28** (owner decision 3) to the generalized document-vault slice; no separate document store is built for Slice 4.

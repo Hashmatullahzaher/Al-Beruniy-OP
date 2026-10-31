@@ -1,5 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
+import { PERMISSION_COPY } from "../src/lib/access-copy";
+
 // HTTP-mocked UI tests only. No database, password or financial writes. The REVERSAL posting itself
 // (exact inverse, link, date policy, segregation of duties) is proven by periods-and-reversals (0050).
 const paymentId = "76000000-0000-4000-8000-000000000001";
@@ -106,4 +108,12 @@ test("Dari labels and RTL remain usable at phone width", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "برگشت ژورنال‌ها" })).toBeVisible();
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflow).toBeLessThanOrEqual(1);
+});
+
+test("the finance.reversal.direct permission describes Simple Mode self-correction (owner decision of 2026-10-29)", () => {
+  const copy = PERMISSION_COPY["finance.reversal.direct"];
+  expect(copy?.label.en).toBe("Reverse transactions directly");
+  expect(copy?.allows.en).toContain("This includes the person's own entry, which is recorded in the audit trail as a self-correction.");
+  expect(copy?.allows.en).not.toContain("Never a transaction the person recorded or approved");
+  expect(copy?.allows.fa).toContain("اصلاح توسط خود ثبت‌کننده");
 });

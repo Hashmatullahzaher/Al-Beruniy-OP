@@ -11,9 +11,9 @@ const workspace = (ready: boolean) => ({
   fxDifference: ready ? { status: "READY", count: 1, account: { ...account, currency: "USD" } } : { status: "MISSING", count: 0 },
   fxDifferenceAccounts: ready ? [{ ...account, accountType: "EXPENSE", currency: "USD", ready: true }] : [],
   currencies: [{ currencyCode: "AFN", name: "Afghani",
-    current: ready ? { currencyCode: "AFN", status: "READY", policy: { versionId: null, version: 0, effectiveFrom: null, roundingMode: "HALF_UP", baseScale: 2,
-      fxDifferenceAccountId: fxAccount, isDefault: true }, fxDifferenceAccount: account }
-      : { currencyCode: "AFN", status: "SETUP_REQUIRED", message: "FX setup" },
+    current: { currencyCode: "AFN", status: "READY", fxDifferenceStatus: ready ? "READY" : "MISSING", policy: { versionId: null, version: 0, effectiveFrom: null,
+      roundingMode: "HALF_UP", baseScale: 2, fxDifferenceAccountId: ready ? fxAccount : null, fxDifferenceStatus: ready ? "READY" : "MISSING", isDefault: true },
+      fxDifferenceAccount: ready ? account : null },
     versions: [] as object[] }]
 });
 
@@ -26,7 +26,7 @@ async function mock(page: Page, ready = true) {
     const body = route.request().postDataJSON() as Record<string, unknown>;
     commands.push(body);
     view.currencies[0]!.versions = [{ id: "v1", version: 1, effectiveFrom: body.effectiveFrom, roundingMode: body.roundingMode, baseScale: body.baseScale,
-      reason: body.reason, createdAt: "2026-10-29T08:00:00Z", createdBy: "UI test Finance Manager", fxDifferenceAccount: account }];
+      reason: body.reason, createdAt: "2026-10-29T08:00:00Z", createdBy: "UI test Finance Manager", fxDifferenceAccount: body.fxDifferenceLedgerAccountId ? account : null }];
     await route.fulfill({ status: 201, json: { ok: true, data: { result: { status: "SAVED" }, workspace: view } } });
   });
   return commands;
@@ -43,7 +43,7 @@ test("@smoke the FX policy shows the default in force and saves a new version wi
   const form = page.getByRole("form", { name: "New AFN policy" });
   await form.getByLabel("Rounding *").selectOption("EXACT_ONLY");
   await form.getByLabel("Decimal places *").selectOption("2");
-  await expect(form.getByLabel("FX difference account *")).toHaveValue(fxAccount);
+  await expect(form.getByLabel("FX difference account (optional)")).toHaveValue(fxAccount);
   await expect(form.getByRole("button", { name: "Save" })).toBeDisabled();
   await form.getByLabel("Reason *").fill("Board decision: only exact conversions");
   await form.getByRole("button", { name: "Save" }).click();
@@ -53,11 +53,18 @@ test("@smoke the FX policy shows the default in force and saves a new version wi
     fxDifferenceLedgerAccountId: fxAccount, reason: "Board decision: only exact conversions", expectedVersion: 0 })]);
 });
 
-test("without an FX difference account the page says how to set it up and nothing can be saved", async ({ page }) => {
+test("without an FX difference account the policy still applies and can be saved; the account is explained as optional", async ({ page }) => {
   const commands = await mock(page, false);
   await page.goto("/finance/fx-policy");
-  await expect(page.getByRole("note").filter({ hasText: "No account carries the control “FX difference” yet" })).toBeVisible();
+  await expect(page.getByRole("note").filter({ hasText: "Ordinary receipts, payments, transfers and expenses in AFN do not need this account" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Chart of Accounts" })).toHaveAttribute("href", "/finance/accounts");
-  await expect(page.getByRole("region", { name: "AFN policy" }).getByRole("button", { name: "Save a new policy" })).toBeDisabled();
-  expect(commands).toHaveLength(0);
+  const afn = page.getByRole("region", { name: "AFN policy" });
+  await expect(afn).toContainText("Not set (not needed for ordinary postings)");
+  await afn.getByRole("button", { name: "Save a new policy" }).click();
+  const form = page.getByRole("form", { name: "New AFN policy" });
+  await expect(form.getByLabel("FX difference account (optional)")).toHaveValue("");
+  await form.getByLabel("Reason *").fill("Default rounding confirmed by the owner");
+  await form.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "FX policy saved." })).toBeVisible();
+  expect(commands).toEqual([expect.objectContaining({ currencyCode: "AFN", roundingMode: "HALF_UP", baseScale: 2, fxDifferenceLedgerAccountId: null })]);
 });

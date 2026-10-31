@@ -127,7 +127,7 @@ if (databaseUrl() === undefined) {
       "operational_expense_create", f.actor, { treasuryAccountId: f.afnSafe, expenseCategoryId: f.category, payeeBusinessPartyId: null,
         projectId: null, departmentId: null, costCenterId: null, reference: "FX-EXP", description: "Synthetic AFN site supplies", note: null,
         businessDate: "2026-09-11", originalAmount: amount, currencyCode: "AFN", exchangeRateId: null, ...keys(), ...extra });
-    const setPolicy = (f: Fixture, extra: object) => call<{ versionId: string; version: number }>("finance_fx_policy_set", f.actor, {
+    const setPolicy = (f: Pick<Fixture, "actor" | "fxAccount">, extra: object) => call<{ versionId: string; version: number }>("finance_fx_policy_set", f.actor, {
       currencyCode: "AFN", effectiveFrom: "2026-09-01", baseScale: 2, roundingMode: "HALF_UP", fxDifferenceLedgerAccountId: f.fxAccount,
       reason: "Synthetic FX policy decision", expectedVersion: 0, correlationId: randomUUID(), ...extra });
     const balance = async (f: Fixture, account: string) => (await h.pool.query<{ book: string; opening: string }>(
@@ -208,36 +208,53 @@ if (databaseUrl() === undefined) {
       await assert.rejects(() => h.pool.query("UPDATE abos.fx_policy_versions SET base_scale = 3"), /immutable/);
     });
 
-    test("FX setup: a missing or ambiguous FX difference account is a clear setup error and nothing is created", async () => {
+    test("FX difference account: ordinary AFN postings never need it; a difference-producing source would get a clear setup error", async () => {
+      // Owner decision of 2026-10-31: one snapshot per event and an exactly balancing journal produce no FX difference.
       const f = await fixture({ fxAccount: false });
-      const before = await counts();
-      await assert.rejects(() => receive(f, "7000.00"),
-        /FX setup: no FX difference account\. Create one active income or expense account in USD with control FX_DIFFERENCE before posting in AFN/);
-      await assert.rejects(() => expense(f, "700.00"), /FX setup: no FX difference account/);
-      assert.equal(await counts(), before, "no snapshot, conversion, movement or journal");
+      const r = await receive(f, "7000.00");
+      assert.equal(r.baseAmount, "100.00");
+      assert.equal((await conversion(r.fxConversionId as string)).fx, null, "no FX difference account is recorded when none exists");
+      assert.equal((await expense(f, "700.00")).expense.baseAmount, "10.00");
+      assert.equal((await pay(f, "700.00")).baseAmount, "10.00");
+      assert.equal((await transfer(f, "700.00")).baseAmount, "10.00");
       assert.equal(Number((await h.pool.query("SELECT count(*) FROM abos.ledger_accounts WHERE control_account_type = 'FX_DIFFERENCE'")).rows[0]?.count), 0,
         "no account is created silently");
-      const options = await call<{ fx: { currencyCode: string; status: string; message: string }[] }>("treasury_money_options", f.actor);
-      assert.deepEqual(options.fx.map((x) => [x.currencyCode, x.status]), [["AFN", "SETUP_REQUIRED"]]);
-      assert.match(options.fx[0]?.message ?? "", /FX setup: no FX difference account/);
+      const options = await call<{ fx: { currencyCode: string; status: string; fxDifferenceStatus: string }[] }>("treasury_money_options", f.actor);
+      assert.deepEqual(options.fx.map((x) => [x.currencyCode, x.status, x.fxDifferenceStatus]), [["AFN", "READY", "MISSING"]]);
+      // A future source that produces an FX difference must resolve the account, and is refused clearly without one.
+      const requiredFor = () => h.pool.query("SELECT abos.fx_difference_account_for($1, 'AFN', '2026-09-10') AS id", [f.e]);
+      await assert.rejects(requiredFor,
+        /FX setup: no FX difference account\. Create one active income or expense account in USD with control FX_DIFFERENCE before posting an FX difference in AFN/);
       // The Chart of Accounts accepts the control only on an income or expense account.
       await assert.rejects(() => h.pool.query("SELECT abos.coa_validate('FX-1','Synthetic FX','د','d','ASSET','FX_DIFFERENCE','USD',true,'ACTIVE')"),
         /FX_DIFFERENCE control account cannot have account type ASSET/);
       const first = await ledger(f.e, "SYN-FX-GAIN", "REVENUE", "FX_DIFFERENCE");
       const second = await ledger(f.e, "SYN-FX-LOSS", "EXPENSE", "FX_DIFFERENCE");
-      await assert.rejects(() => receive(f, "7000.00"), /FX setup: 2 active accounts carry control FX_DIFFERENCE; save an FX policy for AFN that names one/);
-      // A policy names one of them; a non-FX account or a stale screen is refused.
-      await assert.rejects(() => setPolicy({ ...f, fxAccount: f.revenue }, {}), /choose an active income or expense account in USD with control FX_DIFFERENCE/);
-      await setPolicy({ ...f, fxAccount: second }, {});
-      await assert.rejects(() => setPolicy({ ...f, fxAccount: first }, {}), /changed by someone else; reload/);
-      await assert.rejects(() => setPolicy({ ...f, fxAccount: first }, { expectedVersion: 1, reason: "no" }), /write the reason/);
-      const r = await receive(f, "7000.00");
-      assert.equal((await conversion(r.fxConversionId as string)).fx, second);
-      const audit = Number((await h.pool.query("SELECT count(*) FROM abos.audit_records WHERE action = 'FX_POLICY_SAVED'")).rows[0]?.count);
-      assert.equal(audit, 1);
-      // Deactivating the named account stops the next posting with a setup error instead of guessing another one.
+      // Several accounts: ordinary postings still record; a difference-producing source needs a policy naming one.
+      assert.equal((await conversion((await receive(f, "70.00")).fxConversionId as string)).fx, null);
+      await assert.rejects(requiredFor, /FX setup: several active accounts carry control FX_DIFFERENCE; save an FX policy for AFN that names one/);
+      // A policy may be saved without an account; when it names one it must be an FX difference account; stale screens are refused.
+      await setPolicy({ ...f, fxAccount: null }, { roundingMode: "HALF_UP", baseScale: 2 });
+      await assert.rejects(() => setPolicy({ ...f, fxAccount: f.revenue }, { expectedVersion: 1 }),
+        /choose an active income or expense account in USD with control FX_DIFFERENCE/);
+      await assert.rejects(() => setPolicy({ ...f, fxAccount: second }, {}), /changed by someone else; reload/);
+      await assert.rejects(() => setPolicy({ ...f, fxAccount: second }, { expectedVersion: 1, reason: "no" }), /write the reason/);
+      await setPolicy({ ...f, fxAccount: second }, { expectedVersion: 1 });
+      assert.equal((await conversion((await receive(f, "70.00")).fxConversionId as string)).fx, second);
+      assert.equal((await requiredFor()).rows[0]?.id, second);
+      assert.equal(Number((await h.pool.query("SELECT count(*) FROM abos.audit_records WHERE action = 'FX_POLICY_SAVED'")).rows[0]?.count), 2);
+      // The named account becomes unusable: ordinary postings continue; the difference-producing source is refused, never redirected.
       await h.pool.query("UPDATE abos.ledger_accounts SET status = 'INACTIVE' WHERE id = $1", [second]);
-      await assert.rejects(() => receive(f, "70.00"), /FX setup: the FX difference account named by the AFN policy is no longer an active FX difference account/);
+      assert.equal((await conversion((await receive(f, "70.00")).fxConversionId as string)).fx, null);
+      await assert.rejects(requiredFor, /FX setup: the FX difference account for AFN must be an active income or expense account in USD/);
+      assert.equal(Number((await h.pool.query("SELECT count(*) FROM abos.ledger_accounts WHERE control_account_type = 'FX_DIFFERENCE'")).rows[0]?.count), 2);
+      void first;
+      // The permission catalogue: the FX policy permission (v14) next to the Slice 5 reversal permissions, all active.
+      const catalogue = (await h.pool.query(`SELECT permission_code AS code, catalogue_version AS v, category, availability FROM abos.permission_catalogue
+        WHERE permission_code IN ('finance.fx-policy.manage','finance.reversal.direct','finance.reversal.request','finance.reversal.approve') ORDER BY 1`)).rows;
+      assert.deepEqual(catalogue.map((row) => [row.code, row.category, row.availability]), [["finance.fx-policy.manage", "FINANCE", "ACTIVE"],
+        ["finance.reversal.approve", "FINANCE", "ACTIVE"], ["finance.reversal.direct", "FINANCE", "ACTIVE"], ["finance.reversal.request", "FINANCE", "ACTIVE"]]);
+      assert.equal(catalogue.find((row) => row.code === "finance.fx-policy.manage")?.v, 14);
     });
 
     test("AFN Safes and Saraf accounts receive, hold, pay, transfer and fund expenses; the AFN balance can never go below zero", async () => {

@@ -41,11 +41,12 @@ export function fxPolicyCommand(body: Record<string, unknown>): FxPolicyCommand 
   const scale = body.baseScale; const expected = body.expectedVersion;
   if (!/^[A-Z]{3}$/.test(text("currencyCode")) || !DAY.test(text("effectiveFrom")) || (mode !== "HALF_UP" && mode !== "EXACT_ONLY")
       || typeof scale !== "number" || !Number.isInteger(scale) || scale < 0 || scale > 6
-      || typeof expected !== "number" || !Number.isInteger(expected) || expected < 0 || !UUID.test(text("fxDifferenceLedgerAccountId"))) {
+      || typeof expected !== "number" || !Number.isInteger(expected) || expected < 0
+      || (text("fxDifferenceLedgerAccountId") !== "" && !UUID.test(text("fxDifferenceLedgerAccountId")))) {
     throw new IdentityError("VALIDATION_FAILED", "Some details are missing or not valid.");
   }
   return { currencyCode: text("currencyCode"), effectiveFrom: text("effectiveFrom"), baseScale: scale, roundingMode: mode,
-    fxDifferenceLedgerAccountId: text("fxDifferenceLedgerAccountId"), reason: text("reason"), expectedVersion: expected,
+    fxDifferenceLedgerAccountId: text("fxDifferenceLedgerAccountId") || null, reason: text("reason"), expectedVersion: expected,
     correlationId: UUID.test(text("correlationId")) ? text("correlationId") : randomUUID() };
 }
 

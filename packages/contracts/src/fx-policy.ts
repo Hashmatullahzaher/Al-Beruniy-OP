@@ -12,15 +12,19 @@ export interface FxPolicyInForce {
   readonly effectiveFrom: string | null;
   readonly roundingMode: FxRoundingMode;
   readonly baseScale: number;
-  readonly fxDifferenceAccountId: string;
+  /** The FX difference account in force, if any. Ordinary postings never need it (owner decision of 2026-10-31). */
+  readonly fxDifferenceAccountId: string | null;
+  readonly fxDifferenceStatus: "READY" | "MISSING" | "AMBIGUOUS" | "INVALID";
   readonly isDefault: boolean;
 }
 
-/** SETUP_REQUIRED: no usable FX difference account, so the currency cannot post yet; message says what to do. */
+/** SETUP_REQUIRED: the currency cannot convert (no approved accounting currency); message says why. */
 export interface FxSetupView {
   readonly currencyCode: string;
   readonly status: "READY" | "SETUP_REQUIRED";
   readonly policy?: FxPolicyInForce;
+  /** Needed only by a source that produces an FX difference (currency exchange, revaluation), none of which exists yet. */
+  readonly fxDifferenceStatus?: "READY" | "MISSING" | "AMBIGUOUS" | "INVALID";
   readonly fxDifferenceAccount?: { readonly id: string; readonly code: string; readonly name: string } | null;
   readonly message?: string;
 }
@@ -55,7 +59,8 @@ export interface FxPolicyCommand {
   readonly effectiveFrom: string;
   readonly baseScale: number;
   readonly roundingMode: FxRoundingMode;
-  readonly fxDifferenceLedgerAccountId: string;
+  /** Optional: named when the company keeps several FX difference accounts. */
+  readonly fxDifferenceLedgerAccountId: string | null;
   readonly reason: string;
   /** The latest version the screen showed (0 when none); a stale screen is refused. */
   readonly expectedVersion: number;

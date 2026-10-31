@@ -59,7 +59,7 @@ export function FxPolicyWorkspace() {
     if (draft === null || busy) return;
     setBusy(true); setError(null);
     const result = await api<{ workspace: Workspace }>(ENDPOINT, "POST", { currencyCode: draft.currencyCode, effectiveFrom: draft.effectiveFrom,
-      baseScale: draft.baseScale, roundingMode: draft.roundingMode, fxDifferenceLedgerAccountId: draft.account, reason: draft.reason.trim(),
+      baseScale: draft.baseScale, roundingMode: draft.roundingMode, fxDifferenceLedgerAccountId: draft.account || null, reason: draft.reason.trim(),
       expectedVersion: draft.expectedVersion, correlationId: crypto.randomUUID() });
     setBusy(false);
     if (!result.ok) { setError(message(result.error, fa)); return; }
@@ -75,7 +75,7 @@ export function FxPolicyWorkspace() {
   }
 
   const readyAccounts = workspace?.fxDifferenceAccounts.filter((account) => account.ready) ?? [];
-  const valid = draft !== null && draft.effectiveFrom !== "" && draft.account !== "" && draft.reason.trim().length >= 5;
+  const valid = draft !== null && draft.effectiveFrom !== "" && draft.reason.trim().length >= 5;
 
   return (
     <div className="module-workspace fx-policy-workspace">
@@ -95,17 +95,17 @@ export function FxPolicyWorkspace() {
       {workspace === null ? <p className="treasury-placeholder">{fa ? "در حال بارگذاری…" : "Loading…"}</p> : <>
         <section className="module-content-card" aria-label={fa ? "حساب تفاوت تبادله اسعار" : "FX difference account"}>
           <h2>{fa ? "حساب تفاوت تبادله اسعار" : "FX difference account"}</h2>
+          <p className="admin-hint" role="note">{fa
+            ? "دریافت، پرداخت، انتقال و مصرف عادی به افغانی به این حساب نیاز ندارند: هر کدام یک نرخ دارد و در دفاتر دقیق متوازن می‌شود. این حساب فقط برای تبادله اسعار، تسویه به نرخ دیگر و ارزیابی مجدد لازم است که هنوز ساخته نشده‌اند."
+            : "Ordinary receipts, payments, transfers and expenses in AFN do not need this account: each uses one rate and balances exactly in the books. It is needed only for currency exchange, settlement at another rate and revaluation, which are not built yet."}</p>
           {workspace.fxDifference.status === "READY" && workspace.fxDifference.account ? (
-            <p>{fa ? "آماده: " : "Ready: "}<span dir="ltr">{workspace.fxDifference.account.code}</span> {workspace.fxDifference.account.name}</p>
+            <p>{fa ? "تنظیم شده: " : "Set up: "}<span dir="ltr">{workspace.fxDifference.account.code}</span> {workspace.fxDifference.account.name}</p>
           ) : workspace.fxDifference.status === "AMBIGUOUS" ? (
-            <p className="admin-hint expense-warning" role="note">{fa
-              ? `${workspace.fxDifference.count} حساب کنترل «تفاوت تبادله اسعار» دارند. برای هر واحد پول پالیسی‌ای ذخیره کنید که یکی را تعیین کند.`
-              : `${workspace.fxDifference.count} accounts carry the control “FX difference”. Save a policy for each currency that names one.`}</p>
+            <p className="admin-hint">{fa
+              ? `${workspace.fxDifference.count} حساب کنترل «تفاوت تبادله اسعار» دارند؛ پالیسی هر واحد پول می‌تواند یکی را تعیین کند.`
+              : `${workspace.fxDifference.count} accounts carry the control “FX difference”; each currency's policy can name one.`}</p>
           ) : (
-            <p className="admin-hint expense-warning" role="note">{fa
-              ? "هنوز حسابی با کنترل «تفاوت تبادله اسعار» نیست. تا ساخته نشود، هیچ پولی به اسعار خارجی ثبت نمی‌شود. آن را در "
-              : "No account carries the control “FX difference” yet. Until one exists, nothing in a foreign currency can be recorded. Create an income or expense account in "}
-              <span dir="ltr">{workspace.baseCurrency}</span>{fa ? " در " : " in the "}
+            <p className="admin-hint">{fa ? "هنوز حسابی با کنترل «تفاوت تبادله اسعار» نیست. می‌توانید بعداً آن را در " : "No account carries the control “FX difference” yet. You can create one later in the "}
               <Link href="/finance/accounts">{fa ? "جدول حساب‌ها" : "Chart of Accounts"}</Link>{fa ? " بسازید." : "."}</p>
           )}
           <p className="admin-hint">{fa
@@ -125,12 +125,13 @@ export function FxPolicyWorkspace() {
                   <div><dt>{fa ? "گرد کردن" : "Rounding"}</dt><dd>{t(MODE_COPY[currency.current.policy.roundingMode])}</dd></div>
                   <div><dt>{fa ? "ارقام اعشار" : "Decimal places"}</dt><dd dir="ltr">{currency.current.policy.baseScale}</dd></div>
                   <div><dt>{fa ? "حساب تفاوت" : "FX difference"}</dt><dd>{currency.current.fxDifferenceAccount
-                    ? <><span dir="ltr">{currency.current.fxDifferenceAccount.code}</span> {currency.current.fxDifferenceAccount.name}</> : "—"}</dd></div>
+                    ? <><span dir="ltr">{currency.current.fxDifferenceAccount.code}</span> {currency.current.fxDifferenceAccount.name}</>
+                    : (fa ? "تعیین نشده (برای ثبت عادی لازم نیست)" : "Not set (not needed for ordinary postings)")}</dd></div>
                 </dl>
               ) : <p className="admin-hint expense-warning" role="note">{fa ? "هنوز آماده نیست: حساب تفاوت تبادله اسعار را تنظیم کنید." : "Not ready yet: set up the FX difference account."}</p>}
 
               {workspace.canManage && !editing ? (
-                <button className="treasury-button gold" type="button" disabled={readyAccounts.length === 0} onClick={() => setDraft({
+                <button className="treasury-button gold" type="button" onClick={() => setDraft({
                   currencyCode: currency.currencyCode, effectiveFrom: workspace.today, roundingMode: "HALF_UP", baseScale: 2,
                   account: readyAccounts.length === 1 ? readyAccounts[0]?.id ?? "" : "", reason: "", expectedVersion: latest })}>
                   {fa ? "ذخیرهٔ پالیسی جدید" : "Save a new policy"}</button>
@@ -149,9 +150,9 @@ export function FxPolicyWorkspace() {
                     <select value={draft.baseScale} onChange={(event) => setDraft({ ...draft, baseScale: Number(event.target.value) })}>
                       {[0, 1, 2, 3, 4, 5, 6].map((scale) => <option key={scale} value={scale}>{scale}</option>)}
                     </select></label>
-                  <label className="wide"><span>{fa ? "حساب تفاوت تبادله اسعار *" : "FX difference account *"}</span>
-                    <select value={draft.account} required onChange={(event) => setDraft({ ...draft, account: event.target.value })}>
-                      <option value="">{fa ? "انتخاب کنید" : "Choose"}</option>
+                  <label className="wide"><span>{fa ? "حساب تفاوت تبادله اسعار (اختیاری)" : "FX difference account (optional)"}</span>
+                    <select value={draft.account} onChange={(event) => setDraft({ ...draft, account: event.target.value })}>
+                      <option value="">{fa ? "هیچ — یگانه حساب کنترل را به کار ببر" : "None — use the one account with the control"}</option>
                       {readyAccounts.map((account) => <option key={account.id} value={account.id}>{account.code} · {account.name}</option>)}
                     </select></label>
                   <label className="wide"><span>{fa ? "دلیل *" : "Reason *"}</span>
