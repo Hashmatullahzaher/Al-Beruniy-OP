@@ -80,6 +80,8 @@ export interface ReportSource {
   readonly counterparty: string | null;
   /** The reader may not read the source module, so its detail is withheld (the amount never is). */
   readonly detailRestricted?: boolean;
+  /** 0055: what the source was, e.g. an expense's "EXP-001 — Office supplies", when the reader may read it; otherwise null. */
+  readonly detail?: { readonly en: string; readonly fa: string } | null;
 }
 
 export interface ReportJournalLink {

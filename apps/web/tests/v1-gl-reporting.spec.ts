@@ -104,6 +104,26 @@ test("posted GL preview preserves exact decimal text, both calendars, source and
   await noHorizontalOverflow(browser);
 });
 
+test("0055: a line shows its business source, e.g. an expense's reference and type, instead of the raw source code", async ({ page: browser }) => {
+  await mockAccounts(browser);
+  const source = { type: "OPERATIONAL_EXPENSE", id: "x1", label: { en: "Expense", fa: "مصرف" }, route: "/finance/transactions", counterparty: null,
+    detail: { en: "EXP-001 — Office supplies", fa: "EXP-001 — لوازم دفتر" } };
+  await browser.route("**/api/v1/finance/general-ledger?**", (route) => route.fulfill({ json: page([
+    line(1, { journalId, journalReference: "OPX-001", sourceType: "OPERATIONAL_EXPENSE", source }),
+    line(2, { journalReference: null, sourceType: "RESTRICTED", sourceId: null, restricted: true,
+      source: { type: "RESTRICTED", id: null, label: { en: "Restricted movement", fa: "حرکت محدود" }, route: null, counterparty: null } })
+  ], { totals: [{ currency: "USD", debits: "2.50", credits: "0", lineCount: "2" }] }) }));
+  await mockActivity(browser);
+  await browser.goto("/finance/general-ledger");
+  const expense = browser.locator("li").filter({ hasText: "OPX-001 · #1" });
+  await expect(expense).toContainText("Expense · EXP-001 — Office supplies");
+  await expect(expense.getByRole("link", { name: "Expense" })).toHaveAttribute("href", "/finance/transactions");
+  await expect(expense).not.toContainText("OPERATIONAL_EXPENSE");
+  await expect(browser.locator("li").filter({ hasText: "Restricted movement" }).first()).not.toContainText("EXP-001");
+  await browser.getByRole("button", { name: "Switch to Dari" }).click();
+  await expect(browser.locator("li").filter({ hasText: "OPX-001" })).toContainText("EXP-001 — لوازم دفتر");
+});
+
 test("account activity is labelled as posted activity, never a balance, with currencies kept apart", async ({ page: browser }) => {
   await mockAccounts(browser);
   await browser.route("**/api/v1/finance/general-ledger?**", (route) => route.fulfill({ json: page([line(1)], {

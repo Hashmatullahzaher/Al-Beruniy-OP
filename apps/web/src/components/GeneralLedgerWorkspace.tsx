@@ -284,9 +284,11 @@ function LedgerLine({ line, fa, dual }: { readonly line: GeneralLedgerLine; read
       <div><dt className="admin-hint">{fa ? "بدهکار" : "Debit"}</dt><dd dir="ltr" style={{ margin: 0 }}>{line.baseCurrency} {amount(line.baseDebit)}</dd></div>
       <div><dt className="admin-hint">{fa ? "بستانکار" : "Credit"}</dt><dd dir="ltr" style={{ margin: 0 }}>{line.baseCurrency} {amount(line.baseCredit)}</dd></div>
       <div><dt className="admin-hint">{fa ? "مبلغ اصلی" : "Original amount"}</dt><dd dir="ltr" style={{ margin: 0 }}>{line.originalCurrency && line.originalAmount ? `${line.originalCurrency} ${amount(line.originalAmount)}` : "—"}</dd></div>
-      <div><dt className="admin-hint">{fa ? "منبع" : "Source"}</dt><dd style={{ margin: 0, overflowWrap: "anywhere" }}>{line.restricted
-        ? <SourceCell source={{ type: "RESTRICTED", id: null, label: { en: "Restricted movement", fa: "حرکت محدود" }, route: null, counterparty: null }} fa={fa} />
-        : `${line.sourceType} · ${line.sourceId ?? ""}`}</dd></div>
+      <div><dt className="admin-hint">{fa ? "منبع" : "Source"}</dt><dd style={{ margin: 0, overflowWrap: "anywhere" }}>{line.source
+        ? <SourceCell source={line.source} fa={fa} />
+        : line.restricted
+          ? <SourceCell source={{ type: "RESTRICTED", id: null, label: { en: "Restricted movement", fa: "حرکت محدود" }, route: null, counterparty: null }} fa={fa} />
+          : `${line.sourceType} · ${line.sourceId ?? ""}`}</dd></div>
       <div><dt className="admin-hint">{fa ? "شناسه ژورنال" : "Journal ID"}</dt><dd style={{ margin: 0, overflowWrap: "anywhere" }}>{line.journalId}</dd></div>
     </dl>
   </li>;

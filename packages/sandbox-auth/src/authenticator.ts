@@ -18,6 +18,7 @@ import type {
   FxPreview,
   AccountStatementView,
   JournalDetailView,
+  ReportSource,
   TrialBalanceView,
   SafeOpeningBalanceResult,
   SafesCommand,
@@ -578,6 +579,12 @@ export class SandboxAuthenticator {
   async journalDetail(executor: SqlExecutor, token: string, journalId: string): Promise<JournalDetailView> {
     return this.operationalFinanceFunction<JournalDetailView>(executor,
       "SELECT abos.finance_journal_detail($1,$2,$3,$4::uuid) AS value", token, [journalId], "Journal is unavailable");
+  }
+
+  /** The business source of up to 100 posted journals, keyed by journal id, masked like the journal detail (0055). */
+  async journalSources(executor: SqlExecutor, token: string, journalIds: readonly string[]): Promise<Readonly<Record<string, ReportSource>>> {
+    return this.operationalFinanceFunction<Readonly<Record<string, ReportSource>>>(executor,
+      "SELECT abos.finance_journal_sources($1,$2,$3,$4::uuid[]) AS value", token, [journalIds], "Journal sources are unavailable");
   }
 
   /** 0052: the company's financial years, each ACTIVE or CLOSED, with its months for reporting. */
