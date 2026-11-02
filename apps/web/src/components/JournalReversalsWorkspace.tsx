@@ -112,8 +112,8 @@ export function JournalReversalsWorkspace() {
         eyebrow={{ en: "Finance · Accounting", fa: "مالی · حسابداری" }}
         title={{ en: "Journal reversals", fa: "برگشت ژورنال‌ها" }}
         description={{
-          en: "A mistaken transaction is corrected by an exact reversal. The original stays as it was; the reversal is linked to it and posted on its date while that month is open, otherwise today.",
-          fa: "معاملهٔ اشتباه با برگشت دقیق اصلاح می‌شود. اصل همان‌طور می‌ماند؛ برگشت به آن وصل است و تا ماه آن باز است در همان تاریخ، وگرنه امروز ثبت می‌شود."
+          en: "A mistaken transaction is corrected by an exact reversal. The original stays as it was; the reversal is linked to it and posted on its date while that financial year is open, otherwise today.",
+          fa: "معاملهٔ اشتباه با برگشت دقیق اصلاح می‌شود. اصل همان‌طور می‌ماند؛ برگشت به آن وصل است و تا سال مالی آن باز است در همان تاریخ، وگرنه امروز ثبت می‌شود."
         }} />
 
       {notice ? <div className="treasury-message success" role="status"><AppIcon name="shield" size={16} /><span>{t(notice)}</span>

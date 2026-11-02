@@ -136,7 +136,7 @@ test("without opening balance equity, or without the permission, no opening bala
   view.openingEquity = { status: "MISSING" } as typeof view.openingEquity;
   await mock(page, { view });
   await page.goto("/finance/safes");
-  await expect(page.getByText("Opening balances are not ready yet")).toBeVisible();
+  await expect(page.getByText("Opening balances (optional): only needed if the company already holds cash")).toBeVisible();
   await expect(page.getByRole("link", { name: "Chart of Accounts" }).first()).toBeVisible();
   await expect(page.getByRole("button", { name: "Set opening balance" })).toHaveCount(0);
   await page.unrouteAll({ behavior: "ignoreErrors" });

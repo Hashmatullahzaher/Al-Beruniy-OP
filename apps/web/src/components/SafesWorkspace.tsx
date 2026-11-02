@@ -163,7 +163,13 @@ export function SafesWorkspace() {
         <button onClick={() => setError(null)} aria-label={fa ? "بستن" : "Dismiss"}>×</button></div> : null}
 
       {workspace === null ? <p className="treasury-placeholder">{fa ? "در حال بارگذاری…" : "Loading…"}</p> : <>
-        {workspace.canRecordOpeningBalance && !equityReady ? (
+        {workspace.canRecordOpeningBalance && !equityReady && workspace.openingEquity.status === "MISSING" ? (
+          <p className="admin-hint" role="note">{fa
+            ? "موجودی افتتاحیه (اختیاری): فقط اگر شرکت هنگام شروع کار با این سیستم پول نقد دارد. برای ثبت آن، نخست در جدول حساب‌ها یک حساب سرمایه با کنترل «سرمایهٔ موجودی افتتاحیه» بسازید. شرکتی که با سرمایهٔ سهامدار شروع می‌کند به آن نیاز ندارد."
+            : "Opening balances (optional): only needed if the company already holds cash when it starts using Al-Beruniy. To record one, first create an Equity account with the control “Opening balance equity” in the Chart of Accounts. A company that starts with shareholder capital does not need it."}
+            {" "}<Link href="/finance/accounts">{fa ? "جدول حساب‌ها" : "Chart of Accounts"}</Link></p>
+        ) : null}
+        {workspace.canRecordOpeningBalance && !equityReady && workspace.openingEquity.status !== "MISSING" ? (
           <div className="state-panel" role="status"><span className="state-panel-icon" aria-hidden="true">!</span><div>
             <h3>{fa ? "موجودی افتتاحیه هنوز آماده نیست" : "Opening balances are not ready yet"}</h3>
             <p className="expense-gaps">{workspace.openingEquity.status === "AMBIGUOUS"
@@ -177,10 +183,14 @@ export function SafesWorkspace() {
               {" "}<Link href="/finance/accounts">{fa ? "جدول حساب‌ها" : "Chart of Accounts"}</Link></p></div></div>
         ) : null}
 
+        {workspace.canManageSafes && workspace.safes.length > 0 ? <p className="admin-hint">
+          {fa ? "برای افزودن صندوق، صندوقچه، مصارف کوچک یا حساب صراف به تنظیمات مالی ← خزانه ← افزودن حساب بروید." : "To add a Safe, cash box, petty cash or Saraf account, go to Finance setup → Treasury → Add account."}{" "}
+          <Link href="/finance/setup">{fa ? "تنظیمات مالی" : "Finance setup"}</Link></p> : null}
+
         {workspace.safes.length === 0 ? (
           <section className="module-content-card"><p>{fa
             ? "هنوز صندوقی ثبت نشده است. صندوق‌ها در تنظیمات مالی ساخته می‌شوند."
-            : "No Safe has been set up yet. Safes are created in Finance setup."}
+            : "No Safe has been set up yet. Safes are created in Finance setup → Treasury → Add account, linked to a Chart of Accounts account with the control “Cash (safe)”."}
             {workspace.canManageSafes ? <> <Link href="/finance/setup">{fa ? "تنظیمات مالی" : "Finance setup"}</Link></> : null}</p></section>
         ) : (
           <div className="safes-list">{workspace.safes.map((safe) => (

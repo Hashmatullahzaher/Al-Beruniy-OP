@@ -74,6 +74,11 @@ test.describe("V1 workflow approval policy", () => {
     // 0049 Simple Mode: the five daily-money workflows record in one save until a setting is saved.
     await expect(page.locator(".policy-card .treasury-chip", { hasText: "Not configured" })).toHaveCount(4);
     await expect(page.locator(".policy-card .treasury-chip", { hasText: "Approval OFF (default)" })).toHaveCount(5);
+    // A workflow without a saved setting says what happens today, so the draft checkbox is never read as the state.
+    const capitalCard = page.locator(".policy-card").filter({ has: page.getByRole("heading", { name: "Shareholder capital receipt", exact: true }) });
+    await expect(capitalCard.getByRole("note")).toContainText("Until a setting is saved, shareholder capital cannot be recorded");
+    const chartCard = page.locator(".policy-card").filter({ has: page.getByRole("heading", { name: "Chart of Accounts", exact: true }) });
+    await expect(chartCard.getByRole("note")).toContainText("every new or changed account waits for review by another person");
     const transfer = page.locator(".policy-card").filter({ has: page.getByRole("heading", { name: "Treasury transfer", exact: true }) });
     await expect(transfer.locator(".policy-toggle input")).toBeDisabled();
     await expect(transfer).toContainText("Approval is not available for this workflow yet");

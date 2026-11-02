@@ -156,6 +156,10 @@ export function chartErrorResponse(error: unknown) {
   if (code === "23505") return json({ ok: false, error: { code: "ACCOUNT_CODE_TAKEN", message } }, 409);
   if (code === "40001") return json({ ok: false, error: { code: "STALE_VERSION", message } }, 409);
   if (code === "P0002") return accountNotFound();
+  if (code === "23514" && /active shareholder capital account in [A-Z]{3} already exists/i.test(message)) {
+    return json({ ok: false, error: { code: "CAPITAL_ACCOUNT_EXISTS",
+      message: "This company already has an active Shareholder capital account in this currency, and capital posting uses exactly one. Use that account, or deactivate it first if it was a mistake." } }, 422);
+  }
   if (code === "23514" || code === "23503" || code === "22023" || code === "22P02") {
     return json({ ok: false, error: { code: "ACCOUNT_VALIDATION", message } }, 422);
   }

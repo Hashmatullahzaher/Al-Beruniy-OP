@@ -1479,6 +1479,9 @@ button.review-context { border: 0; border-inline-start: 1px solid rgba(102, 142,
 .admin-form label > small { color: var(--abos-slate-400); font-size: 10.5px; }
 .admin-form input, .admin-form textarea { min-height: 38px; padding: 7px 10px; border: 1px solid rgba(73, 145, 192, .35); border-radius: 7px; background: rgba(3, 14, 25, .8); color: white; font: inherit; font-size: 12.5px; }
 .admin-form input:disabled, .admin-form textarea:disabled { opacity: .6; }
+/* A checkbox with its label on one line, not styled as a text field. */
+.admin-form label.admin-checkbox { display: flex; align-items: center; gap: 8px; color: var(--abos-slate-300); font-size: 12.5px; }
+.admin-form label.admin-checkbox input[type="checkbox"] { width: 16px; height: 16px; min-height: 0; padding: 0; margin: 0; flex: none; }
 .admin-form > .treasury-button { justify-self: start; }
 .admin-hint { margin: 0; color: #9fb2c3; font-size: 11.5px; line-height: 1.5; }
 .admin-status-choice { display: flex; flex-wrap: wrap; gap: 14px; margin: 0; padding: 0; border: 0; font-size: 12.5px; }
@@ -1698,6 +1701,9 @@ button.review-context { border: 0; border-inline-start: 1px solid rgba(102, 142,
 .shareholder-request small, .shareholder-blockers small { color: #9fb4c3; font-size: 10.5px; }
 .shareholder-request .treasury-chip { justify-self: start; }
 .shareholder-form { margin-top: 12px; padding: 12px; border: 1px solid rgba(224, 180, 79, .35); border-radius: 7px; background: rgba(3, 17, 29, .6); }
+/* A native select is as wide as its longest option; keep it inside its grid column like the inputs beside it. */
+.shareholder-form label { min-width: 0; }
+.shareholder-form select { width: 100%; min-width: 0; max-width: 100%; min-height: 38px; padding: 7px 10px; border: 1px solid rgba(73, 145, 192, .35); border-radius: 7px; background: rgba(3, 14, 25, .8); color: white; font: inherit; font-size: 12.5px; text-overflow: ellipsis; }
 .shareholder-rates { display: grid; gap: 6px; border: 1px solid rgba(60, 130, 176, .3); border-radius: 6px; padding: 8px 10px; }
 .shareholder-rates label { display: flex; gap: 8px; align-items: center; }
 .shareholder-rate-missing { color: #f3c77a; }

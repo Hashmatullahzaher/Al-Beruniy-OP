@@ -223,7 +223,8 @@ test("an unavailable path and missing permissions offer no financial action", as
   const mocked = await mockWorkspace(page); mocked.view.permissions.canManage = false; mocked.view.permissions.canReceive = false;
   mocked.view.receiveAvailable = false; mocked.view.unavailableReason = "CONFIGURATION_REQUIRED";
   await page.goto("/shareholders");
-  await expect(page.getByRole("main")).toContainText("Recording capital is currently unavailable");
+  await expect(page.getByRole("main")).toContainText("Recording capital is not available yet. Ask your Finance administrator to complete the company’s settings.");
+  await expect(page.getByRole("main")).not.toContainText("CONFIGURATION_REQUIRED");
   await expect(page.getByRole("button", { name: "Add shareholder", exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Add money", exact: true })).toHaveCount(0);
   expect(mocked.commands).toHaveLength(0);
@@ -298,4 +299,19 @@ test("Dari labels and RTL remain usable at tablet width", async ({ page }) => {
   await page.keyboard.press("Enter");
   await expect(page.getByRole("article", { name: "سهامدار نمایشی", exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});
+
+test("each reason capital is unavailable names what to fix and links to the page that fixes it", async ({ page }) => {
+  const mocked = await mockWorkspace(page);
+  mocked.view.receiveAvailable = false;
+  mocked.view.unavailableReason = "The company capital approval setting does not permit direct receipts.";
+  await page.goto("/shareholders");
+  await expect(page.getByRole("main")).toContainText("Set “Shareholder capital receipt” in Workflow approvals");
+  await expect(page.getByRole("main").getByRole("link", { name: "Workflow approvals" })).toHaveAttribute("href", "/admin/finance-workflows");
+  mocked.view.unavailableReason = "Choose an active shareholder capital equity account in Finance setup.";
+  await page.reload();
+  await expect(page.getByRole("main")).toContainText("exactly one active Equity account with the control “Shareholder capital”, and it must not be awaiting review");
+  await expect(page.getByRole("main")).not.toContainText("in Finance setup.");
+  await expect(page.getByRole("main").getByRole("link", { name: "Chart of Accounts" })).toHaveAttribute("href", "/finance/accounts");
+  expect(mocked.commands).toHaveLength(0);
 });

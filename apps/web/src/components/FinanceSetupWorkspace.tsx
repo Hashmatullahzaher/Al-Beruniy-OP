@@ -228,8 +228,8 @@ export function FinanceSetupWorkspace() {
         eyebrow={{ en: `Finance · ${view?.legalEntity.name ?? ""}`, fa: `مالی · ${view?.legalEntity.name ?? ""}` }}
         title={{ en: "Finance setup", fa: "تنظیمات مالی" }}
         description={{
-          en: "The Treasury accounts money is paid from, the expense types people choose, and the accounting periods that are open for recording.",
-          fa: "حساب‌های خزانه‌ای که از آن‌ها پرداخت می‌شود، انواع مصرفی که افراد انتخاب می‌کنند، و دوره‌های حسابداری که برای ثبت باز هستند."
+          en: "The Treasury accounts money is paid from, the expense types people choose, and the months of the financial year.",
+          fa: "حساب‌های خزانه‌ای که از آن‌ها پرداخت می‌شود، انواع مصرفی که افراد انتخاب می‌کنند، و ماه‌های سال مالی."
         }} />
 
       {message ? <div className={`treasury-message ${message.tone === "ok" ? "success" : "error"}`} role="status"><AppIcon name={message.tone === "ok" ? "shield" : "alert"} size={16} /><span>{message.text}</span><button onClick={() => setMessage(null)} aria-label={fa ? "بستن" : "Dismiss"}>×</button></div> : null}

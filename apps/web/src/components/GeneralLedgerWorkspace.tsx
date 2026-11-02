@@ -149,7 +149,7 @@ export function GeneralLedgerWorkspace() {
       <div className="finance-boundary-banner" role="note">
         <span aria-hidden="true">ⓘ</span>
         <div><p>{fa ? "فعالیت ثبت‌شده · فقط خواندنی" : "POSTED ACTIVITY · READ ONLY"}</p>
-          <strong>{fa ? "این فهرست صورت مالی رسمی نیست؛ مانده‌های افتتاحیه و دوره‌های بسته‌شده هنوز تکمیل نشده‌اند." : "This activity list is not an official financial statement. Opening positions and period close are not complete."}</strong></div>
+          <strong>{fa ? "این فهرست صورت مالی رسمی نیست؛ سطرهای ثبت‌شده را نشان می‌دهد، نه مانده‌ها را." : "This activity list is not an official financial statement: it lists posted lines, not balances."}</strong></div>
         <em>{fa ? "فقط خواندنی" : "READ ONLY"}</em>
       </div>
       {journalId ? <JournalDetailPanel journalId={journalId} fa={fa} /> : null}

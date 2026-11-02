@@ -30,6 +30,25 @@ const money = (amount: string, currency: string) => `${currency} ${exactDecimal(
 const optional = (value: string) => value.trim() || null;
 const cashBearing = (method: Method | "") => method === "CASH" || method === "HAWALA";
 
+/**
+ * What the company must set up before capital can be recorded, from the reason the database gives. Each answer names the
+ * page that fixes it; an unknown reason still points to the people who can.
+ */
+function capitalSetupFix(reason: string | null): { en: string; fa: string; href: string | null; linkEn: string; linkFa: string } {
+  if (reason && /capital approval setting/i.test(reason)) {
+    return { en: "Set “Shareholder capital receipt” in Workflow approvals (approval OFF records capital in one save; ON needs a second person).",
+      fa: "«دریافت سرمایه سهامدار» را در تأیید جریان‌ها تنظیم کنید (تأیید خاموش: سرمایه با یک ذخیره ثبت می‌شود؛ روشن: شخص دوم لازم است).",
+      href: "/admin/finance-workflows", linkEn: "Workflow approvals", linkFa: "تأیید جریان‌ها" };
+  }
+  if (reason && /shareholder capital equity account/i.test(reason)) {
+    return { en: "The Chart of Accounts needs exactly one active Equity account with the control “Shareholder capital”, and it must not be awaiting review.",
+      fa: "جدول حساب‌ها باید دقیقاً یک حساب فعال سرمایه با کنترل «سرمایه سهامدار» داشته باشد و آن حساب نباید در انتظار بررسی باشد.",
+      href: "/finance/accounts", linkEn: "Chart of Accounts", linkFa: "جدول حساب‌ها" };
+  }
+  return { en: "Ask your Finance administrator to complete the company’s settings.",
+    fa: "از مدیر مالی بخواهید تنظیمات شرکت را تکمیل کند.", href: null, linkEn: "", linkFa: "" };
+}
+
 function Field({ label, children }: { readonly label: string; readonly children: ReactNode }) {
   return <label><span>{label}</span>{children}</label>;
 }
@@ -193,7 +212,13 @@ export function DirectShareholderCapitalWorkspace() {
         <Link className="treasury-button" href="/finance/general-ledger">{copy("General Ledger", "دفتر کل")}</Link>
         <Link className="treasury-button" href="/finance/setup">{copy("Finance setup", "تنظیمات مالی")}</Link>
       </div>
-      {!view.receiveAvailable ? <p className="treasury-message" role="status">{copy("Recording capital is currently unavailable. Ask your Finance administrator to complete the company’s settings.", "ثبت سرمایه فعلاً در دسترس نیست. از مدیر مالی بخواهید تنظیمات شرکت را تکمیل کند.")}</p> : null}
+      {!view.receiveAvailable ? (() => {
+        const fix = capitalSetupFix(view.unavailableReason);
+        return <p className="treasury-message" role="status">{copy("Recording capital is not available yet.", "ثبت سرمایه هنوز در دسترس نیست.")} {copy(fix.en, fix.fa)}{" "}
+          {fix.href ? <Link href={fix.href}>{copy(fix.linkEn, fix.linkFa)}</Link> : null}</p>;
+      })() : view.permissions.canReceive && view.destinations.length === 0 ? <p className="treasury-message" role="status">
+        {copy("Cash and hawala capital go into a Safe, and no Safe exists yet. Add one in Finance setup (Treasury → Add account).", "سرمایه نقد و حواله به صندوق می‌رود و هنوز صندوقی وجود ندارد. در تنظیمات مالی (خزانه ← افزودن حساب) یکی بسازید.")}{" "}
+        <Link href="/finance/setup">{copy("Finance setup", "تنظیمات مالی")}</Link></p> : null}
       {form ? <form className="admin-form shareholder-form" aria-label={form.kind === "add" ? copy("Add shareholder", "افزودن سهامدار") : copy("Add money", "افزودن پول")} onSubmit={event => void submit(event)} aria-busy={busy}>
         <h2>{form.kind === "add" ? copy("Add shareholder", "افزودن سهامدار") : copy(`Add money · ${holder?.name ?? ""}`, `افزودن پول · ${holder?.name ?? ""}`)}</h2>
         <fieldset disabled={disabled} style={{ ...fieldGrid, border: 0, padding: 0, margin: 0, minWidth: 0 }}>
