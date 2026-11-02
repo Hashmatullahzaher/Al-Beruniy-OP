@@ -17,6 +17,28 @@ interface Draft {
   readonly changeReason: string;
 }
 
+/** What happens today when a workflow without a Simple Mode default has no saved setting (the checkbox is only a draft). */
+function notConfiguredEffect(workflowType: string, fa: boolean): string {
+  if (workflowType === "CHART_OF_ACCOUNTS") {
+    return fa ? "تا یک تنظیم ذخیره نشود، پیش‌فرض محافظتی اعمال است: هر حساب تازه یا تغییرکرده تا بررسی شخص دیگری منتظر می‌ماند. در شرکت یک‌نفره، تأیید را خاموش ذخیره کنید."
+      : "Until a setting is saved, the protective default applies: every new or changed account waits for review by another person. In a one-person company, save approval OFF.";
+  }
+  if (workflowType === "SHAREHOLDER_CAPITAL_RECEIPT") {
+    return fa ? "تا یک تنظیم ذخیره نشود، سرمایه سهامدار ثبت نمی‌شود. خاموش: با یک ذخیره ثبت می‌شود؛ روشن: شخص دوم تأیید می‌کند."
+      : "Until a setting is saved, shareholder capital cannot be recorded. OFF records it in one save; ON needs a second person.";
+  }
+  if (workflowType === "TEMPORARY_FUNDING") {
+    return fa ? "تا یک تنظیم ذخیره نشود، تمویل موقت ثبت نمی‌شود. تمویل موقت همیشه تأیید لازم دارد: تأیید روشن را ذخیره کنید."
+      : "Until a setting is saved, temporary funding cannot be recorded. Temporary funding always needs approval: save approval ON.";
+  }
+  if (workflowType === "CUSTOMER_RECEIPT") {
+    return fa ? "دریافت از مشتری هنوز در این نسخه جریان جداگانه ندارد؛ پول دریافتی را با «دریافت نقد» در صندوق‌ها ثبت کنید."
+      : "Customer receipts have no separate workflow in this version yet; record money received with “Receive cash” on the Safes page.";
+  }
+  return fa ? "تا یک تنظیم ذخیره نشود، این جریان قابل استفاده نیست. چک‌باکس پایین فقط پیش‌نویس است تا ذخیره شود."
+    : "Until a setting is saved, this workflow cannot be used. The checkbox below is only a draft until you save it.";
+}
+
 export function FinanceWorkflowPolicyWorkspace() {
   const { locale } = useLocale();
   const fa = locale === "fa";
@@ -129,6 +151,8 @@ export function FinanceWorkflowPolicyWorkspace() {
                     policy.approvalRequired ? (fa ? "تأیید روشن" : "Approval ON") : (fa ? "تأیید خاموش" : "Approval OFF")}
                 </span>
               </header>
+
+              {!policy.configured && !simpleDefault ? <p className="treasury-message" role="note">{notConfiguredEffect(policy.workflowType, fa)}</p> : null}
 
               {workspace.canManage ? <form className="admin-form" onSubmit={(event) => { event.preventDefault(); void save(policy); }}>
                 <label className="policy-toggle">

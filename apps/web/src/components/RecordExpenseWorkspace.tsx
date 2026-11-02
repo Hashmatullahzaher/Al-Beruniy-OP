@@ -157,6 +157,9 @@ export function RecordExpenseWorkspace() {
   const recordedBalance = account !== undefined && balances !== null ? balances[account.id] ?? "0" : null;
   const overspend = recordedBalance !== null && amountValid && !foreign
     && Number(draft.originalAmount.trim()) > Number(recordedBalance);
+  // A Safe, cash box or petty cash can never go below zero (the database refuses it), so there is nothing to accept:
+  // only a Saraf, bank or other account may be taken below zero on purpose.
+  const neverNegative = account !== undefined && ["SAFE", "CASH_BOX", "PETTY_CASH"].includes(account.accountType);
   // A pending month is opened by the server on save, so it no longer blocks the form.
   const ready = options !== null && setupGaps.length === 0 && !rateMissing && !dimensionMissing
     && account !== undefined && category !== undefined && amountValid
@@ -314,7 +317,12 @@ export function RecordExpenseWorkspace() {
             <label><span>{fa ? "یادداشت (اختیاری)" : "Note (optional)"}</span>
               <textarea value={draft.note} maxLength={1000} rows={2} onChange={(event) => update({ note: event.target.value })} /></label>
 
-            {overspend && account ? <p className="admin-hint expense-warning" role="alert">
+            {overspend && account && neverNegative ? <p className="treasury-message error" role="alert">
+              {fa
+                ? `این حساب فقط ${money(recordedBalance ?? "0", account.currencyCode)} ثبت‌شده دارد. صندوق، صندوقچه یا مصارف کوچک هرگز منفی نمی‌شود؛ مبلغ کمتر بنویسید یا نخست پول رسیده را ثبت کنید.`
+                : `This account holds only ${money(recordedBalance ?? "0", account.currencyCode)} on record. A Safe, cash box or petty cash can never go below zero; enter a smaller amount, or first record money that has arrived.`}
+            </p> : null}
+            {overspend && account && !neverNegative ? <p className="admin-hint expense-warning" role="alert">
               {fa
                 ? `این حساب فقط ${money(recordedBalance ?? "0", account.currencyCode)} ثبت‌شده دارد. با این ثبت، موجودی آن منفی می‌شود. اگر پولی رسیده و هنوز ثبت نشده، نخست آن را ثبت کنید.`
                 : `This account holds only ${money(recordedBalance ?? "0", account.currencyCode)} on record. Saving this takes it below zero. If money has arrived and is not recorded yet, record it first.`}
@@ -324,7 +332,7 @@ export function RecordExpenseWorkspace() {
                 <span>{fa ? "می‌دانم؛ باز هم ثبت کن" : "I understand; record it anyway"}</span>
               </label>
             </p> : null}
-            <button type="submit" className="treasury-button gold" disabled={busy || !ready || (overspend && !overspendAccepted)}>
+            <button type="submit" className="treasury-button gold" disabled={busy || !ready || (overspend && (neverNegative || !overspendAccepted))}>
               {busy ? (fa ? "در حال ثبت…" : "Recording…")
                 : options.approvalRequired ? (fa ? "فرستادن برای تأیید" : "Send for approval")
                   : (fa ? "ثبت مصرف" : "Record expense")}

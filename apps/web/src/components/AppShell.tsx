@@ -169,10 +169,11 @@ export function AppShell({ children }: AppShellProps) {
                 <div><strong>{fa ? "ورود" : "Sign in"}</strong><small>{fa ? "حساب کارمند" : "Employee account"}</small></div>
               </Link>
             ) : (
-              <Link href="/settings" className="review-context" aria-label="Stage 0 review session">
-                <span aria-hidden="true">UI</span>
-                <div><strong>{fa ? "کاربر نمایشی" : "Demo Executive"}</strong><small>{fa ? "بازبینی مرحله صفر" : "Stage 0 review"}</small></div>
-              </Link>
+              // While the session is still being checked: a neutral placeholder, never a demo identity.
+              <div className="review-context" aria-busy="true">
+                <span aria-hidden="true">…</span>
+                <div><strong>{fa ? "در حال بارگذاری…" : "Loading…"}</strong><small>{fa ? "حساب کاربر" : "Your account"}</small></div>
+              </div>
             )}
             <KabulClock />
           </div>

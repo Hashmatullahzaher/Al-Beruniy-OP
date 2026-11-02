@@ -1,6 +1,7 @@
 "use client";
 
 import { toDariDigits } from "@abos/calendar";
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { AccessGate, api, errorText, formatWhen } from "@/components/AdminUsersWorkspace";
@@ -54,7 +55,9 @@ const ERRORS: Readonly<Record<string, Copy>> = {
   ACCOUNT_CODE_TAKEN: { en: "That account code already exists in this company.", fa: "این کد حساب قبلاً در این شرکت وجود دارد." },
   REVIEW_INDEPENDENCE: { en: "You created or last changed this account, so another reviewer must review it.", fa: "شما این حساب را ایجاد یا آخرین بار تغییر داده‌اید؛ بازبین دیگری باید آن را بازبینی کند." },
   DUPLICATE_CONFIRMATION_REQUIRED: { en: "Similar accounts exist. Check the warnings and confirm to continue.", fa: "حساب‌های مشابه وجود دارند. هشدارها را ببینید و برای ادامه تایید کنید." },
-  ACCOUNT_NOT_FOUND: { en: "That account was not found.", fa: "این حساب پیدا نشد." }
+  ACCOUNT_NOT_FOUND: { en: "That account was not found.", fa: "این حساب پیدا نشد." },
+  CAPITAL_ACCOUNT_EXISTS: { en: "This company already has an active Shareholder capital account in this currency, and capital posting uses exactly one. Use that account, or deactivate it first if it was a mistake.",
+    fa: "این شرکت در این واحد پول یک حساب فعال «سرمایه سهامدار» دارد و ثبت سرمایه دقیقاً از یکی استفاده می‌کند. از همان حساب استفاده کنید یا اگر اشتباه بوده، نخست آن را غیرفعال کنید." }
 };
 
 interface FormState {
@@ -121,7 +124,7 @@ export function ChartOfAccountsWorkspace() {
 
   const fail = useCallback((error: { code: string; message: string }) => {
     const copy = ERRORS[error.code];
-    setMessage({ tone: "error", text: copy ? `${copy[locale]} ${locale === "en" ? error.message : ""}`.trim() : errorText(error, locale) });
+    setMessage({ tone: "error", text: copy ? `${copy[locale]} ${locale === "en" && error.message !== copy.en ? error.message : ""}`.trim() : errorText(error, locale) });
   }, [locale]);
 
   const load = useCallback(async () => {
@@ -170,6 +173,10 @@ export function ChartOfAccountsWorkspace() {
       </div><em>{fa ? "واحد پول پایه" : "Base currency"} · {view?.legalEntity.baseCurrency ?? "—"}</em></section>
 
       {view?.approvalPolicy ? <p className="admin-hint">{fa ? "تأیید جدول حساب‌ها" : "Chart of Accounts approval"}: <strong>{view.approvalPolicy.approvalRequired ? (fa ? "روشن" : "ON") : (fa ? "خاموش" : "OFF")}</strong> · v{view.approvalPolicy.version}{!view.approvalPolicy.configured ? (fa ? " · پیش‌فرض محافظتی" : " · Protective default") : ""}</p> : null}
+      {view?.approvalPolicy?.approvalRequired ? <p className="admin-hint" role="note">{fa
+        ? "حساب تازه یا تغییرکرده تا بررسی شخص دیگری منتظر می‌ماند و کسی حساب خودش را بررسی نمی‌کند. در شرکت یک‌نفره، تأیید جدول حساب‌ها را در «تأیید جریان‌ها» خاموش کنید؛ سپس حساب‌های منتظر را با «ارزیابی دوباره طبق سیاست فعلی» آزاد کنید."
+        : "New and changed accounts wait for review by another person; nobody reviews their own account. In a one-person company, turn Chart of Accounts approval OFF in Workflow approvals, then release waiting accounts with “Re-evaluate under current policy”."}{" "}
+        <Link href="/admin/finance-workflows">{fa ? "تأیید جریان‌ها" : "Workflow approvals"}</Link></p> : null}
 
       {message ? <div className={`treasury-message ${message.tone === "ok" ? "success" : "error"}`} role="status"><AppIcon name={message.tone === "ok" ? "shield" : "alert"} size={16} /><span>{message.text}</span><button onClick={() => setMessage(null)} aria-label={fa ? "بستن" : "Dismiss"}>×</button></div> : null}
 
@@ -317,7 +324,7 @@ function AccountForm({ view, account, fa, t, onCancel, onSaved, onError }: {
             <option value="">{fa ? "هیچ" : "None"}</option>
             {(Object.keys(CONTROLS) as ControlType[]).map((control) => <option key={control} value={control}>{t(CONTROLS[control])}</option>)}
           </select>
-          <small>{fa ? "حساب‌های صندوق و صراف با نوع کنترل «نقد» یا «صراف» ایجاد می‌شوند." : "Safe and Saraf accounts are created here with control type Cash or Saraf."}</small></label>
+          <small>{fa ? "حساب‌های صندوق و صراف با نوع کنترل «نقد» یا «صراف» ایجاد می‌شوند. هر واحد پول دقیقاً یک حساب فعال «سرمایه سهامدار» دارد." : "Safe and Saraf accounts are created here with control type Cash or Saraf. Each currency has exactly one active “Shareholder capital” account."}</small></label>
         <label className="wide"><span>{fa ? "حساب مادر (اختیاری)" : "Parent account (optional)"}</span>
           <select value={form.parentId} onChange={(event) => set("parentId", event.target.value)} disabled={posted}>
             <option value="">{fa ? "بدون حساب مادر" : "No parent"}</option>
