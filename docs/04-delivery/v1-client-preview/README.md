@@ -188,6 +188,8 @@ Prerequisites: Docker, Node 24, pnpm, and a PostgreSQL 17 container named `abos-
    pnpm --filter @abos/e1-integration preview:seed
    ```
 
+   For a brand-new company with nothing set up (no financial year, accounts, policies, Safes or shareholders), use `preview:first-run` instead. It creates only the company shell, the Super Administrator `super.admin` and one single-operator Finance user `demo.finance.manager`, through the real identity service. The first-run browser test `v1-operational-finance.spec.ts` runs it and then sets up everything else through the app: the financial year, Chart of Accounts, Workflow approvals, the Safe and expense type, then the shareholder, the capital receipt, the first expense, a reversal and the reports.
+
 4. Start the app and open <http://localhost:3200/login>:
 
    ```bash

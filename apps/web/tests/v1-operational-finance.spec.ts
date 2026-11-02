@@ -1,5 +1,4 @@
 import { execFileSync } from "node:child_process";
-import { randomUUID } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
@@ -7,9 +6,14 @@ import { expect, test, type Page } from "@playwright/test";
 import pg from "pg";
 
 /**
- * Operational Finance through the real UI, identity and database boundaries: role-aware navigation,
- * Record expense (approval OFF), Daily transactions and the Daily financial report, in English and
- * Dari. It resets only an explicitly disposable preview database and must run serially:
+ * Operational Finance from a brand-new company, through the real UI, identity and database boundaries.
+ *
+ * The database starts with only the installation shell, a Super Administrator and one single-operator
+ * Finance user (scripts/first-run-seed.ts). Everything else is set up in the app, in the order a new
+ * company meets it: financial year → Chart of Accounts → Workflow approvals → Safe and expense type →
+ * shareholder → capital into the Safe → expense → reversal → reports. Nothing is spent before the Safe is
+ * funded. SQL is used only to read and verify. It resets only an explicitly disposable preview database
+ * and must run serially:
  *
  *   ABOS_V1_PREVIEW_E2E=1 pnpm exec playwright test v1-operational-finance --workers=1
  */
@@ -20,229 +24,302 @@ const TECHNICAL_TERMS = [
   "SECURITY DEFINER", "processing model", "idempotency", "V1 operations"
 ];
 
-test.describe("V1 operational finance", () => {
+test.describe("V1 operational finance from a new company", () => {
   test.skip(
     process.env.ABOS_V1_PREVIEW_E2E !== "1",
     "Set ABOS_V1_PREVIEW_E2E=1 with an isolated preview database to run this."
   );
 
-  test("a Finance user records an expense and sees it in daily transactions and the daily report; others do not see the work", async ({ page }) => {
-    test.setTimeout(240_000);
-    const accounts = seedPreview();
-    await configureSyntheticOperationalFinance();
+  test("a single Finance operator sets up a new company, funds the Safe, spends, corrects and reports", async ({ page }) => {
+    test.setTimeout(420_000);
+    const accounts = seedFirstRun();
+    const year = new Date().getFullYear();
+    await expectBusinessCounts({ fiscal_years: 0, ledger_accounts: 0, workflow_policies: 0, treasury_accounts: 0,
+      shareholders: 0, journals: 0 });
 
-    // Someone without expense responsibilities is not offered the pages, and the server refuses them.
-    await signIn(page, "demo.cashier", accounts["demo.cashier"]);
-    const cashierNav = page.getByRole("navigation", { name: "Operations" });
-    await expect(cashierNav.getByRole("link", { name: "Record expense" })).toHaveCount(0);
-    await expect(cashierNav.getByRole("link", { name: "Daily transactions" })).toHaveCount(0);
+    // The administrator has no Finance access and is not offered the work; the server refuses it too.
+    await signIn(page, "super.admin", accounts["super.admin"]);
+    const adminNav = page.getByRole("navigation", { name: "Operations" });
+    await expect(adminNav.getByRole("link", { name: "Record expense" })).toHaveCount(0);
+    await expect(page.getByRole("note").filter({ hasText: "nobody can give access to themselves" })).toBeVisible();
     await page.goto("/finance/record-expense");
     await expect(page.getByRole("heading", { name: "You do not have access" })).toBeVisible();
     await signOut(page);
 
-    // The Finance user sees daily work and reports in business language.
-    await signIn(page, "demo.finance.preparer", accounts["demo.finance.preparer"]);
+    await signIn(page, "demo.finance.manager", accounts["demo.finance.manager"]);
     const nav = page.getByRole("navigation", { name: "Operations" });
-    await expect(nav.getByText("Daily work", { exact: true })).toBeVisible();
-    await expect(nav.getByText("Reports", { exact: true })).toBeVisible();
+
+    // 1. Financial year: Gregorian, this calendar year.
+    await nav.getByRole("link", { name: "Financial calendar" }).click();
+    const settings = page.getByRole("form", { name: "Financial calendar settings" });
+    await settings.locator("label", { hasText: "Gregorian" }).first().locator("input[type=radio]").check();
+    await settings.getByRole("button", { name: "Save settings" }).click();
+    await expect(page.locator(".treasury-message.success")).toContainText("settings saved");
+    const generator = page.getByRole("form", { name: "Generate fiscal year" });
+    await generator.getByLabel("Starting Gregorian year").fill(String(year));
+    await generator.getByRole("button", { name: "Generate fiscal year" }).click();
+    await expect(page.locator(".calendar-year").filter({ hasText: String(year) }).locator("tbody tr")).toHaveCount(12);
+
+    // 2. Chart of Accounts under the protective default: a new account waits for another person's review.
+    await nav.getByRole("link", { name: "Chart of Accounts" }).click();
+    await expect(page.getByText("In a one-person company, turn Chart of Accounts approval OFF in Workflow approvals")).toBeVisible();
+    await createAccount(page, { code: "1100", name: "Main Cash Safe - USD", type: "ASSET", control: "CASH" });
+    const tree = page.getByLabel("Accounts", { exact: true });
+    await expect(tree.locator("button", { hasText: "1100" })).toContainText("Awaiting review");
+
+    // 3. Workflow approvals: each note states what happens before anything is saved; one operator saves OFF.
+    await nav.getByRole("link", { name: "Workflow approvals" }).click();
+    const chartCard = policyCard(page, "Chart of Accounts");
+    const capitalCard = policyCard(page, "Shareholder capital receipt");
+    await expect(chartCard.getByRole("note")).toContainText("In a one-person company, save approval OFF");
+    await expect(capitalCard.getByRole("note")).toContainText("Until a setting is saved, shareholder capital cannot be recorded");
+    for (const [card, reason] of [[chartCard, "Single operator: no second reviewer"], [capitalCard, "Single operator records capital directly"]] as const) {
+      await card.getByLabel("Reason for this change").fill(reason);
+      await card.getByRole("button", { name: "Save new version" }).click();
+      await expect(card.locator(".treasury-chip")).toHaveText("Approval OFF");
+      await expect(card.locator("footer")).toContainText("Version 1");
+    }
+
+    // 4. The waiting account is released under the explicit OFF policy; later accounts need no review.
+    await nav.getByRole("link", { name: "Chart of Accounts" }).click();
+    await page.getByRole("tab", { name: /Review list/ }).click();
+    const waiting = page.getByRole("article", { name: "Review 1100" });
+    await expect(waiting).toContainText("Approval is currently OFF");
+    await waiting.getByLabel("Reason for policy-based release").fill("Single operator; approval OFF");
+    await waiting.getByRole("button", { name: "Re-evaluate under current policy" }).click();
+    await expect(page.locator(".treasury-message.success")).toContainText("released under approval OFF");
+    await page.getByRole("tab", { name: /^Accounts/ }).click();
+    await createAccount(page, { code: "3100", name: "Shareholder Capital", type: "EQUITY", control: "SHAREHOLDER_CAPITAL" });
+    await createAccount(page, { code: "5100", name: "Office Expense", type: "EXPENSE" });
+    for (const code of ["1100", "3100", "5100"]) await expect(tree.locator("button", { hasText: code })).toContainText("Approval not required");
+
+    // 5. Finance setup: the Safe and the expense type.
+    await nav.getByRole("link", { name: "Finance setup" }).click();
+    await page.getByRole("button", { name: "Add account" }).click();
+    const treasury = page.getByRole("form", { name: "Treasury account" });
+    await treasury.getByLabel("Name (English) *").fill("Main USD Safe");
+    await treasury.getByLabel("Type *").selectOption({ label: "Safe" });
+    await treasury.getByLabel("Currency *").selectOption("USD");
+    await treasury.getByLabel("Chart of Accounts account *").selectOption({ label: "1100 · Main Cash Safe - USD" });
+    await treasury.getByRole("button", { name: "Save" }).click();
+    await expect(page.getByRole("status").filter({ hasText: "Treasury account saved" })).toBeVisible();
+    await page.getByRole("button", { name: "Add expense type" }).click();
+    const type = page.getByRole("form", { name: "Expense type" });
+    await type.getByLabel("Code *").fill("OFFICE");
+    await type.getByLabel("Name (English) *").fill("Office supplies");
+    await type.getByLabel("Expense account in the Chart of Accounts *").selectOption({ label: "5100 · Office Expense" });
+    await type.getByRole("button", { name: "Save" }).click();
+    await expect(page.getByRole("status").filter({ hasText: "Expense type saved" })).toBeVisible();
+    await expect(page.locator(".setup-checklist li.missing")).toHaveCount(0);
+    await nav.getByRole("link", { name: "Safes" }).click();
+    await expect(safeBalance(page, "Main USD Safe")).toContainText("0 USD");
+
+    // 6. Nothing can be spent before the Safe is funded: the form stops it and the server refuses it.
     await nav.getByRole("link", { name: "Record expense" }).click();
-    await expect(page.getByRole("heading", { level: 1, name: "Record expense" })).toBeVisible();
+    const expense = page.getByRole("form", { name: "Record expense" });
+    await fillExpense(expense, { amount: "1000", reference: "EXP-000", purpose: "Attempt before funding" });
+    await expect(expense.getByRole("alert")).toContainText("A Safe, cash box or petty cash can never go below zero");
+    await expect(expense.getByRole("button", { name: "Record expense" })).toBeDisabled();
+    expect(await postExpenseDirectly(page, "1000")).toEqual({ status: 422, code: "INSUFFICIENT_FUNDS" });
+    await expectBusinessCounts({ journals: 0 });
 
-    const form = page.getByRole("form", { name: "Record expense" });
-    await form.getByLabel("Date *").fill("2026-09-22");
-    await form.getByLabel("Paid from *").selectOption({ label: "Synthetic Main Safe · USD" });
-    await form.getByLabel("Expense type *").selectOption({ label: "Synthetic Office Supplies" });
-    await form.getByLabel("Amount (USD) *").fill("125.50");
-    await form.getByLabel("Receipt or reference number *").fill("SYN-RCPT-001");
-    await form.getByLabel("What was it for? *").fill("Synthetic printer paper");
-    // 0040: the Safe has nothing on record yet, so the form warns and asks for confirmation before saving.
-    await form.getByRole("checkbox", { name: "I understand; record it anyway" }).check();
-    await form.getByRole("button", { name: "Record expense" }).click();
+    // 7. The shareholder is added with an agreed total only: no money, no journal.
+    await nav.getByRole("link", { name: "Shareholders" }).click();
+    await page.getByRole("button", { name: "Add shareholder" }).click();
+    const add = page.getByRole("form", { name: "Add shareholder" });
+    await add.getByLabel("Name").fill("Ahmad Test Shareholder");
+    await add.getByLabel("What are they putting in?").selectOption({ label: "Nothing yet" });
+    await add.getByLabel("Agreed total (optional)").fill("100000");
+    await add.getByRole("button", { name: "Save" }).click();
+    await expect(page.getByText("Shareholder saved.")).toBeVisible();
+    await expect(page.getByText("No capital has been recorded yet.")).toBeVisible();
+    await expectBusinessCounts({ shareholders: 1, journals: 0 });
+
+    // 8. Capital: 50,000 USD cash into the Safe posts one balanced journal.
+    await page.getByRole("button", { name: "Add money" }).click();
+    const money = page.getByRole("form", { name: "Add money" });
+    await money.getByLabel("What are they putting in?").selectOption({ label: "Cash into a Safe" });
+    await money.getByLabel("Amount").fill("50000");
+    await money.getByLabel("Which Safe did it go into?").selectOption({ label: "Main USD Safe · USD" });
+    await money.getByRole("button", { name: "Save" }).click();
+    await expect(page.getByText(/Capital recorded · CAP-/)).toBeVisible();
+    await expect(page.getByText("Capital put in", { exact: true }).first().locator("..")).toContainText("USD 50,000");
+    await expect(page.getByText("Still to come", { exact: true }).first().locator("..")).toContainText("USD 50,000");
+    expect(await journalLines()).toEqual([
+      { source: "DIRECT_SHAREHOLDER_CAPITAL", account: "1100", debit: "50000", credit: "0" },
+      { source: "DIRECT_SHAREHOLDER_CAPITAL", account: "3100", debit: "0", credit: "50000" }
+    ]);
+    await nav.getByRole("link", { name: "Safes" }).click();
+    await expect(safeBalance(page, "Main USD Safe")).toContainText("50,000 USD");
+
+    // 9. The expense: more than the Safe holds is refused; 1,000 is recorded.
+    await nav.getByRole("link", { name: "Record expense" }).click();
+    await fillExpense(expense, { amount: "60000", reference: "EXP-001", purpose: "Office supplies" });
+    await expect(expense.getByRole("alert")).toContainText("This account holds only 50,000 USD on record");
+    await expect(expense.getByRole("button", { name: "Record expense" })).toBeDisabled();
+    expect(await postExpenseDirectly(page, "60000")).toEqual({ status: 422, code: "INSUFFICIENT_FUNDS" });
+    await expense.getByLabel("Amount (USD) *").fill("1000");
+    await expect(expense.getByRole("alert")).toHaveCount(0);
+    await expense.getByRole("button", { name: "Record expense" }).click();
     await expect(page.getByRole("status").filter({ hasText: "Expense recorded" }))
-      .toContainText("Expense recorded: 125.50 USD from Synthetic Main Safe.");
+      .toContainText("Expense recorded: 1,000 USD from Main USD Safe.");
+    await expect(expense).toContainText("Recorded in this account: 49,000 USD");
     await expectNoTechnicalTerms(page);
+    expect((await journalLines()).slice(2)).toEqual([
+      { source: "OPERATIONAL_EXPENSE", account: "5100", debit: "1000", credit: "0" },
+      { source: "OPERATIONAL_EXPENSE", account: "1100", debit: "0", credit: "1000" }
+    ]);
 
-    // Daily transactions shows it as recorded, with who recorded it.
+    // Daily transactions and the daily report take their figures from the recorded expense.
     await page.getByRole("link", { name: "See daily transactions" }).click();
     await expect(page.getByRole("heading", { level: 1, name: "Daily transactions" })).toBeVisible();
-    await page.getByLabel("From", { exact: true }).fill("2026-09-01");
-    await page.getByLabel("To", { exact: true }).fill("2026-09-30");
-    const row = page.locator(".register-table tbody tr").filter({ hasText: "SYN-RCPT-001" });
-    await expect(row).toContainText("125.50 USD");
-    await expect(row).toContainText("Recorded");
-    await expect(row).toContainText("Synthetic Intent Creator");
-    await expect(page.locator(".register-totals")).toContainText("125.50 USD");
+    const row = page.locator(".register-table tbody tr").filter({ hasText: "EXP-001" });
+    await expect(row).toContainText("1,000 USD");
+    await expect(row).toContainText("Synthetic Finance Manager");
     await expectNoTechnicalTerms(page);
-
-    // The daily report takes its figures from the recorded transaction.
     await nav.getByRole("link", { name: "Daily financial report" }).click();
-    await page.getByLabel("Date", { exact: true }).fill("2026-09-22");
     await expect(page.locator(".register-totals")).toContainText("Expenses in USD (1)");
-    await expect(page.locator(".register-totals")).toContainText("125.50 USD");
-    const movement = page.locator("tr").filter({ hasText: "Synthetic Main Safe" });
-    await expect(movement).toContainText("−125.50 USD");
+    // The Safe opened the day at 0, took in 50,000 and paid out 1,000.
+    await expect(page.locator("tr").filter({ hasText: "Main USD Safe" }).first().getByRole("cell"))
+      .toHaveText(["Main USD Safe · USD", "0 USD", "49,000 USD", "49,000 USD"]);
     await expectNoTechnicalTerms(page);
 
-    // Dari is complete on the same pages.
+    // 10. Correction: the expense is reversed with a reason; the original stays posted and linked.
+    await nav.getByRole("link", { name: "Journal reversals" }).click();
+    await page.locator("tr").filter({ hasText: "Expense" }).getByRole("button", { name: "Reverse" }).click();
+    const reversal = page.locator(".reversal-form");
+    await expect(reversal).toContainText("recorded in the audit trail as a self-correction");
+    await reversal.getByLabel("Reason *").fill("First-run E2E correction test");
+    await reversal.getByRole("button", { name: "Save" }).click();
+    await expect(page.getByText("Reversal posted.")).toBeVisible();
+    await expect(page.locator("tr").filter({ hasText: "Expense" })).toContainText("Reversed: RV-");
+    const lines = await journalLines();
+    expect(lines.slice(4)).toEqual([
+      { source: "REVERSAL", account: "5100", debit: "0", credit: "1000" },
+      { source: "REVERSAL", account: "1100", debit: "1000", credit: "0" }
+    ]);
+    expect(await reversalLink()).toEqual({ originalStatus: "POSTED", reason: "First-run E2E correction test", mode: "DIRECT", selfReversal: true });
+    await expectBusinessCounts({ journals: 3 });
+    await nav.getByRole("link", { name: "Safes" }).click();
+    await expect(safeBalance(page, "Main USD Safe")).toContainText("50,000 USD");
+
+    // 11. Reports: the Trial balance balances and the Safe's account statement runs 50,000 → 49,000 → 50,000.
+    await nav.getByRole("link", { name: "Trial balance" }).click();
+    await expect(page.getByText("Balanced: total debits equal total credits (USD).")).toBeVisible();
+    const total = page.locator("tr").filter({ hasText: "Total (USD)" });
+    await expect(total).toContainText("52,000");
+    await expect(total).toContainText("50,000");
+    await page.getByRole("link", { name: "1100", exact: true }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "1100 · Main Cash Safe - USD" })).toBeVisible();
+    const statement = page.locator("table tbody tr");
+    await expect(statement).toHaveCount(3);
+    await expect(statement.nth(0)).toContainText("Capital received · Ahmad Test Shareholder");
+    await expect(statement.nth(0).locator("td").nth(5)).toHaveText("50,000");
+    await expect(statement.nth(1).locator("td").nth(5)).toHaveText("49,000");
+    await expect(statement.nth(2).locator("td").nth(5)).toHaveText("50,000");
+    await expect(page.getByText("Closing", { exact: true }).locator("..")).toContainText("50,000 Dr");
+
+    // Dari is complete on the daily pages.
     await page.getByRole("button", { name: "Switch to Dari" }).click();
-    await expect(page.getByRole("heading", { level: 1, name: "گزارش مالی روزانه" })).toBeVisible();
     await page.getByRole("navigation", { name: "عملیات" }).getByRole("link", { name: "ثبت مصرف" }).click();
     await expect(page.getByRole("heading", { level: 1, name: "ثبت مصرف" })).toBeVisible();
     await expectNoTechnicalTerms(page);
+    await page.getByRole("button", { name: "Switch to English" }).click();
   });
 });
 
-test.describe("V1 operational finance setup", () => {
-  test.skip(
-    process.env.ABOS_V1_PREVIEW_E2E !== "1",
-    "Set ABOS_V1_PREVIEW_E2E=1 with an isolated preview database to run this."
-  );
+function policyCard(page: Page, heading: string) {
+  return page.locator(".policy-card").filter({ has: page.getByRole("heading", { name: heading, exact: true }) });
+}
 
-  test("Finance sets up a Treasury account, an expense type and an open period in the app, then records an expense", async ({ page }) => {
-    test.setTimeout(240_000);
-    const accounts = seedPreview();
-    await configureSyntheticOperationalFinance({ setupInTheApp: true });
+function safeBalance(page: Page, safe: string) {
+  return page.locator(".safe-card").filter({ has: page.getByRole("heading", { name: safe }) }).getByLabel("Book balance");
+}
 
-    // Role editor explains the operational permissions in plain language, never as codes.
-    await signIn(page, "super.admin", accounts["super.admin"]);
-    await page.goto("/admin/roles");
-    await page.getByRole("button", { name: "New role" }).click();
-    const editor = page.getByRole("form", { name: "Role editor" });
-    for (const label of ["Record expenses", "View expenses and the daily report", "Approve expenses",
-      "Set up Treasury accounts for daily Finance", "Set up expense types", "Open accounting periods"]) {
-      await expect(editor.locator(".permission-row", { hasText: label })).toHaveCount(1);
-    }
-    await expect(editor).not.toContainText("finance.expense.create");
-    await signOut(page);
+async function createAccount(page: Page, account: { code: string; name: string; type: string; control?: string }): Promise<void> {
+  await page.getByRole("button", { name: "New account" }).click();
+  const form = page.getByRole("form", { name: "Account form" });
+  await form.getByLabel("Account code").fill(account.code);
+  await form.getByLabel("Account type").selectOption(account.type);
+  await form.getByLabel("Account name").fill(account.name);
+  if (account.control !== undefined) await form.getByLabel("Control type").selectOption(account.control);
+  await form.getByRole("button", { name: "Create account" }).click();
+  await expect(page.locator(".treasury-message.success")).toContainText("Account created under the current approval policy.");
+}
 
-    await signIn(page, "demo.finance.preparer", accounts["demo.finance.preparer"]);
-    const nav = page.getByRole("navigation", { name: "Operations" });
-    await expect(nav.getByText("Setup", { exact: true })).toBeVisible();
-    await nav.getByRole("link", { name: "Finance setup" }).click();
-    await expect(page.getByRole("heading", { level: 1, name: "Finance setup" })).toBeVisible();
-    await expect(page.locator(".setup-checklist")).toContainText("Expense approval: OFF");
-    await expect(page.locator(".setup-checklist li.missing")).toHaveCount(2);
+async function fillExpense(form: ReturnType<Page["getByRole"]>, values: { amount: string; reference: string; purpose: string }): Promise<void> {
+  await form.getByLabel("Paid from *").selectOption({ label: "Main USD Safe · USD" });
+  await form.getByLabel("Expense type *").selectOption({ label: "Office supplies" });
+  await form.getByLabel("Amount (USD) *").fill(values.amount);
+  await form.getByLabel("Receipt or reference number *").fill(values.reference);
+  await form.getByLabel("What was it for? *").fill(values.purpose);
+}
 
-    // Treasury account.
-    await page.getByRole("button", { name: "Add account" }).click();
-    const account = page.getByRole("form", { name: "Treasury account" });
-    await account.getByLabel("Name (English) *").fill("Synthetic Main Safe");
-    await account.getByLabel("Name (Dari)").fill("صندوق اصلی آزمایشی");
-    await account.getByLabel("Type *").selectOption({ label: "Safe" });
-    await account.getByLabel("Currency *").selectOption("USD");
-    await account.getByLabel("Chart of Accounts account *").selectOption({ index: 1 });
-    await account.getByRole("button", { name: "Save" }).click();
-    await expect(page.getByRole("status").filter({ hasText: "Treasury account saved" })).toBeVisible();
-
-    // Expense type.
-    await page.getByRole("button", { name: "Add expense type" }).click();
-    const type = page.getByRole("form", { name: "Expense type" });
-    await type.getByLabel("Code *").fill("SYN-OFFICE");
-    await type.getByLabel("Name (English) *").fill("Synthetic Office Supplies");
-    await type.getByLabel("Expense account in the Chart of Accounts *").selectOption({ label: "SYN-6100 · Synthetic Office Supplies Expense" });
-    await type.getByRole("button", { name: "Save" }).click();
-    await expect(page.getByRole("status").filter({ hasText: "Expense type saved" })).toBeVisible();
-
-    // 0052: a month is never opened by hand. It is active with its financial year and opens itself when recorded in.
-    const month = page.locator("tr").filter({ hasText: "Synthetic 2026-10" });
-    await expect(month).toContainText("Active");
-    await expect(month.getByRole("button")).toHaveCount(0);
-    await expect(page.getByText("Months only group dates for reports")).toBeVisible();
-    await expect(page.locator(".setup-checklist li.missing")).toHaveCount(0);
-    await expectNoTechnicalTerms(page);
-
-    // The configuration is immediately usable for recording.
-    await nav.getByRole("link", { name: "Record expense" }).click();
-    const form = page.getByRole("form", { name: "Record expense" });
-    await form.getByLabel("Date *").fill("2026-10-05");
-    await form.getByLabel("Paid from *").selectOption({ label: "Synthetic Main Safe · USD" });
-    await form.getByLabel("Expense type *").selectOption({ label: "Synthetic Office Supplies" });
-    await form.getByLabel("Amount (USD) *").fill("42.00");
-    await form.getByLabel("Receipt or reference number *").fill("SYN-OCT-001");
-    await form.getByLabel("What was it for? *").fill("Synthetic stationery");
-    await form.getByRole("checkbox", { name: "I understand; record it anyway" }).check(); // 0040 overspend warning
-    await form.getByRole("button", { name: "Record expense" }).click();
-    await expect(page.getByRole("status").filter({ hasText: "Expense recorded" }))
-      .toContainText("Expense recorded: 42.00 USD from Synthetic Main Safe.");
-
-    // Dari on the setup page.
-    await page.getByRole("button", { name: "Switch to Dari" }).click();
-    await page.getByRole("navigation", { name: "عملیات" }).getByRole("link", { name: "تنظیمات مالی" }).click();
-    await expect(page.getByRole("heading", { level: 1, name: "تنظیمات مالی" })).toBeVisible();
-    await expect(page.locator("tr").filter({ hasText: "صندوق اصلی آزمایشی" })).toContainText("صندوق");
-    await expectNoTechnicalTerms(page);
-  });
-});
+/** The same request the form would send, sent directly: the server, not only the form, refuses an overdraft. */
+async function postExpenseDirectly(page: Page, amount: string): Promise<{ status: number; code: string | undefined }> {
+  return page.evaluate(async (originalAmount) => {
+    const businessDate = (document.querySelector("form[aria-label='Record expense'] input[type=date]") as HTMLInputElement).value;
+    const options = await (await fetch(`/api/v1/finance/operations/expense-options?date=${businessDate}`)).json() as {
+      data: { treasuryAccounts: { id: string }[]; expenseCategories: { id: string }[] } };
+    const response = await fetch("/api/v1/finance/operations/expenses", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        treasuryAccountId: options.data.treasuryAccounts[0]?.id, expenseCategoryId: options.data.expenseCategories[0]?.id,
+        payeeBusinessPartyId: null, projectId: null, departmentId: null, costCenterId: null,
+        reference: "EXP-DIRECT", description: "Direct overdraft attempt", note: null, businessDate, originalAmount,
+        currencyCode: "USD", exchangeRateId: null, idempotencyKey: `expense-${crypto.randomUUID()}`, correlationId: crypto.randomUUID()
+      })
+    });
+    const body = await response.json() as { error?: { code?: string } };
+    return { status: response.status, code: body.error?.code };
+  }, amount);
+}
 
 async function expectNoTechnicalTerms(page: Page): Promise<void> {
   const text = await page.locator("body").innerText();
   for (const term of TECHNICAL_TERMS) expect(text, `page shows "${term}"`).not.toContain(term);
 }
 
-/** Test-only operational configuration inside the disposable preview database. */
-async function configureSyntheticOperationalFinance(options: { readonly setupInTheApp?: boolean } = {}): Promise<void> {
+/** Read-only verification of the disposable preview database. Nothing is written. */
+async function readOnly<Row extends pg.QueryResultRow>(sql: string): Promise<Row[]> {
   const environment = previewEnvironment();
   assertDisposablePreviewDatabase(environment.ABOS_DATABASE_URL, environment.ABOS_IDENTITY_DATABASE_URL);
   const client = new pg.Client({ connectionString: environment.ABOS_DATABASE_URL });
   await client.connect();
   try {
-    const one = async (sql: string, params: unknown[] = []) => (await client.query<{ id: string }>(sql, params)).rows[0]?.id ?? "";
-    const entity = await one("SELECT id FROM abos.legal_entities ORDER BY created_at LIMIT 1");
-    const bootstrap = await one("SELECT id FROM abos.user_accounts WHERE display_name = 'Synthetic Super Admin'");
-    const preparer = await one("SELECT id FROM abos.user_accounts WHERE login_identifier = 'demo.finance.preparer'");
-    const cash = await one(
-      `SELECT id FROM abos.ledger_accounts WHERE legal_entity_id = $1 AND control_account_type = 'CASH'
-         AND account_currency_code = 'USD' AND status = 'ACTIVE' AND posting_allowed ORDER BY account_code LIMIT 1`, [entity]);
-    const expenseLedger = randomUUID();
-    await client.query(
-      `INSERT INTO abos.ledger_accounts (id, legal_entity_id, account_code, account_name, account_type,
-         posting_allowed, account_currency_code, status)
-       VALUES ($1,$2,'SYN-6100','Synthetic Office Supplies Expense','EXPENSE',true,'USD','ACTIVE')`, [expenseLedger, entity]);
-    if (options.setupInTheApp === true) {
-      // Only what other screens own: the approval policy (Workflow approvals), the financial year and its month
-      // (Financial calendar) and the setup and expense permissions (Roles). Treasury accounts and expense types are
-      // set up through the Finance setup page; the month opens itself when the expense is recorded (0052).
-      const fiscalYear = randomUUID();
-      await client.query(
-        `INSERT INTO abos.fiscal_years (id, legal_entity_id, calendar_kind, fiscal_year, label_en, label_fa, starts_on, ends_on,
-           generated_by_user_account_id)
-         VALUES ($1,$2,'GREGORIAN',2026,'Synthetic FY 2026','سال مالی ۲۰۲۶','2026-01-01','2026-12-31',$3)`, [fiscalYear, entity, bootstrap]);
-      await client.query(
-        `INSERT INTO abos.accounting_periods (id, legal_entity_id, period_name, starts_on, ends_on, fiscal_year_id, period_sequence)
-         VALUES ($1,$2,'Synthetic 2026-10','2026-10-01','2026-10-31',$3,10)`, [randomUUID(), entity, fiscalYear]);
-      await client.query(
-        `INSERT INTO abos.finance_workflow_policy_versions (id, legal_entity_id, workflow_type, version, approval_required,
-           configured_by_user_account_id, change_reason)
-         VALUES ($1,$2,'EXPENSE',1,false,$3,'Synthetic preview: approval OFF.')`, [randomUUID(), entity, bootstrap]);
-      for (const permission of ["finance.expense.create", "finance.expense.read", "treasury.operational-account.manage",
-        "finance.expense-category.manage", "finance.period.manage"]) {
-        await client.query(
-          `INSERT INTO abos.user_permission_grants (user_account_id, legal_entity_id, permission_code, granted_by_user_account_id)
-           VALUES ($1,$2,$3,$4)`, [preparer, entity, permission, bootstrap]);
-      }
-      return;
-    }
-    await client.query(
-      `INSERT INTO abos.operational_treasury_accounts (id, legal_entity_id, name_en, name_fa, account_type, currency_code,
-         ledger_account_id, status, version, created_by_user_account_id, last_changed_by_user_account_id)
-       VALUES ($1,$2,'Synthetic Main Safe','صندوق اصلی آزمایشی','SAFE','USD',$3,'ACTIVE',1,$4,$4)`, [randomUUID(), entity, cash, bootstrap]);
-    await client.query(
-      `INSERT INTO abos.operational_expense_categories (id, legal_entity_id, category_code, name_en, name_fa,
-         ledger_account_id, status, version, created_by_user_account_id, last_changed_by_user_account_id)
-       VALUES ($1,$2,'SYN-OFFICE','Synthetic Office Supplies','لوازم دفتر آزمایشی',$3,'ACTIVE',1,$4,$4)`,
-      [randomUUID(), entity, expenseLedger, bootstrap]);
-    await client.query(
-      `INSERT INTO abos.finance_workflow_policy_versions (id, legal_entity_id, workflow_type, version, approval_required,
-         configured_by_user_account_id, change_reason)
-       VALUES ($1,$2,'EXPENSE',1,false,$3,'Synthetic preview: approval OFF.')`, [randomUUID(), entity, bootstrap]);
-    for (const permission of ["finance.expense.create", "finance.expense.read"]) {
-      await client.query(
-        `INSERT INTO abos.user_permission_grants (user_account_id, legal_entity_id, permission_code, granted_by_user_account_id)
-         VALUES ($1,$2,$3,$4)`, [preparer, entity, permission, bootstrap]);
-    }
+    await client.query("BEGIN READ ONLY");
+    const rows = (await client.query<Row>(sql)).rows;
+    await client.query("ROLLBACK");
+    return rows;
   } finally {
     await client.end();
   }
+}
+
+const COUNTS: Readonly<Record<string, string>> = {
+  fiscal_years: "abos.fiscal_years", ledger_accounts: "abos.ledger_accounts", workflow_policies: "abos.finance_workflow_policy_versions",
+  treasury_accounts: "abos.operational_treasury_accounts", shareholders: "abos.shareholder_profiles", journals: "abos.journals"
+};
+
+async function expectBusinessCounts(expected: Readonly<Record<string, number>>): Promise<void> {
+  const sql = Object.keys(expected).map((key) => `SELECT '${key}' AS k, count(*)::int AS n FROM ${COUNTS[key]}`).join(" UNION ALL ");
+  const rows = await readOnly<{ k: string; n: number }>(sql);
+  expect(Object.fromEntries(rows.map((row) => [row.k, row.n]))).toEqual(expected);
+}
+
+async function journalLines(): Promise<{ source: string; account: string; debit: string; credit: string }[]> {
+  return readOnly(
+    `SELECT jl.source_type AS source, la.account_code AS account, jl.base_debit::text AS debit, jl.base_credit::text AS credit
+       FROM abos.journal_lines jl JOIN abos.journals j ON j.id = jl.journal_id JOIN abos.ledger_accounts la ON la.id = jl.ledger_account_id
+      ORDER BY j.created_at, jl.line_number`);
+}
+
+async function reversalLink(): Promise<{ originalStatus: string; reason: string; mode: string; selfReversal: boolean }> {
+  const rows = await readOnly<{ originalStatus: string; reason: string; mode: string; selfReversal: boolean }>(
+    `SELECT o.status AS "originalStatus", l.reason, l.reversal_mode AS mode, l.self_reversal AS "selfReversal"
+       FROM abos.journal_reversal_links l JOIN abos.journals o ON o.id = l.original_journal_id`);
+  expect(rows).toHaveLength(1);
+  return rows[0]!;
 }
 
 function previewEnvironment(): Record<string, string | undefined> {
@@ -255,10 +332,10 @@ function previewEnvironment(): Record<string, string | undefined> {
   return { ...fileEnvironment, ...process.env };
 }
 
-function seedPreview(): Record<string, string> {
+function seedFirstRun(): Record<string, string> {
   const environment = previewEnvironment();
   assertDisposablePreviewDatabase(environment.ABOS_DATABASE_URL, environment.ABOS_IDENTITY_DATABASE_URL);
-  const output = execFileSync("pnpm", ["--filter", "@abos/e1-integration", "preview:seed"], {
+  const output = execFileSync("pnpm", ["--filter", "@abos/e1-integration", "preview:first-run"], {
     cwd: resolve(__dirname, "../../.."), env: environment as NodeJS.ProcessEnv, encoding: "utf8", shell: process.platform === "win32"
   });
   const accounts: Record<string, string> = {};
