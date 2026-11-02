@@ -229,6 +229,16 @@ test.describe("V1 operational finance from a new company", () => {
     await expect(statement.nth(1).locator("td").nth(5)).toHaveText("49,000");
     await expect(statement.nth(2).locator("td").nth(5)).toHaveText("50,000");
     await expect(page.getByText("Closing", { exact: true }).locator("..")).toContainText("50,000 Dr");
+    // 0055: the expense names its receipt and type; the journal reference stays; capital opens the shareholder's record.
+    await expect(statement.nth(1)).toContainText("Expense · EXP-001 — Office supplies");
+    await expect(statement.nth(1)).toContainText("OPX-");
+    await statement.nth(0).getByRole("link", { name: "Capital received" }).click();
+    await expect(page).toHaveURL(/\/shareholders\?shareholder=[0-9a-f-]{36}$/);
+    await expect(page.getByRole("button", { name: /Ahmad Test Shareholder/ })).toHaveAttribute("aria-pressed", "true");
+    await nav.getByRole("link", { name: "General Ledger" }).click();
+    const ledgerExpense = page.locator("li").filter({ hasText: "OPX-" }).filter({ hasText: "5100 · Office Expense" });
+    await expect(ledgerExpense).toContainText("Expense · EXP-001 — Office supplies");
+    await expect(ledgerExpense).not.toContainText("OPERATIONAL_EXPENSE");
 
     // Dari is complete on the daily pages.
     await page.getByRole("button", { name: "Switch to Dari" }).click();
