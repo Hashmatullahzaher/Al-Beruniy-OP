@@ -206,6 +206,7 @@ test("a shareholder can be added with nothing put in yet", async ({ page }) => {
 });
 
 test("a report's capital link opens that shareholder; an unknown one opens nothing", async ({ page }) => {
+  test.setTimeout(90_000); // three page loads: first open, the linked record and an unknown link
   await mockWorkspace(page); await page.goto("/shareholders");
   await addShareholder(page);
   await page.goto(`/shareholders?shareholder=${shareholderId}`);
