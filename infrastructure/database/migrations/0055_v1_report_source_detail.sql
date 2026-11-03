@@ -83,8 +83,9 @@ BEGIN
     RAISE EXCEPTION 'between 0 and 100 journals may be requested at once' USING ERRCODE = 'invalid_parameter_value';
   END IF;
   RETURN COALESCE((SELECT jsonb_object_agg(j.id, abos.report_journal_source(entity, j.id, perms,
-      (SELECT bool_and(abos.report_line_visible(entity, actor, line.project_id, line.department_id, line.cost_center_id))
-         FROM abos.journal_lines line WHERE line.journal_id = j.id)))
+      -- Fail closed: a journal whose visibility cannot be established is treated as restricted.
+      COALESCE((SELECT bool_and(abos.report_line_visible(entity, actor, line.project_id, line.department_id, line.cost_center_id))
+         FROM abos.journal_lines line WHERE line.journal_id = j.id), false)))
     FROM abos.journals j WHERE j.id = ANY(p_journal_ids) AND j.legal_entity_id = entity AND j.status = 'POSTED'), '{}'::jsonb);
 END
 $sources$;

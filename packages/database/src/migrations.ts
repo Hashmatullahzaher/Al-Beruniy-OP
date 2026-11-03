@@ -295,7 +295,7 @@ export const migrationCatalog = [
   },
   {
     id: "0055_v1_report_source_detail",
-    checksumSha256: "2e738071880bdb6f24e34e4140881830e3210b761072941fb0c0ff207b77a697",
+    checksumSha256: "2ec859aba850c09747909ed415f8a551c0a7ae7084f4ab39b7715b8f1d1e087f",
     relativePath: "infrastructure/database/migrations/0055_v1_report_source_detail.sql",
   },
 ] as const satisfies readonly MigrationDefinition[];
