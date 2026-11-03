@@ -1593,6 +1593,7 @@ button.review-context { border: 0; border-inline-start: 1px solid rgba(102, 142,
 .coa-badges { display: flex; flex-wrap: wrap; gap: 4px; justify-content: flex-end; }
 .coa-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .coa-form-grid .wide { grid-column: 1 / -1; }
+.coa-form-grid .coa-field-hint { grid-column: 1 / -1; margin-top: -4px; color: var(--abos-slate-400); font-size: 10.5px; line-height: 1.5; }
 .coa-form select, .coa-reason input { height: 38px; min-height: 38px; padding: 0 8px; border: 1px solid rgba(73, 145, 192, .35); border-radius: 7px; background: rgba(3, 14, 25, .8); color: white; font: inherit; font-size: 12.5px; }
 .coa-form select:disabled { opacity: .6; }
 .coa-locked { display: flex; gap: 6px; align-items: flex-start; padding: 8px 10px; border-inline-start: 2px solid rgba(224, 180, 79, .6); background: rgba(122, 91, 28, .12); }

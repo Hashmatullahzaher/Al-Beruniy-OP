@@ -327,11 +327,11 @@ function AccountForm({ view, account, fa, t, onCancel, onSaved, onError }: {
             <option value="">{fa ? "هیچ — فقط گروه" : "None — group only"}</option>
           </select></label>
         <label><span>{fa ? "نوع کنترل" : "Control type"}</span>
-          <select value={form.controlType} onChange={(event) => set("controlType", event.target.value as ControlType | "")} disabled={locked}>
+          <select aria-describedby="coa-control-hint" value={form.controlType} onChange={(event) => set("controlType", event.target.value as ControlType | "")} disabled={locked}>
             <option value="">{fa ? "هیچ" : "None"}</option>
             {(Object.keys(CONTROLS) as ControlType[]).map((control) => <option key={control} value={control}>{t(CONTROLS[control])}</option>)}
-          </select>
-          <small>{fa ? "حساب‌های صندوق و صراف با نوع کنترل «نقد» یا «صراف» ایجاد می‌شوند. هر واحد پول دقیقاً یک حساب فعال «سرمایه سهامدار» دارد." : "Safe and Saraf accounts are created here with control type Cash or Saraf. Each currency has exactly one active “Shareholder capital” account."}</small></label>
+          </select></label>
+        <small id="coa-control-hint" className="coa-field-hint">{fa ? "حساب‌های صندوق و صراف با نوع کنترل «نقد» یا «صراف» ایجاد می‌شوند. هر واحد پول دقیقاً یک حساب فعال «سرمایه سهامدار» دارد." : "Safe and Saraf accounts are created here with control type Cash or Saraf. Each currency has exactly one active “Shareholder capital” account."}</small>
         <label className="wide"><span>{fa ? "حساب مادر (اختیاری)" : "Parent account (optional)"}</span>
           <select value={form.parentId} onChange={(event) => set("parentId", event.target.value)} disabled={posted}>
             <option value="">{fa ? "بدون حساب مادر" : "No parent"}</option>

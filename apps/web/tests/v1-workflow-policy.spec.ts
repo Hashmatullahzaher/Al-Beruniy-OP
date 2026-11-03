@@ -70,10 +70,10 @@ test.describe("V1 workflow approval policy", () => {
     await search.getByRole("link", { name: "Workflow approvals" }).click();
 
     await expect(page.getByRole("heading", { level: 1, name: "Workflow approvals" })).toBeVisible();
-    await expect(page.locator(".policy-card")).toHaveCount(9);
-    // 0049 Simple Mode: the five daily-money workflows record in one save until a setting is saved.
+    await expect(page.locator(".policy-card")).toHaveCount(10); // 0050 added Journal reversal
+    // 0049/0050 Simple Mode: the five daily-money workflows and journal reversal record in one save until a setting is saved.
     await expect(page.locator(".policy-card .treasury-chip", { hasText: "Not configured" })).toHaveCount(4);
-    await expect(page.locator(".policy-card .treasury-chip", { hasText: "Approval OFF (default)" })).toHaveCount(5);
+    await expect(page.locator(".policy-card .treasury-chip", { hasText: "Approval OFF (default)" })).toHaveCount(6);
     // A workflow without a saved setting says what happens today, so the draft checkbox is never read as the state.
     const capitalCard = page.locator(".policy-card").filter({ has: page.getByRole("heading", { name: "Shareholder capital receipt", exact: true }) });
     await expect(capitalCard.getByRole("note")).toContainText("Until a setting is saved, shareholder capital cannot be recorded");
