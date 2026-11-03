@@ -54,7 +54,8 @@ async function mock(page: Page) {
   });
   await page.route("**/api/v1/finance/account-statement*", async (route) => { asked.push(new URL(route.request().url()).search); await route.fulfill({ json: { ok: true, data: statement } }); });
   await page.route(`**/api/v1/finance/journals/${paymentJournal}`, (route) => route.fulfill({ json: { ok: true, data: journal } }));
-  await page.route("**/api/v1/finance/general-ledger*", (route) => route.fulfill({ json: { ok: true, data: { syntheticOnly: false, legalEntityId: "e", from: "2026-01-01",
+  // The page and its activity summary (the summary was unmocked, so the real server's 401 raced the journal panel).
+  await page.route(/\/api\/v1\/finance\/general-ledger(\/activity)?\?/, (route) => route.fulfill({ json: { ok: true, data: { syntheticOnly: false, legalEntityId: "e", from: "2026-01-01",
     to: "2026-12-31", accountId: null, accounts: [], currencyTotals: [], lines: [], totals: [], returnedLineCount: 0, hasMore: false, nextCursor: null, pageLimit: 100,
     order: "", basis: "POSTED_ACTIVITY_IN_RANGE", isBalance: false, openingBalancesIncluded: false } } }));
   await page.route("**/api/v1/finance/accounts*", (route) => route.fulfill({ json: { ok: true, data: { accounts: [] } } }));
@@ -88,10 +89,25 @@ test("the account statement shows the running balance, masks a restricted moveme
   await expect(report.getByRole("link", { name: "PY-1" })).toHaveAttribute("href", `/finance/general-ledger?journalId=${paymentJournal}`);
 });
 
+test("0055: the statement names an expense's reference and type, and links capital to its shareholder", async ({ page }) => {
+  await mock(page);
+  const expenseSource = { type: "OPERATIONAL_EXPENSE", id: "x1", label: { en: "Expense", fa: "مصرف" }, route: "/finance/transactions", counterparty: null,
+    detail: { en: "EXP-001 — Office supplies", fa: "EXP-001 — لوازم دفتر" } };
+  const capitalSource = { type: "DIRECT_SHAREHOLDER_CAPITAL", id: "c1", label: { en: "Capital received", fa: "سرمایه دریافت‌شده" },
+    route: "/shareholders?shareholder=s1", counterparty: "Synthetic Holder", detail: null };
+  const lines = [{ ...statement.lines[0]!, source: capitalSource }, { ...statement.lines[2]!, journalId: "j9", journalReference: "OPX-1", reversedBy: null, source: expenseSource }];
+  await page.route("**/api/v1/finance/account-statement*", (route) => route.fulfill({ json: { ok: true, data: { ...statement, lines } } }));
+  await page.goto(`/finance/account-statement?accountId=${cashId}&periodId=${periodId}`);
+  const report = page.getByRole("region", { name: "Account statement" });
+  await expect(report.getByRole("row").filter({ hasText: "OPX-1" })).toContainText("Expense · EXP-001 — Office supplies");
+  await expect(report.getByRole("link", { name: "OPX-1" })).toHaveAttribute("href", "/finance/general-ledger?journalId=j9");
+  await expect(report.getByRole("link", { name: "Capital received" })).toHaveAttribute("href", "/shareholders?shareholder=s1");
+});
+
 test("the General Ledger opens a journal from ?journalId= with its lines, source and reversal", async ({ page }) => {
   await mock(page);
   await page.goto(`/finance/general-ledger?journalId=${paymentJournal}`);
-  const panel = page.getByRole("region", { name: "Journal" });
+  const panel = page.getByRole("region", { name: "Journal", exact: true });
   await expect(panel.getByRole("heading", { name: "PY-1" })).toBeVisible();
   await expect(panel).toContainText("Synthetic supplier");
   await expect(panel).toContainText("Duplicate supplier payment");

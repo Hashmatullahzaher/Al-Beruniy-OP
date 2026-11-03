@@ -1,4 +1,8 @@
+import type { ReportSource } from "@abos/contracts";
+
 import { financeHandoffRuntime, financeToken } from "@/server/finance-handoff";
+import { sessionToken } from "@/server/identity";
+import { restrictedFinanceAuthenticator } from "@/server/operational-finance";
 import { errorResponse, json } from "@/server/treasury";
 
 /** Read-only posted activity through the restricted Finance database credential. */
@@ -22,6 +26,8 @@ export interface GeneralLedgerLine {
   readonly baseDebit: string;
   readonly baseCredit: string;
   readonly restricted: boolean;
+  /** 0055: the journal's business source, masked like the journal detail; null when the journal has none. */
+  readonly source: ReportSource | null;
 }
 
 export interface GeneralLedgerTotal {
@@ -97,9 +103,14 @@ export async function generalLedgerView(
   from: string, to: string, accountId: string | null, cursor: string | null = null, pageSize = 100
 ): Promise<GeneralLedgerView> {
   const token = await financeToken();
-  return financeJson<GeneralLedgerView>(
+  const page = await financeJson<GeneralLedgerView>(
     "SELECT abos.finance_general_ledger_page($1, $2::date, $3::date, $4::uuid, $5, $6::integer) AS value",
     [token, from, to, accountId, cursor, pageSize], "General Ledger");
+  // 0055: each journal's business source ("EXP-001 — Office supplies"), from the reporting functions that mask it.
+  const journalIds = [...new Set(page.lines.map((line) => line.journalId))];
+  const sources = journalIds.length === 0 ? {}
+    : await restrictedFinanceAuthenticator().journalSources(financeHandoffRuntime().executor, await sessionToken(), journalIds);
+  return { ...page, lines: page.lines.map((line) => ({ ...line, source: sources[line.journalId] ?? null })) };
 }
 
 export async function generalLedgerActivity(from: string, to: string, accountId: string | null): Promise<GeneralLedgerActivityView> {

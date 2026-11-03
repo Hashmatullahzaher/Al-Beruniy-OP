@@ -22,6 +22,7 @@ export function SourceCell({ source, fa }: Readonly<{ source: ReportSource | nul
   if (source === null) return <span>—</span>;
   const label = fa ? source.label.fa : source.label.en;
   return <span>{source.route ? <Link href={source.route}>{label}</Link> : label}
+    {source.detail ? <> · {fa ? source.detail.fa : source.detail.en}</> : null}
     {source.counterparty ? <> · {source.counterparty}</> : null}
     {source.detailRestricted ? <small className="admin-hint"> {fa ? "(جزئیات محدود)" : "(details restricted)"}</small> : null}</span>;
 }

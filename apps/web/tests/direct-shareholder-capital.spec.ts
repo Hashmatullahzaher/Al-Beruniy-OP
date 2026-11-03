@@ -205,6 +205,18 @@ test("a shareholder can be added with nothing put in yet", async ({ page }) => {
   await expect(page.getByRole("region", { name: "Safe balances" })).toContainText("USD 0.00");
 });
 
+test("a report's capital link opens that shareholder; an unknown one opens nothing", async ({ page }) => {
+  test.setTimeout(90_000); // three page loads: first open, the linked record and an unknown link
+  await mockWorkspace(page); await page.goto("/shareholders");
+  await addShareholder(page);
+  await page.goto(`/shareholders?shareholder=${shareholderId}`);
+  await expect(page.getByRole("article", { name: "Demo Shareholder", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Demo Shareholder/ })).toHaveAttribute("aria-pressed", "true");
+  await page.goto("/shareholders?shareholder=71000000-0000-4000-8000-0000000000ff");
+  await expect(page.getByRole("button", { name: /Demo Shareholder/ })).toHaveAttribute("aria-pressed", "false");
+  await expect(page.getByRole("article", { name: "Demo Shareholder", exact: true })).toHaveCount(0);
+});
+
 test("lost response retries the identical command and records only one contribution", async ({ page }) => {
   const mocked = await mockWorkspace(page); await page.goto("/shareholders"); await addShareholder(page);
   const form = await addMoney(page, "20000"); mocked.loseConfirmation();

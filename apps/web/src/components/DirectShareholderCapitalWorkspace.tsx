@@ -81,7 +81,13 @@ export function DirectShareholderCapitalWorkspace() {
     let active = true;
     void api<Workspace>(ENDPOINT).then(result => {
       if (!active) return;
-      if (result.ok) { setView(result.data); setGate(null); return; }
+      if (result.ok) {
+        setView(result.data); setGate(null);
+        // 0055: a report's "Capital received" link (?shareholder=<profile>) opens that shareholder, if this reader can see them.
+        const linked = new URLSearchParams(window.location.search).get("shareholder");
+        if (linked && result.data.shareholders.some(item => item.id === linked)) setSelected(linked);
+        return;
+      }
       setGate(result.status === 401 ? "signed-out" : result.status === 403 ? "denied" : null);
       setMessage({ ok: false, text: errorText(result.error, locale) });
     });

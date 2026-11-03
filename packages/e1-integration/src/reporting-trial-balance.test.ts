@@ -145,7 +145,7 @@ if (databaseUrl() === undefined) {
         expenseCategoryId: f.category, payeeBusinessPartyId: null, projectId: null, departmentId: null, costCenterId: null, reference: "TB-EXP",
         description: "Synthetic site supplies", note: null, businessDate: "2026-09-11", originalAmount: amount, currencyCode: "USD", exchangeRateId: null,
         ...keys(), ...extra });
-      await expense("200.00", {});
+      const supplies = await expense("200.00", {});
       const restricted = await expense("50.00", { projectId: f.project, reference: "TB-SECRET" });
       const payment = await call<{ journalId: string }>("treasury_payment_record", c, { treasuryAccountId: f.usdSafe, paymentKind: "SUPPLIER", payeeBusinessPartyId: null,
         payeeName: "Synthetic supplier", payableLedgerAccountId: f.payable, amount: "100.00", currencyCode: "USD", businessDate: "2026-09-12", reference: null, note: null, ...keys() });
@@ -159,7 +159,7 @@ if (databaseUrl() === undefined) {
         departmentId: null, costCenterId: null, reference: "TB-AFN-EXP", description: "Synthetic AFN supplies", note: null, businessDate: "2026-09-15",
         originalAmount: "1400.00", currencyCode: "AFN", exchangeRateId: null, ...keys() });
       return { capital: capital.journalId, receipt: receipt.journalId, restricted: restricted.expense.journalId, payment: payment.journalId,
-        reversal: reversal.reversalJournalId, afn: afn.journalId };
+        reversal: reversal.reversalJournalId, afn: afn.journalId, expense: supplies.expense.journalId, holder: holder.shareholderProfileId };
     }
     /** Every account's net straight from posted journal lines: the reference the reports must equal. */
     const ledgerNet = async (f: Fixture, from: string, to: string) => new Map((await h.pool.query<{ id: string; n: string }>(
@@ -307,7 +307,39 @@ if (databaseUrl() === undefined) {
       const named = mine.lines.find((l) => l.journalId === j.capital);
       assert.deepEqual([generic?.debit, generic?.source?.type, generic?.source?.label.en, generic?.source?.counterparty, generic?.source?.detailRestricted,
         generic?.source?.route], ["700.00", "DIRECT_SHAREHOLDER_CAPITAL", "Capital received", null, true, null]);
-      assert.deepEqual([named?.source?.counterparty, named?.source?.route], ["Synthetic Report Holder", "/shareholders"]);
+      // 0055: the link opens that shareholder's record.
+      assert.deepEqual([named?.source?.counterparty, named?.source?.route], ["Synthetic Report Holder", `/shareholders?shareholder=${j.holder}`]);
+    });
+
+    test("0055: an expense names its reference and type to a reader who may read expenses; the General Ledger gets the same masked source", async () => {
+      const f = await fixture();
+      const j = await populate(f);
+      type Source = { type: string; label: { en: string }; route: string | null; detail?: { en: string; fa: string } | null };
+      const line = (view: Statement, journalId: string) => view.lines.find((l) => l.journalId === journalId)?.source as Source | undefined;
+      const mine = await statement(f.creator, f.expenseLedger, SEPT);
+      assert.deepEqual([line(mine, j.expense)?.label.en, line(mine, j.expense)?.detail], ["Expense", { en: "TB-EXP — Synthetic supplies", fa: "TB-EXP — Synthetic supplies" }]);
+      assert.deepEqual(line(mine, j.restricted)?.detail, { en: "TB-SECRET — Synthetic supplies", fa: "TB-SECRET — Synthetic supplies" }, "in the creator's project scope");
+      // A reader without finance.expense.read keeps the generic label; a line outside their scope stays restricted.
+      const theirs = await statement(f.reader, f.expenseLedger, SEPT);
+      assert.deepEqual([line(theirs, j.expense)?.label.en, line(theirs, j.expense)?.detail ?? null], ["Expense", null]);
+      assert.deepEqual([line(theirs, j.restricted)?.type, line(theirs, j.restricted)?.detail], ["RESTRICTED", undefined]);
+      // finance_journal_sources: the General Ledger's source per journal, masked exactly like the journal detail.
+      const ids = [j.expense, j.restricted, j.capital, randomUUID()];
+      const sources = async (s: Session, journalIds: string[]) => (await runtime.query<{ v: Record<string, Source> }>(
+        "SELECT abos.finance_journal_sources($1,$2,$3,$4::uuid[]) AS v", [s.proof, s.runtimeDigest, s.tokenDigest, journalIds])).rows[0]?.v ?? {};
+      const forCreator = await sources(f.creator, ids);
+      assert.deepEqual(Object.keys(forCreator).sort(), [j.expense, j.restricted, j.capital].sort(), "an unknown journal is simply absent");
+      assert.equal(forCreator[j.expense]?.detail?.en, "TB-EXP — Synthetic supplies");
+      assert.equal(forCreator[j.capital]?.route, `/shareholders?shareholder=${j.holder}`);
+      for (const journalId of ids.slice(0, 3)) {
+        const detail = await call<{ source: Source }>("finance_journal_detail", f.creator, journalId);
+        assert.deepEqual(forCreator[journalId], detail.source, "the same source as the journal detail");
+      }
+      const forReader = await sources(f.reader, ids);
+      assert.deepEqual([forReader[j.restricted]?.type, forReader[j.expense]?.detail ?? null, forReader[j.capital]?.route], ["RESTRICTED", null, null]);
+      await assert.rejects(() => sources(f.creator, Array.from({ length: 101 }, () => randomUUID())), /between 0 and 100 journals/);
+      const plain = session((await issueOperationalSession(h, f.world.treasuryManagerId, f.e)).token);
+      await assert.rejects(() => sources(plain, [j.expense]), /current authority is missing finance\.report\.operational\.read/);
     });
 
     test("another company, a synthetic session and a missing permission are refused", async () => {
