@@ -151,6 +151,9 @@ export function ChartOfAccountsWorkspace() {
   const rows = useMemo(() => treeRows(view?.accounts ?? [], query), [view, query]);
   const queue = useMemo(() => (view?.accounts ?? []).filter((account) => account.reviewState === "PENDING_REVIEW" || account.reviewState === "FLAGGED"), [view]);
   const current = view?.accounts.find((account) => account.id === selected) ?? null;
+  // Approval is OFF now, but accounts saved while it was required still wait: they are released, never silently.
+  const releasable = view?.approvalPolicy?.configured && !view.approvalPolicy.approvalRequired
+    ? queue.filter((account) => account.reviewState === "PENDING_REVIEW").length : 0;
 
   if (gate) return <div className="module-workspace"><AccessGate state={gate} fa={fa} what={{ en: "The Chart of Accounts needs the “Manage the Chart of Accounts”, “Review new accounts” or “View Finance inbox and journals” permission.", fa: "جدول حساب‌ها به صلاحیت «مدیریت جدول حساب‌ها»، «بازبینی حساب‌های جدید» یا «مشاهده صندوق مالی و ژورنال‌ها» نیاز دارد." }} /></div>;
 
@@ -177,6 +180,10 @@ export function ChartOfAccountsWorkspace() {
         ? "حساب تازه یا تغییرکرده تا بررسی شخص دیگری منتظر می‌ماند و کسی حساب خودش را بررسی نمی‌کند. در شرکت یک‌نفره، تأیید جدول حساب‌ها را در «تأیید جریان‌ها» خاموش کنید؛ سپس حساب‌های منتظر را با «ارزیابی دوباره طبق سیاست فعلی» آزاد کنید."
         : "New and changed accounts wait for review by another person; nobody reviews their own account. In a one-person company, turn Chart of Accounts approval OFF in Workflow approvals, then release waiting accounts with “Re-evaluate under current policy”."}{" "}
         <Link href="/admin/finance-workflows">{fa ? "تأیید جریان‌ها" : "Workflow approvals"}</Link></p> : null}
+      {releasable > 0 ? <div className="treasury-message coa-release-note" role="note"><AppIcon name="alert" size={16} /><span>{fa
+        ? `تأیید جدول حساب‌ها اکنون خاموش است، اما ${num(releasable)} حساب که هنگام روشن بودن تأیید ذخیره شده هنوز «در انتظار بازبینی» است و تا آزاد نشود استفاده نمی‌شود. هر حساب را با «ارزیابی دوباره طبق سیاست جاری» و یک دلیل آزاد کنید؛ این کار ثبت و حسابرسی می‌شود و خودکار انجام نمی‌شود.`
+        : `Chart of Accounts approval is now OFF, but ${releasable} ${releasable === 1 ? "account" : "accounts"} saved while approval was required ${releasable === 1 ? "is" : "are"} still “Awaiting review” and cannot be used until released. Release each one with “Re-evaluate under current policy” and a reason; it is recorded and audited, never done automatically.`}
+        {view?.canManage ? <>{" "}<button type="button" className="treasury-button gold" onClick={() => setTab("review")}>{fa ? "باز کردن حساب‌های قابل آزادسازی" : "Open the accounts to release"}</button></> : null}</span></div> : null}
 
       {message ? <div className={`treasury-message ${message.tone === "ok" ? "success" : "error"}`} role="status"><AppIcon name={message.tone === "ok" ? "shield" : "alert"} size={16} /><span>{message.text}</span><button onClick={() => setMessage(null)} aria-label={fa ? "بستن" : "Dismiss"}>×</button></div> : null}
 
@@ -426,6 +433,11 @@ function AccountDetail({ view, account, fa, t, num, onEdit, onChanged, onError }
   );
 }
 
+/** Approval is OFF under a saved policy and the account still waits from when it was required. */
+function releasableUnderPolicy(view: ChartOfAccountsView, account: LedgerAccountView): boolean {
+  return Boolean(view.approvalPolicy?.configured && !view.approvalPolicy.approvalRequired && account.reviewState === "PENDING_REVIEW");
+}
+
 function PolicyReevaluation({ view, account, fa, onChanged, onError }: {
   readonly view: ChartOfAccountsView; readonly account: LedgerAccountView; readonly fa: boolean;
   readonly onChanged: (text: Copy) => Promise<void>; readonly onError: (error: { code: string; message: string }) => void;
@@ -433,7 +445,7 @@ function PolicyReevaluation({ view, account, fa, onChanged, onError }: {
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const retry = useRef<{ fingerprint: string; idempotencyKey: string; correlationId: string } | null>(null);
-  if (!view.canManage || !view.approvalPolicy?.configured || view.approvalPolicy.approvalRequired || account.reviewState !== "PENDING_REVIEW") return null;
+  if (!view.canManage || !releasableUnderPolicy(view, account)) return null;
   const release = async () => {
     const fingerprint = JSON.stringify([account.id, account.version, reason.trim()]);
     if (retry.current?.fingerprint !== fingerprint) retry.current = { fingerprint, idempotencyKey: crypto.randomUUID(), correlationId: crypto.randomUUID() };
@@ -488,7 +500,11 @@ function ReviewList({ view, queue, fa, t, onDecided, onError }: {
             <WarningList warnings={account.duplicateWarnings} fa={fa} t={t} />
           </> : null}
           {view.canReview ? (account.viewerIsParticipant
-            ? <p className="admin-hint coa-locked"><AppIcon name="shield" size={14} /> {fa ? "شما این حساب را ایجاد یا آخرین بار تغییر داده‌اید؛ بازبین دیگری باید آن را بازبینی کند." : "You created or last changed this account; another reviewer must review it."}</p>
+            ? <p className="admin-hint coa-locked"><AppIcon name="shield" size={14} /> {releasableUnderPolicy(view, account)
+              ? (view.canManage
+                ? (fa ? "تأیید اکنون خاموش است: این حساب را با «ارزیابی دوباره طبق سیاست جاری» در بالا آزاد کنید. فقط «بازبینی شد» به شخص دیگری نیاز دارد، چون شما آن را ایجاد یا تغییر داده‌اید." : "Approval is OFF now: release this account above with “Re-evaluate under current policy”. Only “Mark reviewed” needs someone else, because you created or last changed it.")
+                : (fa ? "تأیید اکنون خاموش است: کسی که جدول حساب‌ها را مدیریت می‌کند می‌تواند این حساب را با «ارزیابی دوباره طبق سیاست جاری» آزاد کند." : "Approval is OFF now: someone who manages the Chart of Accounts can release this account with “Re-evaluate under current policy”."))
+              : (fa ? "شما این حساب را ایجاد یا آخرین بار تغییر داده‌اید؛ بازبین دیگری باید آن را بازبینی کند." : "You created or last changed this account; another reviewer must review it.")}</p>
             : <div className="admin-form coa-review-actions">
                 <label><span>{fa ? "یادداشت (برای علامت‌گذاری لازم است)" : "Note (required to flag)"}</span>
                   <input value={notes[account.id] ?? ""} onChange={(event) => setNotes((current) => ({ ...current, [account.id]: event.target.value }))} maxLength={500} /></label>

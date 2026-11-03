@@ -13,8 +13,26 @@ import { useLocale } from "@/components/LocaleProvider";
 import { StageZeroPageHeader } from "@/components/StageZeroWorkspace";
 
 interface Draft {
-  readonly approvalRequired: boolean;
+  /** null: nothing chosen yet for a workflow with no saved setting and no Simple Mode default. */
+  readonly approvalRequired: boolean | null;
   readonly changeReason: string;
+}
+
+/** The status chip of a workflow with no saved setting and no Simple Mode default: what happens today, never an assumed OFF. */
+function notConfiguredStatus(workflowType: string, fa: boolean): { readonly text: string; readonly tone: "gold" | "danger" | "ok" } {
+  if (workflowType === "CHART_OF_ACCOUNTS") {
+    return { tone: "gold", text: fa ? "پیکربندی نشده — فعلاً به‌طور پیش‌فرض تأیید لازم است" : "Not configured — approval is currently required by default" };
+  }
+  if (workflowType === "SHAREHOLDER_CAPITAL_RECEIPT") {
+    return { tone: "danger", text: fa ? "پیکربندی نشده — تا این تنظیم ذخیره نشود، سرمایه ثبت نمی‌شود" : "Not configured — capital cannot be recorded until this setting is saved" };
+  }
+  if (workflowType === "TEMPORARY_FUNDING") {
+    return { tone: "danger", text: fa ? "پیکربندی نشده — تا این تنظیم ذخیره نشود، تمویل موقت ثبت نمی‌شود" : "Not configured — temporary funding cannot be recorded until this setting is saved" };
+  }
+  if (workflowType === "CUSTOMER_RECEIPT") {
+    return { tone: "ok", text: fa ? "پیکربندی نشده — جریان جداگانه ندارد؛ با «دریافت نقد» ثبت می‌شود" : "Not configured — no separate workflow; recorded with “Receive cash”" };
+  }
+  return { tone: "danger", text: fa ? "پیکربندی نشده — تا این تنظیم ذخیره نشود قابل استفاده نیست" : "Not configured — cannot be used until this setting is saved" };
 }
 
 /** What happens today when a workflow without a Simple Mode default has no saved setting (the checkbox is only a draft). */
@@ -58,7 +76,8 @@ export function FinanceWorkflowPolicyWorkspace() {
     setGate(null);
     setWorkspace(result.data);
     setDrafts(Object.fromEntries(result.data.policies.map((policy) => [policy.workflowType, {
-      approvalRequired: policy.approvalRequired ?? false,
+      approvalRequired: policy.configured ? policy.approvalRequired ?? false
+        : SIMPLE_MODE_DEFAULT_WORKFLOWS.includes(policy.workflowType) ? false : null,
       changeReason: ""
     }])));
   }, [locale]);
@@ -73,7 +92,7 @@ export function FinanceWorkflowPolicyWorkspace() {
 
   const save = async (policy: FinanceWorkflowPolicy) => {
     const draft = drafts[policy.workflowType];
-    if (!draft) return;
+    if (!draft || draft.approvalRequired === null) return;
     setBusy(policy.workflowType);
     setMessage(null);
     // A lost response can be retried with the same command; changed inputs get a new command.
@@ -138,37 +157,49 @@ export function FinanceWorkflowPolicyWorkspace() {
       {workspace === null ? <p className="treasury-placeholder">{fa ? "در حال بارگذاری…" : "Loading…"}</p> : (
         <section className="policy-grid">
           {workspace.policies.map((policy) => {
-            const draft = drafts[policy.workflowType] ?? { approvalRequired: false, changeReason: "" };
-            const changed = policy.approvalRequired !== draft.approvalRequired || !policy.configured;
             const simpleDefault = SIMPLE_MODE_DEFAULT_WORKFLOWS.includes(policy.workflowType);
+            // A workflow with no saved setting and no Simple Mode default shows what happens today and asks for an explicit choice.
+            const unset = !policy.configured && !simpleDefault;
+            const draft = drafts[policy.workflowType] ?? { approvalRequired: unset ? null : false, changeReason: "" };
+            const changed = draft.approvalRequired !== null && (policy.approvalRequired !== draft.approvalRequired || !policy.configured);
+            const status = unset ? notConfiguredStatus(policy.workflowType, fa) : null;
+            const choose = (approvalRequired: boolean) => setDrafts({ ...drafts, [policy.workflowType]: { ...draft, approvalRequired } });
             // ON cannot be chosen where the lane has no approval path yet; an existing ON can still be turned off.
             const onLocked = !policy.approvalAvailable && !draft.approvalRequired;
             return <article className="module-content-card policy-card" key={policy.workflowType}>
               <header>
                 <div><p>{fa ? "نوع جریان" : "WORKFLOW"}</p><h2>{fa ? policy.labelFa : policy.labelEn}</h2></div>
-                <span className={`treasury-chip ${!policy.configured ? (simpleDefault ? "ok" : "danger") : policy.approvalRequired ? "gold" : "ok"}`}>
-                  {!policy.configured ? (simpleDefault ? (fa ? "تأیید خاموش (پیش‌فرض)" : "Approval OFF (default)") : (fa ? "پیکربندی نشده" : "Not configured")) :
+                <span className={`treasury-chip ${status ? status.tone : !policy.configured ? "ok" : policy.approvalRequired ? "gold" : "ok"}`}>
+                  {status ? status.text : !policy.configured ? (fa ? "تأیید خاموش (پیش‌فرض)" : "Approval OFF (default)") :
                     policy.approvalRequired ? (fa ? "تأیید روشن" : "Approval ON") : (fa ? "تأیید خاموش" : "Approval OFF")}
                 </span>
               </header>
 
-              {!policy.configured && !simpleDefault ? <p className="treasury-message" role="note">{notConfiguredEffect(policy.workflowType, fa)}</p> : null}
+              {unset ? <p className="treasury-message" role="note">{notConfiguredEffect(policy.workflowType, fa)}</p> : null}
 
               {workspace.canManage ? <form className="admin-form" onSubmit={(event) => { event.preventDefault(); void save(policy); }}>
-                <label className="policy-toggle">
+                {unset ? <fieldset className="policy-choice" aria-describedby={`policy-help-${policy.workflowType}`}>
+                  <legend>{fa ? "تنظیمی که ذخیره می‌شود" : "Setting to save"}</legend>
+                  <label><input type="radio" name={`policy-${policy.workflowType}`} checked={draft.approvalRequired === false} onChange={() => choose(false)} />
+                    {fa ? "تأیید خاموش — با یک ذخیره ثبت می‌شود" : "Approval OFF — recorded in one save"}</label>
+                  <label><input type="radio" name={`policy-${policy.workflowType}`} checked={draft.approvalRequired === true} disabled={!policy.approvalAvailable}
+                    onChange={() => choose(true)} />{fa ? "تأیید روشن — شخص دوم تأیید می‌کند" : "Approval ON — a second person approves"}</label>
+                </fieldset> : <label className="policy-toggle">
                   <input
                     type="checkbox"
-                    checked={draft.approvalRequired}
+                    checked={draft.approvalRequired === true}
                     disabled={onLocked}
-                    onChange={(event) => setDrafts({ ...drafts, [policy.workflowType]: { ...draft, approvalRequired: event.target.checked } })}
+                    onChange={(event) => choose(event.target.checked)}
                     aria-describedby={`policy-help-${policy.workflowType}`}
                   />
                   <span>{fa ? "تأیید لازم است" : "Approval required"}: <strong>{draft.approvalRequired ? (fa ? "روشن" : "ON") : (fa ? "خاموش" : "OFF")}</strong></span>
-                </label>
+                </label>}
                 {!policy.approvalAvailable ? <small className="policy-unavailable">{fa
                   ? "تأیید برای این جریان هنوز در دسترس نیست؛ تا افزوده شدن کنترل‌های پیشرفته با یک ذخیره ثبت می‌شود."
                   : "Approval is not available for this workflow yet. It records in one save until Advanced Controls are added."}</small> : null}
-                <small id={`policy-help-${policy.workflowType}`}>{draft.approvalRequired ?
+                <small id={`policy-help-${policy.workflowType}`}>{draft.approvalRequired === null ?
+                  (fa ? "هنوز چیزی ذخیره نشده است. خاموش یا روشن را انتخاب کنید، دلیل بنویسید و ذخیره کنید." : "Nothing is saved yet. Choose OFF or ON, give a reason, then save.") :
+                  draft.approvalRequired ?
                   (fa ? "بازبینی مستقل طبق قواعد این جریان لازم است." : "Independent review follows this workflow’s existing rules.") :
                   (fa ? "تأیید جداگانه لازم نیست؛ تحویل خزانه، شواهد، صلاحیت و دوره مالی همچنان کنترل می‌شود." : "No separate approval is required; custody, evidence, permissions and accounting-period controls still apply.")}</small>
                 <label>

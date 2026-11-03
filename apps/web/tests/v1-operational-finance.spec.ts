@@ -73,18 +73,29 @@ test.describe("V1 operational finance from a new company", () => {
     const capitalCard = policyCard(page, "Shareholder capital receipt");
     await expect(chartCard.getByRole("note")).toContainText("In a one-person company, save approval OFF");
     await expect(capitalCard.getByRole("note")).toContainText("Until a setting is saved, shareholder capital cannot be recorded");
+    // The status shows what happens today, never an assumed OFF; saving needs an explicit choice.
+    await expect(chartCard.locator(".treasury-chip")).toHaveText("Not configured — approval is currently required by default");
+    await expect(capitalCard.locator(".treasury-chip")).toHaveText("Not configured — capital cannot be recorded until this setting is saved");
     for (const [card, reason] of [[chartCard, "Single operator: no second reviewer"], [capitalCard, "Single operator records capital directly"]] as const) {
+      await expect(card).not.toContainText("Approval required: OFF");
       await card.getByLabel("Reason for this change").fill(reason);
+      await expect(card.getByRole("button", { name: "Save new version" })).toBeDisabled();
+      await card.getByRole("radio", { name: /Approval OFF/ }).check();
       await card.getByRole("button", { name: "Save new version" }).click();
       await expect(card.locator(".treasury-chip")).toHaveText("Approval OFF");
       await expect(card.locator("footer")).toContainText("Version 1");
     }
 
     // 4. The waiting account is released under the explicit OFF policy; later accounts need no review.
+    // The Accounts tab says why 1100 still waits and leads to the release; nothing is released automatically.
     await nav.getByRole("link", { name: "Chart of Accounts" }).click();
-    await page.getByRole("tab", { name: /Review list/ }).click();
+    await expect(tree.locator("button", { hasText: "1100" })).toContainText("Awaiting review");
+    const releaseNote = page.locator(".coa-release-note");
+    await expect(releaseNote).toContainText("Chart of Accounts approval is now OFF, but 1 account saved while approval was required is still “Awaiting review”");
+    await releaseNote.getByRole("button", { name: "Open the accounts to release" }).click();
     const waiting = page.getByRole("article", { name: "Review 1100" });
     await expect(waiting).toContainText("Approval is currently OFF");
+    await expect(waiting).not.toContainText("another reviewer must review it");
     await waiting.getByLabel("Reason for policy-based release").fill("Single operator; approval OFF");
     await waiting.getByRole("button", { name: "Re-evaluate under current policy" }).click();
     await expect(page.locator(".treasury-message.success")).toContainText("released under approval OFF");
