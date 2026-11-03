@@ -508,6 +508,45 @@ if (databaseUrl() === undefined) {
       } finally { await fixture.close(); }
     });
 
+    test("0056: a funding or settlement decision is never refused for an equal or earlier clock reading; its real rules hold", async () => {
+      const fixture = await setupFixture(harness, "SAFE");
+      try {
+        const fundings = [await record(fixture, fixture.sessions.creator, modeB(fixture, "20.00")),
+          await record(fixture, fixture.sessions.creator, modeB(fixture, "30.00"))];
+        const funded = await postFunding(fixture, modeB(fixture, "10.00"));
+        const settlements = [(await requestSettlement(fixture, settlementBody(fixture, funded, "4.00"))).settlement,
+          (await requestSettlement(fixture, settlementBody(fixture, funded, "3.00"))).settlement];
+        const client = await harness.pool.connect();
+        try {
+          await client.query("BEGIN");
+          const attempt = async (sql: string, parameters: unknown[], pattern: RegExp) => {
+            await client.query("SAVEPOINT attempt");
+            await assert.rejects(() => client.query(sql, parameters), pattern);
+            await client.query("ROLLBACK TO SAVEPOINT attempt");
+          };
+          for (const [table, ids, label] of [["temporary_fundings", fundings.map((f) => f.id), "temporary funding"],
+            ["temporary_funding_settlements", settlements.map((s) => s.id), "settlement"]] as const) {
+            // An equal clock reading, then one that stepped back: both decisions are accepted and the stored time never moves back.
+            for (const [id, shift] of [[ids[0]!, "0 seconds"], [ids[1]!, "1 second"]] as const) {
+              const before = (await client.query<{ at: Date }>(`SELECT updated_at AS at FROM abos.${table} WHERE id = $1`, [id])).rows[0]!.at;
+              // The real rules, unchanged: the version advances by exactly one and only PENDING_APPROVAL -> REJECTED/POSTED is allowed.
+              await attempt(`UPDATE abos.${table} SET status = 'REJECTED', status_reason = 'Synthetic', version = version + 2 WHERE id = $1`, [id],
+                new RegExp(`invalid ${label} transition PENDING_APPROVAL -> REJECTED`));
+              await attempt(`UPDATE abos.${table} SET status = 'VALIDATED', version = version + 1 WHERE id = $1`, [id], /violates check constraint|invalid/);
+              await client.query(`UPDATE abos.${table} SET status = 'REJECTED', status_reason = 'Synthetic', version = version + 1,
+                updated_at = updated_at - $2::interval WHERE id = $1`, [id, shift]);
+              const after = (await client.query<{ at: Date; status: string }>(`SELECT updated_at AS at, status FROM abos.${table} WHERE id = $1`, [id])).rows[0]!;
+              assert.deepEqual([after.status, after.at.toISOString()], ["REJECTED", before.toISOString()], `${label} decided with a clock reading ${shift} back`);
+              await attempt(`UPDATE abos.${table} SET status_reason = 'Changed', version = version + 1 WHERE id = $1`, [id],
+                new RegExp(`invalid ${label} transition REJECTED -> REJECTED`));
+            }
+          }
+        } finally { await client.query("ROLLBACK"); client.release(); }
+        // The real decision path is unaffected.
+        assert.equal((await decide(fixture, fixture.sessions.approver, fundings[0]!.id, fundings[0]!.version, "APPROVED")).status, "POSTED");
+      } finally { await fixture.close(); }
+    });
+
     test("provider identity: never from the request, required, bound per funding, and enforced on approvals", async () => {
       // Repays more than the account ever received, to prove the payable figures: a bank account, outside the
       // 0049 cash-like rule (proven on a real Safe in the guard test below and in money-movements-corrections).
