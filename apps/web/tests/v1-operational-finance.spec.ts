@@ -249,6 +249,131 @@ test.describe("V1 operational finance from a new company", () => {
   });
 });
 
+test.describe("V1 Getting started from a new company", () => {
+  test.skip(
+    process.env.ABOS_V1_PREVIEW_E2E !== "1",
+    "Set ABOS_V1_PREVIEW_E2E=1 with an isolated preview database to run this."
+  );
+
+  test("Getting started takes a new company from first sign-in to a posted, balanced capital receipt; daily work then spends, corrects and reports", async ({ page }) => {
+    test.setTimeout(420_000);
+    const accounts = seedFirstRun();
+    await expectBusinessCounts({ fiscal_years: 0, ledger_accounts: 0, workflow_policies: 0, treasury_accounts: 0, shareholders: 0, journals: 0 });
+
+    // The administrator is told what Finance access needs and is offered the role template; nothing is granted implicitly.
+    await signIn(page, "super.admin", accounts["super.admin"]);
+    await page.getByRole("navigation", { name: "Operations" }).getByRole("link", { name: "Getting started" }).click();
+    await page.getByRole("button", { name: /^2\. Finance access/ }).click();
+    await expect(page.getByText("The System Administrator is not a Finance user automatically")).toBeVisible();
+    await expect(page.getByRole("link", { name: "1. Create the Finance Manager role" })).toHaveAttribute("href", "/admin/roles?template=finance-manager");
+    await signOut(page);
+
+    // The Finance operator: first sign-in to first capital receipt, through Getting started only. Every user action is counted.
+    let actions = 0;
+    const act = async (step: Promise<void>) => { actions += 1; await step; };
+    const started = Date.now();
+    await signIn(page, "demo.finance.manager", accounts["demo.finance.manager"]);
+    await act(page.getByRole("navigation", { name: "Operations" }).getByRole("link", { name: "Getting started" }).click());
+    const progress = page.getByRole("progressbar");
+    await expect(page.getByText("1 of 8 steps done")).toBeVisible();
+
+    // 1. How the company works: Simple, with the exact settings shown before saving.
+    await act(page.getByRole("radio", { name: /Simple \/ Single Operator/ }).check());
+    const plan = page.locator(".gs-plan");
+    for (const line of ["Chart of Accounts: approval OFF", "Shareholder capital receipt: approval OFF", "Expense: approval OFF", "Journal reversal: approval OFF"]) {
+      await expect(plan).toContainText(line);
+    }
+    await act(page.getByRole("button", { name: "Use Simple / Single Operator" }).click());
+    await expect(page.getByText("2 of 8 steps done")).toBeVisible();
+
+    // 2. Financial year: the current year is suggested (never next year) and becomes active at once.
+    const year = new Date().getFullYear();
+    await expect(page.getByLabel("Year", { exact: true })).toHaveValue(String(year));
+    await act(page.getByRole("button", { name: "Create the financial year" }).click());
+    await expect(page.getByText("3 of 8 steps done")).toBeVisible();
+
+    // 3. Chart of Accounts: the optional starter chart, offered only because there is no account yet.
+    await act(page.getByRole("button", { name: "Create the starter accounts" }).click());
+    await expect(page.getByText("4 of 8 steps done")).toBeVisible();
+
+    // 4. Safe and expense type, prefilled from the ready accounts.
+    await expect(page.getByLabel("Name", { exact: true }).first()).toHaveValue("Main USD Safe");
+    await act(page.getByRole("button", { name: "Create the Safe" }).click());
+    await expect(page.getByText("Safe created with a balance of zero.")).toBeVisible();
+    await act(page.getByRole("button", { name: "Save the expense type" }).click());
+    await expect(page.getByText("5 of 8 steps done")).toBeVisible();
+
+    // 5-6. The first money: shareholder capital, confirmed before anything is posted.
+    await expect(page.getByText("Opening balance", { exact: true })).toBeVisible();
+    await act(page.getByRole("button", { name: "Record shareholder capital" }).click());
+    await act(page.getByLabel("Shareholder name").fill("Ahmad Test Shareholder"));
+    await act(page.getByLabel("Agreed capital (optional)").fill("100000"));
+    await act(page.getByLabel("Amount received now (USD)").fill("50000"));
+    await act(page.getByRole("button", { name: "Review" }).click());
+    await expect(page.getByText("Record 50,000 USD of shareholder capital from Ahmad Test Shareholder into Main USD Safe")).toBeVisible();
+    await expectBusinessCounts({ journals: 0 });
+    await act(page.getByRole("button", { name: "Confirm and record" }).click());
+    await expect(page.getByText("Your first transaction is posted and balanced.")).toBeVisible();
+    const elapsed = Date.now() - started;
+    test.info().annotations.push({ type: "first-run", description: `first sign-in to posted capital: ${Math.round(elapsed / 1000)} s, ${actions} user actions` });
+    console.log(`[first-run] first sign-in to posted capital: ${(elapsed / 1000).toFixed(1)} s, ${actions} user actions`);
+    const facts = page.locator(".gs-facts");
+    await expect(facts).toContainText("Main USD Safe: 50,000 USD");
+    await expect(facts).toContainText("50,000 USD");
+    await expect(facts).toContainText(/CAP-\d{8}-/);
+    await expect(facts).toContainText("Balanced: debits equal credits");
+    await expect(page.getByText("8 of 8 steps done")).toBeVisible();
+    await expect(progress).toHaveAttribute("aria-valuenow", "8");
+
+    // The accounting result, read from the database: four audited policy versions, one balanced capital journal.
+    const reasons = await readOnly<{ workflow: string; required: boolean }>(
+      `SELECT workflow_type AS workflow, approval_required AS required FROM abos.finance_workflow_policy_versions
+        WHERE change_reason = 'Configured by Getting Started — Simple / Single Operator' ORDER BY 1`);
+    expect(reasons).toEqual([{ workflow: "CHART_OF_ACCOUNTS", required: false }, { workflow: "EXPENSE", required: false },
+      { workflow: "JOURNAL_REVERSAL", required: false }, { workflow: "SHAREHOLDER_CAPITAL_RECEIPT", required: false }]);
+    expect(await journalLines()).toEqual([
+      { source: "DIRECT_SHAREHOLDER_CAPITAL", account: "1100", debit: "50000", credit: "0" },
+      { source: "DIRECT_SHAREHOLDER_CAPITAL", account: "3100", debit: "0", credit: "50000" }
+    ]);
+    await expectBusinessCounts({ fiscal_years: 1, ledger_accounts: 4, workflow_policies: 4, treasury_accounts: 1, shareholders: 1, journals: 1 });
+
+    // Ready: every check, and the daily actions.
+    await page.getByRole("button", { name: /^8\. Ready/ }).click();
+    await expect(page.getByText("Setup is complete. Your company is ready for daily work.")).toBeVisible();
+    for (const check of ["Financial year", "Chart of Accounts", "Safe", "Finance permissions", "Posting policy", "First transaction", "General Ledger balanced"]) {
+      await expect(page.locator(".gs-checklist li.ready").filter({ hasText: check }).first()).toBeVisible();
+    }
+
+    // Daily work takes over: an overdraft is refused, an expense is recorded and reversed, the reports agree.
+    await page.getByRole("link", { name: "Record expense" }).first().click();
+    const expense = page.getByRole("form", { name: "Record expense" });
+    await fillExpense(expense, { amount: "60000", reference: "EXP-001", purpose: "Office supplies" });
+    await expect(expense.getByRole("button", { name: "Record expense" })).toBeDisabled();
+    expect(await postExpenseDirectly(page, "60000")).toEqual({ status: 422, code: "INSUFFICIENT_FUNDS" });
+    await expense.getByLabel("Amount (USD) *").fill("1000");
+    await expense.getByRole("button", { name: "Record expense" }).click();
+    await expect(page.getByRole("status").filter({ hasText: "Expense recorded" })).toContainText("Expense recorded: 1,000 USD from Main USD Safe.");
+    const nav = page.getByRole("navigation", { name: "Operations" });
+    await nav.getByRole("link", { name: "Journal reversals" }).click();
+    await page.locator("tr").filter({ hasText: "Expense" }).getByRole("button", { name: "Reverse" }).click();
+    await page.locator(".reversal-form").getByLabel("Reason *").fill("Getting started E2E correction");
+    await page.locator(".reversal-form").getByRole("button", { name: "Save" }).click();
+    await expect(page.getByText("Reversal posted.")).toBeVisible();
+    expect((await journalLines()).map((line) => [line.source, line.account, line.debit, line.credit])).toEqual([
+      ["DIRECT_SHAREHOLDER_CAPITAL", "1100", "50000", "0"], ["DIRECT_SHAREHOLDER_CAPITAL", "3100", "0", "50000"],
+      ["OPERATIONAL_EXPENSE", "5100", "1000", "0"], ["OPERATIONAL_EXPENSE", "1100", "0", "1000"],
+      ["REVERSAL", "5100", "0", "1000"], ["REVERSAL", "1100", "1000", "0"]]);
+    await nav.getByRole("link", { name: "Trial balance" }).click();
+    await expect(page.getByText("Balanced: total debits equal total credits (USD).")).toBeVisible();
+    await page.getByRole("link", { name: "1100", exact: true }).click();
+    const statement = page.locator("table tbody tr");
+    await expect(statement).toHaveCount(3);
+    await expect(statement.nth(2).locator("td").nth(5)).toHaveText("50,000");
+    await nav.getByRole("link", { name: "Safes" }).click();
+    await expect(safeBalance(page, "Main USD Safe")).toContainText("50,000 USD");
+  });
+});
+
 function policyCard(page: Page, heading: string) {
   return page.locator(".policy-card").filter({ has: page.getByRole("heading", { name: heading, exact: true }) });
 }

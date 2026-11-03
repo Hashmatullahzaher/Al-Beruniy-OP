@@ -1835,6 +1835,48 @@ button.review-context { border: 0; border-inline-start: 1px solid rgba(102, 142,
 .policy-choice legend { padding: 0 4px; font-size: .78rem; }
 .policy-choice label { display: flex !important; align-items: center; gap: 9px; cursor: pointer; }
 .policy-choice input { width: 18px; min-height: 18px; margin: 0; accent-color: var(--abos-gold-400); }
+/* Getting started (first run): progress, step list and the selected step. Logical properties keep RTL correct. */
+.getting-started-workspace .gs-progress { display: grid; gap: 8px; padding: 14px 16px; }
+.gs-progress-bar { height: 8px; border-radius: 999px; background: rgba(73, 145, 192, .2); overflow: hidden; }
+.gs-progress-bar span { display: block; height: 100%; background: var(--abos-gold-400); transition: width .3s ease; }
+.gs-layout { display: grid; grid-template-columns: minmax(220px, 300px) minmax(0, 1fr); gap: 16px; align-items: start; }
+.gs-steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.gs-step { width: 100%; display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid rgba(73, 145, 192, .28);
+  border-radius: 8px; background: rgba(8, 30, 49, .5); color: inherit; font: inherit; text-align: start; cursor: pointer; }
+.gs-step:hover, .gs-step:focus-visible { border-color: var(--abos-gold-400); }
+.gs-step.current { border-color: var(--abos-gold-400); background: rgba(212, 175, 55, .08); }
+.gs-step-number { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; border: 1px solid rgba(73, 145, 192, .45); font-weight: 600; }
+.gs-step.done .gs-step-number { border-color: var(--abos-gold-400); color: var(--abos-gold-400); }
+.gs-step-title { min-width: 0; overflow-wrap: anywhere; }
+.gs-detail { display: grid; gap: 12px; padding: 16px; min-width: 0; }
+.gs-detail h2 { margin: 0; }
+.gs-choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 10px; }
+.gs-choice { display: flex; gap: 10px; padding: 12px; border: 1px solid rgba(73, 145, 192, .28); border-radius: 8px; background: rgba(8, 30, 49, .5); cursor: pointer; }
+.gs-choice.chosen { border-color: var(--abos-gold-400); }
+.gs-choice > span { display: grid; gap: 6px; align-content: start; }
+.gs-choice small { color: var(--abos-slate-400); line-height: 1.5; }
+.gs-choice input { accent-color: var(--abos-gold-400); width: 18px; height: 18px; margin-top: 2px; }
+.gs-plan { display: grid; gap: 8px; padding: 12px; border: 1px dashed rgba(212, 175, 55, .5); border-radius: 8px; }
+.gs-plan ul, .gs-checklist { margin: 0; padding-inline-start: 18px; display: grid; gap: 6px; }
+.gs-checklist { list-style: none; padding: 0; }
+.gs-checklist > li { padding: 10px 12px; border: 1px solid rgba(73, 145, 192, .22); border-radius: 8px; display: grid; gap: 6px; }
+.gs-checklist > li.ready { border-color: rgba(87, 196, 139, .45); }
+.gs-checklist > li.waiting { border-color: rgba(212, 175, 55, .55); }
+.gs-checklist small { color: var(--abos-slate-400); }
+.gs-inline-form { display: flex !important; flex-wrap: wrap; align-items: end; gap: 8px; }
+.gs-inline-form label { flex: 1 1 160px; }
+.gs-inline-choice { display: grid; gap: 6px; border: 0; padding: 0; margin: 0; }
+.gs-inline-choice label { display: flex !important; gap: 8px; align-items: center; }
+.gs-actions { margin: 0; padding: 0; list-style: none; display: grid; gap: 10px; }
+.gs-actions li { display: grid; gap: 4px; justify-items: start; }
+.gs-actions small { color: var(--abos-slate-400); }
+.gs-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); gap: 10px; margin: 0; }
+.gs-facts > div { padding: 10px 12px; border: 1px solid rgba(73, 145, 192, .22); border-radius: 8px; }
+.gs-facts dt { font-size: 11px; color: var(--abos-slate-400); }
+.gs-facts dd { margin: 4px 0 0; overflow-wrap: anywhere; }
+.gs-ready-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.gs-next { margin: 0; }
+@media (max-width: 760px) { .gs-layout { grid-template-columns: 1fr; } }
 .policy-card .admin-form > small { color: var(--abos-slate-400); font-size: 10.5px; line-height: 1.5; }
 .policy-card > footer { display: flex; flex-wrap: wrap; gap: 7px 12px; margin-top: 12px; padding-top: 10px; border-top: 1px solid rgba(73, 145, 192, .2); color: var(--abos-slate-400); font-size: 10px; }
 .policy-history { margin-top: 10px; color: var(--abos-slate-300); font-size: 10.5px; }

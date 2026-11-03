@@ -15,27 +15,12 @@
  */
 import { randomBytes, randomUUID } from "node:crypto";
 import pg from "pg";
+import { FINANCE_MANAGER_ROLE_TEMPLATE } from "@abos/contracts";
 import { bootstrapSuperAdmin, IdentityService } from "@abos/identity";
 import { PostgresExecutor } from "@abos/persistence";
 import { identityDatabaseProofDigest, readSandboxConfiguration, SandboxAuthenticator } from "@abos/sandbox-auth";
 import { resetSchema } from "../src/harness.ts";
 
-// What the single-operator Finance Manager of the 2026-11-02 clean first-run test was given in Roles & permissions.
-const FINANCE_MANAGER_PERMISSIONS = [
-  "admin.finance-workflow.manage", "company.dashboard.read",
-  "finance.calendar.manage", "finance.period.manage", "finance.report.operational.read",
-  "finance.ledger-account.manage", "finance.ledger-account.review",
-  "finance.capital-receipt.prepare", "finance.capital-receipt.approve", "finance.capital-receipt.post", "finance.capital-receipt.configure",
-  "finance.expense-category.manage", "finance.expense.create", "finance.expense.read", "finance.expense.approve",
-  "finance.exchange-rate.record", "finance.fx-policy.manage",
-  "finance.reversal.request", "finance.reversal.approve", "finance.reversal.direct",
-  "finance.temporary-funding.read", "finance.temporary-funding.record", "finance.temporary-funding.approve",
-  "finance.temporary-funding.configure", "finance.temporary-funding.settle", "finance.temporary-funding.settle-approve",
-  "shareholder.read", "shareholder.setup.manage", "shareholder.capital-receipt.read", "shareholder.capital-receipt.record",
-  "treasury.safe.read", "treasury.cash-location.manage", "treasury.operational-account.manage", "treasury.saraf-account.manage",
-  "treasury.opening-balance.record", "treasury.receipt.record", "treasury.payment.record", "treasury.transfer.record",
-  "treasury.capital-receipt.verify"
-] as const;
 
 function passphrase(): string {
   const words = ["cedar", "river", "lantern", "harbor", "saffron", "marble", "orchard", "falcon", "meadow", "copper", "willow", "summit"];
@@ -93,10 +78,10 @@ async function main(): Promise<void> {
     const client = "first-run-seed";
     const adminPassword = passphrase();
     const admin = await identity.changePassword({ loginIdentifier: "super.admin", currentPassword: bootstrap.temporaryPassword, newPassword: adminPassword, clientAddress: client });
+    // The same single-operator template Roles & permissions offers (Getting started).
     const role = await identity.createRole(admin.token, {
-      name: "Finance Manager",
-      description: "Single-operator Finance: setup, money in and out, reports, reversals and year close (synthetic).",
-      permissions: [...FINANCE_MANAGER_PERMISSIONS]
+      name: FINANCE_MANAGER_ROLE_TEMPLATE.name, description: FINANCE_MANAGER_ROLE_TEMPLATE.description,
+      permissions: [...FINANCE_MANAGER_ROLE_TEMPLATE.permissions]
     });
     const created = await identity.createUser(admin.token, {
       loginIdentifier: "demo.finance.manager", displayName: "Synthetic Finance Manager", jobTitle: "Finance manager (synthetic)",

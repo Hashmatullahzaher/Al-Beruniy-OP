@@ -1,6 +1,7 @@
 "use client";
 
 import { formatDual, generateFiscalYear, GREGORIAN_MONTHS, isoToSolarHijri, toDariDigits, type FiscalYearSettings } from "@abos/calendar";
+import { suggestedFirstYear } from "@abos/contracts";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { AccessGate, api, errorText } from "@/components/AdminUsersWorkspace";
@@ -21,9 +22,11 @@ function today(): string {
   return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}-${String(now.getUTCDate()).padStart(2, "0")}`;
 }
 
-function suggestedYear(kind: CalendarKind): number {
+/** The year containing today (a first setup needs the current year), or the year after the latest already generated. */
+function suggestedYear(kind: CalendarKind, existing: readonly { readonly calendarKind: CalendarKind; readonly fiscalYear: number }[] = []): number {
   const iso = today();
-  return kind === "SOLAR_HIJRI" ? isoToSolarHijri(iso).year + 1 : Number(iso.slice(0, 4)) + 1;
+  const current = kind === "SOLAR_HIJRI" ? isoToSolarHijri(iso).year : Number(iso.slice(0, 4));
+  return suggestedFirstYear(current, existing.filter((item) => item.calendarKind === kind).map((item) => item.fiscalYear));
 }
 
 export function FinanceCalendarWorkspace() {
@@ -54,7 +57,7 @@ export function FinanceCalendarWorkspace() {
       if (settings.customStartMonth) setStartMonth(settings.customStartMonth);
       if (settings.customStartDay) setStartDay(settings.customStartDay);
       setReporting(new Set(settings.reportingCalendars));
-      setYear(suggestedYear(settings.calendarKind));
+      setYear(suggestedYear(settings.calendarKind, result.data.fiscalYears));
     }
   }, [locale]);
 
@@ -136,7 +139,7 @@ export function FinanceCalendarWorkspace() {
                   <legend>{fa ? "نوع سال مالی" : "Year type"}</legend>
                   {(Object.keys(KIND_COPY) as CalendarKind[]).map((option) => (
                     <label key={option} className={kind === option ? "chosen" : ""}>
-                      <input type="radio" name="calendar-kind" checked={kind === option} onChange={() => { setKind(option); setYear(suggestedYear(option)); }} />
+                      <input type="radio" name="calendar-kind" checked={kind === option} onChange={() => { setKind(option); setYear(suggestedYear(option, view?.fiscalYears ?? [])); }} />
                       <span><strong>{t(KIND_COPY[option].label)}</strong><small>{t(KIND_COPY[option].detail)}</small></span>
                     </label>
                   ))}
