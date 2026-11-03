@@ -47,6 +47,8 @@ export const operationalRoutes: ReadonlyArray<{ readonly path: string; readonly 
   { path: "/shareholders", icon: "finance", en: "Shareholders", fa: "سهامداران", section: "accounting", visible: (can) => can("shareholder.setup.manage") || can("shareholder.read") || can("shareholder.capital-receipt.read") || can("shareholder.capital-receipt.record") || can("finance.capital-receipt.prepare") || can("finance.capital-receipt.post") },
   { path: "/finance/reversals", icon: "finance", en: "Journal reversals", fa: "برگشت ژورنال‌ها", section: "accounting", visible: (can) => can("finance.reversal.direct") || can("finance.reversal.request") || can("finance.reversal.approve") },
   { path: "/finance/financial-year", icon: "reports-analytics", en: "Financial year", fa: "سال مالی", section: "accounting", visible: (can) => can("finance.period.manage") || can("finance.report.operational.read") },
+  // Getting started: first-run orchestration over the setup screens below (administrators and Finance setup people).
+  { path: "/setup", icon: "settings", en: "Getting started", fa: "آغاز کار", section: "setup", visible: (can) => can("admin.users.manage") || can("admin.roles.manage") || can("finance.ledger-account.manage") || can("finance.calendar.manage") || can("treasury.operational-account.manage") || can("shareholder.setup.manage") },
   // Finance setup (Treasury accounts, expense types, the financial year's months).
   { path: "/finance/setup", icon: "settings", en: "Finance setup", fa: "تنظیمات مالی", section: "setup", visible: (can) => can("treasury.operational-account.manage") || can("finance.expense-category.manage") || can("finance.period.manage") },
   // Company and administration. Company details are visible to every signed-in employee.

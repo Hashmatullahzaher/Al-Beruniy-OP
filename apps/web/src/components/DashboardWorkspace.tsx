@@ -68,7 +68,7 @@ export function DashboardWorkspace() {
         <p className="admin-hint" role="note">{fa
           ? "شما کاربران و نقش‌ها را مدیریت می‌کنید اما به بخش مالی دسترسی ندارید؛ هیچ‌کس به خودش دسترسی نمی‌دهد. برای کار مالی: در «نقش‌ها و صلاحیت‌ها» یک نقش مالی بسازید، در «کاربران» کاربر مالی بسازید و آن نقش را به او بدهید، سپس با همان کاربر وارد شوید."
           : "You manage users and roles but have no Finance access, and nobody can give access to themselves. To start Finance work: create a Finance role in Roles & permissions, create the Finance user in Users and give them that role, then sign in as that user."}{" "}
-          <Link href="/admin/roles">{fa ? "نقش‌ها و صلاحیت‌ها" : "Roles & permissions"}</Link> · <Link href="/admin/users">{fa ? "کاربران" : "Users"}</Link></p>
+          <Link href="/admin/roles">{fa ? "نقش‌ها و صلاحیت‌ها" : "Roles & permissions"}</Link> · <Link href="/admin/users">{fa ? "کاربران" : "Users"}</Link> · <Link href="/setup">{fa ? "آغاز کار" : "Getting started"}</Link></p>
       ) : null}
 
       {home.length > 0 || sections.length > 0 ? (

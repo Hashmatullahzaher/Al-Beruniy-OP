@@ -1,6 +1,16 @@
 # V1 first run and the Single Operator mode — design
 
-Status: **design only, not implemented.** Written after the clean first-run test of 2026-11-02 (build `25fa8a7`, disposable database, UI only), and based on what that test showed.
+Status: **implemented on 2026-11-03** as the Getting started page (`/setup`), with no database change. Written after the clean first-run test of 2026-11-02 (build `25fa8a7`, disposable database, UI only), and based on what that test showed.
+
+**As implemented** (where it differs from the design below):
+
+- **Steps, in order.** How the company works (operating mode) → Finance access → Financial year → Chart of Accounts → Safe and expense type → Where the first money comes from → First transaction → Ready. Company details stay on the Company page.
+- **Shared rules.** The mode presets, the plan of what a mode saves, the required-account readiness, the first-year suggestion and the Finance Manager role template live in `packages/contracts/src/getting-started.ts`, with unit tests.
+- **The page.** `apps/web/src/components/GettingStartedWorkspace.tsx` reads the existing APIs and calls only existing commands. Progress is derived from real state: there is no table and no stored "done" flag.
+- **Advanced Controls.** It counts as complete only when an administrator's view of Roles & permissions shows a second active Finance person and an approver. Anyone else sees it as "not verified".
+- **Role template.** `/admin/roles?template=finance-manager` prefills the role. The administrator still reviews it and saves it.
+- **Calendar default.** The financial calendar now suggests the current year when that year does not exist yet.
+- **Acceptance test.** The database-backed acceptance test is `apps/web/tests/v1-operational-finance.spec.ts`. It covers both the page-by-page path and the Getting started path.
 
 This document describes a first-run flow that takes a new company from "Create company" to its first successful transaction, plus a **Simple / Single Operator** preset. It adds **no new accounting behaviour**. Every step calls an existing, audited backend command. The preset only saves ordinary, versioned workflow-policy settings, with a reason.
 

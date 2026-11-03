@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { FINANCE_MANAGER_ROLE_TEMPLATE } from "@abos/contracts";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { AccessGate, api, errorText, type RoleSummary } from "@/components/AdminUsersWorkspace";
 import { AppIcon } from "@/components/AppIcon";
@@ -30,18 +31,45 @@ export function AdminRolesWorkspace() {
   const [draft, setDraft] = useState<Draft | null>(null);
   const [message, setMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
+  // Getting started: ?template=finance-manager opens a new role prefilled from the single-operator template, once.
+  const [templateNote, setTemplateNote] = useState<"prefilled" | "exists" | null>(null);
+  const templateApplied = useRef(false);
 
   const applyRoles = useCallback((result: Awaited<ReturnType<typeof api<readonly RoleSummary[]>>>) => {
     if (result.ok) { setRoles(result.data); setGate(null); return; }
     setGate(result.status === 401 ? "signed-out" : result.status === 403 ? "denied" : null);
   }, []);
 
+  /** Getting started: ?template=finance-manager opens a new role prefilled from the single-operator template, once. */
+  const applyTemplate = useCallback((list: readonly RoleSummary[], offeredCatalogue: readonly CatalogueEntry[]) => {
+    if (templateApplied.current || !canEdit) return;
+    if (new URLSearchParams(window.location.search).get("template") !== "finance-manager") return;
+    templateApplied.current = true;
+    const existing = list.find((item) => item.name.trim().toLowerCase() === FINANCE_MANAGER_ROLE_TEMPLATE.name.toLowerCase());
+    if (existing) {
+      setSelected(existing.id);
+      setDraft({ name: existing.name, description: existing.description, status: existing.status, permissions: new Set(existing.permissions) });
+      setTemplateNote("exists");
+      return;
+    }
+    // Only permissions this installation offers; the administrator still reviews every one before creating the role.
+    const offered = new Set(offeredCatalogue.filter((entry) => entry.availability === "ACTIVE").map((entry) => entry.code));
+    setSelected("new");
+    setDraft({ name: FINANCE_MANAGER_ROLE_TEMPLATE.name, description: FINANCE_MANAGER_ROLE_TEMPLATE.description, status: "ACTIVE",
+      permissions: new Set(FINANCE_MANAGER_ROLE_TEMPLATE.permissions.filter((code) => offered.has(code))) });
+    setTemplateNote("prefilled");
+  }, [canEdit]);
+
   useEffect(() => {
     let current = true;
-    void api<readonly RoleSummary[]>("/api/v1/admin/roles").then((result) => { if (current) applyRoles(result); });
-    void api<readonly CatalogueEntry[]>("/api/v1/admin/catalogue").then((result) => { if (current && result.ok) setCatalogue(result.data); });
+    void Promise.all([api<readonly RoleSummary[]>("/api/v1/admin/roles"), api<readonly CatalogueEntry[]>("/api/v1/admin/catalogue")]).then(([rolesResult, catalogueResult]) => {
+      if (!current) return;
+      applyRoles(rolesResult);
+      if (catalogueResult.ok) setCatalogue(catalogueResult.data);
+      if (rolesResult.ok && catalogueResult.ok) applyTemplate(rolesResult.data, catalogueResult.data);
+    });
     return () => { current = false; };
-  }, [applyRoles]);
+  }, [applyRoles, applyTemplate]);
 
   const role = useMemo(() => roles?.find((item) => item.id === selected) ?? null, [roles, selected]);
   const locked = !canEdit || (role?.youHoldThis ?? false);
@@ -90,6 +118,10 @@ export function AdminRolesWorkspace() {
         <span><i className="state unavailable" aria-hidden="true" />{fa ? "در این پیش‌نمایش موجود نیست" : "Unavailable in this preview"}</span>
       </section>
 
+      {templateNote ? <p className="admin-hint" role="note">{templateNote === "prefilled"
+        ? (fa ? "از الگوی «مدیر مالی» (اپراتور یک‌نفره) پر شد. همه صلاحیت‌ها را بررسی کنید و سپس «ایجاد نقش» را بزنید؛ تا آن زمان چیزی ذخیره نشده است."
+          : "Prefilled from the single-operator Finance Manager template. Review every permission, then choose “Create role”; nothing is saved until you do.")
+        : (fa ? "نقش «مدیر مالی» از قبل وجود دارد؛ آن را به کارمند مالی در «کاربران» بدهید." : "A Finance Manager role already exists; give it to the Finance employee in Users.")}</p> : null}
       {message ? <div className={`treasury-message ${message.tone === "ok" ? "success" : "error"}`} role="status"><AppIcon name={message.tone === "ok" ? "shield" : "alert"} size={16} /><span>{message.text}</span><button onClick={() => setMessage(null)} aria-label={fa ? "بستن" : "Dismiss"}>×</button></div> : null}
 
       <section className="admin-grid">
