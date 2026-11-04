@@ -17,6 +17,11 @@ type Mode = "asOf" | "range";
 
 const ENDPOINT = "/api/v1/finance/safe-statement";
 
+const TYPE_COPY: Readonly<Record<string, { readonly en: string; readonly fa: string }>> = {
+  SAFE: { en: "Safe", fa: "صندوق" }, CASH_BOX: { en: "Cash box", fa: "صندوقچه" }, PETTY_CASH: { en: "Petty cash", fa: "تنخواه" },
+  BANK: { en: "Bank", fa: "بانک" }, SARAF: { en: "Saraf", fa: "صراف" }, OTHER: { en: "Other", fa: "دیگر" }
+};
+
 /** The business wording of one movement: a transfer names the other account, where the reader may know it. */
 function Movement({ line, fa }: Readonly<{ line: TreasuryStatementLine; fa: boolean }>) {
   if (line.transferPeer) {
@@ -115,6 +120,7 @@ export function SafeStatementWorkspace() {
       {statement ? (
         <section className="module-content-card safe-statement" aria-label={fa ? "صورت‌حساب" : "Statement"}>
           <h2>{rangeLabel(statement.range, fa)}</h2>
+          <p className="admin-hint">{TYPE_COPY[statement.account.accountType]?.[fa ? "fa" : "en"] ?? statement.account.accountType} · <span dir="ltr">{currency}</span></p>
           <dl className="safe-figures">
             <div><dt>{fa ? "موجودی افتتاحیه" : "Opening balance"}</dt><dd dir="ltr">{money(statement.opening.native, currency)}</dd></div>
             <div><dt>{fa ? "ورودی" : "Money in"}</dt><dd dir="ltr">{money(statement.totals.moneyIn, currency)}</dd></div>

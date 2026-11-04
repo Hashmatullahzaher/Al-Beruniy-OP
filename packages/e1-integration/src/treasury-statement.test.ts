@@ -307,6 +307,23 @@ if (databaseUrl() === undefined) {
       assert.deepEqual([Number(reversed.closing.native), Number(reversed.closing.base), reversed.reconciliation.matches], [7000, 100, true]);
     });
 
+    test("a reversed opening balance nets naturally: the report's opening is posted movements, never the opening balance record", async () => {
+      const f = await fixture();
+      const opening = await call<{ journalId: string }>("treasury_opening_balance_record", f.creator, { treasuryAccountId: f.secondSafe, amount: "900.00", currencyCode: "USD",
+        asOfDate: "2026-09-02", reference: "TS-OPEN-2", note: null, ...keys() });
+      const before = await statement(f.creator, f.secondSafe, { from: "2026-09-03", to: "2026-09-30" });
+      assert.deepEqual([before.opening.native, before.lines], ["900.00", []], "a later report opens with the posted movement");
+      const reversal = await call<{ reversalJournalId: string }>("finance_journal_reversal_direct", f.creator, { journalId: opening.journalId, reason: "Synthetic wrong opening balance", ...keys() });
+      const sept = await statement(f.creator, f.secondSafe);
+      assert.deepEqual(sept.lines.map((l) => [l.moneyIn, l.moneyOut, l.balance, l.kind, l.isReversal]), [["900.00", "0", "900.00", "OPENING", false], ["0", "900.00", "0.00", "OPENING", true]]);
+      assert.equal(sept.lines[0]?.reversedBy?.journalId, reversal.reversalJournalId);
+      assert.equal(Number(sept.closing.native), 0);
+      const october = await statement(f.creator, f.secondSafe, { from: "2026-10-01", to: "2026-10-31" });
+      assert.deepEqual([Number(october.opening.native), october.lines], [0, []], "after the reversal the next period opens at zero");
+      const card = (await call<{ safes: { id: string; balance: { book: string; opening: string } }[] }>("treasury_safes_workspace", f.creator)).safes.find((s) => s.id === f.secondSafe);
+      assert.deepEqual([Number(card?.balance.book), Number(card?.balance.opening)], [0, 0], "the Safes page agrees");
+    });
+
     test("a Saraf keeps its negative balance, line by line and at the close", async () => {
       const f = await fixture();
       await populate(f);

@@ -269,8 +269,9 @@ test.describe("V1 operational finance from a new company", () => {
     expect(noReportsView.data.journals.length).toBeGreaterThan(0);
     expect(noReportsView.data.journals.every((journal) => journal.source === null)).toBe(true);
     await requester.goto("/finance/reversals");
-    const requesterRow = requester.locator("tr").filter({ hasText: "OPX-" }).first();
+    const requesterRow = requester.locator("tr").filter({ hasText: "1,000 USD" }).first();
     await expect(requesterRow).toContainText("Expense");
+    await expect(requesterRow).toContainText("JRN-");
     await expect(requesterRow).not.toContainText("EXP-001");
     await requester.context().close();
 
@@ -285,7 +286,7 @@ test.describe("V1 operational finance from a new company", () => {
     expect(withheldView.data.journals.length).toBeGreaterThan(0);
     for (const { source } of withheldView.data.journals) expect(source).toMatchObject({ id: null, route: null, counterparty: null, detail: null });
     await reader.goto("/finance/reversals");
-    const readerRow = reader.locator("tr").filter({ hasText: "OPX-" }).first();
+    const readerRow = reader.locator("tr").filter({ hasText: "1,000 USD" }).first();
     await expect(readerRow).toContainText("Expense");
     await expect(readerRow).not.toContainText("EXP-001");
     await reader.context().close();

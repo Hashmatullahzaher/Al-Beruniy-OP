@@ -64,6 +64,7 @@ test("@smoke a report reader chooses a Safe from the menu and reads its statemen
   const report = page.getByRole("region", { name: "Statement" });
   await expect(report.getByText("2,900.00 USD").first()).toBeVisible();
   await expect(page.getByRole("heading", { level: 1, name: "Main Safe" })).toBeVisible();
+  await expect(report.getByText("Safe · USD")).toBeVisible();
   await expect(report.getByRole("status")).toContainText("Agrees with the General Ledger.");
   await expect(report.getByRole("link", { name: /Ledger account/ })).toHaveAttribute("href", "/finance/account-statement?accountId=l1");
   const first = report.getByRole("row").filter({ hasText: "RENT-9" });
