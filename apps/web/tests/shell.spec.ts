@@ -1,7 +1,10 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
+import type { EnvironmentName } from "@abos/contracts";
 import { expect, test } from "@playwright/test";
+
+import { signedOutFooter } from "../src/lib/environment-copy";
 
 /**
  * The company dashboard at "/" needs company.dashboard.read, so the public Stage 0 shell is exercised
@@ -33,8 +36,9 @@ test("@smoke signed-out visitors to the company dashboard are sent to sign-in an
 });
 
 test("@smoke renders the public Stage 0 shell", async ({ page }) => {
+  const { release } = await (await page.request.get("/api/health")).json() as { release: { environment: EnvironmentName } };
   await page.goto("/projects");
-  await expect(page.getByText("No operational services connected")).toBeVisible();
+  await expect(page.getByText(signedOutFooter(release.environment).en)).toBeVisible();
   await expect(page.getByRole("navigation", { name: "Primary navigation" })).toBeVisible();
   const hasHorizontalOverflow = await page.locator("html").evaluate((element) => element.scrollWidth > element.clientWidth);
   expect(hasHorizontalOverflow).toBeFalsy();

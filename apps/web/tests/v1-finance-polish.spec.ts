@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 
-import type { JournalReversalWorkspace, ReportSource } from "@abos/contracts";
+import type { EnvironmentName, JournalReversalWorkspace, ReportSource } from "@abos/contracts";
 
 import { PERMISSION_COPY, permissionLabel } from "../src/lib/access-copy";
 import { signedOutFooter, signInNotice } from "../src/lib/environment-copy";
@@ -40,6 +40,12 @@ test("production wording never mentions a preview, staging, demo or synthetic da
   }
   expect(signInNotice("staging").en).toMatch(/Staging/);
   expect(signInNotice("development").en).toMatch(/Preview environment/);
+});
+
+test("@smoke the sign-in page states the server's real environment", async ({ page }) => {
+  const { release } = await (await page.request.get("/api/health")).json() as { release: { environment: EnvironmentName } };
+  await page.goto("/login");
+  await expect(page.locator(".login-footer")).toHaveText(signInNotice(release.environment).en);
 });
 
 test("the seven capital receipt permissions have people's names in both languages, and the codes stay the keys", () => {
