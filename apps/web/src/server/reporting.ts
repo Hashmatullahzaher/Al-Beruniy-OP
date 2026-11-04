@@ -36,6 +36,7 @@ export function reportRange(query: URLSearchParams): Record<string, string> {
 const REFUSALS: readonly { readonly pattern: RegExp; readonly status: number; readonly code: string; readonly message: string }[] = [
   { pattern: /choose one: a period, a date range or an as-of date|choose a valid period or valid dates|choose a valid account|unknown report fields/i,
     status: 422, code: "VALIDATION_FAILED", message: "Choose a period, a date range or an as-of date." },
+  { pattern: /choose a valid account/i, status: 422, code: "VALIDATION_FAILED", message: "Choose an account." },
   { pattern: /was not found in this legal entity/i, status: 404, code: "NOT_FOUND", message: "That is not available for your company." },
   { pattern: /choose a shorter period/i, status: 422, code: "TOO_MANY_LINES", message: "This statement is too long. Choose a shorter period." }
 ];
@@ -64,6 +65,16 @@ export async function accountStatementGet(request: Request): Promise<Response> {
     if (!UUID.test(accountId)) throw new IdentityError("VALIDATION_FAILED", "Choose an account.");
     return json({ ok: true, data: await restrictedFinanceAuthenticator().accountStatement(financeHandoffRuntime().executor, await sessionToken(),
       { accountId, ...reportRange(query) }) });
+  } catch (error) { return reportingErrorResponse(error); }
+}
+
+export async function safeStatementGet(request: Request): Promise<Response> {
+  try {
+    const query = new URL(request.url).searchParams;
+    const accountId = query.get("accountId");
+    if (accountId !== null && !UUID.test(accountId)) throw new IdentityError("VALIDATION_FAILED", "Choose an account.");
+    return json({ ok: true, data: await restrictedFinanceAuthenticator().treasuryStatement(financeHandoffRuntime().executor, await sessionToken(),
+      accountId === null ? {} : { accountId, ...reportRange(query) }) });
   } catch (error) { return reportingErrorResponse(error); }
 }
 

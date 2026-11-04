@@ -17,6 +17,7 @@ import type {
   FxPolicyWorkspace,
   FxPreview,
   AccountStatementView,
+  TreasuryStatementView,
   JournalDetailView,
   ReportSource,
   TrialBalanceView,
@@ -573,6 +574,12 @@ export class SandboxAuthenticator {
   async accountStatement(executor: SqlExecutor, token: string, request: Record<string, unknown>): Promise<AccountStatementView> {
     return this.operationalFinanceFunction<AccountStatementView>(executor,
       "SELECT abos.finance_account_statement($1,$2,$3,$4::jsonb) AS value", token, [JSON.stringify(request)], "Account statement is unavailable");
+  }
+
+  /** The accounts this reader may open or, with accountId, one Safe or Saraf's statement (0057). */
+  async treasuryStatement(executor: SqlExecutor, token: string, request: Record<string, unknown>): Promise<TreasuryStatementView> {
+    return this.operationalFinanceFunction<TreasuryStatementView>(executor,
+      "SELECT abos.treasury_account_statement($1,$2,$3,$4::jsonb) AS value", token, [JSON.stringify(request)], "Safe statement is unavailable");
   }
 
   /** One posted journal with its lines, source and reversal links (0053). */

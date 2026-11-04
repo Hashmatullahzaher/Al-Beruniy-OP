@@ -2038,3 +2038,17 @@ button.review-context { border: 0; border-inline-start: 1px solid rgba(102, 142,
 .policy-unavailable { display: block; color: #f2c38a; }
 .table-scroll { overflow-x: auto; }
 @media (max-width: 760px) { .safe-figures { grid-template-columns: repeat(2, minmax(0, 1fr)); } .safe-opening-form { grid-template-columns: minmax(0, 1fr); } .safe-book { text-align: start; } }
+
+@media print {
+  .sidebar, .topbar, .app-footer, .skip-link, .report-filters, .module-page-actions { display: none !important; }
+  .app-frame { display: block; }
+  .main-content { margin: 0; padding: 0; }
+  body, .module-content-card { background: #fff !important; color: #000 !important; box-shadow: none !important; }
+  .rates-table th, .rates-table td, .safe-figures dt, .safe-figures dd, .admin-hint { color: #000 !important; }
+  .rates-table thead { display: table-header-group; }
+  .rates-table tr { display: table-row; break-inside: avoid; }
+  .rates-table td { display: table-cell; border-bottom: 1px solid #999; }
+  .rates-table td[data-label]::before { content: none; }
+  .table-scroll { overflow: visible; }
+  a { color: inherit; text-decoration: none; }
+}

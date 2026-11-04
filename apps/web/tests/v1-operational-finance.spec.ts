@@ -262,6 +262,7 @@ test.describe("V1 operational finance from a new company", () => {
     expect(noReports.status).toBe(200);
     const noReportsText = noReports.text;
     expect(noReportsText).not.toContain("EXP-001");
+    expect(noReportsText, "a capital reference embeds the receipt id").not.toContain("CAP-");
     expect(noReportsText).not.toContain("Office supplies");
     expectNoSourceMetadata(noReportsText);
     const noReportsView = JSON.parse(noReportsText) as { data: { journals: { source: unknown }[] } };
@@ -277,6 +278,7 @@ test.describe("V1 operational finance from a new company", () => {
     const reader = await employeeHolding(page, browser, "reversal.reader", ["Request journal reversals", "View Finance reports and journals"]);
     const withheld = (await browserGet(reader, reversals)).text;
     expect(withheld).not.toContain("EXP-001");
+    expect(withheld, "a capital reference embeds the receipt id").not.toContain("CAP-");
     expect(withheld).not.toContain("Office supplies");
     expectNoSourceMetadata(withheld);
     const withheldView = JSON.parse(withheld) as { data: { journals: { source: { id: unknown; route: unknown; counterparty: unknown; detail: unknown } | null }[] } };

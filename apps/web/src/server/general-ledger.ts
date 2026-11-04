@@ -110,7 +110,11 @@ export async function generalLedgerView(
   const journalIds = [...new Set(page.lines.map((line) => line.journalId))];
   const sources = journalIds.length === 0 ? {}
     : await restrictedFinanceAuthenticator().journalSources(financeHandoffRuntime().executor, await sessionToken(), journalIds);
-  return { ...page, lines: page.lines.map((line) => ({ ...line, source: sources[line.journalId] ?? null })) };
+  // 0057: the page itself knows nothing of source permissions, so the masked reference and source id come from the sources.
+  return { ...page, lines: page.lines.map((line) => {
+    const { journalReference, ...source } = sources[line.journalId] ?? { journalReference: null };
+    return { ...line, journalReference: line.restricted ? null : journalReference ?? null, sourceId: "id" in source ? source.id : null, source: "type" in source ? source : null };
+  }) };
 }
 
 export async function generalLedgerActivity(from: string, to: string, accountId: string | null): Promise<GeneralLedgerActivityView> {

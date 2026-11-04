@@ -254,6 +254,8 @@ function SafeCard({ safe, workspace, fa, t, busy, formOpen, toggleForm, closeFor
         <div><dt>{fa ? "آخرین حرکت" : "Last movement"}</dt><dd dir="ltr">{safe.balance.lastMovementDate ?? "—"}</dd></div>
       </dl>
 
+      <p className="admin-hint"><Link href={`/finance/safe-statement?accountId=${safe.id}`}>{fa ? "صورت‌حساب این حساب" : "Statement of this account"}</Link></p>
+
       <p className="safe-opening-state">
         {safe.openingBalance
           ? <>{fa ? "موجودی افتتاحیه ثبت شد: " : "Opening balance recorded: "}<strong dir="ltr">{money(safe.openingBalance.amount, safe.openingBalance.currencyCode)}</strong>
