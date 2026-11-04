@@ -15,7 +15,6 @@ import { seedAccounts } from "./support/seed-credentials";
  *   ABOS_V1_PREVIEW_E2E=1 pnpm exec playwright test v1-shareholder-contributions --workers=1
  */
 const SHOTS = resolve(__dirname, "../test-results/v1-shareholder-contributions");
-const ROOT = resolve(__dirname, "../../..");
 
 test.use({ viewport: { width: 1440, height: 900 } });
 

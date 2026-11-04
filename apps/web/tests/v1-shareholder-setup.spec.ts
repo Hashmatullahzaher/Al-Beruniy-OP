@@ -14,7 +14,6 @@ import { seedAccounts } from "./support/seed-credentials";
  *   ABOS_V1_PREVIEW_E2E=1 pnpm exec playwright test v1-shareholder-setup --workers=1
  */
 const SHOTS = resolve(__dirname, "../test-results/v1-shareholder-setup");
-const ROOT = resolve(__dirname, "../../..");
 const PDF = Buffer.from("%PDF-1.7\n1 0 obj\n<<>>\nendobj\n%%EOF\n", "ascii");
 const PNG = Buffer.from([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a,0,0,0,0,0x49,0x48,0x44,0x52,0,0,0,1,0,0,0,1]);
 
