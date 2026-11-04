@@ -100,6 +100,20 @@ export async function shareholderStatementGet(request: Request): Promise<Respons
   } catch (error) { return reportingErrorResponse(error); }
 }
 
+export async function incomeStatementGet(request: Request): Promise<Response> {
+  try {
+    return json({ ok: true, data: await restrictedFinanceAuthenticator().incomeStatement(financeHandoffRuntime().executor, await sessionToken(),
+      reportRange(new URL(request.url).searchParams)) });
+  } catch (error) { return reportingErrorResponse(error); }
+}
+
+export async function balanceSheetGet(request: Request): Promise<Response> {
+  try {
+    return json({ ok: true, data: await restrictedFinanceAuthenticator().balanceSheet(financeHandoffRuntime().executor, await sessionToken(),
+      reportRange(new URL(request.url).searchParams)) });
+  } catch (error) { return reportingErrorResponse(error); }
+}
+
 export async function journalDetailGet(journalId: string): Promise<Response> {
   try {
     if (!UUID.test(journalId)) throw new IdentityError("VALIDATION_FAILED", "Choose a journal.");

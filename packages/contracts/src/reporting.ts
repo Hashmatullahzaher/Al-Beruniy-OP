@@ -300,6 +300,60 @@ export interface ShareholderStatementView {
     readonly transactions: readonly ShareholderTransaction[]; readonly canOpenLedger: boolean } | null;
 }
 
+/** 0059: the financial statements, from classified ledger accounts in the accounting currency. */
+export interface IncomeStatementAccount {
+  readonly accountId: string;
+  readonly code: string;
+  readonly name: string;
+  readonly class: "REVENUE" | "EXPENSE";
+  readonly status: string;
+  readonly parent: { readonly id: string; readonly code: string; readonly name: string } | null;
+  readonly amount: string;
+}
+
+export interface IncomeStatementView {
+  readonly legalEntityId: string;
+  readonly baseCurrency: string;
+  readonly range: ReportRange;
+  readonly income: readonly IncomeStatementAccount[];
+  readonly expenses: readonly IncomeStatementAccount[];
+  readonly totalIncome: string;
+  readonly totalExpenses: string;
+  readonly netResult: string;
+  readonly yearToDate: { readonly from: string; readonly to: string; readonly income: string; readonly expenses: string; readonly netResult: string };
+}
+
+export interface BalanceSheetAccount {
+  readonly accountId: string;
+  readonly code: string;
+  readonly name: string;
+  readonly class: "ASSET" | "LIABILITY" | "EQUITY";
+  readonly control: string | null;
+  readonly status: string;
+  readonly parent: { readonly id: string; readonly code: string; readonly name: string } | null;
+  readonly group: "TREASURY" | "OTHER_ASSETS" | "LOANS" | "PAYABLES" | "OTHER_LIABILITIES" | "SHAREHOLDER_CAPITAL" | "OPENING_BALANCE_EQUITY" | "OTHER_EQUITY";
+  readonly amount: string;
+}
+
+export interface BalanceSheetView {
+  readonly legalEntityId: string;
+  readonly baseCurrency: string;
+  readonly range: ReportRange;
+  readonly asOf: string;
+  readonly yearStart: string;
+  readonly accounts: readonly BalanceSheetAccount[];
+  readonly totalAssets: string;
+  readonly totalLiabilities: string;
+  readonly equityAccounts: string;
+  /** Derived for presentation: no closing journal exists. */
+  readonly earlierYearsResult: string;
+  readonly currentYearResult: string;
+  readonly totalEquity: string;
+  readonly totalLiabilitiesAndEquity: string;
+  readonly validation: { readonly difference: string; readonly balanced: boolean; readonly unbalancedJournals: number };
+  readonly treasury: { readonly treasuryBase: string; readonly ledgerBase: string; readonly matches: boolean };
+}
+
 export interface JournalDetailView {
   readonly journalId: string;
   readonly reference: string | null;

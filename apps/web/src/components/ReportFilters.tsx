@@ -14,8 +14,8 @@ export function defaultReportSearch(search: string): string {
 }
 
 /** The period chooser shared by the financial reports. It only writes the address; each report reads it, so a link or refresh keeps the view. */
-export function ReportFilters({ path, fa, years, canPrint, children, keep = [] }: Readonly<{
-  path: string; fa: boolean; years: ReportRange["fiscalYears"]; canPrint: boolean; children?: ReactNode; keep?: readonly string[];
+export function ReportFilters({ path, fa, years, canPrint, children, keep = [], datesOnly = false }: Readonly<{
+  path: string; fa: boolean; years: ReportRange["fiscalYears"]; canPrint: boolean; children?: ReactNode; keep?: readonly string[]; datesOnly?: boolean;
 }>) {
   const router = useRouter();
   const params = useSearchParams();
@@ -41,9 +41,9 @@ export function ReportFilters({ path, fa, years, canPrint, children, keep = [] }
       {children}
       <label><span>{fa ? "گزارش برای" : "Report for"}</span>
         <select value={mode} onChange={(event) => setMode(event.target.value as Mode)}>
-          <option value="asOf">{fa ? "تا تاریخ (از آغاز سال مالی)" : "As of a date (year to date)"}</option>
+          <option value="asOf">{datesOnly ? (fa ? "به تاریخ" : "As of a date") : (fa ? "تا تاریخ (از آغاز سال مالی)" : "As of a date (year to date)")}</option>
           {years.length > 0 ? <option value="year">{fa ? "یک سال مالی" : "A financial year"}</option> : null}
-          <option value="range">{fa ? "بازهٔ تاریخ" : "A date range"}</option>
+          {datesOnly ? null : <option value="range">{fa ? "بازهٔ تاریخ" : "A date range"}</option>}
         </select></label>
       {mode === "asOf" ? <label><span>{fa ? "تاریخ" : "Date"}</span>
         <input type="date" dir="ltr" value={asOf} onChange={(event) => setAsOf(event.target.value)} /></label> : null}
