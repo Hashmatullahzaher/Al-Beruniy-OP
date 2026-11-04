@@ -1,9 +1,9 @@
-import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 import { expect, test, type Page } from "@playwright/test";
 import pg from "pg";
+import { seedAccounts } from "./support/seed-credentials";
 
 /**
  * Operational Finance from a brand-new company, through the real UI, identity and database boundaries.
@@ -575,15 +575,7 @@ function previewEnvironment(): Record<string, string | undefined> {
 function seedFirstRun(): Record<string, string> {
   const environment = previewEnvironment();
   assertDisposablePreviewDatabase(environment.ABOS_DATABASE_URL, environment.ABOS_IDENTITY_DATABASE_URL);
-  const output = execFileSync("pnpm", ["--filter", "@abos/e1-integration", "preview:first-run"], {
-    cwd: resolve(__dirname, "../../.."), env: environment as NodeJS.ProcessEnv, encoding: "utf8", shell: process.platform === "win32"
-  });
-  const accounts: Record<string, string> = {};
-  for (const line of output.split(/\r?\n/)) {
-    const match = /\s((?:super\.admin|demo\.[a-z.]+))\s+([a-z]+-[a-z]+-[a-z]+-[0-9a-f]+)\s/.exec(line);
-    if (match?.[1] !== undefined && match[2] !== undefined) accounts[match[1]] = match[2];
-  }
-  return accounts;
+  return seedAccounts("preview:first-run", environment);
 }
 
 function assertDisposablePreviewDatabase(ownerUrl: string | undefined, identityUrl: string | undefined): void {

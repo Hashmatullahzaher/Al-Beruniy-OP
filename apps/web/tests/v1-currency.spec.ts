@@ -3,6 +3,7 @@ import { mkdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 import { expect, test, type Page } from "@playwright/test";
+import { seedAccounts } from "./support/seed-credentials";
 
 /**
  * WP-C: daily exchange rates through the real sign-in, administration and restricted runtime login.
@@ -124,17 +125,10 @@ function seedPreview(): Record<string, string> {
   const environment = previewEnvironment();
   assertDisposablePreviewDatabase(environment);
   const env = environment as NodeJS.ProcessEnv;
-  const output = execFileSync("pnpm", ["--filter", "@abos/e1-integration", "preview:seed"], {
-    cwd: ROOT, env, encoding: "utf8", shell: process.platform === "win32"
-  });
+  const accounts = seedAccounts("preview:seed", environment);
   execFileSync("node", ["--experimental-strip-types", "packages/e1-integration/src/currency-preview-fixture.ts"], {
     cwd: ROOT, env, encoding: "utf8", shell: process.platform === "win32"
   });
-  const accounts: Record<string, string> = {};
-  for (const line of output.split(/\r?\n/)) {
-    const match = /\s((?:super\.admin|demo\.[a-z.]+))\s+([a-z]+-[a-z]+-[a-z]+-[0-9a-f]+)\s/.exec(line);
-    if (match?.[1] !== undefined && match[2] !== undefined) accounts[match[1]] = match[2];
-  }
   return accounts;
 }
 

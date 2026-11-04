@@ -57,7 +57,7 @@ Prerequisites: Docker Desktop running, Node 24, pnpm, a checkout of this branch.
    ```
 
 4. Reset and seed the disposable dev database. This erases `abos_e1_dev`, and the script refuses
-   any database whose name lacks `dev` or `sandbox`. It prints one token per synthetic person;
+   any database whose name lacks `dev` or `sandbox`. It writes one token per synthetic person to the private file named by `ABOS_SEED_CREDENTIALS_FILE`, never to the console;
    tokens expire after one hour and stop working once that person signs out.
 
    ```bash

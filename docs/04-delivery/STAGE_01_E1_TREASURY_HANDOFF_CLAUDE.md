@@ -80,7 +80,7 @@ Local run:
 docker run -d --name abos-e1-pg -e POSTGRES_PASSWORD=abos_sandbox -e POSTGRES_USER=abos -e POSTGRES_DB=abos_e1_sandbox -p 55432:5432 postgres:17-alpine
 docker exec abos-e1-pg psql -U abos -d postgres -c "CREATE DATABASE abos_e1_dev"
 cp apps/web/.env.development.example apps/web/.env.local   # fill in the ABOS_* values
-pnpm --filter @abos/e1-integration sandbox:seed             # prints one token per synthetic persona
+pnpm --filter @abos/e1-integration sandbox:seed             # writes one token per synthetic person to ABOS_SEED_CREDENTIALS_FILEa
 pnpm dev
 ```
 

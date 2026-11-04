@@ -102,7 +102,7 @@ Out of V1 (unchanged): banks, Sales, Construction, Procurement, HR/Payroll, AI, 
 
 ### English (about 10 minutes)
 
-The operator prepares the database and prints one-time passwords (see §G). The client never sees a token.
+The operator prepares the database and receives one-time passwords in a private file (see §G). The client never sees a token.
 
 1. Open `/login` and sign in as **super.admin**.
 2. **Roles & permissions → New role:** "Cash Receipt Officer". Allow *View Treasury*, *Record cash received* and *Count cash*. Point out that *Verify*, *Approve* and *Post* stay *Not allowed*, and that reversal shows *Unavailable in this preview*.
@@ -182,7 +182,7 @@ Prerequisites: Docker, Node 24, pnpm, and a PostgreSQL 17 container named `abos-
    - `ABOS_ENVIRONMENT=development`, a locally generated `ABOS_SANDBOX_RUNTIME_MARKER`, a locally generated 32+ character `ABOS_SANDBOX_SIGNING_SECRET`, and `ABOS_SANDBOX_MAX_SESSION_SECONDS=3600`.
    - Leave `ABOS_ALLOW_DEV_TOKEN_SIGNIN` unset for a client showing. It is only for the automated browser tests.
 
-3. Reset and seed the disposable database. The script refuses database names without `dev`, `sandbox` or `preview`. It prints each person's username and a one-time password; they are not stored anywhere.
+3. Reset and seed the disposable database. The script refuses database names without `dev`, `sandbox` or `preview`. It prints each person's username only. Set `ABOS_SEED_CREDENTIALS_FILE` to a private file outside the repository first: the one-time passwords are written there and never to the console, and the seed refuses to run without it. Delete the file when the showing is over.
 
    ```bash
    pnpm --filter @abos/e1-integration preview:seed

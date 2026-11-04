@@ -1,8 +1,8 @@
-import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 import { expect, test, type Page } from "@playwright/test";
+import { seedAccounts } from "./support/seed-credentials";
 
 /** Lead (#8): company configuration. Reseeds the dev database; gated like the other V1 journeys. */
 test.use({ viewport: { width: 1440, height: 900 } });
@@ -51,15 +51,7 @@ function seedPreview(): Record<string, string> {
   // never runs unless both the owner and identity logins name the same disposable preview database.
   const environment = { ...fileEnvironment, ...process.env };
   assertDisposablePreviewDatabase(environment.ABOS_DATABASE_URL, environment.ABOS_IDENTITY_DATABASE_URL);
-  const output = execFileSync("pnpm", ["--filter", "@abos/e1-integration", "preview:seed"], {
-    cwd: resolve(__dirname, "../../.."), env: environment, encoding: "utf8", shell: process.platform === "win32"
-  });
-  const accounts: Record<string, string> = {};
-  for (const line of output.split(/\r?\n/)) {
-    const match = /\s((?:super\.admin|demo\.[a-z.]+))\s+([a-z]+-[a-z]+-[a-z]+-[0-9a-f]+)\s/.exec(line);
-    if (match?.[1] !== undefined && match[2] !== undefined) accounts[match[1]] = match[2];
-  }
-  return accounts;
+  return seedAccounts("preview:seed", environment);
 }
 
 function assertDisposablePreviewDatabase(ownerUrl: string | undefined, identityUrl: string | undefined): void {

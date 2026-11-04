@@ -3,13 +3,14 @@
  *
  *   seed      drops and recreates the `abos` schema in the DEV database, seeds the synthetic world
  *             through the real services, creates two ELIGIBLE shareholder capital receipt intents
- *             for Treasury to act on, and prints a session token per synthetic persona.
+ *             for Treasury to act on, and issues a session token per synthetic persona.
  *   sessions  issues fresh tokens for the same personas without touching any data.
  *
  * Everything is synthetic. The script refuses any database whose name does not contain "dev" or
  * "sandbox", and any ABOS_ENVIRONMENT other than development or test, because `seed` drops a schema.
  *
- * The web app never picks an identity for you. It accepts one of these tokens, and the server
+ * Tokens are written only to the private file named by ABOS_SEED_CREDENTIALS_FILE, never to the
+ * console. The web app never picks an identity for you. It accepts one of these tokens, and the server
  * rebuilds the actor from persisted grants on every request.
  */
 import { randomUUID } from "node:crypto";
@@ -28,6 +29,7 @@ import { PostgresExecutor, PostgresShareholderRepository } from "@abos/persisten
 import { readSandboxConfiguration, SandboxAuthenticator } from "@abos/sandbox-auth";
 import { CapitalReceiptIntentService } from "@abos/shareholder";
 import { resetSchema } from "../src/harness.ts";
+import { seedCredentialsFile, writeSeedCredentials } from "../src/seed-credentials.ts";
 import {
   addInstallment,
   bindSyntheticFinanceApprovalEvidence,
@@ -53,6 +55,7 @@ async function main(): Promise<void> {
   if (command !== "seed" && command !== "sessions") {
     throw new Error("Usage: dev-sandbox.ts seed|sessions");
   }
+  const credentialsFile = seedCredentialsFile(process.env);
   const url = process.env.ABOS_DATABASE_URL;
   if (url === undefined || url.trim() === "") throw new Error("ABOS_DATABASE_URL is not set");
   const databaseName = new URL(url).pathname.slice(1);
@@ -112,15 +115,17 @@ async function main(): Promise<void> {
       throw new Error("Expected exactly one sandbox legal entity; run `seed` first");
     }
     const authenticator = new SandboxAuthenticator(executor, configuration);
-    process.stdout.write(`Session tokens (valid ${configuration.maxSessionSeconds}s). Paste one into /finance/treasury.\n\n`);
+    const sessions: { name: string; role: string; token: string }[] = [];
     for (const [displayName, role] of PERSONAS) {
       const user = await executor.query<{ readonly id: UserAccountId }>(
         "SELECT id FROM abos.user_accounts WHERE display_name = $1", [displayName]);
       const userId = user.rows[0]?.id;
       if (userId === undefined) continue;
       const session = await authenticator.issueSession({ userAccountId: userId, legalEntityId });
-      process.stdout.write(`${displayName.padEnd(32)} ${role}\n  ${session.token}\n\n`);
+      sessions.push({ name: displayName, role, token: session.token });
     }
+    writeSeedCredentials(credentialsFile, sessions);
+    process.stdout.write(`${sessions.length} session tokens (valid ${configuration.maxSessionSeconds}s) were written to ${credentialsFile} and are not printed. Paste one into /finance/treasury.\n`);
   } finally {
     await pool.end();
   }

@@ -19,11 +19,13 @@ pnpm install --frozen-lockfile
 
 ## First setup
 
-Run:
+Set `ABOS_SEED_CREDENTIALS_FILE` to a private file outside the repository, then run:
 
 ```bash
 pnpm v1:local:setup
 ```
+
+The first administrator's temporary password is written to that file and never to the console. Delete the file after the first sign-in.
 
 The setup asks for:
 
@@ -41,7 +43,7 @@ The command:
 4. creates three database logins, each inheriting only its restricted Treasury, Finance or Identity runtime role;
 5. inserts only USD/AFN currency masters plus the company/legal-entity shell supplied by the owner;
 6. creates one non-login bootstrap system actor;
-7. bootstraps the first Super Administrator with a random temporary password shown once;
+7. bootstraps the first Super Administrator with a random temporary password, written only to `ABOS_SEED_CREDENTIALS_FILE`;
 8. writes the restricted runtime configuration to the git-ignored `apps/web/.env.local`.
 
 No shareholder, safe, Chart of Accounts entry, exchange rate, opening balance or transaction is seeded.
@@ -58,7 +60,7 @@ Open:
 http://127.0.0.1:3200/login
 ```
 
-Sign in with the Super Administrator username and the one-time password printed by setup. The first sign-in requires a password change.
+Sign in with the Super Administrator username and the one-time password from the private file named at setup. The first sign-in requires a password change.
 
 From that point, create the actual employees, custom roles, accounts, safes, Saraf accounts, shareholders and other review data through the V1 screens.
 

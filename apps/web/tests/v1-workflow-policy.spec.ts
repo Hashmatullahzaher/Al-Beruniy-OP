@@ -1,8 +1,8 @@
-import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 import { expect, test, type Page } from "@playwright/test";
+import { seedAccounts } from "./support/seed-credentials";
 
 /**
  * Workflow-approval policy acceptance coverage through the real identity and database boundaries.
@@ -157,15 +157,7 @@ function seedPreview(): Record<string, string> {
   // Explicit command-line values win so CI can point every runtime at one isolated preview DB.
   const environment = { ...fileEnvironment, ...process.env };
   assertDisposablePreviewDatabase(environment.ABOS_DATABASE_URL, environment.ABOS_IDENTITY_DATABASE_URL);
-  const output = execFileSync("pnpm", ["--filter", "@abos/e1-integration", "preview:seed"], {
-    cwd: resolve(__dirname, "../../.."), env: environment, encoding: "utf8", shell: process.platform === "win32"
-  });
-  const accounts: Record<string, string> = {};
-  for (const line of output.split(/\r?\n/)) {
-    const match = /\s((?:super\.admin|demo\.[a-z.]+))\s+([a-z]+-[a-z]+-[a-z]+-[0-9a-f]+)\s/.exec(line);
-    if (match?.[1] !== undefined && match[2] !== undefined) accounts[match[1]] = match[2];
-  }
-  return accounts;
+  return seedAccounts("preview:seed", environment);
 }
 
 function assertDisposablePreviewDatabase(ownerUrl: string | undefined, identityUrl: string | undefined): void {
