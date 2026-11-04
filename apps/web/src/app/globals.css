@@ -2039,6 +2039,10 @@ button.review-context { border: 0; border-inline-start: 1px solid rgba(102, 142,
 .table-scroll { overflow-x: auto; }
 @media (max-width: 760px) { .safe-figures { grid-template-columns: repeat(2, minmax(0, 1fr)); } .safe-opening-form { grid-template-columns: minmax(0, 1fr); } .safe-book { text-align: start; } }
 
+.summary-table th { text-align: start; font-weight: 500; color: inherit; }
+.summary-table .summary-total th, .summary-table .summary-total td { font-weight: 700; }
+.link-button { padding: 0; border: 0; background: none; color: inherit; text-decoration: underline; cursor: pointer; font: inherit; }
+
 @media print {
   .sidebar, .topbar, .app-footer, .skip-link, .report-filters, .module-page-actions { display: none !important; }
   .app-frame { display: block; }
