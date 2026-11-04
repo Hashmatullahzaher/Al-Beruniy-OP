@@ -2,6 +2,8 @@
 
 Status: design, written from trunk `dd5464d` (production runs the final 0051 at `8783298`). It was audited against a production-shaped database at 0051. It precedes any Slice 7 migration.
 
+Update 2026-11-04: the source permission rule in section 8 now covers every source type, and journal references are masked. See `docs/04-delivery/V1_REPORTING_0057_SAFE_STATEMENT.md`.
+
 Governing principle (owner instruction of 2026-10-31): every financial report derives from the same accounting truth, posted journals, their lines and their approved dimensions and subledgers. Source confidentiality may hide source detail; it never changes an account's balance.
 
 ## 1. Audit of the current reporting foundation
