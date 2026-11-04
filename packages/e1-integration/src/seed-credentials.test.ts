@@ -7,7 +7,7 @@ import test from "node:test";
 
 import { SEED_CREDENTIALS_VARIABLE, seedCredentialsFile, seedSummary, writeSeedCredentials } from "./seed-credentials.ts";
 
-const row = { name: "Synthetic Person", login: "demo.person", password: "cedar-river-lantern-abc123", role: "Finance Manager" };
+const row = { name: "Synthetic Person", login: "demo.person", password: "synthetic-test-value-not-a-credential", role: "Finance Manager" };
 
 test("a seed refuses to run until a credentials file is named", () => {
   assert.throws(() => seedCredentialsFile({}), /ABOS_SEED_CREDENTIALS_FILE is not set/);
