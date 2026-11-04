@@ -82,12 +82,12 @@ test("a financial year can be chosen and stays in the address", async ({ page })
   const asked = await mock(page, ALL);
   await page.goto("/finance/financial-summary?asOf=2026-09-30");
   await page.getByLabel("Report for").selectOption("year");
-  await page.getByLabel("Financial year").selectOption({ label: "FY 2026" });
+  await page.getByRole("combobox", { name: "Financial year" }).selectOption({ label: "FY 2026" });
   await page.getByRole("button", { name: "Show" }).click();
   await expect(page).toHaveURL(new RegExp(`fiscalYearId=${yearId}`));
   await expect.poll(() => asked.at(-1)).toContain(`fiscalYearId=${yearId}`);
   await page.reload();
-  await expect(page.getByLabel("Financial year")).toHaveValue(yearId);
+  await expect(page.getByRole("combobox", { name: "Financial year" })).toHaveValue(yearId);
 });
 
 test("@smoke the Shareholder statement keeps equity and debt apart, with the agreement as information", async ({ page }) => {
