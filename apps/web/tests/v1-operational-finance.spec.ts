@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Browser, type Page } from "@playwright/test";
 import pg from "pg";
 import { seedAccounts } from "./support/seed-credentials";
 
@@ -30,7 +30,7 @@ test.describe("V1 operational finance from a new company", () => {
     "Set ABOS_V1_PREVIEW_E2E=1 with an isolated preview database to run this."
   );
 
-  test("a single Finance operator sets up a new company, funds the Safe, spends, corrects and reports", async ({ page }) => {
+  test("a single Finance operator sets up a new company, funds the Safe, spends, corrects and reports", async ({ page, browser }) => {
     test.setTimeout(420_000);
     const accounts = seedFirstRun();
     const year = new Date().getFullYear();
@@ -247,6 +247,40 @@ test.describe("V1 operational finance from a new company", () => {
     await expect(page.getByRole("heading", { level: 1, name: "ثبت مصرف" })).toBeVisible();
     await expectNoTechnicalTerms(page);
     await page.getByRole("button", { name: "Switch to English" }).click();
+
+    // Source confidentiality on the reversal list, against the real database: what a person sees depends on what they hold.
+    const reversals = "/api/v1/finance/journal-reversals";
+    const fullList = await page.request.get(reversals);
+    expect(await fullList.text()).toContain("EXP-001");
+    await signOut(page);
+    await signIn(page, "super.admin", accounts["super.admin"]);
+
+    // May ask for a reversal, cannot read Finance reports: the list still works, with no source at all.
+    const requester = await employeeHolding(page, browser, "reversal.requester", ["Request journal reversals"]);
+    const noReports = await requester.request.get(reversals);
+    expect(noReports.status()).toBe(200);
+    const noReportsText = await noReports.text();
+    expect(noReportsText).not.toContain("EXP-001");
+    expect(noReportsText).not.toContain("Office supplies");
+    const noReportsView = JSON.parse(noReportsText) as { data: { journals: { source: unknown }[] } };
+    expect(noReportsView.data.journals.length).toBeGreaterThan(0);
+    expect(noReportsView.data.journals.every((journal) => journal.source === null)).toBe(true);
+    await requester.goto("/finance/reversals");
+    const requesterRow = requester.locator("tr").filter({ hasText: "OPX-" }).first();
+    await expect(requesterRow).toContainText("Expense");
+    await expect(requesterRow).not.toContainText("EXP-001");
+    await requester.context().close();
+
+    // Reads Finance reports but not expenses: the generic type shows, the expense's detail does not.
+    const reader = await employeeHolding(page, browser, "reversal.reader", ["Request journal reversals", "View Finance reports and journals"]);
+    const withheld = await (await reader.request.get(reversals)).text();
+    expect(withheld).not.toContain("EXP-001");
+    expect(withheld).not.toContain("Office supplies");
+    await reader.goto("/finance/reversals");
+    const readerRow = reader.locator("tr").filter({ hasText: "OPX-" }).first();
+    await expect(readerRow).toContainText("Expense");
+    await expect(readerRow).not.toContainText("EXP-001");
+    await reader.context().close();
   });
 });
 
@@ -468,6 +502,37 @@ test.describe("V1 Getting started from a new company", () => {
     expect(await page.evaluate(() => Object.keys(localStorage).filter((key) => /wizard|setup|getting/i.test(key)))).toEqual([]);
   });
 });
+
+/** A new employee holding only the named permissions, signed in on their own browser context. */
+async function employeeHolding(admin: Page, browser: Browser, login: string, permissions: readonly string[]): Promise<Page> {
+  await admin.goto("/admin/roles");
+  await admin.getByRole("button", { name: "New role" }).click();
+  const editor = admin.getByRole("form", { name: "Role editor" });
+  await editor.getByLabel("Role name").fill(`Role of ${login}`);
+  await editor.getByLabel("Description").fill("Synthetic confidentiality check.");
+  for (const permission of permissions) await editor.locator(".permission-row", { hasText: permission }).locator("input").check();
+  await editor.getByRole("button", { name: "Create role" }).click();
+  await expect(admin.locator(".treasury-message.success")).toContainText("Role created");
+  await admin.goto("/admin/users");
+  await admin.getByRole("button", { name: "New employee" }).click();
+  const create = admin.getByRole("form", { name: "New employee" });
+  await create.getByLabel("Username").fill(login);
+  await create.getByLabel("Full name").fill(`Synthetic ${login}`);
+  await create.getByLabel("Job title").fill("Synthetic");
+  await create.locator(".admin-role-picker label", { hasText: `Role of ${login}` }).locator("input").check();
+  await create.getByRole("button", { name: "Create account" }).click();
+  const temporaryPassword = (await admin.locator(".admin-secret-value").textContent())?.trim() ?? "";
+  const person = await (await browser.newContext()).newPage();
+  await person.goto("/login");
+  await person.getByLabel("Username").fill(login);
+  await person.getByLabel("Password", { exact: true }).fill(temporaryPassword);
+  await person.getByRole("button", { name: "Sign in" }).click();
+  await person.getByLabel("New password", { exact: true }).fill("Synthetic confidentiality check passphrase 2026");
+  await person.getByLabel("Repeat the new password").fill("Synthetic confidentiality check passphrase 2026");
+  await person.getByRole("button", { name: "Save password and continue" }).click();
+  await expect(person).toHaveURL(/\/dashboard/);
+  return person;
+}
 
 function policyCard(page: Page, heading: string) {
   return page.locator(".policy-card").filter({ has: page.getByRole("heading", { name: heading, exact: true }) });
