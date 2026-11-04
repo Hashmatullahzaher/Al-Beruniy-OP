@@ -156,6 +156,13 @@ test("Dari, RTL and phone width", async ({ page }) => {
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
 });
 
+test("the default date is the Kabul business day: just after midnight in Kabul it is still yesterday in UTC", async ({ page }) => {
+  const asked = await mock(page);
+  await page.clock.setFixedTime(new Date("2026-09-30T20:00:00Z"));
+  await page.goto(`/finance/safe-statement?accountId=${usdId}`);
+  await expect.poll(() => asked.at(-1)).toContain("asOf=2026-10-01");
+});
+
 test("printing shows the report without the application around it", async ({ page }) => {
   await mock(page);
   await page.goto(`/finance/safe-statement?accountId=${usdId}&asOf=2026-09-30`);

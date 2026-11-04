@@ -4,12 +4,14 @@ import type { ReportRange } from "@abos/contracts";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, type ReactNode } from "react";
 
+import { kabulToday } from "@/components/OperationalFinanceShared";
+
 type Mode = "asOf" | "year" | "range";
 
 /** The query a report starts from when the address names no period: the year to date. */
 export function defaultReportSearch(search: string): string {
   const query = new URLSearchParams(search);
-  if (!query.get("asOf") && !query.get("from") && !query.get("fiscalYearId") && !query.get("periodId")) query.set("asOf", new Date().toISOString().slice(0, 10));
+  if (!query.get("asOf") && !query.get("from") && !query.get("fiscalYearId") && !query.get("periodId")) query.set("asOf", kabulToday());
   return query.toString();
 }
 
@@ -19,7 +21,7 @@ export function ReportFilters({ path, fa, years, canPrint, children, keep = [], 
 }>) {
   const router = useRouter();
   const params = useSearchParams();
-  const today = new Date().toISOString().slice(0, 10);
+  const today = kabulToday();
   const [mode, setMode] = useState<Mode>(params.get("fiscalYearId") ? "year" : params.get("from") ? "range" : "asOf");
   const [asOf, setAsOf] = useState(params.get("asOf") ?? today);
   const [yearId, setYearId] = useState(params.get("fiscalYearId") ?? "");
