@@ -250,8 +250,7 @@ test.describe("V1 operational finance from a new company", () => {
 
     // Source confidentiality on the reversal list, against the real database: what a person sees depends on what they hold.
     const reversals = "/api/v1/finance/journal-reversals";
-    const fullList = await page.request.get(reversals);
-    const fullListText = await fullList.text();
+    const fullListText = (await browserGet(page, reversals)).text;
     expect(fullListText).toContain("EXP-001");
     expectNoSourceMetadata(fullListText);
     await signOut(page);
@@ -259,9 +258,9 @@ test.describe("V1 operational finance from a new company", () => {
 
     // May ask for a reversal, cannot read Finance reports: the list still works, with no source at all.
     const requester = await employeeHolding(page, browser, "reversal.requester", ["Request journal reversals"]);
-    const noReports = await requester.request.get(reversals);
-    expect(noReports.status()).toBe(200);
-    const noReportsText = await noReports.text();
+    const noReports = await browserGet(requester, reversals);
+    expect(noReports.status).toBe(200);
+    const noReportsText = noReports.text;
     expect(noReportsText).not.toContain("EXP-001");
     expect(noReportsText).not.toContain("Office supplies");
     expectNoSourceMetadata(noReportsText);
@@ -276,7 +275,7 @@ test.describe("V1 operational finance from a new company", () => {
 
     // Reads Finance reports but not expenses: the generic type shows, the expense's detail does not.
     const reader = await employeeHolding(page, browser, "reversal.reader", ["Request journal reversals", "View Finance reports and journals"]);
-    const withheld = await (await reader.request.get(reversals)).text();
+    const withheld = (await browserGet(reader, reversals)).text;
     expect(withheld).not.toContain("EXP-001");
     expect(withheld).not.toContain("Office supplies");
     expectNoSourceMetadata(withheld);
@@ -509,6 +508,11 @@ test.describe("V1 Getting started from a new company", () => {
     expect(await page.evaluate(() => Object.keys(localStorage).filter((key) => /wizard|setup|getting/i.test(key)))).toEqual([]);
   });
 });
+
+/** A request from the signed-in page, as the app makes it. Under next start the session cookie is Secure, which Playwright's own request client will not send over http. */
+async function browserGet(page: Page, url: string): Promise<{ status: number; text: string }> {
+  return page.evaluate(async (path) => { const response = await fetch(path); return { status: response.status, text: await response.text() }; }, url);
+}
 
 /** The reversal list names no shareholder, and carries no deep link or source record, for anyone. */
 function expectNoSourceMetadata(body: string): void {
