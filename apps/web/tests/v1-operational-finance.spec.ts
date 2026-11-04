@@ -204,6 +204,7 @@ test.describe("V1 operational finance from a new company", () => {
     await reversal.getByRole("button", { name: "Save" }).click();
     await expect(page.getByText("Reversal posted.")).toBeVisible();
     await expect(page.locator("tr").filter({ hasText: "Expense" })).toContainText("Reversed: RV-");
+    await expect(page.locator("tr").filter({ hasText: "Reversed: RV-" }).first()).toContainText(/Expense · \S+ — /);
     const lines = await journalLines();
     expect(lines.slice(4)).toEqual([
       { source: "REVERSAL", account: "5100", debit: "0", credit: "1000" },

@@ -3,6 +3,7 @@
 import type { JournalReversalWorkspace as Workspace, ReversibleJournalView } from "@abos/contracts";
 import { useCallback, useEffect, useState } from "react";
 
+import { SourceCell } from "@/components/AccountStatementWorkspace";
 import { AccessGate, api, errorText } from "@/components/AdminUsersWorkspace";
 import { AppIcon } from "@/components/AppIcon";
 import { useLocale } from "@/components/LocaleProvider";
@@ -137,7 +138,8 @@ export function JournalReversalsWorkspace() {
               return [
                 <tr key={journal.id}>
                   <td dir="ltr">{journal.date}</td><td dir="ltr">{journal.reference}</td>
-                  <td>{t(SOURCE_COPY[journal.sourceType] ?? { en: journal.sourceType, fa: journal.sourceType })}</td>
+                  <td>{journal.source && journal.source.type !== "RESTRICTED" ? <SourceCell source={journal.source} fa={fa} />
+                    : t(SOURCE_COPY[journal.sourceType] ?? { en: journal.sourceType, fa: journal.sourceType })}</td>
                   <td dir="ltr">{money(journal.amount, journal.currency)}</td><td>{journal.postedBy ?? "—"}</td>
                   <td>{journal.reversal ? <span>{fa ? "برگشت شد: " : "Reversed: "}<span dir="ltr">{journal.reversal.reference}</span> · <span dir="ltr">{journal.reversal.date}</span>
                       {journal.reversal.selfReversal ? <> · <em>{fa ? "اصلاح توسط خود ثبت‌کننده" : "self-correction"}</em></> : null}</span>

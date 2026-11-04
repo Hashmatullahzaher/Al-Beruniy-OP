@@ -10,6 +10,7 @@ import { KabulClock } from "@/components/KabulClock";
 import { useLocale } from "@/components/LocaleProvider";
 import { useSession } from "@/components/SessionProvider";
 import { publicEnvironment } from "@/lib/env";
+import { signedOutFooter } from "@/lib/environment-copy";
 import { operationalRoutes, sectionHeadings } from "@/lib/operational-routes";
 
 interface AppShellProps {
@@ -185,7 +186,7 @@ export function AppShell({ children }: AppShellProps) {
           <span>Build {shortSha}</span>
           <span>{signedIn
             ? (fa ? "دسترسی کنترل‌شده · هر کار در سرور و پایگاه داده بررسی می‌شود" : "Controlled access · every action is checked by the server and the database")
-            : (fa ? "هیچ سرویس عملیاتی متصل نیست" : "No operational services connected")}</span>
+            : signedOutFooter(publicEnvironment.environment)[fa ? "fa" : "en"]}</span>
         </footer>
       </div>
       {menuOpen ? <button className="mobile-scrim" type="button" aria-label="Close navigation" onClick={() => setMenuOpen(false)} /> : null}

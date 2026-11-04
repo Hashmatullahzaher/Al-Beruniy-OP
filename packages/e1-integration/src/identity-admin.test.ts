@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import test, { after, before, describe } from "node:test";
 import pg from "pg";
 import type {
@@ -312,6 +314,10 @@ if (databaseUrl() === undefined) {
         const independent = await harness.executor.query<{ permission_code: string }>(
           "SELECT permission_code FROM abos.permission_catalogue WHERE independence_enforced ORDER BY 1");
         assert.deepEqual(independent.rows.map((row) => row.permission_code), [...INDEPENDENCE_PERMISSIONS].sort());
+        // Every code in the catalogue has a name for people; no screen falls back to the raw code.
+        const accessCopy = readFileSync(resolve(import.meta.dirname, "../../../apps/web/src/lib/access-copy.ts"), "utf8");
+        const catalogue = await harness.executor.query<{ permission_code: string }>("SELECT permission_code FROM abos.permission_catalogue ORDER BY 1");
+        assert.deepEqual(catalogue.rows.map((row) => row.permission_code).filter((code) => !accessCopy.includes(`"${code}": {`)), []);
         for (const code of ["finance.ledger-account.review", "treasury.saraf-account.manage", "finance.reversal.approve"]) {
           const sensitiveRole = await setup.identity.createRole(setup.adminToken, { name: `Sensitive ${code}`, description: "", permissions: [code] });
           await rejectsIdentity("SUPER_ADMIN_REQUIRED", () => setup.identity.createUser(userAdmin.token, {

@@ -5,6 +5,7 @@ import { IdentityError } from "@abos/identity";
 
 import { financeHandoffRuntime } from "@/server/finance-handoff";
 import { assertMutation, readBody, sessionToken } from "@/server/identity";
+import { withJournalSources } from "@/lib/reversal-sources";
 import { operationalFinanceErrorResponse, restrictedFinanceAuthenticator } from "@/server/operational-finance";
 
 /**
@@ -81,8 +82,13 @@ export async function financialYearClosePost(request: Request): Promise<Response
   } catch (error) { return slice5ErrorResponse(error); }
 }
 
+async function reversalWorkspace(token: string) {
+  const finance = restrictedFinanceAuthenticator();
+  return withJournalSources(await finance.journalReversalWorkspace(runtime(), token), (journalIds) => finance.journalSources(runtime(), token, journalIds));
+}
+
 export async function reversalsGet(): Promise<Response> {
-  try { return json({ ok: true, data: await restrictedFinanceAuthenticator().journalReversalWorkspace(runtime(), await sessionToken()) }); }
+  try { return json({ ok: true, data: await reversalWorkspace(await sessionToken()) }); }
   catch (error) { return slice5ErrorResponse(error); }
 }
 
@@ -91,7 +97,7 @@ export async function reversalsPost(request: Request): Promise<Response> {
     assertMutation(request);
     const token = await sessionToken();
     const result = await restrictedFinanceAuthenticator().journalReversalCommand(runtime(), token, journalReversalCommand(await readBody(request)));
-    return json({ ok: true, data: { result, workspace: await restrictedFinanceAuthenticator().journalReversalWorkspace(runtime(), token) } },
+    return json({ ok: true, data: { result, workspace: await reversalWorkspace(token) } },
       result.replayed ? 200 : 201);
   } catch (error) { return slice5ErrorResponse(error); }
 }
