@@ -111,7 +111,7 @@ if (databaseUrl() === undefined) {
           const upgraded = (await client.query("SELECT checksum_sha256 FROM abos.schema_migrations WHERE migration_id=$1", [MIGRATION])).rows;
           assert.equal(upgraded.length, 1, "0039 recorded exactly once");
           assert.equal(upgraded[0]?.checksum_sha256, migrations[index]?.checksumSha256);
-          assert.equal(Number((await client.query("SELECT count(*) AS n FROM abos.schema_migrations")).rows[0]?.n), beforeRegistry.length + 18);
+          assert.equal(Number((await client.query("SELECT count(*) AS n FROM abos.schema_migrations")).rows[0]?.n), migrations.length);
           assert.deepEqual((await client.query(`SELECT to_jsonb(g)-$1::text[] AS row
             FROM abos.ledger_account_governance g ORDER BY ledger_account_id`, [NEW_GOVERNANCE_COLUMNS])).rows, governanceBefore);
           const governanceAdded = (await client.query(`SELECT approval_required,finance_workflow_policy_version_id,
