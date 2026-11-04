@@ -16,14 +16,18 @@ function json(body: unknown, status = 200): Response {
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 
-/** Exactly one of periodId, from + to, or asOf, taken from the query string; the database enforces the same rule. */
+/** Exactly one of periodId, fiscalYearId, from + to, or asOf, taken from the query string; the database enforces the same rule. */
 export function reportRange(query: URLSearchParams): Record<string, string> {
-  const periodId = query.get("periodId"); const from = query.get("from"); const to = query.get("to"); const asOf = query.get("asOf");
-  const modes = [periodId, from ?? to, asOf].filter((value) => value !== null && value !== "").length;
+  const periodId = query.get("periodId"); const from = query.get("from"); const to = query.get("to"); const asOf = query.get("asOf"); const fiscalYearId = query.get("fiscalYearId");
+  const modes = [periodId, from ?? to, asOf, fiscalYearId].filter((value) => value !== null && value !== "").length;
   if (modes !== 1) throw new IdentityError("VALIDATION_FAILED", "Choose a period, a date range or an as-of date.");
   if (periodId) {
     if (!UUID.test(periodId)) throw new IdentityError("VALIDATION_FAILED", "Choose a valid period.");
     return { periodId };
+  }
+  if (fiscalYearId) {
+    if (!UUID.test(fiscalYearId)) throw new IdentityError("VALIDATION_FAILED", "Choose a valid financial year.");
+    return { fiscalYearId };
   }
   if (asOf) {
     if (!DAY.test(asOf)) throw new IdentityError("VALIDATION_FAILED", "Choose a valid date.");
@@ -37,6 +41,7 @@ const REFUSALS: readonly { readonly pattern: RegExp; readonly status: number; re
   { pattern: /choose one: a period, a date range or an as-of date|choose a valid period or valid dates|choose a valid account|unknown report fields/i,
     status: 422, code: "VALIDATION_FAILED", message: "Choose a period, a date range or an as-of date." },
   { pattern: /choose a valid account/i, status: 422, code: "VALIDATION_FAILED", message: "Choose an account." },
+  { pattern: /choose a valid shareholder/i, status: 422, code: "VALIDATION_FAILED", message: "Choose a shareholder." },
   { pattern: /was not found in this legal entity/i, status: 404, code: "NOT_FOUND", message: "That is not available for your company." },
   { pattern: /choose a shorter period/i, status: 422, code: "TOO_MANY_LINES", message: "This statement is too long. Choose a shorter period." }
 ];
@@ -75,6 +80,23 @@ export async function safeStatementGet(request: Request): Promise<Response> {
     if (accountId !== null && !UUID.test(accountId)) throw new IdentityError("VALIDATION_FAILED", "Choose an account.");
     return json({ ok: true, data: await restrictedFinanceAuthenticator().treasuryStatement(financeHandoffRuntime().executor, await sessionToken(),
       accountId === null ? {} : { accountId, ...reportRange(query) }) });
+  } catch (error) { return reportingErrorResponse(error); }
+}
+
+export async function financialSummaryGet(request: Request): Promise<Response> {
+  try {
+    return json({ ok: true, data: await restrictedFinanceAuthenticator().managementSummary(financeHandoffRuntime().executor, await sessionToken(),
+      reportRange(new URL(request.url).searchParams)) });
+  } catch (error) { return reportingErrorResponse(error); }
+}
+
+export async function shareholderStatementGet(request: Request): Promise<Response> {
+  try {
+    const query = new URL(request.url).searchParams;
+    const partyId = query.get("partyId");
+    if (partyId !== null && !UUID.test(partyId)) throw new IdentityError("VALIDATION_FAILED", "Choose a shareholder.");
+    return json({ ok: true, data: await restrictedFinanceAuthenticator().shareholderStatement(financeHandoffRuntime().executor, await sessionToken(),
+      { ...(partyId === null ? {} : { partyId }), ...reportRange(query) }) });
   } catch (error) { return reportingErrorResponse(error); }
 }
 

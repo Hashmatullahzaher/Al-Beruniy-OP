@@ -3,7 +3,7 @@
  * the accounting currency unless a field says it is native. Restricted detail is masked; amounts are never hidden.
  */
 
-export type ReportRangeMode = "PERIOD" | "RANGE" | "AS_OF";
+export type ReportRangeMode = "PERIOD" | "RANGE" | "AS_OF" | "YEAR";
 
 /** Exactly one of periodId, from + to, or asOf. */
 export type ReportRangeRequest =
@@ -28,6 +28,9 @@ export interface ReportRange {
     readonly closed: boolean } | null;
   /** Every month overlapping the range, for date grouping only (months are never closed or reopened by users). */
   readonly periods: readonly (ReportPeriodRef & { readonly startsOn: string; readonly endsOn: string })[];
+  /** 0058: the company's financial years, for choosing a whole year. */
+  readonly fiscalYears: readonly { readonly id: string; readonly label: string; readonly labelFa: string; readonly startsOn: string;
+    readonly endsOn: string; readonly closed: boolean }[];
 }
 
 export interface TrialBalanceRow {
@@ -199,6 +202,102 @@ export interface TreasuryStatementView {
   readonly baseCurrency: string;
   readonly accounts: readonly TreasuryStatementAccount[];
   readonly statement: TreasuryStatement | null;
+}
+
+/** 0058: one currency's movement in the Financial summary. Every figure is net of its reversals. */
+export interface SummaryFigures {
+  readonly opening: string;
+  readonly closing: string;
+  readonly capitalReceived: string;
+  readonly loansReceived: string;
+  readonly otherReceipts: string;
+  readonly moneyReceived: string;
+  readonly expensesPaid: string;
+  readonly paymentsMade: string;
+  readonly loanRepayments: string;
+  readonly moneyPaid: string;
+  readonly openingBalancesRecorded: string;
+  /** Internal movement: never part of money received or paid. */
+  readonly transfersIn: string;
+  readonly transfersOut: string;
+  readonly unclassified: string;
+  readonly reversalsIn: string;
+  readonly reversalsOut: string;
+  readonly reversalCount: number;
+  readonly flowsClosing: string;
+}
+
+export interface ManagementSummaryView {
+  readonly legalEntityId: string;
+  readonly baseCurrency: string;
+  readonly range: ReportRange;
+  readonly accounts: readonly { readonly id: string; readonly nameEn: string; readonly nameFa: string | null; readonly accountType: string; readonly currency: string;
+    readonly status: string; readonly opening: string; readonly closing: string; readonly baseOpening: string; readonly baseClosing: string }[];
+  /** The accounting currency. Absent only for a company with no Treasury account. */
+  readonly base: SummaryFigures | null;
+  readonly currencies: Readonly<Record<string, SummaryFigures>>;
+  readonly profit: { readonly income: string; readonly expenses: string; readonly netResult: string };
+  readonly reconciliation: { readonly treasuryClosing: string; readonly flowsClosing: string; readonly ledgerClosing: string; readonly matches: boolean };
+}
+
+/** 0058: one person's equity and debt. They are separate figures and are never added together. */
+export interface ShareholderTransaction {
+  readonly id: string;
+  readonly date: string;
+  readonly kind: "CAPITAL_RECEIVED" | "CAPITAL_REVERSAL" | "LOAN_RECEIVED" | "LOAN_REPAID" | "LOAN_REVERSAL";
+  readonly section: "CAPITAL" | "LOAN";
+  readonly amount: string;
+  readonly effect: string;
+  readonly balance: string;
+  readonly currency: string;
+  readonly baseAmount: string;
+  readonly restricted: boolean;
+  readonly source: ReportSource | null;
+  readonly journalId: string | null;
+  readonly journalReference: string | null;
+  readonly safe: { readonly id: string; readonly nameEn: string; readonly nameFa: string | null } | null;
+  readonly reversedBy: { readonly journalId: string | null; readonly reference: string | null; readonly date: string } | null;
+  readonly reverses: { readonly journalId: string | null; readonly reference: string | null; readonly date: string } | null;
+}
+
+export interface ShareholderCapitalPosition {
+  readonly currency: string;
+  /** Information only: never decides a balance. */
+  readonly agreed: string | null;
+  readonly opening: string;
+  readonly received: string;
+  readonly reversed: string;
+  readonly effective: string;
+  readonly baseEffective: string;
+  readonly outstanding: string | null;
+}
+
+export interface ShareholderLoanPosition {
+  readonly currency: string;
+  readonly opening: string;
+  readonly received: string;
+  readonly repaid: string;
+  readonly outstanding: string;
+  readonly baseOutstanding: string;
+}
+
+export interface ShareholderStatementView {
+  readonly legalEntityId: string;
+  readonly baseCurrency: string;
+  readonly range: ReportRange;
+  readonly canReadCapital: boolean;
+  readonly canReadLoans: boolean;
+  /** Company totals: arithmetic with no person in it. Null when the reader may not see that section. */
+  readonly totals: { readonly capital: readonly { readonly currency: string; readonly effective: string; readonly baseEffective: string }[] | null;
+    readonly loans: readonly { readonly currency: string; readonly outstanding: string; readonly baseOutstanding: string }[] | null };
+  readonly people: readonly { readonly partyId: string; readonly name: string; readonly isShareholder: boolean;
+    readonly capital: readonly { readonly currency: string; readonly effective: string; readonly baseEffective: string }[] | null;
+    readonly loans: readonly { readonly currency: string; readonly outstanding: string; readonly baseOutstanding: string }[] | null }[];
+  readonly reconciliation: { readonly capital: { readonly subledgerBase: string; readonly ledgerBase: string; readonly matches: boolean } | null;
+    readonly loans: { readonly subledgerBase: string; readonly ledgerBase: string; readonly matches: boolean } | null };
+  readonly statement: { readonly party: { readonly id: string; readonly name: string; readonly shareholderProfileId: string | null };
+    readonly capital: readonly ShareholderCapitalPosition[] | null; readonly loans: readonly ShareholderLoanPosition[] | null;
+    readonly transactions: readonly ShareholderTransaction[]; readonly canOpenLedger: boolean } | null;
 }
 
 export interface JournalDetailView {

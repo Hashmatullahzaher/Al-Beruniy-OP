@@ -17,6 +17,8 @@ import type {
   FxPolicyWorkspace,
   FxPreview,
   AccountStatementView,
+  ManagementSummaryView,
+  ShareholderStatementView,
   TreasuryStatementView,
   JournalDetailView,
   ReportSource,
@@ -580,6 +582,18 @@ export class SandboxAuthenticator {
   async treasuryStatement(executor: SqlExecutor, token: string, request: Record<string, unknown>): Promise<TreasuryStatementView> {
     return this.operationalFinanceFunction<TreasuryStatementView>(executor,
       "SELECT abos.treasury_account_statement($1,$2,$3,$4::jsonb) AS value", token, [JSON.stringify(request)], "Safe statement is unavailable");
+  }
+
+  /** Where the company's money came from and went, and the period's result (0058). */
+  async managementSummary(executor: SqlExecutor, token: string, request: Record<string, unknown>): Promise<ManagementSummaryView> {
+    return this.operationalFinanceFunction<ManagementSummaryView>(executor,
+      "SELECT abos.finance_management_summary($1,$2,$3,$4::jsonb) AS value", token, [JSON.stringify(request)], "Financial summary is unavailable");
+  }
+
+  /** Company totals and the people this reader may see or, with partyId, one person's equity and debt (0058). */
+  async shareholderStatement(executor: SqlExecutor, token: string, request: Record<string, unknown>): Promise<ShareholderStatementView> {
+    return this.operationalFinanceFunction<ShareholderStatementView>(executor,
+      "SELECT abos.finance_shareholder_statement($1,$2,$3,$4::jsonb) AS value", token, [JSON.stringify(request)], "Shareholder statement is unavailable");
   }
 
   /** One posted journal with its lines, source and reversal links (0053). */

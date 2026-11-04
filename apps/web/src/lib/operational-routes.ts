@@ -36,6 +36,8 @@ export const operationalRoutes: ReadonlyArray<{ readonly path: string; readonly 
   // navigation until the owner asks for it; a one-person company does not need the extra lane.
   { path: "/finance/temporary-funding", icon: "coins", en: "Temporary funding", fa: "تمویل موقت", section: "daily", visible: (can) => TEMPORARY_FUNDING_PERMISSIONS.some((permission) => can(permission)) },
   // Reports.
+  { path: "/finance/financial-summary", icon: "reports-analytics", en: "Financial summary", fa: "خلاصهٔ مالی", section: "reports", visible: (can) => can("finance.report.operational.read") },
+  { path: "/finance/shareholder-statement", icon: "reports-analytics", en: "Shareholder statement", fa: "صورت‌حساب سهامدار", section: "reports", visible: (can) => can("shareholder.read") || can("shareholder.capital-receipt.read") || can("finance.temporary-funding.read") || can("finance.report.operational.read") },
   { path: "/finance/daily-report", icon: "reports-analytics", en: "Daily financial report", fa: "گزارش مالی روزانه", section: "reports", visible: (can) => can("finance.expense.read") },
   // Accounting (accountants and Finance managers).
   { path: "/finance/trial-balance", icon: "reports-analytics", en: "Trial balance", fa: "بیلانس آزمایشی", section: "accounting", visible: (can) => can("finance.report.operational.read") },
