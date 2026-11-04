@@ -203,6 +203,31 @@ if (databaseUrl() === undefined) {
       assert.deepEqual(await count(), before, "no closing journal, no retained earnings entry");
     });
 
+    test("every report function is locked down: primitives unreachable by the runtime, entry points owned, pinned and never public", async () => {
+      const primitives = ["report_source_readable(text,jsonb)", "report_journal_reference(uuid,jsonb)", "report_effective_source_type(uuid)", "treasury_account_base_balance(uuid,date,uuid)",
+        "report_income_result(uuid,date,date)", "report_treasury_flows(uuid,date,date)", "report_party_positions(uuid,date,date)", "report_classified_accounts(uuid,date,date)", "report_year_start(uuid,date)"];
+      for (const signature of primitives) {
+        const access = await db.h.pool.query<{ pub: boolean; runtime: boolean; owner: boolean }>(`SELECT has_function_privilege('public', $1::regprocedure, 'EXECUTE') AS pub,
+          has_function_privilege('abos_e1_runtime', $1::regprocedure, 'EXECUTE') AS runtime, has_function_privilege('abos_v1_operational_finance_owner', $1::regprocedure, 'EXECUTE') AS owner`, [`abos.${signature}`]);
+        assert.deepEqual(access.rows[0], { pub: false, runtime: false, owner: true }, signature);
+      }
+      // The restricted runtime really cannot read another company's flows by calling a primitive directly.
+      await assert.rejects(() => db.runtime.query("SELECT * FROM abos.report_treasury_flows($1, '2026-01-01', '2026-12-31')", [f.e]), /permission denied/);
+      await assert.rejects(() => db.runtime.query("SELECT * FROM abos.report_party_positions($1, '2026-01-01', '2026-12-31')", [f.e]), /permission denied/);
+      const entries = ["treasury_account_statement", "finance_management_summary", "finance_shareholder_statement", "finance_income_statement", "finance_balance_sheet"];
+      const rows = await db.h.pool.query<{ name: string; owner: string; definer: boolean; path: string[] | null; pub: boolean; runtime: boolean }>(`SELECT p.proname AS name, p.proowner::regrole::text AS owner, p.prosecdef AS definer,
+        p.proconfig AS path, has_function_privilege('public', p.oid, 'EXECUTE') AS pub, has_function_privilege('abos_e1_runtime', p.oid, 'EXECUTE') AS runtime
+        FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = 'abos' AND p.proname = ANY($1::text[])`, [entries]);
+      assert.equal(rows.rows.length, entries.length);
+      for (const row of rows.rows) {
+        assert.deepEqual([row.owner, row.definer, row.pub, row.runtime], ["abos_v1_operational_finance_owner", true, false, true], row.name);
+        assert.ok(row.path?.some((setting) => setting.startsWith("search_path=pg_catalog")), `${row.name} pins its search_path`);
+      }
+      const write = await db.h.pool.query<{ n: string }>(`SELECT count(*)::text AS n FROM information_schema.role_table_grants WHERE table_schema = 'abos' AND grantee = 'abos_e1_runtime'
+        AND privilege_type IN ('INSERT', 'UPDATE', 'DELETE', 'TRUNCATE')`);
+      assert.equal(write.rows[0]?.n, "0", "the runtime holds no table write");
+    });
+
     test("a year that is closed moves to earlier years' result on the next year's balance sheet, with no journal", async () => {
       const year = randomUUID();
       await db.h.pool.query(`INSERT INTO abos.fiscal_years(id,legal_entity_id,calendar_kind,fiscal_year,label_en,label_fa,starts_on,ends_on,generated_by_user_account_id)

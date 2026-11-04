@@ -84,7 +84,7 @@ test("a balance sheet is at a date: no date range is offered, and a financial ye
   await page.goto("/finance/balance-sheet?asOf=2026-09-30");
   await expect(page.getByLabel("Report for").locator("option")).toHaveText(["As of a date", "A financial year"]);
   await page.getByLabel("Report for").selectOption("year");
-  await page.getByLabel("Financial year").selectOption({ label: "FY 2026" });
+  await page.getByRole("combobox", { name: "Financial year" }).selectOption({ label: "FY 2026" });
   await page.getByRole("button", { name: "Show" }).click();
   await expect.poll(() => asked.at(-1)).toContain(`fiscalYearId=${yearId}`);
 });
