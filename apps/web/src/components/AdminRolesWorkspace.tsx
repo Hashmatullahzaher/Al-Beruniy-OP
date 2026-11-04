@@ -115,7 +115,7 @@ export function AdminRolesWorkspace() {
         <span><i className="state allowed" aria-hidden="true" />{fa ? "مجاز" : "Allowed"}</span>
         <span><i className="state denied" aria-hidden="true" />{fa ? "غیرمجاز" : "Not allowed"}</span>
         <span><i className="state independent" aria-hidden="true" />{fa ? "نیازمند استقلال: سیستم اجازه نمی‌دهد همان شخص کار خود را تایید کند" : "Requires independent approval: the system never lets the same person approve their own work"}</span>
-        <span><i className="state unavailable" aria-hidden="true" />{fa ? "در این پیش‌نمایش موجود نیست" : "Unavailable in this preview"}</span>
+        <span><i className="state unavailable" aria-hidden="true" />{fa ? "هنوز موجود نیست" : "Not available yet"}</span>
       </section>
 
       {templateNote ? <p className="admin-hint" role="note">{templateNote === "prefilled"
@@ -173,7 +173,7 @@ export function AdminRolesWorkspace() {
                           <small>{copy ? t(copy.allows) : ""}</small>
                           {entry.independenceEnforced && copy?.independence ? <em className="permission-independent">{t(copy.independence)}</em> : null}
                           {retired ? <em className="permission-unavailable">{fa ? "با کنار گذاشتن مسیر آزمایشی بازنشسته شد؛ این نقش تا زمانی که مدیر آن را بردارد، آن را نگه می‌دارد." : "Retired with the preview lane; this role keeps it until an administrator removes it."}</em>
-                            : unavailable ? <em className="permission-unavailable">{fa ? "در این پیش‌نمایش پیاده نشده است؛ قابل انتخاب نیست." : "Not implemented in this preview; cannot be chosen."}</em> : null}
+                            : unavailable ? <em className="permission-unavailable">{fa ? "هنوز موجود نیست؛ قابل انتخاب نیست." : "Not available yet; cannot be chosen."}</em> : null}
                           {superOnly ? <em className="permission-unavailable">{fa ? "فقط مدیر ارشد می‌تواند این را تعیین کند." : "Only a Super Administrator can set this."}</em> : null}
                         </span>
                       </label>

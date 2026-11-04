@@ -1,10 +1,10 @@
-import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 import { expect, test, type Page } from "@playwright/test";
 import pg from "pg";
+import { seedAccounts } from "./support/seed-credentials";
 
 /**
  * Migration 0031: shareholder master data and DRAFT capital agreement setup, through the real
@@ -14,7 +14,6 @@ import pg from "pg";
  *   ABOS_V1_PREVIEW_E2E=1 pnpm exec playwright test v1-shareholder-setup --workers=1
  */
 const SHOTS = resolve(__dirname, "../test-results/v1-shareholder-setup");
-const ROOT = resolve(__dirname, "../../..");
 const PDF = Buffer.from("%PDF-1.7\n1 0 obj\n<<>>\nendobj\n%%EOF\n", "ascii");
 const PNG = Buffer.from([0x89,0x50,0x4e,0x47,0x0d,0x0a,0x1a,0x0a,0,0,0,0,0x49,0x48,0x44,0x52,0,0,0,1,0,0,0,1]);
 
@@ -303,15 +302,7 @@ async function signOut(page: Page): Promise<void> {
 function seedPreview(): Record<string, string> {
   const environment = previewEnvironment();
   assertDisposablePreviewDatabase(environment);
-  const output = execFileSync("pnpm", ["--filter", "@abos/e1-integration", "preview:seed"], {
-    cwd: ROOT, env: environment as NodeJS.ProcessEnv, encoding: "utf8", shell: process.platform === "win32"
-  });
-  const accounts: Record<string, string> = {};
-  for (const line of output.split(/\r?\n/)) {
-    const match = /\s((?:super\.admin|demo\.[a-z.]+))\s+([a-z]+-[a-z]+-[a-z]+-[0-9a-f]+)\s/.exec(line);
-    if (match?.[1] !== undefined && match[2] !== undefined) accounts[match[1]] = match[2];
-  }
-  return accounts;
+  return seedAccounts("preview:seed", environment);
 }
 
 function previewEnvironment(): Record<string, string | undefined> {

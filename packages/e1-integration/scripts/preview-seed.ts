@@ -8,9 +8,10 @@
  *   1. the operator bootstrap creates the first Super Administrator;
  *   2. that administrator signs in, creates the standard roles and gives them to the synthetic
  *      Treasury and Finance people;
- *   3. every person receives a freshly generated password, printed once to this console.
+ *   3. every person receives a freshly generated password.
  *
- * Nothing here is company data. Passwords are random per run and are never written to disk.
+ * Nothing here is company data. Passwords are random per run and are written only to the private
+ * file named by ABOS_SEED_CREDENTIALS_FILE, never to the console.
  */
 import { randomBytes, randomUUID } from "node:crypto";
 import pg from "pg";
@@ -23,6 +24,7 @@ import { PostgresExecutor, PostgresShareholderRepository } from "@abos/persisten
 import { readSandboxConfiguration, SandboxAuthenticator } from "@abos/sandbox-auth";
 import { CapitalReceiptIntentService } from "@abos/shareholder";
 import { resetSchema } from "../src/harness.ts";
+import { seedCredentialsFile, seedSummary, writeSeedCredentials } from "../src/seed-credentials.ts";
 import { addInstallment, bindSyntheticFinanceApprovalEvidence, bindSyntheticTreasuryEvidence, seedSyntheticWorld } from "../src/synthetic-world.ts";
 
 pg.types.setTypeParser(1700, (value: string) => value);
@@ -57,6 +59,7 @@ function passphrase(): string {
 }
 
 async function main(): Promise<void> {
+  const credentialsFile = seedCredentialsFile(process.env);
   const ownerUrl = process.env.ABOS_DATABASE_URL;
   const identityUrl = process.env.ABOS_IDENTITY_DATABASE_URL;
   if (!ownerUrl?.trim()) throw new Error("ABOS_DATABASE_URL is not set");
@@ -122,7 +125,7 @@ async function main(): Promise<void> {
       roleIds.set(role.name, created.id);
     }
     const users = await identity.listUsers(admin.token);
-    const printed: { name: string; login: string; password: string; role: string }[] = [
+    const people: { name: string; login: string; password: string; role: string }[] = [
       { name: "Synthetic Super Admin", login: "super.admin", password: adminPassword, role: "Super Administrator" }
     ];
     for (const person of PEOPLE) {
@@ -133,12 +136,11 @@ async function main(): Promise<void> {
       const reset = await identity.resetPassword(admin.token, user.id);
       const password = passphrase();
       await identity.changePassword({ loginIdentifier: person.login, currentPassword: reset.temporaryPassword, newPassword: password, clientAddress: client });
-      printed.push({ name: person.displayName, login: person.login, password, role: person.role });
+      people.push({ name: person.displayName, login: person.login, password, role: person.role });
     }
 
-    process.stdout.write("\nV1 client preview seeded (synthetic data only). Passwords are shown once and are not stored.\n\n");
-    process.stdout.write(`${"Person".padEnd(30)}${"Username".padEnd(26)}${"Password".padEnd(34)}Role\n`);
-    for (const row of printed) process.stdout.write(`${row.name.padEnd(30)}${row.login.padEnd(26)}${row.password.padEnd(34)}${row.role}\n`);
+    writeSeedCredentials(credentialsFile, people);
+    process.stdout.write(seedSummary("V1 client preview seeded (synthetic data only).", credentialsFile, people));
     process.stdout.write("\nThe demo's new employee is created live by the Super Admin in Admin → Users.\n");
   } finally {
     await identityPool.end();

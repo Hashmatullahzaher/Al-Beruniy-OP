@@ -1,9 +1,9 @@
 "use client";
 
-import type { AccountStatementView, JournalDetailView, ReportSource } from "@abos/contracts";
+import type { AccountStatementView, JournalDetailView, ReportSource, TrialBalanceRow, TrialBalanceView } from "@abos/contracts";
 import { formatDual } from "@abos/calendar";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { AccessGate, api, errorText } from "@/components/AdminUsersWorkspace";
@@ -33,9 +33,29 @@ export function AccountStatementWorkspace() {
   const [view, setView] = useState<AccountStatementView | null>(null);
   const [gate, setGate] = useState<"signed-out" | "denied" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [accounts, setAccounts] = useState<readonly TrialBalanceRow[]>([]);
+  const router = useRouter();
   const params = useSearchParams();
   const search = params.toString();
   const missing = !params.get("accountId");
+
+  // The accounts this reader may report on, zero balances included, come from the same report as the Trial balance.
+  useEffect(() => {
+    let current = true;
+    const today = new Date().toISOString().slice(0, 10);
+    void api<TrialBalanceView>(`/api/v1/finance/trial-balance?asOf=${today}&includeZero=true`).then((result) => {
+      if (!current) return;
+      if (result.ok) { setAccounts(result.data.accounts); return; }
+      if (missing && (result.status === 401 || result.status === 403)) setGate(result.status === 401 ? "signed-out" : "denied");
+    });
+    return () => { current = false; };
+  }, [missing]);
+
+  const chooseAccount = (accountId: string) => {
+    const query = new URLSearchParams(search);
+    query.set("accountId", accountId);
+    router.push(`/finance/account-statement?${query}`);
+  };
 
   useEffect(() => {
     const query = new URLSearchParams(search);
@@ -44,7 +64,7 @@ export function AccountStatementWorkspace() {
     let current = true;
     void api<AccountStatementView>(`/api/v1/finance/account-statement?${query}`).then((result) => {
       if (!current) return;
-      if (result.ok) { setView(result.data); return; }
+      if (result.ok) { setView(result.data); setError(null); return; }
       setGate(result.status === 401 ? "signed-out" : result.status === 403 ? "denied" : null);
       if (result.status !== 401 && result.status !== 403) setError(fa ? errorText(result.error, "fa") : result.error.message || errorText(result.error, "en"));
     });
@@ -63,7 +83,15 @@ export function AccountStatementWorkspace() {
         title={{ en: title, fa: title }}
         description={{ en: "Every posted movement of one account, with its running balance, from the opening to the closing position.",
           fa: "همه حرکات ثبت‌شدهٔ یک حساب با موجودی جاری، از موجودی افتتاحیه تا پایانی." }} />
-      {missing ? <p className="admin-hint" role="note">{fa ? "حساب را از " : "Choose an account from the "}
+      {accounts.length > 0 ? (
+        <div className="admin-form report-filters">
+          <label><span>{fa ? "حساب" : "Account"}</span>
+            <select value={params.get("accountId") ?? ""} onChange={(event) => chooseAccount(event.target.value)}>
+              <option value="" disabled>{fa ? "حساب را انتخاب کنید" : "Choose an account"}</option>
+              {accounts.map((account) => <option key={account.accountId} value={account.accountId}>{account.accountCode} · {account.accountName}</option>)}
+            </select></label>
+        </div>
+      ) : missing ? <p className="admin-hint" role="note">{fa ? "حساب را از " : "Choose an account from the "}
         <Link href="/finance/trial-balance">{fa ? "بیلانس آزمایشی" : "Trial balance"}</Link>{fa ? " انتخاب کنید." : "."}</p> : null}
       {error ? <div className="treasury-message error" role="alert"><AppIcon name="alert" size={16} /><span>{error}</span></div> : null}
       {view ? (

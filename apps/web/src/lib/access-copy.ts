@@ -234,6 +234,37 @@ export const PERMISSION_COPY: Readonly<Record<string, PermissionCopy>> = {
     label: { en: "View company dashboard", fa: "مشاهده داشبورد عمومی شرکت" },
     allows: { en: "See the company-wide dashboard with its approved summary figures. It does not open Finance, Treasury, shareholder or administration records, which keep their own permissions.", fa: "دیدن داشبورد عمومی شرکت با ارقام خلاصهٔ تأییدشده. سوابق مالی، خزانه، سهامداران یا مدیریت را باز نمی‌کند؛ آن‌ها صلاحیت‌های خود را دارند." }
   },
+  "shareholder.capital-receipt.read": {
+    label: { en: "View shareholder capital receipts", fa: "مشاهده دریافت‌های سرمایه سهامداران" },
+    allows: { en: "Follow a capital receipt from recording to the books. Viewing changes nothing.", fa: "پیگیری دریافت سرمایه از ثبت تا دفاتر. مشاهده چیزی را تغییر نمی‌دهد." }
+  },
+  "shareholder.capital-receipt.record": {
+    label: { en: "Record shareholder capital receipts", fa: "ثبت دریافت سرمایه سهامدار" },
+    allows: { en: "Record money a shareholder paid in against their capital, ready for custody verification.", fa: "ثبت پولی که سهامدار بابت سرمایه خود پرداخته است، آماده برای تصدیق نگهداری." }
+  },
+  "treasury.capital-receipt.verify": {
+    label: { en: "Verify custody of capital receipts", fa: "تصدیق نگهداری دریافت سرمایه" },
+    allows: { en: "Confirm that the recorded money is held by Treasury.", fa: "تأیید اینکه پول ثبت‌شده در نگهداری خزانه است." },
+    independence: { en: "Refused for whoever recorded that receipt.", fa: "برای کسی که آن دریافت را ثبت کرده رد می‌شود." }
+  },
+  "finance.capital-receipt.configure": {
+    label: { en: "Configure capital receipt posting", fa: "تنظیم ثبت دریافت سرمایه" },
+    allows: { en: "Choose the accounts and rules used to post shareholder capital receipts.", fa: "انتخاب حساب‌ها و قواعدی که برای ثبت دریافت‌های سرمایه سهامدار به کار می‌رود." }
+  },
+  "finance.capital-receipt.prepare": {
+    label: { en: "Prepare capital receipt postings", fa: "آماده‌سازی ثبت دریافت سرمایه" },
+    allows: { en: "Prepare the journal for a verified capital receipt. Nothing reaches the books until it is approved and posted.", fa: "آماده‌سازی ژورنال برای دریافت سرمایهٔ تصدیق‌شده. تا تأیید و ثبت نشود چیزی به دفاتر نمی‌رسد." }
+  },
+  "finance.capital-receipt.approve": {
+    label: { en: "Approve capital receipt postings", fa: "تأیید ثبت دریافت سرمایه" },
+    allows: { en: "Approve or reject a prepared capital receipt posting.", fa: "تأیید یا رد ثبت آماده‌شدهٔ دریافت سرمایه." },
+    independence: { en: "Refused for whoever recorded, verified or prepared that receipt.", fa: "برای کسی که آن دریافت را ثبت، تصدیق یا آماده کرده رد می‌شود." }
+  },
+  "finance.capital-receipt.post": {
+    label: { en: "Post capital receipts", fa: "ثبت نهایی دریافت سرمایه" },
+    allows: { en: "Post an approved capital receipt to the General Ledger.", fa: "ثبت دریافت سرمایهٔ تأییدشده در دفتر کل." },
+    independence: { en: "When approval is required, only by that posting's independent approver.", fa: "وقتی تأیید لازم است، فقط توسط تأییدکنندهٔ مستقل همان ثبت." }
+  },
   "finance.period.manage": {
     label: { en: "Close the financial year", fa: "بستن سال مالی" },
     allows: { en: "Close a financial year at year end, after reviewing its summary. Nothing more can be recorded in a closed financial year; its transactions and reports stay as they are.", fa: "بستن سال مالی در پایان سال، پس از دیدن خلاصهٔ آن. در سال مالی بسته چیزی ثبت نمی‌شود؛ معاملات و گزارش‌های آن همان‌طور می‌ماند." }

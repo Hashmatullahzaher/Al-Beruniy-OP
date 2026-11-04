@@ -5,6 +5,7 @@ import { resolve } from "node:path";
 
 import { expect, test, type Locator, type Page, type TestInfo } from "@playwright/test";
 import pg from "pg";
+import { seedAccounts } from "./support/seed-credentials";
 
 type Accounts = Record<string, string>;
 type Fixture = {
@@ -318,17 +319,10 @@ function previewEnvironment(): NodeJS.ProcessEnv {
 
 function seedCapitalPreview(): { readonly accounts: Accounts; readonly fixture: Fixture } {
   const environment = previewEnvironment();
-  const seed = execFileSync("pnpm", ["--filter", "@abos/e1-integration", "preview:seed"], {
-    cwd: ROOT, env: environment, encoding: "utf8", shell: process.platform === "win32"
-  });
+  const accounts = seedAccounts("preview:seed", environment);
   const configured = execFileSync("pnpm", ["--filter", "@abos/e1-integration", "preview:capital-configure"], {
     cwd: ROOT, env: environment, encoding: "utf8", shell: process.platform === "win32"
   });
-  const accounts: Accounts = {};
-  for (const line of seed.split(/\r?\n/)) {
-    const match = /\s((?:super\.admin|demo\.[a-z.]+))\s+([a-z]+-[a-z]+-[a-z]+-[0-9a-f]+)\s/.exec(line);
-    if (match?.[1] && match[2]) accounts[match[1]] = match[2];
-  }
   const fixtureLine = configured.split(/\r?\n/).find((line) => line.startsWith("CAPITAL_FIXTURE_JSON="));
   if (!fixtureLine) throw new Error("Capital browser fixture did not report its identifiers");
   return { accounts, fixture: JSON.parse(fixtureLine.slice("CAPITAL_FIXTURE_JSON=".length)) as Fixture };

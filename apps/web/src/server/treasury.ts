@@ -131,6 +131,6 @@ export function errorResponse(error: unknown): NextResponse {
 export function json(body: unknown, status = 200): NextResponse {
   return NextResponse.json(body, {
     status,
-    headers: { "Cache-Control": "no-store", "X-ABOS-Data": "synthetic-sandbox" }
+    headers: { "Cache-Control": "no-store", "X-ABOS-Data": "operational" }
   });
 }

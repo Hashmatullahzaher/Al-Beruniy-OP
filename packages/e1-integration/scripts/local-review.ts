@@ -25,6 +25,7 @@ import { bootstrapSuperAdmin } from "@abos/identity";
 import { PostgresExecutor } from "@abos/persistence";
 import { identityDatabaseProofDigest } from "@abos/sandbox-auth";
 import { loadMigrations } from "../src/harness.ts";
+import { seedCredentialsFile, writeSeedCredentials } from "../src/seed-credentials.ts";
 
 pg.types.setTypeParser(1700, (value: string) => value);
 
@@ -250,6 +251,7 @@ async function writeWebEnvironment(secrets: Secrets): Promise<void> {
 }
 
 async function setup(): Promise<void> {
+  const credentialsFile = seedCredentialsFile(process.env);
   if (Number(process.versions.node.split(".")[0]) !== 24) {
     throw new Error(`ABOS V1 requires Node.js 24; current version is ${process.versions.node}`);
   }
@@ -326,11 +328,12 @@ async function setup(): Promise<void> {
       displayName: values.adminName
     });
     await writeWebEnvironment(secrets);
+    writeSeedCredentials(credentialsFile, [{ name: values.adminName, login: values.adminLogin, password: bootstrap.temporaryPassword, role: "Super Administrator" }]);
 
     process.stdout.write("\nABOS V1 localhost review is initialized with your supplied company shell.\n");
     process.stdout.write("No demo users, demo accounts, demo rates, balances or transactions were seeded.\n\n");
     process.stdout.write(`Super Administrator username: ${values.adminLogin}\n`);
-    process.stdout.write(`Temporary password (shown once): ${bootstrap.temporaryPassword}\n`);
+    process.stdout.write(`The temporary password was written to ${credentialsFile} and is not printed. Delete that file after the first sign-in.\n`);
     process.stdout.write("The first sign-in requires a password change.\n\n");
     process.stdout.write("Start the app with: pnpm v1:local:start\n");
     process.stdout.write("Then open: http://127.0.0.1:3200/login\n");

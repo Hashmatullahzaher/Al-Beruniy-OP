@@ -84,7 +84,7 @@ export function CompanyWorkspace() {
               <div><dt>{fa ? "شماره ثبت" : "Registration number"}</dt><dd>{company.profile.registrationNumber ?? pending}</dd></div>
               <div><dt>{fa ? "تاریخ آغاز کار" : "Go-live date"}</dt><dd>{company.profile.goLiveDate ?? pending}</dd></div>
             </dl>
-            <p className="admin-hint">{fa ? "این مشخصات را فقط مالک ارائه می‌کند؛ سیستم هیچ مقداری را حدس نمی‌زند. این محیط پیش‌نمایش داده‌های مصنوعی است." : "Only the owner provides these details; the system never guesses them. This preview environment holds synthetic data."}</p>
+            <p className="admin-hint">{fa ? "این مشخصات را فقط مالک ارائه می‌کند؛ سیستم هیچ مقداری را حدس نمی‌زند." : "Only the owner provides these details; the system never guesses them."}</p>
             {company.profile.updatedBy ? <p className="admin-hint">{fa ? "آخرین تغییر توسط " : "Last changed by "}{company.profile.updatedBy}</p> : null}
             {company.canManage ? (
               <form className="admin-form" onSubmit={(event) => { event.preventDefault(); void save(); }} aria-label={fa ? "ویرایش مشخصات شرکت" : "Edit company details"}>

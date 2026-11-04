@@ -5,6 +5,8 @@
  * strings.
  */
 
+import type { ReportSource } from "./reporting";
+
 /** A month's internal state, for the calendar and reporting only. Users never close or reopen a month. */
 export type AccountingPeriodStatus = "PENDING" | "OPEN" | "SOFT_CLOSED" | "CLOSED";
 
@@ -68,6 +70,8 @@ export interface ReversibleJournalView {
   /** The viewer prepared, approved or posted it. Simple Mode: the viewer may still reverse it directly (a flagged self-correction).
    *  Advanced Mode: the viewer can neither ask for its reversal nor decide or post it. */
   readonly viewerIsParticipant: boolean;
+  /** What the transaction was: label and authorized detail only, never an id, link or counterparty. Null for someone who cannot read Finance reports. */
+  readonly source?: ReportSource | null;
   readonly lines: readonly { readonly lineNumber: number; readonly accountCode: string; readonly accountName: string; readonly debit: string; readonly credit: string }[];
   readonly reversal: { readonly journalId: string; readonly reference: string; readonly date: string; readonly reason: string;
     /** Simple Mode self-correction: the reverser had recorded or approved the original. */

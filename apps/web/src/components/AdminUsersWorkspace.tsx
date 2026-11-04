@@ -131,7 +131,7 @@ export function AdminUsersWorkspace() {
   return (
     <div className="module-workspace admin-workspace">
       <StageZeroPageHeader icon="human-resources"
-        eyebrow={{ en: "Administration · V1 client preview", fa: "مدیریت · پیش‌نمایش مشتری V1" }}
+        eyebrow={{ en: "Administration", fa: "مدیریت" }}
         title={{ en: "Users", fa: "کاربران" }}
         description={{ en: "Employee accounts, their roles and what those roles allow. Every change is recorded.", fa: "حساب‌های کارمندان، نقش‌ها و آنچه نقش‌ها اجازه می‌دهند. هر تغییر ثبت می‌شود." }}>
         <button type="button" className="treasury-button gold" onClick={() => { setSelected("new"); setDetail(null); setSecret(null); setMessage(null); setTab("people"); }}>

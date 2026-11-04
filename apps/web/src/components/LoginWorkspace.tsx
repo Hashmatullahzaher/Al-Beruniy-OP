@@ -8,6 +8,8 @@ import { AppIcon } from "@/components/AppIcon";
 import { useLocale } from "@/components/LocaleProvider";
 import { useSession } from "@/components/SessionProvider";
 import { ERROR_COPY, type Copy } from "@/lib/access-copy";
+import { publicEnvironment } from "@/lib/env";
+import { signInNotice } from "@/lib/environment-copy";
 
 interface ApiError { readonly code: string; readonly message: string; readonly details?: { readonly problems?: readonly string[] } }
 
@@ -150,9 +152,7 @@ export function LoginWorkspace() {
 
         <footer className="login-footer">
           <AppIcon name="shield" size={16} />
-          <p>{fa
-            ? "محیط پیش‌نمایش با داده‌های مصنوعی. هیچ پول یا سوابق واقعی شرکت وجود ندارد و ثبت واقعی مالی غیرفعال است."
-            : "Preview environment with synthetic data. No real money or company records; real financial posting is disabled."}</p>
+          <p>{signInNotice(publicEnvironment.environment)[fa ? "fa" : "en"]}</p>
         </footer>
       </section>
     </div>

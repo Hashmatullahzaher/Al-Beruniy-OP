@@ -19,11 +19,13 @@ pnpm install --frozen-lockfile
 
 ## First setup
 
-Run:
+Set `ABOS_SEED_CREDENTIALS_FILE` to a private file outside the repository, then run:
 
 ```bash
 pnpm v1:local:setup
 ```
+
+The first administrator's temporary password is written to that file and never to the console. Delete the file after the first sign-in.
 
 The setup asks for:
 
@@ -41,16 +43,38 @@ The command:
 4. creates three database logins, each inheriting only its restricted Treasury, Finance or Identity runtime role;
 5. inserts only USD/AFN currency masters plus the company/legal-entity shell supplied by the owner;
 6. creates one non-login bootstrap system actor;
-7. bootstraps the first Super Administrator with a random temporary password shown once;
+7. bootstraps the first Super Administrator with a random temporary password, written only to `ABOS_SEED_CREDENTIALS_FILE`;
 8. writes the restricted runtime configuration to the git-ignored `apps/web/.env.local`.
 
 No shareholder, safe, Chart of Accounts entry, exchange rate, opening balance or transaction is seeded.
 
 ## Start V1
 
+For development on a review checkout:
+
 ```bash
 pnpm v1:local:start
 ```
+
+`v1:local:start` is `next dev`. Never use it on preserved production: a cold `next dev` compiles routes on demand and has left API routes answering "not found" until a restart.
+
+## Production runtime
+
+Preserved production uses the standard Next.js lifecycle. A deployment builds once, from an empty `apps/web/.next`, and every start serves that build:
+
+```bash
+pnpm v1:local:build
+```
+
+```bash
+pnpm v1:local:serve
+```
+
+- Set `NEXT_PUBLIC_APP_ENV=production` in the private `apps/web/.env.local` before building. `NEXT_PUBLIC_*` values are fixed at build time, so changing one needs a new build.
+- A start never builds. It must refuse a missing build or a build of any commit other than the pinned one.
+- `ABOS_ENVIRONMENT=development` is a separate database runtime gate and stays as it is.
+- The session cookie is `Secure` under `next start`; browsers accept it on `http://127.0.0.1`.
+- Prove every deployment on one start, with no warm-up and no second restart.
 
 Open:
 
@@ -58,7 +82,7 @@ Open:
 http://127.0.0.1:3200/login
 ```
 
-Sign in with the Super Administrator username and the one-time password printed by setup. The first sign-in requires a password change.
+Sign in with the Super Administrator username and the one-time password from the private file named at setup. The first sign-in requires a password change.
 
 From that point, create the actual employees, custom roles, accounts, safes, Saraf accounts, shareholders and other review data through the V1 screens.
 

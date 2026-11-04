@@ -1,9 +1,9 @@
-import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Browser, type Page } from "@playwright/test";
 import pg from "pg";
+import { seedAccounts } from "./support/seed-credentials";
 
 /**
  * Operational Finance from a brand-new company, through the real UI, identity and database boundaries.
@@ -30,7 +30,7 @@ test.describe("V1 operational finance from a new company", () => {
     "Set ABOS_V1_PREVIEW_E2E=1 with an isolated preview database to run this."
   );
 
-  test("a single Finance operator sets up a new company, funds the Safe, spends, corrects and reports", async ({ page }) => {
+  test("a single Finance operator sets up a new company, funds the Safe, spends, corrects and reports", async ({ page, browser }) => {
     test.setTimeout(420_000);
     const accounts = seedFirstRun();
     const year = new Date().getFullYear();
@@ -204,6 +204,7 @@ test.describe("V1 operational finance from a new company", () => {
     await reversal.getByRole("button", { name: "Save" }).click();
     await expect(page.getByText("Reversal posted.")).toBeVisible();
     await expect(page.locator("tr").filter({ hasText: "Expense" })).toContainText("Reversed: RV-");
+    await expect(page.locator("tr").filter({ hasText: "Reversed: RV-" }).first()).toContainText(/Expense · \S+ — /);
     const lines = await journalLines();
     expect(lines.slice(4)).toEqual([
       { source: "REVERSAL", account: "5100", debit: "0", credit: "1000" },
@@ -246,6 +247,46 @@ test.describe("V1 operational finance from a new company", () => {
     await expect(page.getByRole("heading", { level: 1, name: "ثبت مصرف" })).toBeVisible();
     await expectNoTechnicalTerms(page);
     await page.getByRole("button", { name: "Switch to English" }).click();
+
+    // Source confidentiality on the reversal list, against the real database: what a person sees depends on what they hold.
+    const reversals = "/api/v1/finance/journal-reversals";
+    const fullListText = (await browserGet(page, reversals)).text;
+    expect(fullListText).toContain("EXP-001");
+    expectNoSourceMetadata(fullListText);
+    await signOut(page);
+    await signIn(page, "super.admin", accounts["super.admin"]);
+
+    // May ask for a reversal, cannot read Finance reports: the list still works, with no source at all.
+    const requester = await employeeHolding(page, browser, "reversal.requester", ["Request journal reversals"]);
+    const noReports = await browserGet(requester, reversals);
+    expect(noReports.status).toBe(200);
+    const noReportsText = noReports.text;
+    expect(noReportsText).not.toContain("EXP-001");
+    expect(noReportsText).not.toContain("Office supplies");
+    expectNoSourceMetadata(noReportsText);
+    const noReportsView = JSON.parse(noReportsText) as { data: { journals: { source: unknown }[] } };
+    expect(noReportsView.data.journals.length).toBeGreaterThan(0);
+    expect(noReportsView.data.journals.every((journal) => journal.source === null)).toBe(true);
+    await requester.goto("/finance/reversals");
+    const requesterRow = requester.locator("tr").filter({ hasText: "OPX-" }).first();
+    await expect(requesterRow).toContainText("Expense");
+    await expect(requesterRow).not.toContainText("EXP-001");
+    await requester.context().close();
+
+    // Reads Finance reports but not expenses: the generic type shows, the expense's detail does not.
+    const reader = await employeeHolding(page, browser, "reversal.reader", ["Request journal reversals", "View Finance reports and journals"]);
+    const withheld = (await browserGet(reader, reversals)).text;
+    expect(withheld).not.toContain("EXP-001");
+    expect(withheld).not.toContain("Office supplies");
+    expectNoSourceMetadata(withheld);
+    const withheldView = JSON.parse(withheld) as { data: { journals: { source: { id: unknown; route: unknown; counterparty: unknown; detail: unknown } | null }[] } };
+    expect(withheldView.data.journals.length).toBeGreaterThan(0);
+    for (const { source } of withheldView.data.journals) expect(source).toMatchObject({ id: null, route: null, counterparty: null, detail: null });
+    await reader.goto("/finance/reversals");
+    const readerRow = reader.locator("tr").filter({ hasText: "OPX-" }).first();
+    await expect(readerRow).toContainText("Expense");
+    await expect(readerRow).not.toContainText("EXP-001");
+    await reader.context().close();
   });
 });
 
@@ -372,7 +413,145 @@ test.describe("V1 Getting started from a new company", () => {
     await nav.getByRole("link", { name: "Safes" }).click();
     await expect(safeBalance(page, "Main USD Safe")).toContainText("50,000 USD");
   });
+
+  test("Getting started progress is only real state: work outside /setup counts, leaving keeps it, and nothing posts without confirmation", async ({ page }) => {
+    test.setTimeout(420_000);
+    const accounts = seedFirstRun();
+    await signIn(page, "demo.finance.manager", accounts["demo.finance.manager"]);
+    const nav = page.getByRole("navigation", { name: "Operations" });
+    const openSetup = async (done: string) => { await nav.getByRole("link", { name: "Getting started" }).click(); await expect(page.getByText(`${done} of 8 steps done`)).toBeVisible(); };
+    await openSetup("1");
+    await expect(page.getByRole("button", { name: /^3\. Financial year — To do/ })).toBeVisible();
+
+    // The financial year is created on the ordinary calendar page: the step completes without touching Getting started.
+    await nav.getByRole("link", { name: "Financial calendar" }).click();
+    const settings = page.getByRole("form", { name: "Financial calendar settings" });
+    await settings.locator("label", { hasText: "Gregorian" }).first().locator("input[type=radio]").check();
+    await settings.getByRole("button", { name: "Save settings" }).click();
+    await expect(page.locator(".treasury-message.success")).toContainText("settings saved");
+    const generator = page.getByRole("form", { name: "Generate fiscal year" });
+    await expect(generator.getByLabel("Starting Gregorian year")).toHaveValue(String(new Date().getFullYear()));
+    await generator.getByRole("button", { name: "Generate fiscal year" }).click();
+    await expect(page.locator(".calendar-year").first().locator("tbody tr")).toHaveCount(12);
+    await openSetup("2");
+    await expect(page.getByRole("button", { name: /^3\. Financial year — Done/ })).toBeVisible();
+
+    // One policy saved outside Getting started: the mode is mixed, and Simple then saves only the three still needed.
+    await nav.getByRole("link", { name: "Workflow approvals" }).click();
+    const chart = policyCard(page, "Chart of Accounts");
+    await chart.getByRole("radio", { name: /Approval OFF/ }).check();
+    await chart.getByLabel("Reason for this change").fill("Saved outside Getting started");
+    await chart.getByRole("button", { name: "Save new version" }).click();
+    await expect(chart.locator(".treasury-chip")).toHaveText("Approval OFF");
+    await openSetup("2");
+    await expect(page.getByText("Some approval settings are already saved.")).toBeVisible();
+    await page.getByRole("radio", { name: /Simple \/ Single Operator/ }).check();
+    await expect(page.locator(".gs-plan li")).toHaveCount(3);
+    await page.getByRole("button", { name: "Use Simple / Single Operator" }).click();
+    await expect(page.getByText("3 of 8 steps done")).toBeVisible();
+
+    // Leaving and returning, and a full reload, keep the same progress: it is read, not remembered.
+    await nav.getByRole("link", { name: "My dashboard" }).click();
+    await openSetup("3");
+    await page.reload();
+    await expect(page.getByText("3 of 8 steps done")).toBeVisible();
+    await expect(page.getByRole("heading", { level: 2, name: "Chart of Accounts" })).toBeVisible();
+
+    // Accounts, Safe and expense type on the ordinary pages also complete their steps.
+    await nav.getByRole("link", { name: "Chart of Accounts" }).click();
+    await createAccount(page, { code: "1100", name: "Main Cash Safe - USD", type: "ASSET", control: "CASH" });
+    await createAccount(page, { code: "3100", name: "Shareholder Capital", type: "EQUITY", control: "SHAREHOLDER_CAPITAL" });
+    await createAccount(page, { code: "5100", name: "Office Expense", type: "EXPENSE" });
+    await openSetup("4");
+    await nav.getByRole("link", { name: "Finance setup" }).click();
+    await page.getByRole("button", { name: "Add account" }).click();
+    const treasury = page.getByRole("form", { name: "Treasury account" });
+    await treasury.getByLabel("Name (English) *").fill("Main USD Safe");
+    await treasury.getByLabel("Chart of Accounts account *").selectOption({ label: "1100 · Main Cash Safe - USD" });
+    await treasury.getByRole("button", { name: "Save" }).click();
+    await expect(page.getByRole("status").filter({ hasText: "Treasury account saved" })).toBeVisible();
+    await page.getByRole("button", { name: "Add expense type" }).click();
+    const type = page.getByRole("form", { name: "Expense type" });
+    await type.getByLabel("Code *").fill("OFFICE");
+    await type.getByLabel("Name (English) *").fill("Office supplies");
+    await type.getByLabel("Expense account in the Chart of Accounts *").selectOption({ label: "5100 · Office Expense" });
+    await type.getByRole("button", { name: "Save" }).click();
+    await expect(page.getByRole("status").filter({ hasText: "Expense type saved" })).toBeVisible();
+    await openSetup("5");
+
+    // Reviewing capital and walking away records nothing: no journal, no shareholder.
+    await page.getByRole("button", { name: /^7\. First transaction/ }).click();
+    await page.getByLabel("Shareholder name").fill("Unconfirmed Shareholder");
+    await page.getByLabel("Amount received now (USD)").fill("50000");
+    await page.getByRole("button", { name: "Review" }).click();
+    await expect(page.getByRole("button", { name: "Confirm and record" })).toBeVisible();
+    await nav.getByRole("link", { name: "My dashboard" }).click();
+    await expectBusinessCounts({ shareholders: 0, journals: 0 });
+    await openSetup("5");
+
+    // Capital recorded on the Shareholders page, not in Getting started: the last steps complete from the books.
+    await nav.getByRole("link", { name: "Shareholders" }).click();
+    await page.getByRole("button", { name: "Add shareholder" }).click();
+    const add = page.getByRole("form", { name: "Add shareholder" });
+    await add.getByLabel("Name").fill("Ahmad Test Shareholder");
+    await add.getByLabel("Amount").fill("50000");
+    await add.getByLabel("Which Safe did it go into?").selectOption({ label: "Main USD Safe · USD" });
+    await add.getByRole("button", { name: "Save" }).click();
+    await expect(page.getByText(/Capital recorded|saved/).first()).toBeVisible();
+    await openSetup("8");
+    await expectBusinessCounts({ shareholders: 1, journals: 1 });
+
+    // No wizard-only state exists anywhere: no table holds it, and the schema is the deployed one.
+    const stateTables = await readOnly<{ name: string }>(
+      `SELECT table_name AS name FROM information_schema.tables WHERE table_schema = 'abos' AND (table_name ILIKE '%wizard%' OR table_name ILIKE '%getting_started%' OR table_name ILIKE '%setup_progress%' OR table_name ILIKE '%onboarding%')`);
+    expect(stateTables).toEqual([]);
+    expect(await page.evaluate(() => Object.keys(localStorage).filter((key) => /wizard|setup|getting/i.test(key)))).toEqual([]);
+  });
 });
+
+/** A request from the signed-in page, as the app makes it. Under next start the session cookie is Secure, which Playwright's own request client will not send over http. */
+async function browserGet(page: Page, url: string): Promise<{ status: number; text: string }> {
+  return page.evaluate(async (path) => { const response = await fetch(path); return { status: response.status, text: await response.text() }; }, url);
+}
+
+/** The reversal list names no shareholder, and carries no deep link or source record, for anyone. */
+function expectNoSourceMetadata(body: string): void {
+  expect(body).not.toContain("Ahmad Test Shareholder");
+  expect(body).not.toContain("/shareholders");
+  expect(body).not.toContain("/finance/transactions");
+  expect(body).not.toMatch(/"(id|route|counterparty)":"[^"]*"[^{}]*"label"/);
+}
+
+/** A new employee holding only the named permissions, signed in on their own browser context. */
+async function employeeHolding(admin: Page, browser: Browser, login: string, permissions: readonly string[]): Promise<Page> {
+  await admin.goto("/admin/roles");
+  await admin.getByRole("button", { name: "New role" }).click();
+  const editor = admin.getByRole("form", { name: "Role editor" });
+  await editor.getByLabel("Role name").fill(`Role of ${login}`);
+  await editor.getByLabel("Description").fill("Synthetic confidentiality check.");
+  for (const permission of permissions) await editor.locator(".permission-row", { hasText: permission }).locator("input").check();
+  await editor.getByRole("button", { name: "Create role" }).click();
+  await expect(admin.locator(".treasury-message.success")).toContainText("Role created");
+  await admin.goto("/admin/users");
+  await admin.getByRole("button", { name: "New employee" }).click();
+  const create = admin.getByRole("form", { name: "New employee" });
+  await create.getByLabel("Username").fill(login);
+  await create.getByLabel("Full name").fill(`Synthetic ${login}`);
+  await create.getByLabel("Job title").fill("Synthetic");
+  await create.locator(".admin-role-picker label", { hasText: `Role of ${login}` }).locator("input").check();
+  await create.getByRole("button", { name: "Create account" }).click();
+  const temporaryPassword = (await admin.locator(".admin-secret-value").textContent())?.trim() ?? "";
+  const person = await (await browser.newContext()).newPage();
+  await person.goto("/login");
+  await person.getByLabel("Username").fill(login);
+  await person.getByLabel("Password", { exact: true }).fill(temporaryPassword);
+  await person.getByRole("button", { name: "Sign in" }).click();
+  await person.getByLabel("New password", { exact: true }).fill("Synthetic confidentiality check passphrase 2026");
+  await person.getByLabel("Repeat the new password").fill("Synthetic confidentiality check passphrase 2026");
+  await person.getByRole("button", { name: "Save password and continue" }).click();
+  await expect(person).toHaveURL(/\/dashboard/);
+  return person;
+}
 
 function policyCard(page: Page, heading: string) {
   return page.locator(".policy-card").filter({ has: page.getByRole("heading", { name: heading, exact: true }) });
@@ -481,15 +660,7 @@ function previewEnvironment(): Record<string, string | undefined> {
 function seedFirstRun(): Record<string, string> {
   const environment = previewEnvironment();
   assertDisposablePreviewDatabase(environment.ABOS_DATABASE_URL, environment.ABOS_IDENTITY_DATABASE_URL);
-  const output = execFileSync("pnpm", ["--filter", "@abos/e1-integration", "preview:first-run"], {
-    cwd: resolve(__dirname, "../../.."), env: environment as NodeJS.ProcessEnv, encoding: "utf8", shell: process.platform === "win32"
-  });
-  const accounts: Record<string, string> = {};
-  for (const line of output.split(/\r?\n/)) {
-    const match = /\s((?:super\.admin|demo\.[a-z.]+))\s+([a-z]+-[a-z]+-[a-z]+-[0-9a-f]+)\s/.exec(line);
-    if (match?.[1] !== undefined && match[2] !== undefined) accounts[match[1]] = match[2];
-  }
-  return accounts;
+  return seedAccounts("preview:first-run", environment);
 }
 
 function assertDisposablePreviewDatabase(ownerUrl: string | undefined, identityUrl: string | undefined): void {

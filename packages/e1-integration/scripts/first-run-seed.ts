@@ -10,8 +10,8 @@
  *      "Finance Manager" role and one Finance user holding it.
  *
  * No financial year, account, policy, Safe, shareholder or transaction exists afterwards: the
- * first-run browser test sets all of them up through the app. Passwords are random per run,
- * printed once to this console and never written to disk.
+ * first-run browser test sets all of them up through the app. Passwords are random per run and
+ * are written only to the private file named by ABOS_SEED_CREDENTIALS_FILE, never to the console.
  */
 import { randomBytes, randomUUID } from "node:crypto";
 import pg from "pg";
@@ -20,6 +20,7 @@ import { bootstrapSuperAdmin, IdentityService } from "@abos/identity";
 import { PostgresExecutor } from "@abos/persistence";
 import { identityDatabaseProofDigest, readSandboxConfiguration, SandboxAuthenticator } from "@abos/sandbox-auth";
 import { resetSchema } from "../src/harness.ts";
+import { seedCredentialsFile, seedSummary, writeSeedCredentials } from "../src/seed-credentials.ts";
 
 
 function passphrase(): string {
@@ -29,6 +30,7 @@ function passphrase(): string {
 }
 
 async function main(): Promise<void> {
+  const credentialsFile = seedCredentialsFile(process.env);
   const ownerUrl = process.env.ABOS_DATABASE_URL;
   const identityUrl = process.env.ABOS_IDENTITY_DATABASE_URL;
   if (!ownerUrl?.trim()) throw new Error("ABOS_DATABASE_URL is not set");
@@ -90,12 +92,12 @@ async function main(): Promise<void> {
     const financePassword = passphrase();
     await identity.changePassword({ loginIdentifier: "demo.finance.manager", currentPassword: created.temporaryPassword, newPassword: financePassword, clientAddress: client });
 
-    process.stdout.write("\nV1 first-run company created (synthetic, nothing set up). Passwords are shown once and are not stored.\n\n");
-    process.stdout.write(`${"Person".padEnd(30)}${"Username".padEnd(26)}${"Password".padEnd(34)}Role\n`);
-    for (const row of [
+    const people = [
       { name: "Synthetic Super Admin", login: "super.admin", password: adminPassword, role: "Super Administrator" },
       { name: "Synthetic Finance Manager", login: "demo.finance.manager", password: financePassword, role: "Finance Manager" }
-    ]) process.stdout.write(`${row.name.padEnd(30)}${row.login.padEnd(26)}${row.password.padEnd(34)}${row.role}\n`);
+    ];
+    writeSeedCredentials(credentialsFile, people);
+    process.stdout.write(seedSummary("V1 first-run company created (synthetic, nothing set up).", credentialsFile, people));
   } finally {
     await identityPool.end();
     await ownerPool.end();
