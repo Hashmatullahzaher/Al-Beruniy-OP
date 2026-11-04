@@ -372,6 +372,100 @@ test.describe("V1 Getting started from a new company", () => {
     await nav.getByRole("link", { name: "Safes" }).click();
     await expect(safeBalance(page, "Main USD Safe")).toContainText("50,000 USD");
   });
+
+  test("Getting started progress is only real state: work outside /setup counts, leaving keeps it, and nothing posts without confirmation", async ({ page }) => {
+    test.setTimeout(420_000);
+    const accounts = seedFirstRun();
+    await signIn(page, "demo.finance.manager", accounts["demo.finance.manager"]);
+    const nav = page.getByRole("navigation", { name: "Operations" });
+    const openSetup = async (done: string) => { await nav.getByRole("link", { name: "Getting started" }).click(); await expect(page.getByText(`${done} of 8 steps done`)).toBeVisible(); };
+    await openSetup("1");
+    await expect(page.getByRole("button", { name: /^3\. Financial year — To do/ })).toBeVisible();
+
+    // The financial year is created on the ordinary calendar page: the step completes without touching Getting started.
+    await nav.getByRole("link", { name: "Financial calendar" }).click();
+    const settings = page.getByRole("form", { name: "Financial calendar settings" });
+    await settings.locator("label", { hasText: "Gregorian" }).first().locator("input[type=radio]").check();
+    await settings.getByRole("button", { name: "Save settings" }).click();
+    await expect(page.locator(".treasury-message.success")).toContainText("settings saved");
+    const generator = page.getByRole("form", { name: "Generate fiscal year" });
+    await expect(generator.getByLabel("Starting Gregorian year")).toHaveValue(String(new Date().getFullYear()));
+    await generator.getByRole("button", { name: "Generate fiscal year" }).click();
+    await expect(page.locator(".calendar-year").first().locator("tbody tr")).toHaveCount(12);
+    await openSetup("2");
+    await expect(page.getByRole("button", { name: /^3\. Financial year — Done/ })).toBeVisible();
+
+    // One policy saved outside Getting started: the mode is mixed, and Simple then saves only the three still needed.
+    await nav.getByRole("link", { name: "Workflow approvals" }).click();
+    const chart = policyCard(page, "Chart of Accounts");
+    await chart.getByRole("radio", { name: /Approval OFF/ }).check();
+    await chart.getByLabel("Reason for this change").fill("Saved outside Getting started");
+    await chart.getByRole("button", { name: "Save new version" }).click();
+    await expect(chart.locator(".treasury-chip")).toHaveText("Approval OFF");
+    await openSetup("2");
+    await expect(page.getByText("Some approval settings are already saved.")).toBeVisible();
+    await page.getByRole("radio", { name: /Simple \/ Single Operator/ }).check();
+    await expect(page.locator(".gs-plan li")).toHaveCount(3);
+    await page.getByRole("button", { name: "Use Simple / Single Operator" }).click();
+    await expect(page.getByText("3 of 8 steps done")).toBeVisible();
+
+    // Leaving and returning, and a full reload, keep the same progress: it is read, not remembered.
+    await nav.getByRole("link", { name: "My dashboard" }).click();
+    await openSetup("3");
+    await page.reload();
+    await expect(page.getByText("3 of 8 steps done")).toBeVisible();
+    await expect(page.getByRole("heading", { level: 2, name: "Chart of Accounts" })).toBeVisible();
+
+    // Accounts, Safe and expense type on the ordinary pages also complete their steps.
+    await nav.getByRole("link", { name: "Chart of Accounts" }).click();
+    await createAccount(page, { code: "1100", name: "Main Cash Safe - USD", type: "ASSET", control: "CASH" });
+    await createAccount(page, { code: "3100", name: "Shareholder Capital", type: "EQUITY", control: "SHAREHOLDER_CAPITAL" });
+    await createAccount(page, { code: "5100", name: "Office Expense", type: "EXPENSE" });
+    await openSetup("4");
+    await nav.getByRole("link", { name: "Finance setup" }).click();
+    await page.getByRole("button", { name: "Add account" }).click();
+    const treasury = page.getByRole("form", { name: "Treasury account" });
+    await treasury.getByLabel("Name (English) *").fill("Main USD Safe");
+    await treasury.getByLabel("Chart of Accounts account *").selectOption({ label: "1100 · Main Cash Safe - USD" });
+    await treasury.getByRole("button", { name: "Save" }).click();
+    await expect(page.getByRole("status").filter({ hasText: "Treasury account saved" })).toBeVisible();
+    await page.getByRole("button", { name: "Add expense type" }).click();
+    const type = page.getByRole("form", { name: "Expense type" });
+    await type.getByLabel("Code *").fill("OFFICE");
+    await type.getByLabel("Name (English) *").fill("Office supplies");
+    await type.getByLabel("Expense account in the Chart of Accounts *").selectOption({ label: "5100 · Office Expense" });
+    await type.getByRole("button", { name: "Save" }).click();
+    await expect(page.getByRole("status").filter({ hasText: "Expense type saved" })).toBeVisible();
+    await openSetup("5");
+
+    // Reviewing capital and walking away records nothing: no journal, no shareholder.
+    await page.getByRole("button", { name: /^7\. First transaction/ }).click();
+    await page.getByLabel("Shareholder name").fill("Unconfirmed Shareholder");
+    await page.getByLabel("Amount received now (USD)").fill("50000");
+    await page.getByRole("button", { name: "Review" }).click();
+    await expect(page.getByRole("button", { name: "Confirm and record" })).toBeVisible();
+    await nav.getByRole("link", { name: "My dashboard" }).click();
+    await expectBusinessCounts({ shareholders: 0, journals: 0 });
+    await openSetup("5");
+
+    // Capital recorded on the Shareholders page, not in Getting started: the last steps complete from the books.
+    await nav.getByRole("link", { name: "Shareholders" }).click();
+    await page.getByRole("button", { name: "Add shareholder" }).click();
+    const add = page.getByRole("form", { name: "Add shareholder" });
+    await add.getByLabel("Name").fill("Ahmad Test Shareholder");
+    await add.getByLabel("Amount").fill("50000");
+    await add.getByLabel("Which Safe did it go into?").selectOption({ label: "Main USD Safe · USD" });
+    await add.getByRole("button", { name: "Save" }).click();
+    await expect(page.getByText(/Capital recorded|saved/).first()).toBeVisible();
+    await openSetup("8");
+    await expectBusinessCounts({ shareholders: 1, journals: 1 });
+
+    // No wizard-only state exists anywhere: no table holds it, and the schema is the deployed one.
+    const stateTables = await readOnly<{ name: string }>(
+      `SELECT table_name AS name FROM information_schema.tables WHERE table_schema = 'abos' AND (table_name ILIKE '%wizard%' OR table_name ILIKE '%getting_started%' OR table_name ILIKE '%setup_progress%' OR table_name ILIKE '%onboarding%')`);
+    expect(stateTables).toEqual([]);
+    expect(await page.evaluate(() => Object.keys(localStorage).filter((key) => /wizard|setup|getting/i.test(key)))).toEqual([]);
+  });
 });
 
 function policyCard(page: Page, heading: string) {

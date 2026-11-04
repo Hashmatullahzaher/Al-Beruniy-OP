@@ -16,7 +16,9 @@ function resolveGitSha(): string {
 }
 
 const nextConfig: NextConfig = {
-  output: "standalone",
+  // The running server is `next build` + `next start`, which standalone output does not support. A self-contained bundle
+  // for a container is opt-in.
+  ...(process.env.ABOS_NEXT_OUTPUT === "standalone" ? { output: "standalone" as const } : {}),
   poweredByHeader: false,
   transpilePackages: [
     "@abos/contracts",
