@@ -251,7 +251,9 @@ test.describe("V1 operational finance from a new company", () => {
     // Source confidentiality on the reversal list, against the real database: what a person sees depends on what they hold.
     const reversals = "/api/v1/finance/journal-reversals";
     const fullList = await page.request.get(reversals);
-    expect(await fullList.text()).toContain("EXP-001");
+    const fullListText = await fullList.text();
+    expect(fullListText).toContain("EXP-001");
+    expectNoSourceMetadata(fullListText);
     await signOut(page);
     await signIn(page, "super.admin", accounts["super.admin"]);
 
@@ -262,6 +264,7 @@ test.describe("V1 operational finance from a new company", () => {
     const noReportsText = await noReports.text();
     expect(noReportsText).not.toContain("EXP-001");
     expect(noReportsText).not.toContain("Office supplies");
+    expectNoSourceMetadata(noReportsText);
     const noReportsView = JSON.parse(noReportsText) as { data: { journals: { source: unknown }[] } };
     expect(noReportsView.data.journals.length).toBeGreaterThan(0);
     expect(noReportsView.data.journals.every((journal) => journal.source === null)).toBe(true);
@@ -276,6 +279,10 @@ test.describe("V1 operational finance from a new company", () => {
     const withheld = await (await reader.request.get(reversals)).text();
     expect(withheld).not.toContain("EXP-001");
     expect(withheld).not.toContain("Office supplies");
+    expectNoSourceMetadata(withheld);
+    const withheldView = JSON.parse(withheld) as { data: { journals: { source: { id: unknown; route: unknown; counterparty: unknown; detail: unknown } | null }[] } };
+    expect(withheldView.data.journals.length).toBeGreaterThan(0);
+    for (const { source } of withheldView.data.journals) expect(source).toMatchObject({ id: null, route: null, counterparty: null, detail: null });
     await reader.goto("/finance/reversals");
     const readerRow = reader.locator("tr").filter({ hasText: "OPX-" }).first();
     await expect(readerRow).toContainText("Expense");
@@ -502,6 +509,14 @@ test.describe("V1 Getting started from a new company", () => {
     expect(await page.evaluate(() => Object.keys(localStorage).filter((key) => /wizard|setup|getting/i.test(key)))).toEqual([]);
   });
 });
+
+/** The reversal list names no shareholder, and carries no deep link or source record, for anyone. */
+function expectNoSourceMetadata(body: string): void {
+  expect(body).not.toContain("Ahmad Test Shareholder");
+  expect(body).not.toContain("/shareholders");
+  expect(body).not.toContain("/finance/transactions");
+  expect(body).not.toMatch(/"(id|route|counterparty)":"[^"]*"[^{}]*"label"/);
+}
 
 /** A new employee holding only the named permissions, signed in on their own browser context. */
 async function employeeHolding(admin: Page, browser: Browser, login: string, permissions: readonly string[]): Promise<Page> {

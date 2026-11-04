@@ -65,13 +65,22 @@ test("the seven capital receipt permissions have people's names in both language
 
 test.describe("the reversal list's source detail", () => {
   const list = { journals: [{ id: "a" }, { id: "b" }] } as unknown as JournalReversalWorkspace;
-  const source = { type: "OPERATIONAL_EXPENSE", id: "x", label: { en: "Expense", fa: "مصرف" }, route: null, counterparty: null } satisfies ReportSource;
+  const label = { en: "Expense", fa: "مصرف" };
+  const detail = { en: "EXP-001 — Office supplies", fa: "EXP-001 — لوازم دفتر" };
+  const source = { type: "OPERATIONAL_EXPENSE", id: "source-id", label, route: "/finance/transactions", counterparty: "Synthetic Payee", detailRestricted: false, detail } satisfies ReportSource;
+  const bare = { type: "OPERATIONAL_EXPENSE", id: null, label, route: null, counterparty: null };
 
-  test("carries exactly what the database returned, and invents nothing for a journal it left out", async () => {
+  test("carries the label and authorized detail, and invents nothing for a journal the database left out", async () => {
     const asked: (readonly string[])[] = [];
     const result = await withJournalSources(list, async (ids) => { asked.push(ids); return { a: source }; });
     expect(asked).toEqual([["a", "b"]]);
-    expect(result.journals.map((journal) => journal.source)).toEqual([source, null]);
+    expect(result.journals.map((journal) => journal.source)).toEqual([{ ...bare, detail }, null]);
+  });
+
+  test("never passes on the source id, link or counterparty, even when the database returned them", async () => {
+    const result = await withJournalSources(list, async () => ({ a: { ...source, detail: null } }));
+    expect(result.journals[0]?.source).toEqual({ ...bare, detail: null });
+    expect(JSON.stringify(result)).not.toMatch(/source-id|Synthetic Payee|\/finance\/transactions/);
   });
 
   test("someone who may reverse but cannot read Finance reports gets no source, and the list still works", async () => {

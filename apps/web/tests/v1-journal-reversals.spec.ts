@@ -62,17 +62,16 @@ test("@smoke Simple Mode reverses a payment directly with a reason, showing the 
 test("the list says what each transaction was, only as far as the database allows, in English and Dari", async ({ page }) => {
   const { view } = await mock(page);
   const label = { en: "Expense", fa: "مصرف" };
-  Object.assign(view.journals[0]!, { sourceType: "OPERATIONAL_EXPENSE", source: { type: "OPERATIONAL_EXPENSE", id: "e1", label, route: "/finance/transactions?expense=e1", counterparty: null,
+  Object.assign(view.journals[0]!, { sourceType: "OPERATIONAL_EXPENSE", source: { type: "OPERATIONAL_EXPENSE", id: null, label, route: null, counterparty: null,
     detail: { en: "EXP-001 — Office supplies", fa: "EXP-001 — لوازم دفتر" } } });
-  Object.assign(view.journals[1]!, { sourceType: "OPERATIONAL_EXPENSE", source: { type: "OPERATIONAL_EXPENSE", id: null, label, route: null, counterparty: null, detail: null, detailRestricted: true } });
+  Object.assign(view.journals[1]!, { sourceType: "OPERATIONAL_EXPENSE", source: { type: "OPERATIONAL_EXPENSE", id: null, label, route: null, counterparty: null, detail: null } });
   Object.assign(view.journals[2]!, { sourceType: "OPERATIONAL_EXPENSE", source: { type: "RESTRICTED", id: null, label: { en: "Restricted movement", fa: "حرکت محدود" }, route: null, counterparty: null } });
   await page.goto("/finance/reversals");
   const full = page.getByRole("row", { name: /PY-20261012-AAA/ });
   await expect(full).toContainText("Expense · EXP-001 — Office supplies");
-  await expect(full.getByRole("link", { name: "Expense" })).toHaveAttribute("href", "/finance/transactions?expense=e1");
+  await expect(full.getByRole("link")).toHaveCount(0);
   const withheld = page.getByRole("row", { name: /RC-20261013-BBB/ });
   await expect(withheld).toContainText("Expense");
-  await expect(withheld).toContainText("(details restricted)");
   await expect(withheld).not.toContainText("EXP-");
   const outside = page.getByRole("row", { name: /PY-20260912-CCC/ });
   await expect(outside).toContainText("Expense");
