@@ -19,6 +19,9 @@ const nextConfig: NextConfig = {
   // The running server is `next build` + `next start`, which standalone output does not support. A self-contained bundle
   // for a container is opt-in.
   ...(process.env.ABOS_NEXT_OUTPUT === "standalone" ? { output: "standalone" as const } : {}),
+  // Images are served as plain files. Under next start, if the first client to request an image disconnects midway, the
+  // optimizer leaves that image hanging for every later visitor until a restart (reproduced on Next.js 16.3.5).
+  images: { unoptimized: true },
   poweredByHeader: false,
   transpilePackages: [
     "@abos/contracts",

@@ -48,6 +48,14 @@ test("@smoke the sign-in page states the server's real environment", async ({ pa
   await expect(page.locator(".login-footer")).toHaveText(signInNotice(release.environment).en);
 });
 
+test("@smoke images are plain files: the optimizer can leave one hanging until a restart", async ({ page }) => {
+  const asked: string[] = [];
+  page.on("request", (request) => { if (request.resourceType() === "image") asked.push(new URL(request.url()).pathname); });
+  await page.goto("/login");
+  await expect.poll(() => asked.length).toBeGreaterThan(0);
+  expect(asked.filter((path) => path.startsWith("/_next/image"))).toEqual([]);
+});
+
 test("the seven capital receipt permissions have people's names in both languages, and the codes stay the keys", () => {
   const codes = ["shareholder.capital-receipt.read", "shareholder.capital-receipt.record", "treasury.capital-receipt.verify", "finance.capital-receipt.configure",
     "finance.capital-receipt.prepare", "finance.capital-receipt.approve", "finance.capital-receipt.post"];
