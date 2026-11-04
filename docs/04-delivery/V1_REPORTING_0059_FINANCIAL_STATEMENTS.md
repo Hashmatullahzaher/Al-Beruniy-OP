@@ -40,6 +40,27 @@ Every account line opens its Account Statement for the same period, which opens 
 
 `report-reconciliation.test.ts` is permanent. On one company holding every kind of event, it proves the Trial Balance, Safe Statements, canonical Treasury balances, ledger, Shareholder Statement, Financial Summary, Income Statement and Balance Sheet all agree, that reversals net in each, that AFN reconciles through the frozen conversions with no revaluation, and that a restricted reader gets identical mathematics and no source detail.
 
+## Performance of all reports
+
+Measured on a disposable production copy with 30,000 posted journals, 60,000 lines and 35,000 subledger entries, on the test container (1 GB). Warm times, as the whole function call.
+
+| Report | Time |
+|---|---|
+| Trial Balance, month | 70 ms |
+| Trial Balance, year | 86 ms |
+| Account Statement, one account, month | 114 ms |
+| Safe Statement, one Safe, month | 197 ms |
+| Safe Statement, one Safe, year (3,125 lines) | 1.35 s |
+| Shareholder Statement, company totals, year | 68 ms |
+| Shareholder Statement, one person, year | 246 ms |
+| Financial Summary, month | 360 ms |
+| Financial Summary, year | 505 ms |
+| Income Statement, month | 70 ms |
+| Income Statement, year | 82 ms |
+| Balance Sheet, year end | 223 ms |
+
+No index was added for 0058 or 0059, because none was justified. The one index of this work is the 0057 partial index on the Treasury account. There is no cached balance, report totals table or materialized figure.
+
 ## Known debt
 
 See the owner decisions in `V1_REPORTING_STATUS.md`. Statutory presentation (current and non-current, operating and other) is not available, because the schema does not record it.
