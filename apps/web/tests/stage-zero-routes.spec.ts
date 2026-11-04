@@ -1,8 +1,14 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
+
+/** Streaming keeps a hidden copy of the page in #S:0 until it is swapped in; strict locators must not race it. */
+async function open(page: Page, path: string): Promise<void> {
+  await page.goto(path);
+  await page.waitForFunction(() => document.querySelector('[id^="S:"]') === null);
+}
 
 test("Projects supports filtering, search and accessible project selection", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto("/projects");
+  await open(page, "/projects");
 
   await expect(page.getByRole("heading", { level: 1, name: "Projects" })).toBeVisible();
   await expect(page.getByRole("region", { name: "Current project context" }).getByText("DEMO DATA", { exact: true })).toBeVisible();
@@ -22,7 +28,7 @@ test("Projects supports filtering, search and accessible project selection", asy
 
 test("Sales and CRM switches protected Stage 0 sections and filters demo leads", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto("/sales-crm");
+  await open(page, "/sales-crm");
 
   await expect(page.getByRole("heading", { level: 1, name: "Sales & CRM" })).toBeVisible();
   await expect(page.getByText(/no reservation, posting, receipt, or verified customer action/i)).toBeVisible();
@@ -44,13 +50,13 @@ test("Sales and CRM switches protected Stage 0 sections and filters demo leads",
 test("Projects and Sales remain usable at tablet width and in Dari RTL", async ({ page }) => {
   await page.setViewportSize({ width: 768, height: 1024 });
 
-  await page.goto("/projects");
+  await open(page, "/projects");
   expect(await page.locator("html").evaluate((element) => element.scrollWidth > element.clientWidth)).toBeFalsy();
   await page.getByRole("button", { name: "Switch to Dari" }).click();
   await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
   await expect(page.getByRole("heading", { level: 1, name: "پروژه‌ها" })).toBeVisible();
 
-  await page.goto("/sales-crm");
+  await open(page, "/sales-crm");
   expect(await page.locator("html").evaluate((element) => element.scrollWidth > element.clientWidth)).toBeFalsy();
   await expect(page.getByRole("button", { name: "Switch to English" })).toBeVisible();
   await expect(page.getByRole("heading", { level: 1, name: "فروش و مشتریان" })).toBeVisible();
@@ -59,7 +65,7 @@ test("Projects and Sales remain usable at tablet width and in Dari RTL", async (
 
 test("Finance exposes its intended structure without operational financial actions", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto("/finance");
+  await open(page, "/finance");
 
   await expect(page.getByRole("heading", { level: 1, name: "Finance" })).toBeVisible();
   await expect(page.getByText("INTERFACE PREVIEW ONLY")).toBeVisible();
@@ -75,7 +81,7 @@ test("Finance exposes its intended structure without operational financial actio
 
 test("Construction supports read-only progress, milestone, area, and update views", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto("/construction");
+  await open(page, "/construction");
 
   await expect(page.getByRole("heading", { level: 1, name: "Construction" })).toBeVisible();
   await expect(page.getByText(/no certified quantities, costs, approvals, or financial posting/i)).toBeVisible();
@@ -92,13 +98,13 @@ test("Construction supports read-only progress, milestone, area, and update view
 test("Finance and Construction remain usable at tablet width and in Dari RTL", async ({ page }) => {
   await page.setViewportSize({ width: 768, height: 1024 });
 
-  await page.goto("/finance");
+  await open(page, "/finance");
   expect(await page.locator("html").evaluate((element) => element.scrollWidth > element.clientWidth)).toBeFalsy();
   await page.getByRole("button", { name: "Switch to Dari" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "مالی" })).toBeVisible();
   await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
 
-  await page.goto("/construction");
+  await open(page, "/construction");
   expect(await page.locator("html").evaluate((element) => element.scrollWidth > element.clientWidth)).toBeFalsy();
   await expect(page.getByRole("button", { name: "Switch to English" })).toBeVisible();
   await expect(page.getByRole("heading", { level: 1, name: "ساخت‌وساز" })).toBeVisible();
@@ -107,7 +113,7 @@ test("Finance and Construction remain usable at tablet width and in Dari RTL", a
 
 test("Procurement presents a guarded supply workflow without purchasing actions", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto("/procurement");
+  await open(page, "/procurement");
 
   await expect(page.getByRole("heading", { level: 1, name: "Procurement" })).toBeVisible();
   await expect(page.getByText(/No purchases, supplier liabilities, inventory valuation, payments, accounting entries, or inter-project transfers/)).toBeVisible();
@@ -121,7 +127,7 @@ test("Procurement presents a guarded supply workflow without purchasing actions"
 
 test("Human Resources supports synthetic staff and role previews without payroll", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto("/human-resources");
+  await open(page, "/human-resources");
 
   await expect(page.getByRole("heading", { level: 1, name: "Human Resources" })).toBeVisible();
   await expect(page.getByText(/no real identities, salaries, payroll calculations, employee finance, or accounting entries/i)).toBeVisible();
@@ -136,13 +142,13 @@ test("Human Resources supports synthetic staff and role previews without payroll
 test("Procurement and Human Resources remain usable at tablet width and in Dari RTL", async ({ page }) => {
   await page.setViewportSize({ width: 768, height: 1024 });
 
-  await page.goto("/procurement");
+  await open(page, "/procurement");
   expect(await page.locator("html").evaluate((element) => element.scrollWidth > element.clientWidth)).toBeFalsy();
   await page.getByRole("button", { name: "Switch to Dari" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "تدارکات" })).toBeVisible();
   await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
 
-  await page.goto("/human-resources");
+  await open(page, "/human-resources");
   expect(await page.locator("html").evaluate((element) => element.scrollWidth > element.clientWidth)).toBeFalsy();
   await expect(page.getByRole("button", { name: "Switch to English" })).toBeVisible();
   await expect(page.getByRole("heading", { level: 1, name: "منابع انسانی" })).toBeVisible();
@@ -151,7 +157,7 @@ test("Procurement and Human Resources remain usable at tablet width and in Dari 
 
 test("Reports and Analytics supports guarded executive report previews", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto("/reports-analytics");
+  await open(page, "/reports-analytics");
 
   await expect(page.getByRole("heading", { level: 1, name: "Reports & Analytics" })).toBeVisible();
   const boundary = page.getByRole("region", { name: "Reporting Stage 0 boundary" });
@@ -172,7 +178,7 @@ test("Reports and Analytics supports guarded executive report previews", async (
 
 test("AI Insights separates illustrative narratives from live AI and exposes context", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto("/ai-insights");
+  await open(page, "/ai-insights");
 
   await expect(page.getByRole("heading", { level: 1, name: "AI Insights" })).toBeVisible();
   const boundary = page.getByRole("region", { name: "AI Insights Stage 0 boundary" });
@@ -200,13 +206,13 @@ test("AI Insights separates illustrative narratives from live AI and exposes con
 test("Reports and AI Insights remain usable at tablet width and in Dari RTL", async ({ page }) => {
   await page.setViewportSize({ width: 768, height: 1024 });
 
-  await page.goto("/reports-analytics");
+  await open(page, "/reports-analytics");
   expect(await page.locator("html").evaluate((element) => element.scrollWidth > element.clientWidth)).toBeFalsy();
   await page.getByRole("button", { name: "Switch to Dari" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "گزارش‌ها و تحلیل‌ها" })).toBeVisible();
   await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
 
-  await page.goto("/ai-insights");
+  await open(page, "/ai-insights");
   expect(await page.locator("html").evaluate((element) => element.scrollWidth > element.clientWidth)).toBeFalsy();
   await expect(page.getByRole("button", { name: "Switch to English" })).toBeVisible();
   await expect(page.getByRole("heading", { level: 1, name: "بینش‌های هوش مصنوعی" })).toBeVisible();
@@ -215,7 +221,7 @@ test("Reports and AI Insights remain usable at tablet width and in Dari RTL", as
 
 test("Documents supports guarded synthetic discovery and read-only preview", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto("/documents");
+  await open(page, "/documents");
 
   await expect(page.getByRole("heading", { level: 1, name: "Documents" })).toBeVisible();
   const boundary = page.getByRole("region", { name: "Documents Stage 0 boundary" });
@@ -239,7 +245,7 @@ test("Documents supports guarded synthetic discovery and read-only preview", asy
 
 test("Settings changes local interface previews without operational mutation", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto("/settings");
+  await open(page, "/settings");
 
   await expect(page.getByRole("heading", { level: 1, name: "Settings" })).toBeVisible();
   const boundary = page.getByRole("region", { name: "Settings Stage 0 boundary" });
@@ -264,14 +270,14 @@ test("Settings changes local interface previews without operational mutation", a
 test("Documents and Settings remain usable at tablet width and in Dari RTL", async ({ page }) => {
   await page.setViewportSize({ width: 768, height: 1024 });
 
-  await page.goto("/documents");
+  await open(page, "/documents");
   expect(await page.locator("html").evaluate((element) => element.scrollWidth > element.clientWidth)).toBeFalsy();
   await page.getByRole("button", { name: "Switch to Dari" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "اسناد" })).toBeVisible();
   await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
   await expect(page.locator("html")).toHaveAttribute("lang", "fa");
 
-  await page.goto("/settings");
+  await open(page, "/settings");
   expect(await page.locator("html").evaluate((element) => element.scrollWidth > element.clientWidth)).toBeFalsy();
   await expect(page.getByRole("button", { name: "Switch to English" })).toBeVisible();
   await expect(page.getByRole("heading", { level: 1, name: "تنظیمات" })).toBeVisible();

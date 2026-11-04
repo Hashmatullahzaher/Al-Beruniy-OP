@@ -333,7 +333,9 @@ if (databaseUrl() === undefined) {
       assert.equal(forCreator[j.capital]?.route, `/shareholders?shareholder=${j.holder}`);
       for (const journalId of ids.slice(0, 3)) {
         const detail = await call<{ source: Source }>("finance_journal_detail", f.creator, journalId);
-        assert.deepEqual(forCreator[journalId], detail.source, "the same source as the journal detail");
+        const { journalReference, ...source } = forCreator[journalId] as Source & { journalReference: string };
+        assert.ok(journalReference);
+        assert.deepEqual(source, detail.source, "the same source as the journal detail");
       }
       const forReader = await sources(f.reader, ids);
       assert.deepEqual([forReader[j.restricted]?.type, forReader[j.expense]?.detail ?? null, forReader[j.capital]?.route], ["RESTRICTED", null, null]);

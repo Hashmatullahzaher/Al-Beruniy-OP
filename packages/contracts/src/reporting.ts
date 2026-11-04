@@ -82,6 +82,11 @@ export interface ReportSource {
   readonly detailRestricted?: boolean;
   /** 0055: what the source was, e.g. an expense's "EXP-001 — Office supplies", when the reader may read it; otherwise null. */
   readonly detail?: { readonly en: string; readonly fa: string } | null;
+  /** 0057: what the people recording it wrote, for a reader of that source module only. */
+  readonly reference?: string | null;
+  readonly description?: string | null;
+  /** 0057: on General Ledger sources, the journal reference this reader may see. */
+  readonly journalReference?: string | null;
 }
 
 export interface ReportJournalLink {
@@ -126,6 +131,74 @@ export interface AccountStatementView {
   readonly periodDebit: string;
   readonly periodCredit: string;
   readonly closing: ReportPosition;
+}
+
+/** 0057: a statement of one Safe, cash box, petty cash or Saraf. Native currency is the balance; the accounting value is secondary. */
+export interface TreasuryStatementFx {
+  readonly rate: string;
+  readonly unitCurrency: string;
+  readonly quoteCurrency: string;
+  readonly rateDate: string;
+  readonly source: string;
+  readonly policyVersionId: string | null;
+  readonly roundingMode: string | null;
+  readonly baseScale: number | null;
+  readonly exactBaseAmount: string | null;
+  readonly roundingDifference: string | null;
+}
+
+export interface TreasuryStatementLine {
+  readonly id: string;
+  readonly date: string;
+  readonly postedAt: string;
+  readonly moneyIn: string;
+  readonly moneyOut: string;
+  /** Native running balance after this movement. A Saraf may be negative. */
+  readonly balance: string;
+  readonly currency: string;
+  /** Signed accounting amount, from the conversion frozen at posting. */
+  readonly baseAmount: string;
+  readonly restricted: boolean;
+  /** TRANSFER covers a transfer and its reversal: internal movement, never company money in or out. */
+  readonly kind: "EXTERNAL" | "TRANSFER" | "OPENING";
+  readonly isReversal: boolean;
+  readonly fx: TreasuryStatementFx | null;
+  /** Null without Finance report permission or outside the reader's scope. */
+  readonly journalId: string | null;
+  readonly journalReference: string | null;
+  readonly source: ReportSource | null;
+  readonly transferPeer: { readonly en: string; readonly fa: string } | null;
+  readonly reversedBy: { readonly journalId: string | null; readonly reference: string | null; readonly date: string } | null;
+  readonly reverses: { readonly journalId: string | null; readonly reference: string | null; readonly date: string } | null;
+}
+
+export interface TreasuryStatementAccount {
+  readonly id: string;
+  readonly nameEn: string;
+  readonly nameFa: string | null;
+  readonly accountType: string;
+  readonly currencyCode: string;
+  readonly status: string;
+}
+
+export interface TreasuryStatement {
+  readonly range: ReportRange;
+  readonly canOpenLedger: boolean;
+  readonly account: TreasuryStatementAccount & { readonly ledgerAccount: { readonly id: string; readonly code: string; readonly name: string } | null };
+  readonly opening: { readonly native: string; readonly base: string };
+  readonly closing: { readonly native: string; readonly base: string };
+  readonly totals: { readonly moneyIn: string; readonly moneyOut: string; readonly transfersIn: string; readonly transfersOut: string;
+    readonly reversalsIn: string; readonly reversalsOut: string; readonly movementCount: number };
+  readonly lines: readonly TreasuryStatementLine[];
+  /** The Treasury accounting value against the ledger account: they must be equal. */
+  readonly reconciliation: { readonly treasuryBase: string; readonly ledgerBase: string; readonly difference: string; readonly matches: boolean };
+}
+
+export interface TreasuryStatementView {
+  readonly legalEntityId: string;
+  readonly baseCurrency: string;
+  readonly accounts: readonly TreasuryStatementAccount[];
+  readonly statement: TreasuryStatement | null;
 }
 
 export interface JournalDetailView {

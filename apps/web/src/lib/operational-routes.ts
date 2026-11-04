@@ -40,6 +40,7 @@ export const operationalRoutes: ReadonlyArray<{ readonly path: string; readonly 
   // Accounting (accountants and Finance managers).
   { path: "/finance/trial-balance", icon: "reports-analytics", en: "Trial balance", fa: "بیلانس آزمایشی", section: "accounting", visible: (can) => can("finance.report.operational.read") },
   { path: "/finance/account-statement", icon: "reports-analytics", en: "Account statement", fa: "صورت‌حساب", section: "accounting", visible: (can) => can("finance.report.operational.read") },
+  { path: "/finance/safe-statement", icon: "coins", en: "Safe / Saraf statement", fa: "صورت‌حساب صندوق و صراف", section: "accounting", visible: (can) => can("treasury.safe.read") || can("finance.report.operational.read") },
   { path: "/finance/general-ledger", icon: "reports-analytics", en: "General Ledger", fa: "دفتر کل", section: "accounting", visible: (can) => can("finance.report.operational.read") },
   { path: "/finance/accounts", icon: "finance", en: "Chart of Accounts", fa: "جدول حساب‌ها", section: "accounting", visible: (can) => can("finance.ledger-account.manage") || can("finance.ledger-account.review") || can("finance.report.operational.read") },
   { path: "/finance/calendar", icon: "reports-analytics", en: "Financial calendar", fa: "تقویم مالی", section: "accounting", visible: (can) => can("finance.calendar.manage") || can("finance.report.operational.read") },

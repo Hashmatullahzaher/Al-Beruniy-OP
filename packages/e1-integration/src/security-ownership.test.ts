@@ -67,7 +67,7 @@ if (databaseUrl() === undefined) {
                 p.proconfig AS config, has_function_privilege('public', p.oid, 'EXECUTE') AS public_execute
            FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace JOIN pg_roles r ON r.oid = p.proowner
           WHERE n.nspname = 'abos' AND p.prosecdef ORDER BY 1`);
-      assert.equal(rows.rows.length, 138, "every restricted entry point through the 0055 report sources is accounted for");
+      assert.equal(rows.rows.length, 139, "every restricted entry point through the 0057 Safe statement is accounted for");
       for (const fn of rows.rows) {
         assert.ok((FUNCTION_OWNERS as readonly string[]).includes(fn.owner), `${fn.signature} is owned by ${fn.owner}`);
         assert.equal(fn.superuser, false, fn.signature);
@@ -207,6 +207,8 @@ if (databaseUrl() === undefined) {
         finance_journal_detail: "abos_v1_operational_finance_owner",
         // 0055: the business source of a page of General Ledger journals (same reader and masking as the journal detail).
         finance_journal_sources: "abos_v1_operational_finance_owner",
+        // 0057: the Safe and Saraf statement, native currency first.
+        treasury_account_statement: "abos_v1_operational_finance_owner",
         // WP #17 (0023): reversal requests (request -> Finance Manager decision; posting fail-closed).
         finance_reversal_requests_view: "abos_e1_finance_owner", finance_reversal_request_create: "abos_e1_finance_owner",
         finance_reversal_request_decide: "abos_e1_finance_owner", finance_reversal_request_withdraw: "abos_e1_finance_owner"

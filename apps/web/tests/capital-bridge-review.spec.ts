@@ -55,7 +55,7 @@ test("@smoke isolated bridge keeps declarations, legacy commitment and cancelled
   await expect(contribution(page, "SYN-C1").locator('[data-figure="declared"]')).toContainText("USD 50,000");
   await expect(contribution(page, "SYN-C2").locator('[data-figure="declared"]')).toContainText("USD 50,000");
   await expect(page.getByTestId("bridge-legacy-commitment")).toContainText("USD 20,000");
-  await expect(page.getByTestId("bridge-cancelled-installment")).toContainText("USD 5,000");
+  await expect(page.getByRole("region", { name: "Preserved separate history" }).getByTestId("bridge-cancelled-installment")).toContainText("USD 5,000");
   await expect(page.getByRole("button", { name: "Record receipt (simulation)" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Simulate posting" })).toHaveCount(0);
   expect(requests).toEqual([]);
@@ -139,7 +139,7 @@ test("rejected receipt remains in received history with no posting, refresh clea
   await page.reload();
   await expect(card.locator('[data-figure="received"]')).toContainText("USD 0");
   await expect(page.locator("[data-audit-action]")).toHaveCount(0);
-  await expect(page.getByTestId("bridge-cancelled-installment")).toContainText("USD 5,000");
+  await expect(page.getByRole("region", { name: "Preserved separate history" }).getByTestId("bridge-cancelled-installment")).toContainText("USD 5,000");
   expect(requests).toEqual([]);
 });
 
