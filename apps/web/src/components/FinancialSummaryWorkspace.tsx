@@ -11,7 +11,7 @@ import { useLocale } from "@/components/LocaleProvider";
 import { money } from "@/components/OperationalFinanceShared";
 import { defaultReportSearch, ReportFilters, YearStatus } from "@/components/ReportFilters";
 import { StageZeroPageHeader } from "@/components/StageZeroWorkspace";
-import { rangeLabel } from "@/components/TrialBalanceWorkspace";
+import { rangeLabel, rangeQuery } from "@/components/TrialBalanceWorkspace";
 
 const isZero = (value: string) => Number(value) === 0;
 
@@ -103,6 +103,7 @@ export function FinancialSummaryWorkspace() {
             <div><dt>{fa ? "مصارف" : "Expenses"}</dt><dd dir="ltr">{money(profit.expenses, base)}</dd></div>
             <div><dt>{profit.netResult.startsWith("-") ? (fa ? "زیان خالص" : "Net loss") : (fa ? "مفاد خالص" : "Net profit")}</dt><dd dir="ltr"><strong>{money(profit.netResult, base)}</strong></dd></div>
           </dl>
+          <p><Link href={`/finance/income-statement?${rangeQuery(view.range)}`}>{fa ? "صورت عاید و مصرف" : "Income statement"}</Link></p>
           <p className="admin-hint">{fa ? "از حساب‌های دفتر کل، به نرخ ثبت هر معامله. مصارف با پول خارج‌شده از خزانه یکی نیست؛ مثلاً مصرفی که قرض‌دهنده پرداخته در اینجا هست." : "From the ledger accounts, at each transaction's posted rate. Expenses here can differ from money paid: an expense paid by a lender is here but never left Treasury."}</p>
         </section>
 

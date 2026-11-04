@@ -4,22 +4,24 @@ import type { ReportRange } from "@abos/contracts";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, type ReactNode } from "react";
 
+import { kabulToday } from "@/components/OperationalFinanceShared";
+
 type Mode = "asOf" | "year" | "range";
 
 /** The query a report starts from when the address names no period: the year to date. */
 export function defaultReportSearch(search: string): string {
   const query = new URLSearchParams(search);
-  if (!query.get("asOf") && !query.get("from") && !query.get("fiscalYearId") && !query.get("periodId")) query.set("asOf", new Date().toISOString().slice(0, 10));
+  if (!query.get("asOf") && !query.get("from") && !query.get("fiscalYearId") && !query.get("periodId")) query.set("asOf", kabulToday());
   return query.toString();
 }
 
 /** The period chooser shared by the financial reports. It only writes the address; each report reads it, so a link or refresh keeps the view. */
-export function ReportFilters({ path, fa, years, canPrint, children, keep = [] }: Readonly<{
-  path: string; fa: boolean; years: ReportRange["fiscalYears"]; canPrint: boolean; children?: ReactNode; keep?: readonly string[];
+export function ReportFilters({ path, fa, years, canPrint, children, keep = [], datesOnly = false }: Readonly<{
+  path: string; fa: boolean; years: ReportRange["fiscalYears"]; canPrint: boolean; children?: ReactNode; keep?: readonly string[]; datesOnly?: boolean;
 }>) {
   const router = useRouter();
   const params = useSearchParams();
-  const today = new Date().toISOString().slice(0, 10);
+  const today = kabulToday();
   const [mode, setMode] = useState<Mode>(params.get("fiscalYearId") ? "year" : params.get("from") ? "range" : "asOf");
   const [asOf, setAsOf] = useState(params.get("asOf") ?? today);
   const [yearId, setYearId] = useState(params.get("fiscalYearId") ?? "");
@@ -41,9 +43,9 @@ export function ReportFilters({ path, fa, years, canPrint, children, keep = [] }
       {children}
       <label><span>{fa ? "گزارش برای" : "Report for"}</span>
         <select value={mode} onChange={(event) => setMode(event.target.value as Mode)}>
-          <option value="asOf">{fa ? "تا تاریخ (از آغاز سال مالی)" : "As of a date (year to date)"}</option>
+          <option value="asOf">{datesOnly ? (fa ? "به تاریخ" : "As of a date") : (fa ? "تا تاریخ (از آغاز سال مالی)" : "As of a date (year to date)")}</option>
           {years.length > 0 ? <option value="year">{fa ? "یک سال مالی" : "A financial year"}</option> : null}
-          <option value="range">{fa ? "بازهٔ تاریخ" : "A date range"}</option>
+          {datesOnly ? null : <option value="range">{fa ? "بازهٔ تاریخ" : "A date range"}</option>}
         </select></label>
       {mode === "asOf" ? <label><span>{fa ? "تاریخ" : "Date"}</span>
         <input type="date" dir="ltr" value={asOf} onChange={(event) => setAsOf(event.target.value)} /></label> : null}

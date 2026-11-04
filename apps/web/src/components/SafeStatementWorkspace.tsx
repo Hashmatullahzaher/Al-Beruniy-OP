@@ -9,7 +9,7 @@ import { dualDate, SourceCell } from "@/components/AccountStatementWorkspace";
 import { AccessGate, api, errorText } from "@/components/AdminUsersWorkspace";
 import { AppIcon } from "@/components/AppIcon";
 import { useLocale } from "@/components/LocaleProvider";
-import { money } from "@/components/OperationalFinanceShared";
+import { kabulToday, money } from "@/components/OperationalFinanceShared";
 import { StageZeroPageHeader } from "@/components/StageZeroWorkspace";
 import { rangeLabel, reportAmount } from "@/components/TrialBalanceWorkspace";
 
@@ -39,7 +39,7 @@ export function SafeStatementWorkspace() {
   const router = useRouter();
   const search = params.toString();
   const accountId = params.get("accountId") ?? "";
-  const today = new Date().toISOString().slice(0, 10);
+  const today = kabulToday();
   const [view, setView] = useState<TreasuryStatementView | null>(null);
   const [gate, setGate] = useState<"signed-out" | "denied" | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -50,7 +50,7 @@ export function SafeStatementWorkspace() {
 
   useEffect(() => {
     const query = new URLSearchParams(search);
-    if (query.get("accountId") && !query.get("periodId") && !query.get("from") && !query.get("asOf")) query.set("asOf", new Date().toISOString().slice(0, 10));
+    if (query.get("accountId") && !query.get("periodId") && !query.get("from") && !query.get("asOf")) query.set("asOf", kabulToday());
     let current = true;
     void api<TreasuryStatementView>(`${ENDPOINT}?${query}`).then((result) => {
       if (!current) return;

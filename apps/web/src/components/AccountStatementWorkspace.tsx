@@ -9,6 +9,7 @@ import { useEffect, useState } from "react";
 import { AccessGate, api, errorText } from "@/components/AdminUsersWorkspace";
 import { AppIcon } from "@/components/AppIcon";
 import { useLocale } from "@/components/LocaleProvider";
+import { kabulToday } from "@/components/OperationalFinanceShared";
 import { StageZeroPageHeader } from "@/components/StageZeroWorkspace";
 import { rangeLabel, reportAmount } from "@/components/TrialBalanceWorkspace";
 
@@ -42,7 +43,7 @@ export function AccountStatementWorkspace() {
   // The accounts this reader may report on, zero balances included, come from the same report as the Trial balance.
   useEffect(() => {
     let current = true;
-    const today = new Date().toISOString().slice(0, 10);
+    const today = kabulToday();
     void api<TrialBalanceView>(`/api/v1/finance/trial-balance?asOf=${today}&includeZero=true`).then((result) => {
       if (!current) return;
       if (result.ok) { setAccounts(result.data.accounts); return; }
@@ -60,7 +61,7 @@ export function AccountStatementWorkspace() {
   useEffect(() => {
     const query = new URLSearchParams(search);
     if (!query.get("accountId")) return;
-    if (!query.get("periodId") && !query.get("from") && !query.get("asOf")) query.set("asOf", new Date().toISOString().slice(0, 10));
+    if (!query.get("periodId") && !query.get("from") && !query.get("asOf")) query.set("asOf", kabulToday());
     let current = true;
     void api<AccountStatementView>(`/api/v1/finance/account-statement?${query}`).then((result) => {
       if (!current) return;

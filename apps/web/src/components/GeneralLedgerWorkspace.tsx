@@ -8,13 +8,13 @@ import { JournalDetailPanel, SourceCell } from "@/components/AccountStatementWor
 import { AccessGate, api, errorText } from "@/components/AdminUsersWorkspace";
 import { StageZeroPageHeader } from "@/components/StageZeroWorkspace";
 import { useLocale } from "@/components/LocaleProvider";
+import { kabulToday } from "@/components/OperationalFinanceShared";
 import type { ChartOfAccountsView } from "@/server/chart-of-accounts";
 import type { AccountActivityRow, GeneralLedgerActivityView, GeneralLedgerLine, GeneralLedgerView } from "@/server/general-ledger";
 
 function initialRange(): { from: string; to: string } {
-  const now = new Date();
-  const to = now.toISOString().slice(0, 10);
-  const from = new Date(Date.UTC(now.getUTCFullYear() - 1, now.getUTCMonth(), now.getUTCDate())).toISOString().slice(0, 10);
+  const to = kabulToday();
+  const from = `${Number(to.slice(0, 4)) - 1}${to.slice(4)}`;
   return { from, to };
 }
 

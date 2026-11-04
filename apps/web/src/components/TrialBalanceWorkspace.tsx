@@ -8,6 +8,7 @@ import { Fragment, useCallback, useEffect, useState } from "react";
 import { AccessGate, api, errorText } from "@/components/AdminUsersWorkspace";
 import { AppIcon } from "@/components/AppIcon";
 import { useLocale } from "@/components/LocaleProvider";
+import { kabulToday } from "@/components/OperationalFinanceShared";
 import { StageZeroPageHeader } from "@/components/StageZeroWorkspace";
 import type { Copy } from "@/lib/access-copy";
 
@@ -43,7 +44,7 @@ export function TrialBalanceWorkspace() {
   const { locale } = useLocale();
   const fa = locale === "fa";
   const t = useCallback((copy: Copy) => copy[locale], [locale]);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = kabulToday();
   const [mode, setMode] = useState<Mode>("asOf");
   const [asOf, setAsOf] = useState(today);
   const [from, setFrom] = useState(`${today.slice(0, 7)}-01`);

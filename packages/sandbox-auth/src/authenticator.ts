@@ -17,6 +17,8 @@ import type {
   FxPolicyWorkspace,
   FxPreview,
   AccountStatementView,
+  BalanceSheetView,
+  IncomeStatementView,
   ManagementSummaryView,
   ShareholderStatementView,
   TreasuryStatementView,
@@ -594,6 +596,18 @@ export class SandboxAuthenticator {
   async shareholderStatement(executor: SqlExecutor, token: string, request: Record<string, unknown>): Promise<ShareholderStatementView> {
     return this.operationalFinanceFunction<ShareholderStatementView>(executor,
       "SELECT abos.finance_shareholder_statement($1,$2,$3,$4::jsonb) AS value", token, [JSON.stringify(request)], "Shareholder statement is unavailable");
+  }
+
+  /** Income less expenses from classified ledger accounts (0059). */
+  async incomeStatement(executor: SqlExecutor, token: string, request: Record<string, unknown>): Promise<IncomeStatementView> {
+    return this.operationalFinanceFunction<IncomeStatementView>(executor,
+      "SELECT abos.finance_income_statement($1,$2,$3,$4::jsonb) AS value", token, [JSON.stringify(request)], "Income statement is unavailable");
+  }
+
+  /** Assets, liabilities and equity at a date, with its proof (0059). */
+  async balanceSheet(executor: SqlExecutor, token: string, request: Record<string, unknown>): Promise<BalanceSheetView> {
+    return this.operationalFinanceFunction<BalanceSheetView>(executor,
+      "SELECT abos.finance_balance_sheet($1,$2,$3,$4::jsonb) AS value", token, [JSON.stringify(request)], "Balance sheet is unavailable");
   }
 
   /** One posted journal with its lines, source and reversal links (0053). */

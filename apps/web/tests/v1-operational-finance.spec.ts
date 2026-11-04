@@ -241,6 +241,52 @@ test.describe("V1 operational finance from a new company", () => {
     await expect(ledgerExpense).toContainText("Expense · EXP-001 — Office supplies");
     await expect(ledgerExpense).not.toContainText("OPERATIONAL_EXPENSE");
 
+    // 12. Every financial report, read through the screens from what was really posted, and each drill-down followed.
+    const usd = (amount: string) => new RegExp(`${amount}(\\.00)? USD`);
+    await nav.getByRole("link", { name: "Safe / Saraf statement" }).click();
+    await page.getByLabel("Safe or Saraf").selectOption({ label: "Main USD Safe · USD" });
+    const safeReport = page.getByRole("region", { name: "Statement" });
+    await expect(safeReport.getByRole("status")).toContainText("Agrees with the General Ledger.");
+    await expect(safeReport.locator("tbody tr")).toHaveCount(3);
+    await expect(safeReport.locator("tbody tr").nth(0)).toContainText("Capital received · Ahmad Test Shareholder");
+    await expect(safeReport.locator("tbody tr").nth(1)).toContainText("Expense · EXP-001 — Office supplies");
+    await expect(safeReport.locator("tbody tr").nth(1)).toContainText("reversed");
+    await expect(safeReport.locator("tbody tr").nth(2)).toContainText("Reversal");
+    await expect(safeReport.locator("tbody tr").nth(2).getByRole("cell").nth(5)).toContainText(usd("50,000"));
+    await safeReport.getByRole("link", { name: /Ledger account/ }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "1100 · Main Cash Safe - USD" })).toBeVisible();
+
+    await nav.getByRole("link", { name: "Financial summary" }).click();
+    const treasuryReport = page.getByRole("region", { name: "Treasury", exact: true });
+    await expect(treasuryReport.getByRole("row", { name: /Shareholder capital received/ })).toContainText(usd("50,000"));
+    await expect(treasuryReport.getByRole("row", { name: /Expenses paid/ })).toContainText(/\D0(\.00)? USD/);
+    await expect(treasuryReport.getByRole("row", { name: /Closing Treasury position/ })).toContainText(usd("50,000"));
+    await expect(treasuryReport.getByRole("status")).toContainText("agrees with the Treasury accounts and the General Ledger");
+    await page.getByRole("region", { name: "Treasury accounts" }).getByRole("link", { name: "Main USD Safe" }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "Main USD Safe" })).toBeVisible();
+
+    await nav.getByRole("link", { name: "Shareholder statement" }).click();
+    await page.getByRole("region", { name: "Company totals" }).getByRole("button", { name: "Ahmad Test Shareholder" }).click();
+    const equity = page.getByRole("region", { name: "Capital (equity)" });
+    await expect(equity.getByRole("definition").filter({ hasText: usd("50,000") }).first()).toBeVisible();
+    await expect(equity.getByRole("link", { name: "Main USD Safe" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Loans (debt)" }).getByText("No loans recorded.")).toBeVisible();
+
+    await nav.getByRole("link", { name: "Income statement" }).click();
+    const incomeReport = page.getByRole("region", { name: "Income statement" });
+    await expect(incomeReport.getByRole("row", { name: /5100 Office Expense/ })).toBeVisible();
+    await expect(incomeReport.getByRole("row", { name: /Net profit/ })).toContainText(/\D0(\.00)? USD/);
+
+    await nav.getByRole("link", { name: "Balance sheet" }).click();
+    const sheetReport = page.getByRole("region", { name: "Balance sheet" });
+    await expect(sheetReport.getByRole("status")).toContainText("(balanced)");
+    await expect(sheetReport.getByRole("row", { name: /Total assets/ })).toContainText(usd("50,000"));
+    await expect(sheetReport.getByRole("row", { name: /3100 Shareholder Capital/ })).toContainText(usd("50,000"));
+    await sheetReport.getByRole("link", { name: /1100 Main Cash Safe - USD/ }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "1100 · Main Cash Safe - USD" })).toBeVisible();
+    await page.locator("table tbody tr").first().getByRole("link").first().click();
+    await expect(page.getByRole("region", { name: "Journal", exact: true })).toBeVisible();
+
     // Dari is complete on the daily pages.
     await page.getByRole("button", { name: "Switch to Dari" }).click();
     await page.getByRole("navigation", { name: "عملیات" }).getByRole("link", { name: "ثبت مصرف" }).click();
