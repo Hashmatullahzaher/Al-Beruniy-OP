@@ -74,6 +74,7 @@ pnpm v1:local:serve
 - A start never builds. It must refuse a missing build or a build of any commit other than the pinned one.
 - `ABOS_ENVIRONMENT=development` is a separate database runtime gate and stays as it is.
 - The session cookie is `Secure` under `next start`; browsers accept it on `http://127.0.0.1`.
+- Images are served as plain files (`images.unoptimized`). Do not re-enable the optimizer: under `next start`, a client that disconnects during an image's first optimization leaves that image hanging for everyone until a restart.
 - Prove every deployment on one start, with no warm-up and no second restart.
 
 Open:
