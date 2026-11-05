@@ -2056,3 +2056,8 @@ button.review-context { border: 0; border-inline-start: 1px solid rgba(102, 142,
   .table-scroll { overflow: visible; }
   a { color: inherit; text-decoration: none; }
 }
+
+/* Add money: one question, four answers. */
+.add-money-choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.add-money-choices .treasury-card { display: grid; gap: 6px; padding: 14px; text-align: start; cursor: pointer; }
+.add-money-choices button[aria-pressed="true"] { outline: 2px solid var(--gold, #b8933f); }

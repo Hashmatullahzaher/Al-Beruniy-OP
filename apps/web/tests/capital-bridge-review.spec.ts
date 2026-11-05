@@ -137,6 +137,8 @@ test("rejected receipt remains in received history with no posting, refresh clea
   await expect(card.getByRole("button", { name: "Simulate posting" })).toHaveCount(0);
   await expect(page.locator('[data-audit-action="REJECT"]')).toHaveCount(1);
   await page.reload();
+  // Streaming briefly holds a hidden second copy of the page; read the card once it has settled to one.
+  await expect(card).toHaveCount(1);
   await expect(card.locator('[data-figure="received"]')).toContainText("USD 0");
   await expect(page.locator("[data-audit-action]")).toHaveCount(0);
   await expect(page.getByRole("region", { name: "Preserved separate history" }).getByTestId("bridge-cancelled-installment")).toContainText("USD 5,000");

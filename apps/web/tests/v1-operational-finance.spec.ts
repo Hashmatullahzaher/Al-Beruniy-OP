@@ -336,6 +336,82 @@ test.describe("V1 operational finance from a new company", () => {
     await expect(readerRow).toContainText("Expense");
     await expect(readerRow).not.toContainText("EXP-001");
     await reader.context().close();
+
+    // 13. Loans: one person is both shareholder and lender, and the two positions never merge.
+    const lawReader = await employeeHolding(page, browser, "loan.report.reader", ["View Finance reports and journals"]);
+    await signOut(page);
+    await signIn(page, "demo.finance.manager", accounts["demo.finance.manager"]);
+    await nav.getByRole("link", { name: "Chart of Accounts" }).click();
+    await createAccount(page, { code: "2510", name: "Shareholder Loans", type: "LIABILITY", control: "SHAREHOLDER_LOAN" });
+    await createAccount(page, { code: "2520", name: "Loans Payable", type: "LIABILITY", control: "LOAN_PAYABLE" });
+    await nav.getByRole("link", { name: "Add money" }).click();
+    await page.getByRole("button", { name: /Shareholder loan/ }).click();
+    let loanForm = page.getByRole("form", { name: "Record loan" });
+    await loanForm.getByLabel("Which shareholder?").selectOption({ label: "Ahmad Test Shareholder" });
+    await loanForm.getByLabel("Which Safe did it go into?").selectOption({ label: "Main USD Safe · USD" });
+    await loanForm.getByLabel(/^Amount/).fill("20000");
+    await loanForm.getByRole("button", { name: "Record loan" }).click();
+    await expect(page.getByText("Loan recorded.")).toBeVisible();
+    await page.goto("/finance/add-money");
+    await page.getByRole("button", { name: /Other loan/ }).click();
+    loanForm = page.getByRole("form", { name: "Record loan" });
+    await loanForm.getByLabel("Who lent the money?").selectOption({ label: "A company" });
+    await loanForm.getByRole("textbox", { name: "Name" }).fill("Outside Lender Ltd");
+    await loanForm.getByLabel("Which Safe did it go into?").selectOption({ label: "Main USD Safe · USD" });
+    await loanForm.getByLabel(/^Amount/).fill("30000");
+    await loanForm.getByLabel("Reference (optional)").fill("LOAN-PRIVATE-REF");
+    await loanForm.getByRole("button", { name: "Record loan" }).click();
+    await expect(page.getByText("Loan recorded.")).toBeVisible();
+    await page.getByRole("link", { name: "View the loan" }).click();
+    await page.getByRole("button", { name: "Repay" }).click();
+    const repayForm = page.getByRole("form", { name: "Repay loan" });
+    await repayForm.getByLabel("From which Safe?").selectOption({ label: "Main USD Safe" });
+    await repayForm.getByLabel("Amount (USD)").fill("40000");
+    await repayForm.getByRole("button", { name: "Record repayment" }).click();
+    await expect(repayForm.getByRole("alert")).toContainText("more than is outstanding");
+    await repayForm.getByLabel("Amount (USD)").fill("5000");
+    await repayForm.getByRole("button", { name: "Record repayment" }).click();
+    await expect(page.getByText("Repayment recorded.")).toBeVisible();
+    const loanReport = page.getByRole("region", { name: "Loan statement" });
+    await expect(loanReport.getByRole("status")).toContainText("Agrees with the liability account.");
+    await expect(loanReport.getByRole("row", { name: /^Outstanding/ })).toContainText(usd("25,000"));
+    await nav.getByRole("link", { name: "Safes" }).click();
+    await expect(safeBalance(page, "Main USD Safe")).toContainText("95,000 USD");
+
+    // The standard reversal: the repayment goes back, and the amount owed follows from the journals.
+    await nav.getByRole("link", { name: "Journal reversals" }).click();
+    await page.locator("tr").filter({ hasText: "Loan repaid" }).getByRole("button", { name: "Reverse" }).click();
+    await page.locator(".reversal-form").getByLabel("Reason *").fill("Repayment entered in error");
+    await page.locator(".reversal-form").getByRole("button", { name: "Save" }).click();
+    await expect(page.getByText("Reversal posted.")).toBeVisible();
+    await nav.getByRole("link", { name: "Loans" }).click();
+    await expect(page.getByRole("region", { name: "Loans" }).getByRole("row", { name: /Outside Lender Ltd/ })).toContainText(usd("30,000"));
+
+    // Capital and loans on one person's screen, each its own figure.
+    await nav.getByRole("link", { name: "Shareholders" }).click();
+    await page.getByRole("button", { name: /Ahmad Test Shareholder/ }).click();
+    const holderCard = page.getByRole("article", { name: "Ahmad Test Shareholder" });
+    await expect(holderCard.getByRole("region", { name: "USD capital" }).getByText("Capital put in", { exact: true }).locator("..")).toContainText("USD 50,000");
+    await expect(holderCard.getByRole("region", { name: "Loans" }).getByText("Outstanding loan").locator("..")).toContainText("USD 20,000");
+    await expect(holderCard).not.toContainText("70,000");
+
+    // The reports: liabilities rise and no income appears.
+    await nav.getByRole("link", { name: "Balance sheet" }).click();
+    const loanSheet = page.getByRole("region", { name: "Balance sheet" });
+    await expect(loanSheet.getByRole("status")).toContainText("(balanced)");
+    await expect(loanSheet.getByRole("row", { name: /^Total liabilities[^a]*$/ })).toContainText(usd("50,000"));
+    await expect(loanSheet.getByRole("row", { name: /Total assets/ })).toContainText(usd("100,000"));
+    await nav.getByRole("link", { name: "Income statement" }).click();
+    await expect(page.getByRole("region", { name: "Income statement" }).getByRole("row", { name: /Net profit/ }).getByRole("cell")).toHaveText(/^0(\.00)? USD$/);
+
+    // A report-only reader, raw responses: the totals and nothing about the lender.
+    const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kabul" }).format(new Date());
+    for (const path of [`/api/v1/finance/trial-balance?asOf=${today}`, `/api/v1/finance/balance-sheet?asOf=${today}`, `/api/v1/finance/general-ledger?from=2026-01-01&to=${today}`, `/api/v1/finance/shareholder-statement?asOf=${today}`]) {
+      const answer = (await browserGet(lawReader, path)).text;
+      for (const word of ["Outside Lender Ltd", "Ahmad Test Shareholder", "LOAN-PRIVATE-REF", "LN-2", "LR-2", "RV-2", "/finance/loans", "Repayment entered in error"]) expect(answer, `${path} must not carry ${word}`).not.toContain(word);
+    }
+    expect((await browserGet(lawReader, `/api/v1/finance/balance-sheet?asOf=${today}`)).text).toContain("50000");
+    await lawReader.context().close();
   });
 });
 

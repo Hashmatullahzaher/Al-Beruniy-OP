@@ -323,6 +323,16 @@ export const migrationCatalog = [
     checksumSha256: "e1142a9451f8da44301fb22e5806ed1a9ba5d893865ccc11a1081d4f1d0ba6fe",
     relativePath: "infrastructure/database/migrations/0060_v1_reversal_confidentiality.sql",
   },
+  {
+    id: "0061_v1_loan_model_and_lanes",
+    checksumSha256: "fd98ffe2058b6c98e5f628721b5bc1bb6d17edb7393e16bd7e4f29aa6efbd8c4",
+    relativePath: "infrastructure/database/migrations/0061_v1_loan_model_and_lanes.sql",
+  },
+  {
+    id: "0062_v1_loan_reporting",
+    checksumSha256: "a6f2e4f549cff0b5c09e047fecb2ac332860198e0fa3bab476e678a5bf73bd32",
+    relativePath: "infrastructure/database/migrations/0062_v1_loan_reporting.sql",
+  },
 ] as const satisfies readonly MigrationDefinition[];
 
 const migrationTableSql = `

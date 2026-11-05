@@ -32,7 +32,7 @@ test.describe("V1 temporary funding", () => {
 
     // The payable account is configured with its authorization evidence by the configuring user.
     await signIn(page, "demo.treasury.manager", accounts["demo.treasury.manager"]);
-    await page.getByRole("navigation", { name: "Operations" }).getByRole("link", { name: "Temporary funding" }).click();
+    await page.goto("/finance/temporary-funding"); // Compatibility only: reachable by URL, no longer in the menu.
     await expect(page.getByRole("heading", { level: 1, name: "Temporary funding" })).toBeVisible();
     await expect(page.getByRole("status").filter({ hasText: "not ready yet" })).toContainText("Temporary Funding Payable account has not been chosen");
     const mapping = page.getByRole("form", { name: "Temporary Funding Payable account" });

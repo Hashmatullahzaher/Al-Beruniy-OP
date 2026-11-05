@@ -71,6 +71,10 @@ import type {
   ShareholderSetupResult,
   ShareholderSetupWorkspace,
   ShareholderContributionsWorkspace,
+  LoanCommand,
+  LoanCommandResult,
+  LoanStatementView,
+  LoanWorkspace,
   TemporaryFundingCommand,
   TemporaryFundingResult,
   TemporaryFundingWorkspace,
@@ -676,6 +680,23 @@ export class SandboxAuthenticator {
   }
 
   /** Temporary Funding (0037): providers, Safe movements and fundings of the actor's company. */
+  /** The loan register, approvals and entry options (0062). */
+  async loanWorkspace(executor: SqlExecutor, token: string): Promise<LoanWorkspace> {
+    return this.operationalFinanceFunction<LoanWorkspace>(executor, "SELECT abos.finance_loan_workspace($1,$2,$3) AS value", token, [], "Loans are unavailable");
+  }
+
+  /** One loan's statement, proved against its liability account (0062). */
+  async loanStatement(executor: SqlExecutor, token: string, request: Record<string, unknown>): Promise<LoanStatementView> {
+    return this.operationalFinanceFunction<LoanStatementView>(executor, "SELECT abos.finance_loan_statement($1,$2,$3,$4::jsonb) AS value", token, [JSON.stringify(request)], "The loan statement is unavailable");
+  }
+
+  /** One loan command through its 0061 entry point. PostgreSQL derives actor and legal entity and posts through the posting kernel. */
+  async loanCommand(executor: SqlExecutor, token: string, command: LoanCommand): Promise<LoanCommandResult> {
+    const entry = command.action === "record" ? "finance_loan_record" : command.action === "repay" ? "finance_loan_repay" : "finance_loan_decide";
+    return this.operationalFinanceFunction<LoanCommandResult>(executor, `SELECT abos.${entry}($1,$2,$3,$4::jsonb) AS value`, token,
+      [JSON.stringify({ ...command, action: undefined })], "The loan command returned no result");
+  }
+
   async temporaryFundingWorkspace(executor: SqlExecutor, token: string): Promise<TemporaryFundingWorkspace> {
     return this.operationalFinanceFunction<TemporaryFundingWorkspace>(
       executor,

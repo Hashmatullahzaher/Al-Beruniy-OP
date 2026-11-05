@@ -28,7 +28,11 @@ export type FinancePermission =
   | "finance.temporary-funding.approve"
   | "finance.temporary-funding.settle"
   | "finance.temporary-funding.settle-approve"
-  | "finance.temporary-funding.configure";
+  | "finance.temporary-funding.configure"
+  | "finance.loan.read"
+  | "finance.loan.record"
+  | "finance.loan.repay"
+  | "finance.loan.approve";
 
 export interface ServerActorContext {
   readonly userAccountId: UserAccountId;
