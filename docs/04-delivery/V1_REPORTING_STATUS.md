@@ -7,13 +7,13 @@ All reports derive from posted journals and their lines, through shared primitiv
 | Trial Balance | Done | 0053 | `/finance/trial-balance` |
 | General Ledger | Done | 0053, masking in 0057 | `/finance/general-ledger` |
 | Account Statement | Done | 0053, 0055, masking in 0057 | `/finance/account-statement` |
-| Safe / Saraf Statement | Done, not deployed | 0057 | `/finance/safe-statement` |
-| Shareholder Statement | Done, not deployed | 0058 | `/finance/shareholder-statement` |
-| Financial Summary | Done, not deployed | 0058 | `/finance/financial-summary` |
-| Income Statement | Done, not deployed | 0059 | `/finance/income-statement` |
-| Balance Sheet | Done, not deployed | 0059 | `/finance/balance-sheet` |
+| Safe / Saraf Statement | Done, deployed | 0057 | `/finance/safe-statement` |
+| Shareholder Statement | Done, deployed | 0058 | `/finance/shareholder-statement` |
+| Financial Summary | Done, deployed | 0058 | `/finance/financial-summary` |
+| Income Statement | Done, deployed | 0059 | `/finance/income-statement` |
+| Balance Sheet | Done, deployed | 0059 | `/finance/balance-sheet` |
 
-"Not deployed" means merged to trunk and ready, waiting for owner authorization.
+0057, 0058 and the final 0059 were deployed on 2026-11-05 from `a4cefdd7bd3400bc0e1687e0c1330a0f49a00e76`. 0060 is merged and validated but not deployed: it needs separate owner authorization. See `V1_REPORTING_DEPLOYMENT_2026-11-05.md`.
 
 ## Migrations
 
@@ -64,6 +64,9 @@ The 15 mocked skips are 13 tests that need a database, which ran in the database
 
 ## Known debt
 
+- **0060 must be deployed before the first reversal.** Until then a report-only reader of a reversal receives its reference, a link and the free-text reason. Production holds no journals, so nothing is exposed today.
+- The operational E2E stalls intermittently under `next dev` when the whole database-backed suite runs. It fails on a different step each time, always waiting on a report response, and has not happened on a production build. Cause not proven.
+- `v1-company-dashboard` cannot run on `next start`, because it uses `page.request` and Playwright will not send a Secure cookie over http. It passes on `next dev`.
 - A dedicated shareholder loan product remains policy-gated (V1 #14). Loans today are temporary funding, which cannot be reversed.
 - PDF and Excel export are not built. Reports print cleanly.
 - `ledger_account_balances` and `finance_general_ledger` are unused older functions, kept because applied migrations are not rewritten.
