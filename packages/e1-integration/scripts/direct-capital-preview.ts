@@ -68,7 +68,7 @@ try {
     const url = new URL(address); url.username = login; url.password = secret;
     runtimeUrls[`ABOS_${suffix.toUpperCase()}_DATABASE_URL`] = url.toString();
   }
-  const output = resolve(import.meta.dirname, "../../../test-results/direct-capital");
+  const output = process.env.ABOS_DIRECT_PREVIEW_OUTPUT ?? resolve(import.meta.dirname, "../../../test-results/direct-capital");
   mkdirSync(output, { recursive: true });
   const env = { ...runtimeUrls, ABOS_DATABASE_URL: "", ABOS_ENVIRONMENT: configuration.environment,
     ABOS_SANDBOX_RUNTIME_MARKER: configuration.runtimeMarker, ABOS_SANDBOX_SIGNING_SECRET: configuration.signingSecret,

@@ -46,7 +46,7 @@ The table records each slice as first merged. The final 0059 was validated again
 
 Upgrade proof, on a restored copy of production: the real runner applied only the expected migrations, a second run applied nothing, only `schema_migrations` changed among the 99 tables, journals stayed at 0, and no function became public. After 0059 there are 143 SECURITY DEFINER functions, up from 138.
 
-The 15 mocked skips are 13 tests that need a database, which ran in the database-backed suite, and the 2 below. On `next start`, the `capital-bridge-review` and `shareholder-finance-capability` specs are excluded because they test a dev-only review server that production correctly refuses. The 2 database-backed skips need a dedicated password fixture for direct capital, which these slices did not change; the same flow passes in the operational E2E and integration.
+The 15 mocked skips are 13 tests that need a database, which ran in the database-backed suite, and the 2 below. On `next start`, the `capital-bridge-review` and `shareholder-finance-capability` specs are excluded because they test a dev-only review server that production correctly refuses. The 2 database-backed skips are `direct-shareholder-capital-operational`, which needs its own disposable database and password fixture. `packages/e1-integration/scripts/direct-capital-preview.ts` builds that fixture, and since 2026-11-05 both tests run as their own step of every validation run.
 
 ## Delivery records
 
