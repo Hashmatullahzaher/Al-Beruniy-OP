@@ -226,6 +226,39 @@ if (databaseUrl() === undefined) {
       }
     });
 
+    test("a reversal is as confidential as the journal it reverses", async () => {
+      type Link = { journalId: string; reference: string | null; reason: string | null } | null;
+      type Detail = { reference: string; source: { type: string; id: string | null; route: string | null; detailRestricted: boolean; label: { en: string } }; reversedBy: Link; reverses: Link; lines: { debit: string; credit: string }[] };
+      const detail = (s: Session, id: string) => db.call<Detail>("finance_journal_detail", s, id);
+      const reason = "Synthetic mistaken expense";
+      const original = await detail(f.creator, j.mistaken);
+      const reversalId = original.reversedBy?.journalId ?? "";
+      assert.equal(original.reversedBy?.reason, reason, "a reader of expenses sees the reason");
+      const [fullReversal, maskedOriginal, maskedReversal] = [await detail(f.creator, reversalId), await detail(f.reportReader, j.mistaken), await detail(f.reportReader, reversalId)];
+      assert.match(fullReversal.reference, /^RV-/);
+      assert.deepEqual([fullReversal.source.type, fullReversal.source.route, fullReversal.source.detailRestricted], ["REVERSAL", "/finance/reversals", false]);
+      // A report-only reader: the fact, the date and the money, and nothing about the record.
+      assert.match(maskedReversal.reference, /^JRN-/);
+      assert.deepEqual([maskedReversal.source.type, maskedReversal.source.id, maskedReversal.source.route, maskedReversal.source.detailRestricted, maskedReversal.source.label.en], ["REVERSAL", null, null, true, "Reversal"]);
+      assert.deepEqual([maskedOriginal.reversedBy?.reason, maskedReversal.reverses?.reason], [null, null]);
+      assert.match(maskedOriginal.reversedBy?.reference ?? "", /^JRN-/);
+      assert.match(maskedReversal.reverses?.reference ?? "", /^JRN-/);
+      assert.deepEqual(maskedReversal.lines, fullReversal.lines, "the amounts do not change");
+      assertAbsent(maskedOriginal, [reason, fullReversal.reference], "journal detail of a report-only reader");
+      assertAbsent(maskedReversal, [reason, fullReversal.reference], "journal detail of a report-only reader");
+      // The rows of the statements follow the same rule.
+      for (const [name, view] of [["account statement", await db.call("finance_account_statement", f.reportReader, { accountId: f.world.cashLedgerAccountId, ...SEPT })], ["Safe statement", await safe(f.reportReader, f.usdSafe)]] as const) {
+        assertAbsent(view, [reason, fullReversal.reference, "/finance/reversals"], `the ${name} of a report-only reader`);
+      }
+      // A reversal of a source the reader may open stays open: the permission decides, not the word "reversal".
+      const expenseReader = await db.person(f.world, "Expense Reader", ["finance.report.operational.read", "finance.expense.read"]);
+      const open = await detail(expenseReader, reversalId);
+      assert.deepEqual([open.reference, open.source.route, open.reverses?.reason], [fullReversal.reference, "/finance/reversals", reason]);
+      const capital = await detail(expenseReader, j.capitalReversal);
+      assert.match(capital.reference, /^JRN-/, "the same reader may not open a capital reversal");
+      assert.equal(capital.reverses?.reason, null);
+    });
+
     test("no permission, another company's data, bad requests, and reading writes nothing", async () => {
       await assert.rejects(() => income(f.nobody), /current authority is missing finance\.report\.operational\.read/);
       await assert.rejects(() => sheet(f.nobody), /current authority is missing finance\.report\.operational\.read/);

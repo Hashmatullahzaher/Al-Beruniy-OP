@@ -200,9 +200,10 @@ if (databaseUrl() === undefined) {
       const all = JSON.stringify(["shareholder.read", "finance.temporary-funding.read", "finance.expense.read", "treasury.safe.read"]);
       for (const { source_type: type } of sources.rows) {
         const readable = await h.pool.query<{ ok: boolean }>("SELECT abos.report_source_readable($1, $2::jsonb) AS ok", [type, all]);
-        assert.equal(readable.rows[0]?.ok, true, `${type} is readable with its module's permission`);
+        // 0060: a reversal has no permission of its own. It counts as the source it reverses, so on its own it is refused.
+        assert.equal(readable.rows[0]?.ok, type !== "REVERSAL", `${type} with its module's permission`);
         const none = await h.pool.query<{ ok: boolean }>("SELECT abos.report_source_readable($1, '[]'::jsonb) AS ok", [type]);
-        assert.equal(none.rows[0]?.ok, type === "REVERSAL", `${type} without any permission`);
+        assert.equal(none.rows[0]?.ok, false, `${type} without any permission`);
       }
       const unknown = await h.pool.query<{ ok: boolean }>("SELECT abos.report_source_readable('A_FUTURE_SOURCE', $1::jsonb) AS ok", [all]);
       assert.equal(unknown.rows[0]?.ok, false, "a source nobody named fails closed");

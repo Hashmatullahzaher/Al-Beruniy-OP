@@ -7,13 +7,13 @@ All reports derive from posted journals and their lines, through shared primitiv
 | Trial Balance | Done | 0053 | `/finance/trial-balance` |
 | General Ledger | Done | 0053, masking in 0057 | `/finance/general-ledger` |
 | Account Statement | Done | 0053, 0055, masking in 0057 | `/finance/account-statement` |
-| Safe / Saraf Statement | Done, not deployed | 0057 | `/finance/safe-statement` |
-| Shareholder Statement | Done, not deployed | 0058 | `/finance/shareholder-statement` |
-| Financial Summary | Done, not deployed | 0058 | `/finance/financial-summary` |
-| Income Statement | Done, not deployed | 0059 | `/finance/income-statement` |
-| Balance Sheet | Done, not deployed | 0059 | `/finance/balance-sheet` |
+| Safe / Saraf Statement | Done, deployed | 0057 | `/finance/safe-statement` |
+| Shareholder Statement | Done, deployed | 0058 | `/finance/shareholder-statement` |
+| Financial Summary | Done, deployed | 0058 | `/finance/financial-summary` |
+| Income Statement | Done, deployed | 0059 | `/finance/income-statement` |
+| Balance Sheet | Done, deployed | 0059 | `/finance/balance-sheet` |
 
-"Not deployed" means merged to trunk and ready, waiting for owner authorization.
+0057, 0058 and the final 0059 were deployed on 2026-11-05 from `a4cefdd7bd3400bc0e1687e0c1330a0f49a00e76`. 0060 is merged and validated but not deployed: it needs separate owner authorization. See `V1_REPORTING_DEPLOYMENT_2026-11-05.md`.
 
 ## Migrations
 
@@ -22,6 +22,7 @@ All reports derive from posted journals and their lines, through shared primitiv
 | `0057_v1_safe_saraf_statement` | `cb8512702e6ae1141e961d7f30b43855200feeae938fb60f8eadbde0245bae1e` |
 | `0058_v1_shareholder_statement_and_summary` | `71ad6d017c95db75842196e09370d05de70c344c2ee0cfd9af9e809b011793d1` |
 | `0059_v1_income_statement_and_balance_sheet` | `0c5a6c379a1380d0516b23f4eff6d838b5fe53aa5b03f07dc3efc6e7ac41f9c7` |
+| `0060_v1_reversal_confidentiality` | `e1142a9451f8da44301fb22e5806ed1a9ba5d893865ccc11a1081d4f1d0ba6fe` |
 
 Each slice was validated at its exact commit, in order. 0059 was amended before deployment for the owner's Saraf decision, which replaced its earlier checksum `eb19c9c96526edbb9a6563d1e4422ae460cd04f9160b40c41fa745a784b34d0f`. That checksum is superseded and must not be used. The owner authorized deployment on 2026-11-05.
 
@@ -45,13 +46,14 @@ The table records each slice as first merged. The final 0059 was validated again
 
 Upgrade proof, on a restored copy of production: the real runner applied only the expected migrations, a second run applied nothing, only `schema_migrations` changed among the 99 tables, journals stayed at 0, and no function became public. After 0059 there are 143 SECURITY DEFINER functions, up from 138.
 
-The 15 mocked skips are 13 tests that need a database, which ran in the database-backed suite, and the 2 below. On `next start`, the `capital-bridge-review` and `shareholder-finance-capability` specs are excluded because they test a dev-only review server that production correctly refuses. The 2 database-backed skips need a dedicated password fixture for direct capital, which these slices did not change; the same flow passes in the operational E2E and integration.
+The 15 mocked skips are 13 tests that need a database, which ran in the database-backed suite, and the 2 below. On `next start`, the `capital-bridge-review` and `shareholder-finance-capability` specs are excluded because they test a dev-only review server that production correctly refuses. The 2 database-backed skips are `direct-shareholder-capital-operational`, which needs its own disposable database and password fixture. `packages/e1-integration/scripts/direct-capital-preview.ts` builds that fixture, and since 2026-11-05 both tests run as their own step of every validation run.
 
 ## Delivery records
 
 - `V1_REPORTING_0057_SAFE_STATEMENT.md`, which also holds the audit of the reporting foundation
 - `V1_REPORTING_0058_SHAREHOLDER_AND_SUMMARY.md`
 - `V1_REPORTING_0059_FINANCIAL_STATEMENTS.md`
+- `V1_REPORTING_0060_REVERSAL_CONFIDENTIALITY.md`
 - `docs/03-architecture/V1_CHART_OF_ACCOUNTS_CLASSIFICATION_AUDIT.md`
 
 ## Owner decisions (final, 2026-11-05)
@@ -62,6 +64,9 @@ The 15 mocked skips are 13 tests that need a database, which ran in the database
 
 ## Known debt
 
+- **0060 must be deployed before the first reversal.** Until then a report-only reader of a reversal receives its reference, a link and the free-text reason. Production holds no journals, so nothing is exposed today.
+- The operational E2E stalls intermittently under `next dev` when the whole database-backed suite runs. It fails on a different step each time, always waiting on a report response, and has not happened on a production build. Cause not proven.
+- `v1-company-dashboard` cannot run on `next start`, because it uses `page.request` and Playwright will not send a Secure cookie over http. It passes on `next dev`.
 - A dedicated shareholder loan product remains policy-gated (V1 #14). Loans today are temporary funding, which cannot be reversed.
 - PDF and Excel export are not built. Reports print cleanly.
 - `ledger_account_balances` and `finance_general_ledger` are unused older functions, kept because applied migrations are not rewritten.

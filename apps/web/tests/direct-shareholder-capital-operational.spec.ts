@@ -22,7 +22,7 @@ test("one person adds a shareholder with 20,000 in one save, adds 10,000 more an
   await create.getByLabel("Amount", { exact: true }).fill("20000");
   await create.getByRole("combobox", { name: "Currency", exact: true }).selectOption("USD");
   await create.getByRole("combobox", { name: "Which Safe did it go into?", exact: true }).selectOption(fixture.safeId);
-  await create.getByLabel("Agreed total (optional)", { exact: true }).fill("100000");
+  await create.getByLabel(/^Agreed total/).fill("100000");
   const created = page.waitForResponse(r => r.url().endsWith("/api/v1/shareholder/capital") && r.request().method() === "POST");
   await create.getByRole("button", { name: "Save", exact: true }).click();
   expect((await created).status()).toBe(201);
