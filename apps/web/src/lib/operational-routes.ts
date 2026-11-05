@@ -1,5 +1,3 @@
-import { TEMPORARY_FUNDING_PERMISSIONS } from "@abos/contracts";
-
 import type { AppIconName } from "@/components/AppIcon";
 
 /**

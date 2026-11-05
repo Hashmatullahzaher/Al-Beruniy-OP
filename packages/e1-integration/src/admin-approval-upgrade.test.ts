@@ -16,7 +16,7 @@ const NEW_TABLES = ["loans", "loan_repayments", "finance_workflow_policy_command
   "fx_policy_versions", "fx_conversions"] as const;
 // 0041 seeds the retirement register (schema metadata, like the workflow catalogue row) and lets only the
 // identity runtime read it; every other new table stays empty and unreachable from every runtime.
-const SEEDED_ROWS: Readonly<Record<string, number>> = { permission_retirements: 13, posting_sources: 11 };
+const SEEDED_ROWS: Readonly<Record<string, number>> = { permission_retirements: 13, posting_sources: 13 };
 const READ_ONLY_RUNTIME: Readonly<Record<string, string>> = { permission_retirements: "abos_v1_identity_runtime" };
 const NEW_GOVERNANCE_COLUMNS = [
   "finance_workflow_policy_version_id", "approval_required", "policy_released_by_user_account_id",
