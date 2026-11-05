@@ -331,8 +331,13 @@ export interface BalanceSheetAccount {
   readonly control: string | null;
   readonly status: string;
   readonly parent: { readonly id: string; readonly code: string; readonly name: string } | null;
-  readonly group: "TREASURY" | "OTHER_ASSETS" | "LOANS" | "PAYABLES" | "OTHER_LIABILITIES" | "SHAREHOLDER_CAPITAL" | "OPENING_BALANCE_EQUITY" | "OTHER_EQUITY";
+  readonly group: "TREASURY" | "OTHER_ASSETS" | "LOANS" | "PAYABLES" | "SARAF_PAYABLE" | "OTHER_LIABILITIES" | "SHAREHOLDER_CAPITAL" | "OPENING_BALANCE_EQUITY" | "OTHER_EQUITY";
+  /** What the statement shows. */
   readonly amount: string;
+  /** The natural-side balance the ledger holds. Differs from amount only when the row is reclassified. */
+  readonly bookAmount: string;
+  /** A negative ASSET-type Saraf presented as a liability. Presentation only: no journal exists. */
+  readonly reclassified: boolean;
 }
 
 export interface BalanceSheetView {
@@ -344,6 +349,8 @@ export interface BalanceSheetView {
   readonly accounts: readonly BalanceSheetAccount[];
   readonly totalAssets: string;
   readonly totalLiabilities: string;
+  /** Added to both total assets and total liabilities by presenting negative Sarafs as amounts owed. */
+  readonly reclassifiedSaraf: string;
   readonly equityAccounts: string;
   /** Derived for presentation: no closing journal exists. */
   readonly earlierYearsResult: string;

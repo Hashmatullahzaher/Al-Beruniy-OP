@@ -43,4 +43,4 @@ If statutory groupings are wanted, the smallest extension is one optional `state
 
 ## 6. A note on Saraf accounts
 
-A Saraf account may be ASSET or LIABILITY. An ASSET Saraf with a negative balance is shown as a negative figure under Treasury, and the statement says so. It is not moved to liabilities, because that would be a presentation policy the schema does not define.
+A Saraf account may be ASSET or LIABILITY. An ASSET Saraf with a negative balance is presented under liabilities on the Balance Sheet, by owner decision of 2026-11-05. This is presentation only: the account keeps its class, no journal is posted, and every other report shows the real negative balance. See `docs/04-delivery/V1_REPORTING_0059_FINANCIAL_STATEMENTS.md`.

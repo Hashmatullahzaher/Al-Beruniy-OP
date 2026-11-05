@@ -3,18 +3,19 @@ import { randomUUID } from "node:crypto";
 import test, { after, before, describe } from "node:test";
 
 import { databaseUrl, MISSING_DATABASE_MESSAGE } from "./harness.ts";
-import { assertAbsent, embedded, ReportDatabase, SEPT, type ReportCompany, type ReportEvents, type Session } from "./report-world.ts";
+import { assertAbsent, embedded, keys, ReportDatabase, SEPT, type ReportCompany, type ReportEvents, type Session } from "./report-world.ts";
 
 /**
  * Migration 0059 and the permanent cross-report reconciliation. Each report has its own tests; this suite proves they agree with
  * each other and with posted journal lines, on one company holding every kind of event. It must never be weakened to fit a report.
  */
 
-type Row = { accountId: string; code: string; name: string; amount: string; class: string; group?: string; control?: string | null };
+type Row = { accountId: string; code: string; name: string; amount: string; bookAmount?: string; reclassified?: boolean; class: string; group?: string; control?: string | null };
 type Income = { income: Row[]; expenses: Row[]; totalIncome: string; totalExpenses: string; netResult: string; range: { from: string; to: string };
   yearToDate: { from: string; to: string; netResult: string } };
-type Sheet = { asOf: string; yearStart: string; accounts: Row[]; totalAssets: string; totalLiabilities: string; equityAccounts: string; earlierYearsResult: string; currentYearResult: string;
+type Sheet = { asOf: string; yearStart: string; accounts: Row[]; totalAssets: string; totalLiabilities: string; reclassifiedSaraf: string; equityAccounts: string; earlierYearsResult: string; currentYearResult: string;
   totalEquity: string; totalLiabilitiesAndEquity: string; validation: { difference: string; balanced: boolean; unbalancedJournals: number }; treasury: { treasuryBase: string; ledgerBase: string; matches: boolean } };
+type AccountStatement = { account: { id: string }; closing: { debit: string; credit: string } };
 type Trial = { accounts: { accountId: string; endingDebit: string; endingCredit: string }[]; totals: Record<string, string>; balanced: boolean };
 type Summary = { base: { closing: string; moneyReceived: string; moneyPaid: string; capitalReceived: string; loansReceived: string; reversalsIn: string }; profit: { income: string; expenses: string; netResult: string };
   currencies: Record<string, { closing: string }>; accounts: { id: string; closing: string; baseClosing: string }[]; reconciliation: { matches: boolean } };
@@ -85,25 +86,65 @@ if (databaseUrl() === undefined) {
     test("the Balance Sheet balances, in exact decimals, with every class equal to the ledger", async () => {
       const view = await sheet(f.creator);
       assert.deepEqual([view.validation.difference, view.validation.balanced, view.validation.unbalancedJournals], ["0.00", true, 0]);
-      assert.equal(Number(view.totalAssets), await ledger("ASSET"));
-      assert.equal(Number(view.totalLiabilities), -(await ledger("LIABILITY")));
+      // The ledger's class totals, plus the one presentation move, which is the same amount on both sides.
+      assert.equal(Number(view.reclassifiedSaraf), 300);
+      assert.equal(Number(view.totalAssets) - Number(view.reclassifiedSaraf), await ledger("ASSET"));
+      assert.equal(Number(view.totalLiabilities) - Number(view.reclassifiedSaraf), -(await ledger("LIABILITY")));
       assert.equal(Number(view.equityAccounts), -(await ledger("EQUITY")));
       assert.equal(Number(view.currentYearResult), 800);
       assert.equal(Number(view.totalAssets), Number(view.totalLiabilitiesAndEquity));
-      assert.equal(view.accounts.filter((a) => a.class === "ASSET").reduce((sum, a) => sum + Number(a.amount), 0), Number(view.totalAssets), "the asset rows add up");
+      assert.equal(view.accounts.filter((a) => a.class === "ASSET" && !a.reclassified).reduce((sum, a) => sum + Number(a.amount), 0), Number(view.totalAssets), "the asset rows add up");
+      assert.equal(view.accounts.filter((a) => a.class === "LIABILITY" || a.reclassified).reduce((sum, a) => sum + Number(a.amount), 0), Number(view.totalLiabilities), "the liability rows add up");
+      assert.equal(view.accounts.reduce((sum, a) => sum + (a.class === "ASSET" ? Number(a.bookAmount) : 0), 0), await ledger("ASSET"), "bookAmount is the ledger, row by row");
     });
 
     test("the Balance Sheet's groups: Treasury, loans, payables, capital and a visible Opening Balance Equity", async () => {
       const view = await sheet(f.creator);
       const group = (name: string) => view.accounts.filter((a) => a.group === name).reduce((sum, a) => sum + Number(a.amount), 0);
-      assert.equal(group("TREASURY"), 5080);
+      assert.equal(group("TREASURY"), 5380, "5,080 of Treasury position, without the Saraf's negative 300");
+      assert.equal(group("SARAF_PAYABLE"), 300);
+      assert.equal(group("TREASURY") - Number(view.reclassifiedSaraf), Number(view.treasury.treasuryBase), "the Treasury section differs from the Treasury position by exactly the reclassified amount");
       assert.equal(group("LOANS"), 500, "350 owed to the shareholder and 150 to the outside lender");
       assert.equal(group("SHAREHOLDER_CAPITAL"), 1700);
       assert.equal(group("OPENING_BALANCE_EQUITY"), 2500);
       assert.equal(row(view.accounts, f.equity)?.group, "OPENING_BALANCE_EQUITY");
       // Payables: paid 20 + 400 without a bill, and the reversed 100 nets away. A debit on a liability stays a liability, shown negative.
       assert.equal(group("PAYABLES"), -420);
-      assert.equal(Number(row(view.accounts, f.sarafLedger)?.amount), -300, "the Saraf's negative balance stays in Treasury, as a negative figure");
+    });
+
+    test("a negative Saraf is a liability on the Balance Sheet, and only there", async () => {
+      const [view, tb, statement, summaryView] = [await sheet(f.creator), await trial(f.creator), (await safe(f.creator, f.saraf)).statement, await summary(f.creator)];
+      const saraf = row(view.accounts, f.sarafLedger);
+      assert.deepEqual([saraf?.group, saraf?.class, Number(saraf?.amount), Number(saraf?.bookAmount), saraf?.reclassified], ["SARAF_PAYABLE", "ASSET", 300, -300, true]);
+      assert.equal(view.accounts.filter((a) => a.accountId === f.sarafLedger).length, 1, "shown once, not on both sides");
+      assert.deepEqual([view.validation.difference, view.validation.balanced], ["0.00", true]);
+      // Every other report keeps the real negative balance.
+      assert.deepEqual([Number(statement.closing.native), Number(statement.closing.base), statement.reconciliation.matches], [-300, -300, true], "the Saraf's statement is unchanged");
+      const tbRow = tb.accounts.find((r) => r.accountId === f.sarafLedger);
+      assert.deepEqual([Number(tbRow?.endingDebit), Number(tbRow?.endingCredit)], [0, 300], "the Trial Balance still holds the account as a credit balance");
+      assert.equal(Number(summaryView.accounts.find((a) => a.id === f.saraf)?.closing), -300, "the Financial Summary shows the negative native balance");
+      assert.equal(Number(summaryView.base.closing), 5080, "the Treasury position still counts it");
+      assert.deepEqual([Number(view.treasury.treasuryBase), view.treasury.matches], [5080, true]);
+      // The drill-down opens the same account, which shows the same balance.
+      const drill = await db.call<AccountStatement>("finance_account_statement", f.creator, { accountId: saraf?.accountId, ...SEPT });
+      assert.equal(drill.account.id, f.sarafLedger);
+      assert.equal(Number(drill.closing.debit) - Number(drill.closing.credit), -300);
+    });
+
+    test("reading the Balance Sheet changes no ledger, posting or Treasury data, and no journal exists for the reclassification", async () => {
+      const state = async () => (await db.h.pool.query<{ t: string; n: string; h: string }>(`
+        SELECT 'journals' AS t, count(*)::text AS n, md5(COALESCE(string_agg(x::text, '|' ORDER BY x.id), '')) AS h FROM abos.journals x WHERE x.legal_entity_id = $1
+        UNION ALL SELECT 'lines', count(*)::text, md5(COALESCE(string_agg(x::text, '|' ORDER BY x.id), '')) FROM abos.journal_lines x WHERE x.legal_entity_id = $1
+        UNION ALL SELECT 'subledger', count(*)::text, md5(COALESCE(string_agg(x::text, '|' ORDER BY x.id), '')) FROM abos.subledger_entries x WHERE x.legal_entity_id = $1
+        UNION ALL SELECT 'accounts', count(*)::text, md5(COALESCE(string_agg(x::text, '|' ORDER BY x.id), '')) FROM abos.ledger_accounts x WHERE x.legal_entity_id = $1
+        UNION ALL SELECT 'treasury', count(*)::text, md5(COALESCE(string_agg(x::text, '|' ORDER BY x.id), '')) FROM abos.operational_treasury_accounts x WHERE x.legal_entity_id = $1
+        ORDER BY 1`, [f.e])).rows;
+      const before = await state();
+      assert.equal(Number((await sheet(f.creator)).reclassifiedSaraf), 300);
+      await sheet(f.creator, { asOf: "2026-09-16" });
+      assert.deepEqual(await state(), before);
+      const seen = await db.h.pool.query<{ n: string }>("SELECT count(*)::text AS n FROM abos.journal_lines WHERE ledger_account_id = $1 AND legal_entity_id = $2 AND (base_debit = 300 OR base_credit = 300)", [f.sarafLedger, f.e]);
+      assert.equal(seen.rows[0]?.n, "0", "the 300 exists only as the net of real postings");
     });
 
     test("a clean company balances at zero", () => {
@@ -133,7 +174,7 @@ if (databaseUrl() === undefined) {
         assert.equal(s.reconciliation.matches, true, "Treasury accounting value = ledger account");
         const tbRow = tb.accounts.find((r) => r.accountId === ledgerId);
         assert.equal(Number(tbRow?.endingDebit ?? 0) - Number(tbRow?.endingCredit ?? 0), Number(s.closing.base), "trial balance = Treasury accounting value");
-        assert.equal(Number(row(sheetView.accounts, ledgerId)?.amount), Number(s.closing.base), "balance sheet = Treasury accounting value");
+        assert.equal(Number(row(sheetView.accounts, ledgerId)?.bookAmount), Number(s.closing.base), "balance sheet book amount = Treasury accounting value");
         assert.equal(Number(summaryView.accounts.find((a) => a.id === account)?.closing), Number(s.closing.native), "summary = Safe statement");
         treasuryBase += Number(s.closing.base);
       }
@@ -226,6 +267,25 @@ if (databaseUrl() === undefined) {
       const write = await db.h.pool.query<{ n: string }>(`SELECT count(*)::text AS n FROM information_schema.role_table_grants WHERE table_schema = 'abos' AND grantee = 'abos_e1_runtime'
         AND privilege_type IN ('INSERT', 'UPDATE', 'DELETE', 'TRUNCATE')`);
       assert.equal(write.rows[0]?.n, "0", "the runtime holds no table write");
+    });
+
+    test("the rule follows the reporting date: a Saraf in credit is Treasury, and returns to liabilities when it goes negative", async () => {
+      const move = (from: string, to: string, businessDate: string) => db.call("treasury_transfer_record", f.creator, { sourceTreasuryAccountId: from, destinationTreasuryAccountId: to,
+        amount: "500.00", currencyCode: "USD", businessDate, reference: `RW-SARAF-${businessDate}`, note: null, ...keys() });
+      await move(f.usdSafe, f.saraf, "2026-09-25");
+      await move(f.saraf, f.usdSafe, "2026-09-26");
+      const credit = await sheet(f.creator, { asOf: "2026-09-25" });
+      const saraf = row(credit.accounts, f.sarafLedger);
+      assert.deepEqual([saraf?.group, Number(saraf?.amount), Number(saraf?.bookAmount), saraf?.reclassified], ["TREASURY", 200, 200, false]);
+      assert.equal(credit.accounts.filter((a) => a.group === "SARAF_PAYABLE").length, 0);
+      assert.equal(Number(credit.reclassifiedSaraf), 0);
+      assert.equal(Number(credit.totalAssets), await ledger("ASSET", "2026-09-25"), "nothing moved, so the totals are the ledger's");
+      assert.equal(Number(credit.totalLiabilities), -(await ledger("LIABILITY", "2026-09-25")));
+      assert.deepEqual([credit.validation.difference, credit.validation.balanced], ["0.00", true]);
+      const owed = await sheet(f.creator, { asOf: "2026-09-26" });
+      assert.deepEqual([row(owed.accounts, f.sarafLedger)?.group, Number(row(owed.accounts, f.sarafLedger)?.amount), Number(owed.reclassifiedSaraf)], ["SARAF_PAYABLE", 300, 300]);
+      assert.deepEqual([owed.validation.difference, owed.validation.balanced], ["0.00", true]);
+      assert.equal(owed.totalEquity, credit.totalEquity, "equity does not depend on the presentation");
     });
 
     test("a year that is closed moves to earlier years' result on the next year's balance sheet, with no journal", async () => {

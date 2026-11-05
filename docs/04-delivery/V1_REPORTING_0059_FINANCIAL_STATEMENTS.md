@@ -19,7 +19,17 @@ Screens: `/finance/income-statement`, `/finance/balance-sheet`. Both carry accou
 
 **Income Statement.** Income is credit less debit on REVENUE accounts; expenses are debit less credit on EXPENSE accounts. The ledger account decides, so any posting appears whichever module made it. Reversals net through their journals. AFN activity appears at its stored accounting amount, and nothing is recomputed.
 
-**Balance Sheet.** At a date, each ASSET, LIABILITY and EQUITY account shows its balance on its natural side. A negative balance stays in its class as a negative figure.
+**Balance Sheet.** At a date, each ASSET, LIABILITY and EQUITY account shows its balance on its natural side. A negative balance stays in its class as a negative figure, with one exception, below.
+
+**A negative Saraf (owner decision, 2026-11-05).** At the reporting date, an ASSET-type Saraf with a negative balance is presented under liabilities, in "Owed to Saraf", as a positive amount owed. Total assets and total liabilities both rise by that amount, so equity and the difference do not change. `reclassifiedSaraf` reports the amount.
+
+This is presentation only:
+
+- No journal is posted and no balance is stored. The rule exists only in the Balance Sheet's answer.
+- The Trial Balance, the General Ledger, the Safe / Saraf Statement and the Financial Summary keep the real negative balance. The Treasury position therefore differs from the Treasury section of the Balance Sheet by exactly `reclassifiedSaraf`, and the statement says so.
+- The row keeps its class (`ASSET`), carries the ledger's figure as `bookAmount`, and links to the same account statement.
+- The test is on the account's accounting value at the date, because that is the figure the Balance Sheet presents. An AFN Saraf is judged on its posted USD value, not its native balance.
+- A LIABILITY-type Saraf is already a liability and is not touched.
 
 **Accumulated result.** No closing or retained earnings journal exists, and none is posted. The result is derived from REVENUE and EXPENSE accounts and shown inside equity on two lines:
 

@@ -21,11 +21,13 @@ All reports derive from posted journals and their lines, through shared primitiv
 |---|---|
 | `0057_v1_safe_saraf_statement` | `cb8512702e6ae1141e961d7f30b43855200feeae938fb60f8eadbde0245bae1e` |
 | `0058_v1_shareholder_statement_and_summary` | `71ad6d017c95db75842196e09370d05de70c344c2ee0cfd9af9e809b011793d1` |
-| `0059_v1_income_statement_and_balance_sheet` | `eb19c9c96526edbb9a6563d1e4422ae460cd04f9160b40c41fa745a784b34d0f` |
+| `0059_v1_income_statement_and_balance_sheet` | `0c5a6c379a1380d0516b23f4eff6d838b5fe53aa5b03f07dc3efc6e7ac41f9c7` |
 
-Each slice was validated at its exact commit, in order. Preserved production stays at 0056 until the owner authorizes these.
+Each slice was validated at its exact commit, in order. 0059 was amended before deployment for the owner's Saraf decision, which replaced its earlier checksum `eb19c9c96526edbb9a6563d1e4422ae460cd04f9160b40c41fa745a784b34d0f`. That checksum is superseded and must not be used. The owner authorized deployment on 2026-11-05.
 
 ## Validation
+
+The table records each slice as first merged. The final 0059 was validated again after the amendment; see the deployment record.
 
 | Check | 0057 | 0058 | 0059 |
 |---|---|---|---|
@@ -52,42 +54,11 @@ The 15 mocked skips are 13 tests that need a database, which ran in the database
 - `V1_REPORTING_0059_FINANCIAL_STATEMENTS.md`
 - `docs/03-architecture/V1_CHART_OF_ACCOUNTS_CLASSIFICATION_AUDIT.md`
 
-## OWNER DECISION REQUIRED
+## Owner decisions (final, 2026-11-05)
 
-None of these blocks a report. Each report is correct today; these are choices about accounting presentation that the system should not make alone.
-
-### 1. Retained earnings at year end
-
-**Question:** when a financial year closes, should its result be moved to a retained earnings account by a closing journal?
-
-- **Option A, keep deriving it (current behaviour).** The Balance Sheet shows "Result of earlier years" and "Result of the current year", worked out from income and expense accounts. No journal is posted.
-- **Option B, post a closing entry.** A year-end journal moves the result to a retained earnings equity account, and income and expense accounts start the next year at zero.
-
-**Accounting effect:** total equity is the same either way. Option B adds a real ledger balance for retained earnings, but it needs a new posting source and a defined account, and the Trial Balance would change shape at year end.
-
-**Recommendation:** Option A for V1. Revisit Option B before the first statutory filing.
-
-### 2. Current and non-current, operating and other
-
-**Question:** do you need statements split into current and non-current items, or operating and other income?
-
-- **Option A, stay with the present structure.** Statements present by class and by the groups the schema guarantees.
-- **Option B, add an optional presentation attribute.** One `statement_section` per ledger account, set by your accountant. Accounts without one are flagged, never guessed.
-
-**Accounting effect:** presentation only. No figure changes.
-
-**Recommendation:** Option A now. Choose Option B if an auditor or lender asks for classified statements.
-
-### 3. A Saraf with a negative balance on the Balance Sheet
-
-**Question:** when an ASSET-type Saraf is negative, should the Balance Sheet keep it under Treasury as a negative figure, or show it under liabilities?
-
-- **Option A, keep it in Treasury (current behaviour).** It stays in its account's class as a negative figure, with a note. The Treasury total equals the Treasury accounts.
-- **Option B, reclassify it at the reporting date.** Treasury and liabilities both rise by that amount. This is the usual presentation for an overdraft.
-
-**Accounting effect:** total assets and total liabilities change by the same amount. Equity does not change.
-
-**Recommendation:** Option A for now, as it keeps Treasury reconciling line by line. Choose Option B if your accountant prefers overdraft presentation.
+1. **Retained earnings: derive it.** No year-end closing journal is posted. The Balance Sheet derives "Result of earlier years" and "Result of the current year" from posted activity. Revisit before the first statutory filing.
+2. **Current and non-current, operating and other: stay with the present structure.** No `statement_section` for now. Add it only if an auditor, lender or reporting requirement needs classified presentation.
+3. **A negative ASSET-type Saraf: present it as a liability on the Balance Sheet.** Presentation only. No journal is posted, and the Trial Balance, General Ledger, Safe / Saraf Statement and Financial Summary keep the real negative balance. See `V1_REPORTING_0059_FINANCIAL_STATEMENTS.md`.
 
 ## Known debt
 
