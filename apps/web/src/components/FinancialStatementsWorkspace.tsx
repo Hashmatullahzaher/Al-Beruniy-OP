@@ -96,6 +96,7 @@ export function BalanceSheetWorkspace() {
     <tr><td colSpan={2} className="admin-hint">{title[fa ? "fa" : "en"]}</td></tr>
     <AccountRows rows={rows(group)} currency={base} query={query} label={amount} /></>;
   const negativeTreasury = rows("TREASURY").some((row) => row.amount.startsWith("-"));
+  const reclassified = rows("SARAF_PAYABLE").length > 0;
   return (
     <div className="module-workspace balance-sheet-workspace">
       <StageZeroPageHeader icon="reports-analytics" eyebrow={{ en: "Finance · Reports", fa: "مالی · گزارش‌ها" }}
@@ -120,6 +121,7 @@ export function BalanceSheetWorkspace() {
             <tr><th colSpan={2} scope="colgroup">{fa ? "بدهی‌ها" : "Liabilities"}</th></tr>
             {section("LOANS", { en: "Shareholder and provider loans", fa: "قرض‌های سهامداران و تمویل‌کنندگان" })}
             {section("PAYABLES", { en: "Supplier payables", fa: "پرداختنی‌های تأمین‌کنندگان" })}
+            {section("SARAF_PAYABLE", { en: "Owed to Saraf", fa: "قابل پرداخت به صراف" })}
             {section("OTHER_LIABILITIES", { en: "Other liabilities", fa: "سایر بدهی‌ها" })}
             <Total label={fa ? "مجموع بدهی‌ها" : "Total liabilities"} value={view.totalLiabilities} currency={base} />
             <tr><th colSpan={2} scope="colgroup">{fa ? "سرمایه" : "Equity"}</th></tr>
@@ -133,7 +135,10 @@ export function BalanceSheetWorkspace() {
             <Total label={fa ? "مجموع بدهی‌ها و سرمایه" : "Total liabilities and equity"} value={view.totalLiabilitiesAndEquity} currency={base} />
           </tbody></table></div>
           <p className="admin-hint">{fa ? "نتیجه از حساب‌های عاید و مصرف محاسبه می‌شود؛ هیچ ژورنال بسته‌شدنی ثبت نشده است." : "The result is worked out from the income and expense accounts; no closing journal has been posted."}</p>
-          {negativeTreasury ? <p className="admin-hint" role="note">{fa ? "رقم منفی در خزانه یعنی این مقدار به صراف بدهکار هستید." : "A negative Treasury figure is an amount owed to a Saraf."}</p> : null}
+          {reclassified ? <p className="admin-hint" role="note">{fa
+            ? <>موجودی منفی صراف در این بیلانس زیر بدهی‌ها به عنوان مبلغ قابل پرداخت نشان داده شده است، پس خزانه در این‌جا <span dir="ltr">{money(view.reclassifiedSaraf, base)}</span> بیشتر از موجودی خزانه است. این تنها نحوهٔ نمایش است: صورت حساب صراف و دفتر کل همان موجودی منفی را نشان می‌دهند و هیچ ژورنالی ثبت نشده است.</>
+            : <>A negative Saraf balance is shown under liabilities as an amount owed, so Treasury here is <span dir="ltr">{money(view.reclassifiedSaraf, base)}</span> higher than the Treasury position. This is presentation only: the Saraf&apos;s statement and the General Ledger still show the negative balance, and no journal was posted.</>}</p> : null}
+          {negativeTreasury ? <p className="admin-hint" role="note">{fa ? "رقم منفی در خزانه یعنی موجودی آن حساب کمتر از صفر است." : "A negative Treasury figure means that account's balance is below zero."}</p> : null}
           <p className={view.treasury.matches ? "admin-hint" : "treasury-message error"}>{view.treasury.matches ? (fa ? "حساب‌های خزانه با دفتر کل مطابقت دارند." : "The Treasury accounts agree with the General Ledger.") : (fa ? "حساب‌های خزانه با دفتر کل مطابقت ندارند." : "The Treasury accounts do not agree with the General Ledger.")}</p>
         </section>
       ) : null}

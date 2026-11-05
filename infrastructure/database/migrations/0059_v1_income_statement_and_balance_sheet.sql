@@ -7,6 +7,10 @@
 -- for presentation, split into earlier years and the current year.
 --
 -- These statements carry account-level arithmetic only, never a source, so they need only the report permission.
+--
+-- Owner decision: at the reporting date, an ASSET-type Saraf with a negative balance is presented under liabilities as an amount owed.
+-- This is presentation only and exists only in the Balance Sheet's answer. No journal is posted and no balance is stored. The Trial
+-- Balance, the General Ledger and the Safe / Saraf Statement keep the real negative balance, and each row carries it as bookAmount.
 
 -- Every account with its class and parent, and its position: opening before p_from, movement to p_to, debit-positive.
 CREATE FUNCTION abos.report_classified_accounts(p_entity uuid, p_from date, p_to date)
@@ -59,7 +63,7 @@ $income$;
 CREATE FUNCTION abos.finance_balance_sheet(p_proof text, p_runtime text, p_token text, p_payload jsonb)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, pg_temp AS $sheet$
 DECLARE c jsonb; entity uuid; base text; range jsonb; v_to date; year_start date; accounts jsonb; assets numeric; liabilities numeric; equity_accounts numeric;
-  earlier_result numeric; current_result numeric; equity numeric; treasury_ledger numeric; treasury_base numeric; unbalanced bigint;
+  earlier_result numeric; current_result numeric; equity numeric; treasury_ledger numeric; treasury_base numeric; unbalanced bigint; reclassified numeric;
 BEGIN
   c := abos.operational_finance_actor(p_proof, p_runtime, p_token, 'finance.report.operational.read');
   entity := (c->>'legalEntityId')::uuid;
@@ -71,10 +75,12 @@ BEGIN
   range := abos.report_range(entity, p_payload);
   v_to := (range->>'to')::date;
   year_start := abos.report_year_start(entity, v_to);
-  -- Each account's natural-side balance at the date. Money stays in its class, even when a balance is negative.
+  -- Each account's natural-side balance at the date. Money stays in its class, even when a balance is negative, with one exception:
+  -- a negative ASSET-type Saraf is presented as a liability. amount is what the statement shows; bookAmount is what the ledger holds.
   SELECT COALESCE(jsonb_agg(jsonb_build_object('accountId', x.ledger_account_id, 'code', x.account_code, 'name', x.account_name, 'class', x.account_type, 'control', x.control_account_type,
       'status', x.status, 'parent', CASE WHEN x.parent_id IS NOT NULL THEN jsonb_build_object('id', x.parent_id, 'code', x.parent_code, 'name', x.parent_name) END,
       'group', CASE
+        WHEN x.account_type = 'ASSET' AND x.control_account_type = 'SARAF' AND x.closing_net < 0 THEN 'SARAF_PAYABLE'
         WHEN x.account_type = 'ASSET' AND x.control_account_type IN ('CASH', 'SARAF') THEN 'TREASURY'
         WHEN x.account_type = 'ASSET' THEN 'OTHER_ASSETS'
         WHEN x.account_type = 'LIABILITY' AND x.control_account_type IN ('TEMPORARY_FUNDING_PAYABLE', 'SHAREHOLDER_LOAN') THEN 'LOANS'
@@ -83,13 +89,19 @@ BEGIN
         WHEN x.control_account_type = 'SHAREHOLDER_CAPITAL' THEN 'SHAREHOLDER_CAPITAL'
         WHEN x.control_account_type = 'OPENING_BALANCE_EQUITY' THEN 'OPENING_BALANCE_EQUITY'
         ELSE 'OTHER_EQUITY' END,
-      'amount', (CASE WHEN x.account_type = 'ASSET' THEN x.closing_net ELSE -x.closing_net END)::text)
+      'amount', (CASE WHEN x.account_type = 'ASSET' AND x.control_account_type = 'SARAF' AND x.closing_net < 0 THEN -x.closing_net WHEN x.account_type = 'ASSET' THEN x.closing_net ELSE -x.closing_net END)::text,
+      'bookAmount', (CASE WHEN x.account_type = 'ASSET' THEN x.closing_net ELSE -x.closing_net END)::text,
+      'reclassified', x.account_type = 'ASSET' AND x.control_account_type = 'SARAF' AND x.closing_net < 0)
       ORDER BY x.account_code, x.ledger_account_id), '[]'::jsonb)
     INTO accounts FROM abos.report_classified_accounts(entity, year_start, v_to) x
    WHERE x.account_type IN ('ASSET', 'LIABILITY', 'EQUITY') AND (x.closing_net <> 0 OR x.control_account_type = 'OPENING_BALANCE_EQUITY');
   SELECT COALESCE(sum(x.closing_net) FILTER (WHERE x.account_type = 'ASSET'), 0), COALESCE(-sum(x.closing_net) FILTER (WHERE x.account_type = 'LIABILITY'), 0),
-         COALESCE(-sum(x.closing_net) FILTER (WHERE x.account_type = 'EQUITY'), 0), COALESCE(-sum(x.opening_net) FILTER (WHERE x.account_type IN ('REVENUE', 'EXPENSE')), 0)
-    INTO assets, liabilities, equity_accounts, earlier_result FROM abos.report_classified_accounts(entity, year_start, v_to) x;
+         COALESCE(-sum(x.closing_net) FILTER (WHERE x.account_type = 'EQUITY'), 0), COALESCE(-sum(x.opening_net) FILTER (WHERE x.account_type IN ('REVENUE', 'EXPENSE')), 0),
+         COALESCE(-sum(x.closing_net) FILTER (WHERE x.account_type = 'ASSET' AND x.control_account_type = 'SARAF' AND x.closing_net < 0), 0)
+    INTO assets, liabilities, equity_accounts, earlier_result, reclassified FROM abos.report_classified_accounts(entity, year_start, v_to) x;
+  -- Both sides rise by the same amount, so the reclassification cannot change the difference or equity.
+  assets := assets + reclassified;
+  liabilities := liabilities + reclassified;
   SELECT net_result INTO current_result FROM abos.report_income_result(entity, year_start, v_to);
   equity := equity_accounts + earlier_result + current_result;
   SELECT COALESCE(sum(abos.treasury_account_base_balance(entity, v_to, a.id)), 0) INTO treasury_base FROM abos.operational_treasury_accounts a WHERE a.legal_entity_id = entity;
@@ -98,7 +110,7 @@ BEGIN
   SELECT count(*) INTO unbalanced FROM (SELECT line.journal_id FROM abos.journal_lines line JOIN abos.journals journal ON journal.id = line.journal_id AND journal.status = 'POSTED'
     WHERE line.legal_entity_id = entity AND journal.accounting_effective_date <= v_to GROUP BY line.journal_id HAVING sum(line.base_debit) <> sum(line.base_credit)) x;
   RETURN jsonb_build_object('legalEntityId', entity, 'baseCurrency', base, 'range', range, 'asOf', v_to, 'yearStart', year_start, 'accounts', accounts,
-    'totalAssets', assets::text, 'totalLiabilities', liabilities::text, 'equityAccounts', equity_accounts::text,
+    'totalAssets', assets::text, 'totalLiabilities', liabilities::text, 'reclassifiedSaraf', reclassified::text, 'equityAccounts', equity_accounts::text,
     -- Derived for presentation: no retained earnings journal exists. Earlier years' result is everything before this financial year.
     'earlierYearsResult', earlier_result::text, 'currentYearResult', current_result::text, 'totalEquity', equity::text, 'totalLiabilitiesAndEquity', (liabilities + equity)::text,
     'validation', jsonb_build_object('difference', (assets - liabilities - equity)::text, 'balanced', assets = liabilities + equity AND unbalanced = 0, 'unbalancedJournals', unbalanced),
