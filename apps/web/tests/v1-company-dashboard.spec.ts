@@ -28,7 +28,7 @@ test.describe("V1 company dashboard access", () => {
     await signIn(admin, "super.admin", accounts["super.admin"]);
     await admin.goto("/");
     await expect(admin).toHaveURL(/\/dashboard$/);
-    expect((await admin.request.get("/api/v1/company/dashboard")).status()).toBe(403);
+    expect(await browserStatus(admin, "/api/v1/company/dashboard")).toBe(403);
     await expect(admin.getByRole("navigation", { name: "Operations" }).getByRole("link", { name: "Company dashboard" })).toHaveCount(0);
 
     // The permission is offered in Roles & Permissions, in English and Dari.
@@ -87,11 +87,11 @@ test.describe("V1 company dashboard access", () => {
     expect(await viewer.locator(".bar-chart > span").evaluateAll((bars) => bars.every((bar) => bar.getBoundingClientRect().height === 0))).toBe(true);
     const text = await viewer.locator("body").innerText();
     for (const figure of RETIRED_DEMO_FIGURES) expect(text, `retired demo figure ${figure}`).not.toContain(figure);
-    expect((await viewer.request.get("/api/v1/company/dashboard")).status()).toBe(200);
+    expect(await browserStatus(viewer, "/api/v1/company/dashboard")).toBe(200);
 
     // The same person has no Finance, Treasury or administration access through the dashboard.
     for (const url of ["/api/v1/finance/operations/expenses?from=2026-09-01&to=2026-09-30", "/api/v1/admin/users"]) {
-      expect((await viewer.request.get(url)).status(), url).toBeGreaterThanOrEqual(401);
+      expect(await browserStatus(viewer, url), url).toBeGreaterThanOrEqual(401);
     }
 
     // Removing the permission from the role removes access at once, for the page and the API.
@@ -105,7 +105,7 @@ test.describe("V1 company dashboard access", () => {
     // Changing what a role allows ends its holders' sessions, so the change applies on the next request.
     await viewer.goto("/");
     await expect(viewer).toHaveURL(/\/login/);
-    expect((await viewer.request.get("/api/v1/company/dashboard")).status()).toBe(401);
+    expect(await browserStatus(viewer, "/api/v1/company/dashboard")).toBe(401);
     // This role held only the dashboard permission, so the person now has no access at all.
     const again = await viewer.request.post("/api/v1/auth/login", {
       data: { loginIdentifier: "exec.viewer", password: "Synthetic executive viewer passphrase 2026" },
@@ -115,6 +115,11 @@ test.describe("V1 company dashboard access", () => {
     expect((await again.json()).error.code).toBe("NO_ACCESS_ASSIGNED");
   });
 });
+
+/** A request from the signed-in page, as the app makes it. Under next start the session cookie is Secure, which Playwright's own request client will not send over http. */
+async function browserStatus(page: Page, url: string): Promise<number> {
+  return page.evaluate(async (path) => (await fetch(path)).status, url);
+}
 
 async function activeProjects(): Promise<number> {
   const environment = previewEnvironment();
