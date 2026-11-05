@@ -152,7 +152,7 @@ if (databaseUrl() === undefined) {
           [{ permission_code: "treasury.opening-balance.record", category: "TREASURY", availability: "ACTIVE" },
             { permission_code: "treasury.safe.read", category: "TREASURY", availability: "ACTIVE" }]);
           assert.deepEqual((await client.query("SELECT source_type FROM abos.posting_sources WHERE status='ACTIVE' ORDER BY 1")).rows.map((r) => r.source_type),
-            ["CASH_RECEIPT", "DIRECT_SHAREHOLDER_CAPITAL", "OPENING_BALANCE", "OPERATIONAL_EXPENSE", "PAYMENT", "REVERSAL", "TEMPORARY_FUNDING", "TEMPORARY_FUNDING_SETTLEMENT", "TREASURY_TRANSFER"]);
+            ["CASH_RECEIPT", "DIRECT_SHAREHOLDER_CAPITAL", "LOAN_RECEIPT", "LOAN_REPAYMENT", "OPENING_BALANCE", "OPERATIONAL_EXPENSE", "PAYMENT", "REVERSAL", "TEMPORARY_FUNDING", "TEMPORARY_FUNDING_SETTLEMENT", "TREASURY_TRANSFER"]);
           const afterAll = await snapshots(client, afterTables);
           const afterRegistry = (await client.query("SELECT * FROM abos.schema_migrations ORDER BY migration_id")).rows;
           assert.deepEqual(await applyMigrations(tx, migrations), [], "repeating the reviewed runner is a no-op");

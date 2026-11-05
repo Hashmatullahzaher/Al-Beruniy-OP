@@ -391,7 +391,7 @@ test.describe("V1 operational finance from a new company", () => {
     await nav.getByRole("link", { name: "Shareholders" }).click();
     await page.getByRole("button", { name: /Ahmad Test Shareholder/ }).click();
     const holderCard = page.getByRole("article", { name: "Ahmad Test Shareholder" });
-    await expect(holderCard.getByText("Capital put in", { exact: true }).locator("..")).toContainText("USD 50,000");
+    await expect(holderCard.getByRole("region", { name: "USD capital" }).getByText("Capital put in", { exact: true }).locator("..")).toContainText("USD 50,000");
     await expect(holderCard.getByRole("region", { name: "Loans" }).getByText("Outstanding loan").locator("..")).toContainText("USD 20,000");
     await expect(holderCard).not.toContainText("70,000");
 
