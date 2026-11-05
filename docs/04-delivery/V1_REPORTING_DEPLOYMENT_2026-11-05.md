@@ -48,6 +48,27 @@ The one failure on `next dev` is the operational E2E stalling on a report respon
 
 Live smoke 19 of 19 and live browser 118 of 118, both before and after one controlled restart. These specs answer from mocked APIs and never sign in. Disconnect recovery was 82 of 82 on the live server. All eight report APIs refuse an anonymous reader, and all report pages load.
 
+## 0060
+
+Deployed the same day from `84922b13c5fdfec1a1e0f8f155a069156caf7cce`, under separate owner authorization, through the same guarded process. Production is at 59 migrations, latest 0060. Among the 99 tables only `schema_migrations` changed. Journals, Safe balances and FY 2026 are unchanged, and 143 definers, 0 PUBLIC execute and 0 runtime table writes hold.
+
+The proof ran on a disposable copy of the exact post-deployment state, on the deployed build. Capital, an expense and two reversals were posted on the copy through the real APIs. A report-only reader received identical figures and none of 21 forbidden items across 17 surfaces. Raw responses held no `RV-` reference, source id, route or reason.
+
+## The `next dev` stall
+
+The stall is dev-server memory and compile pressure on this machine. It is not connection-pool contention and it is not report or API behaviour.
+
+One failing run was captured with the server's request log, a database monitor and a resource sampler:
+
+- The stalled request was `POST /api/v1/finance/accounts/<id>/reevaluate`, not a report. It took 16.6 s: 6.0 s in Next.js and 10.7 s in application code. That route normally answers in milliseconds.
+- During it, the largest Node process grew from about 1 GB to 3.2 GB. Free memory fell to 26 MB on a 15.7 GB machine, and disk activity spiked, consistent with paging.
+- The database showed no lock wait and no slow query in that window, and the server's health route kept answering.
+- Memory recovered about ten seconds later and the suite carried on.
+
+Earlier failures had the same shape, on a different step each time, but were not measured. On a production build there is no compilation, and a burst of 2,000 concurrent report requests peaked at 111 ms.
+
+No test timeout was raised and no sleep was added.
+
 ## Found after deployment
 
 A comparison of a report-only reader with a full reader, on a disposable company served by the deployed code, found that reversals were not masked. See `V1_REPORTING_0060_REVERSAL_CONFIDENTIALITY.md`. Figures matched on every report, and no source record id, shareholder name, payee or expense detail reached the reader.
