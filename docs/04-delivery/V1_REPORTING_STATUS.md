@@ -13,7 +13,7 @@ All reports derive from posted journals and their lines, through shared primitiv
 | Income Statement | Done, deployed | 0059 | `/finance/income-statement` |
 | Balance Sheet | Done, deployed | 0059 | `/finance/balance-sheet` |
 
-0057, 0058 and the final 0059 were deployed on 2026-11-05 from `a4cefdd7bd3400bc0e1687e0c1330a0f49a00e76`. 0060 is merged and validated but not deployed: it needs separate owner authorization. See `V1_REPORTING_DEPLOYMENT_2026-11-05.md`.
+0057, 0058 and the final 0059 were deployed on 2026-11-05 from `a4cefdd7bd3400bc0e1687e0c1330a0f49a00e76`, and 0060 the same day from `84922b13c5fdfec1a1e0f8f155a069156caf7cce`. See `V1_REPORTING_DEPLOYMENT_2026-11-05.md`.
 
 ## Migrations
 
@@ -64,9 +64,7 @@ The 15 mocked skips are 13 tests that need a database, which ran in the database
 
 ## Known debt
 
-- **0060 must be deployed before the first reversal.** Until then a report-only reader of a reversal receives its reference, a link and the free-text reason. Production holds no journals, so nothing is exposed today.
-- The operational E2E stalls intermittently under `next dev` when the whole database-backed suite runs. It fails on a different step each time, always waiting on a report response, and has not happened on a production build. Cause not proven.
-- `v1-company-dashboard` cannot run on `next start`, because it uses `page.request` and Playwright will not send a Secure cookie over http. It passes on `next dev`.
+- The operational E2E can stall under `next dev` on a machine short of memory. See "The `next dev` stall" in `V1_REPORTING_DEPLOYMENT_2026-11-05.md`. Treat the database-backed suite on a production build as the gate.
 - A dedicated shareholder loan product remains policy-gated (V1 #14). Loans today are temporary funding, which cannot be reversed.
 - PDF and Excel export are not built. Reports print cleanly.
 - `ledger_account_balances` and `finance_general_ledger` are unused older functions, kept because applied migrations are not rewritten.
