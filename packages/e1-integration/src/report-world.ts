@@ -93,9 +93,9 @@ export class ReportDatabase {
     return session((await issueOperationalSession(this.h, id, world.legalEntityId)).token);
   }
 
-  async company() {
+  async company(options: { keepSchema?: boolean } = {}) {
     const { h } = this;
-    await resetSchema(h.pool);
+    if (!options.keepSchema) await resetSchema(h.pool);
     await h.pool.query(`GRANT abos_e1_runtime TO ${this.login}`);
     const world = await seedSyntheticWorld(h.executor);
     await h.pool.query("DELETE FROM abos.sandbox_legal_entity_scopes");

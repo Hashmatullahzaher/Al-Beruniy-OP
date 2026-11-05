@@ -198,6 +198,23 @@ export const PERMISSION_COPY: Readonly<Record<string, PermissionCopy>> = {
     label: { en: "View expenses and the daily report", fa: "مشاهده مصارف و گزارش روزانه" },
     allows: { en: "See recorded expenses, daily transactions and the daily financial report, within the projects, departments and cost centers the person works with.", fa: "دیدن مصارف ثبت‌شده، معاملات روزانه و گزارش مالی روزانه، در محدوده پروژه‌ها، بخش‌ها و مراکز هزینه‌ای که شخص با آن‌ها کار می‌کند." }
   },
+  // Loans (migrations 0061 and 0062).
+  "finance.loan.read": {
+    label: { en: "View loans and lenders", fa: "مشاهده قرض‌ها و قرض‌دهندگان" },
+    allows: { en: "See who lent the company money, how much is still owed and each loan's references and notes.", fa: "دیدن این‌که چه کسی به شرکت قرض داده، چقدر باقی است و مرجع و یادداشت هر قرض." }
+  },
+  "finance.loan.record": {
+    label: { en: "Record loans", fa: "ثبت قرض" },
+    allows: { en: "Record money lent to the company by a shareholder or anyone else. It is owed back and is never capital.", fa: "ثبت پولی که سهامدار یا هر کس دیگری به شرکت قرض داده است. این پول باید پس داده شود و سرمایه نیست." }
+  },
+  "finance.loan.repay": {
+    label: { en: "Repay loans", fa: "بازپرداخت قرض" },
+    allows: { en: "Record money paid back to a lender from a Safe.", fa: "ثبت پولی که از صندوق به قرض‌دهنده پس داده می‌شود." }
+  },
+  "finance.loan.approve": {
+    label: { en: "Approve loans", fa: "تأیید قرض" },
+    allows: { en: "Approve or reject a loan or repayment recorded by someone else, when the company requires approval.", fa: "تأیید یا رد قرض یا بازپرداختی که شخص دیگری ثبت کرده، وقتی شرکت تأیید را لازم بداند." }
+  },
   // Temporary Funding (migration 0037).
   "finance.temporary-funding.read": {
     label: { en: "View temporary funding", fa: "مشاهده تمویل موقت" },

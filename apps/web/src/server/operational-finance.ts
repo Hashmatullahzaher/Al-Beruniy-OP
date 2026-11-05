@@ -212,6 +212,11 @@ const SETUP_REFUSALS: readonly {
   readonly code: string;
   readonly message: string;
 }[] = [
+  // 0061: the loan lanes.
+  { pattern: /LOAN_ACCOUNT_REQUIRED/, status: 422, code: "LOAN_ACCOUNT_REQUIRED", message: "Create a loan liability account in the Chart of Accounts first." },
+  { pattern: /LOAN_ACCOUNT_CHOICE/, status: 422, code: "LOAN_ACCOUNT_CHOICE", message: "Choose which liability account this loan is owed on." },
+  { pattern: /cannot exceed what is outstanding/, status: 422, code: "REPAYMENT_EXCEEDS_OUTSTANDING", message: "This is more than is outstanding on the loan." },
+  { pattern: /this loan has repayments/, status: 422, code: "LOAN_HAS_REPAYMENTS", message: "This loan has repayments. Reverse them before reversing the loan." },
   // 0049: every lane that takes money out of a Safe, cash box or petty cash.
   { pattern: /not enough money in .* its balance would fall below zero/i, status: 422, code: "INSUFFICIENT_FUNDS",
     message: "The Safe does not hold enough money for this. A Safe, cash box or petty cash can never go below zero." },

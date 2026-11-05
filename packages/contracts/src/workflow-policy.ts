@@ -7,6 +7,7 @@ export const FINANCE_WORKFLOW_TYPES = [
   "OTHER_INCOME",
   "EXPENSE",
   "SUPPLIER_PAYMENT",
+  "LOAN",
   "SALARY_PAYMENT",
   "TREASURY_TRANSFER",
   "TEMPORARY_FUNDING",
@@ -20,7 +21,7 @@ export type FinanceWorkflowType = (typeof FINANCE_WORKFLOW_TYPES)[number];
 export const financeWorkflowTypeSchema = z.enum(FINANCE_WORKFLOW_TYPES);
 
 /** 0049 Simple Mode: these workflows record in one save (approval OFF) until a setting is saved. */
-export const SIMPLE_MODE_DEFAULT_WORKFLOWS: readonly FinanceWorkflowType[] = ["OTHER_INCOME", "EXPENSE", "SUPPLIER_PAYMENT", "SALARY_PAYMENT", "TREASURY_TRANSFER",
+export const SIMPLE_MODE_DEFAULT_WORKFLOWS: readonly FinanceWorkflowType[] = ["LOAN", "OTHER_INCOME", "EXPENSE", "SUPPLIER_PAYMENT", "SALARY_PAYMENT", "TREASURY_TRANSFER",
   "JOURNAL_REVERSAL"];
 
 export const financeWorkflowPolicyUpdateSchema = z.object({

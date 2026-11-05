@@ -37,6 +37,8 @@ const SOURCE_COPY: Readonly<Record<string, Copy>> = {
   OPENING_BALANCE: { en: "Opening balance", fa: "موجودی افتتاحیه" },
   OPERATIONAL_EXPENSE: { en: "Expense", fa: "مصرف" },
   DIRECT_SHAREHOLDER_CAPITAL: { en: "Shareholder capital", fa: "سرمایهٔ سهامدار" },
+  LOAN_RECEIPT: { en: "Loan received", fa: "قرض دریافت‌شده" },
+  LOAN_REPAYMENT: { en: "Loan repaid", fa: "بازپرداخت قرض" },
   TEMPORARY_FUNDING: { en: "Temporary funding", fa: "تمویل موقت" },
   TEMPORARY_FUNDING_SETTLEMENT: { en: "Temporary funding repaid", fa: "بازپرداخت تمویل موقت" },
   CASH_RECEIPT: { en: "Cash received", fa: "پول دریافت‌شده" },

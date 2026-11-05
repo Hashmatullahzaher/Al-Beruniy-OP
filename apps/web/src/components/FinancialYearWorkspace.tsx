@@ -121,7 +121,7 @@ export function FinancialYearWorkspace() {
             <ul className="period-pending">
               <li>{fa ? "مصارف منتظر تأیید: " : "Expenses waiting for approval: "}<strong dir="ltr">{preview.pending.expensesAwaitingApproval}</strong></li>
               <li>{fa ? "درخواست‌های برگشت باز: " : "Open reversal requests: "}<strong dir="ltr">{preview.pending.reversalRequests}</strong></li>
-              <li>{fa ? "تمویل موقت منتظر تصمیم: " : "Temporary funding waiting for a decision: "}<strong dir="ltr">{preview.pending.temporaryFundingDecisions}</strong></li>
+              <li>{fa ? "تمویل موقت منتظر تصمیم: " : "Loans and funding waiting for a decision: "}<strong dir="ltr">{preview.pending.temporaryFundingDecisions}</strong></li>
             </ul>
             {preview.pending.expensesAwaitingApproval + preview.pending.reversalRequests + preview.pending.temporaryFundingDecisions > 0
               ? <p className="admin-hint">{fa ? "موارد منتظر پس از بستن در این سال مالی ثبت نمی‌شوند." : "Waiting items cannot be recorded in this financial year after it is closed."}</p> : null}

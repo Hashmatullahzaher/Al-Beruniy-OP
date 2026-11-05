@@ -26,7 +26,7 @@ const PERMISSIONS = ["shareholder.setup.manage", "shareholder.capital-receipt.re
   "finance.capital-receipt.prepare", "finance.capital-receipt.post", "finance.report.operational.read",
   "finance.expense.create", "finance.expense.read"];
 // 0046 activates OPENING_BALANCE.
-const ACTIVE = ["CASH_RECEIPT", "DIRECT_SHAREHOLDER_CAPITAL", "OPENING_BALANCE", "OPERATIONAL_EXPENSE", "PAYMENT", "REVERSAL", "TEMPORARY_FUNDING", "TEMPORARY_FUNDING_SETTLEMENT", "TREASURY_TRANSFER"];
+const ACTIVE = ["CASH_RECEIPT", "DIRECT_SHAREHOLDER_CAPITAL", "LOAN_RECEIPT", "LOAN_REPAYMENT", "OPENING_BALANCE", "OPERATIONAL_EXPENSE", "PAYMENT", "REVERSAL", "TEMPORARY_FUNDING", "TEMPORARY_FUNDING_SETTLEMENT", "TREASURY_TRANSFER"];
 
 type Session = { proof: string; runtimeDigest: string; tokenDigest: string };
 type Fixture = { world: SyntheticWorld; actor: Session; safe: string; category: string; otherExpense: string; shareholder: string };

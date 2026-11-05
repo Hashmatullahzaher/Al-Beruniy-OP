@@ -31,6 +31,7 @@ const CONTROLS: Readonly<Record<ControlType, Copy>> = {
   AR: { en: "Receivables", fa: "حسابات دریافتنی" },
   AP: { en: "Payables", fa: "حسابات پرداختنی" },
   OTHER: { en: "Other control", fa: "کنترل دیگر" },
+  LOAN_PAYABLE: { en: "Loan payable", fa: "قرض پرداختنی" },
   TEMPORARY_FUNDING_PAYABLE: { en: "Temporary funding payable", fa: "بدهی تمویل موقت" },
   SHAREHOLDER_CONTRIBUTED_ASSETS: { en: "Shareholder contributed assets", fa: "دارایی‌های آوردهٔ سهامدار" },
   OPENING_BALANCE_EQUITY: { en: "Opening balance equity", fa: "سرمایهٔ موجودی افتتاحیه" },

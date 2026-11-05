@@ -197,7 +197,7 @@ if (databaseUrl() === undefined) {
     test("every active posting source is named by the readability test, which refuses any other", async () => {
       await fixture();
       const sources = await h.pool.query<{ source_type: string }>("SELECT source_type FROM abos.posting_sources WHERE status = 'ACTIVE'");
-      const all = JSON.stringify(["shareholder.read", "finance.temporary-funding.read", "finance.expense.read", "treasury.safe.read"]);
+      const all = JSON.stringify(["shareholder.read", "finance.temporary-funding.read", "finance.loan.read", "finance.expense.read", "treasury.safe.read"]);
       for (const { source_type: type } of sources.rows) {
         const readable = await h.pool.query<{ ok: boolean }>("SELECT abos.report_source_readable($1, $2::jsonb) AS ok", [type, all]);
         // 0060: a reversal has no permission of its own. It counts as the source it reverses, so on its own it is refused.

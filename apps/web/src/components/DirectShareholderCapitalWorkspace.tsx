@@ -1,5 +1,6 @@
 "use client";
 
+import type { LoanView, LoanWorkspace } from "@abos/contracts";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 
@@ -51,6 +52,31 @@ function capitalSetupFix(reason: string | null): { en: string; fa: string; href:
 
 function Field({ label, children }: { readonly label: string; readonly children: ReactNode }) {
   return <label><span>{label}</span>{children}</label>;
+}
+
+/** A shareholder's loans. Debt, so it is shown beside capital and never added to it. */
+function HolderLoans({ profileId, fa }: Readonly<{ profileId: string; fa: boolean }>) {
+  const [loans, setLoans] = useState<readonly LoanView[] | null>(null);
+  useEffect(() => {
+    let current = true;
+    void api<LoanWorkspace>("/api/v1/finance/loans").then((result) => { if (current && result.ok) setLoans(result.data.loans); });
+    return () => { current = false; };
+  }, []);
+  if (loans === null) return null;
+  const own = loans.filter((loan) => loan.shareholderProfileId === profileId && loan.status === "POSTED" && !loan.reversed);
+  const currencies = [...new Set(own.map((loan) => loan.currency))];
+  const total = (currency: string, pick: (loan: LoanView) => string) => own.filter((loan) => loan.currency === currency).reduce((sum, loan) => sum + Number(pick(loan)), 0).toString();
+  return (
+    <section aria-label={fa ? "قرض‌ها" : "Loans"}>
+      <h3>{fa ? "قرض‌ها" : "Loans"}</h3>
+      {own.length === 0 ? <p className="admin-hint">{fa ? "این سهامدار قرضی نداده است." : "This shareholder has not lent the company money."}</p>
+        : currencies.map((currency) => <dl key={currency} className="safe-figures">
+          <div><dt>{fa ? "قرض داده‌شده" : "Loans provided"}</dt><dd dir="ltr">{money(total(currency, (loan) => loan.principal), currency)}</dd></div>
+          <div><dt>{fa ? "بازپرداخت" : "Repayments"}</dt><dd dir="ltr">{money(total(currency, (loan) => loan.repaid), currency)}</dd></div>
+          <div><dt>{fa ? "باقی‌مانده" : "Outstanding loan"}</dt><dd dir="ltr">{money(total(currency, (loan) => loan.outstanding), currency)}</dd></div>
+        </dl>)}
+    </section>
+  );
 }
 
 export function DirectShareholderCapitalWorkspace() {
@@ -283,6 +309,7 @@ export function DirectShareholderCapitalWorkspace() {
             {capital.agreedTotal !== null ? <div><dt>{copy("Agreed total", "مجموع توافق‌شده")}</dt><dd dir="ltr">{money(capital.agreedTotal, capital.currency)}</dd></div> : null}
             {capital.agreedTotal !== null && capital.remaining !== null ? <div><dt>{copy("Still to come", "باقی‌مانده")}</dt><dd dir="ltr">{money(capital.remaining, capital.currency)}</dd></div> : null}
           </dl></section>)}
+        <HolderLoans profileId={holder.id} fa={locale === "fa"} />
         <h3>{copy("History", "تاریخچه")}</h3>
         {holder.transactions.length === 0 ? <p className="admin-hint">{copy("No capital has been recorded yet.", "هنوز سرمایه‌ای ثبت نشده است.")}</p> : <div style={{ overflowX: "auto" }}><table className="shareholder-installments contribution-table"><caption className="sr-only">{copy("Capital put in", "سرمایهٔ گذاشته‌شده")}</caption><thead><tr>{[copy("Date", "تاریخ"), copy("Amount", "مبلغ"), copy("What", "چه"), copy("Where it went", "به کجا رفت"), copy("Reference", "مرجع"), copy("Note", "یادداشت"), copy("General Ledger", "دفتر کل")].map(label => <th scope="col" key={label}>{label}</th>)}</tr></thead><tbody>{holder.transactions.map(entry => <tr key={entry.id}>
           <td><time dateTime={entry.date}>{entry.date}</time></td>

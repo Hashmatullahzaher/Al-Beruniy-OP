@@ -86,6 +86,7 @@ export const FINANCE_MANAGER_ROLE_TEMPLATE = {
     "finance.reversal.request", "finance.reversal.approve", "finance.reversal.direct",
     "finance.temporary-funding.read", "finance.temporary-funding.record", "finance.temporary-funding.approve",
     "finance.temporary-funding.configure", "finance.temporary-funding.settle", "finance.temporary-funding.settle-approve",
+    "finance.loan.read", "finance.loan.record", "finance.loan.repay", "finance.loan.approve",
     "shareholder.read", "shareholder.setup.manage", "shareholder.capital-receipt.read", "shareholder.capital-receipt.record",
     "treasury.safe.read", "treasury.cash-location.manage", "treasury.operational-account.manage", "treasury.saraf-account.manage",
     "treasury.opening-balance.record", "treasury.receipt.record", "treasury.payment.record", "treasury.transfer.record",
