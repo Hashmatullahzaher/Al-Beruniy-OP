@@ -402,7 +402,7 @@ test.describe("V1 operational finance from a new company", () => {
     await expect(loanSheet.getByRole("row", { name: /^Total liabilities[^a]*$/ })).toContainText(usd("50,000"));
     await expect(loanSheet.getByRole("row", { name: /Total assets/ })).toContainText(usd("100,000"));
     await nav.getByRole("link", { name: "Income statement" }).click();
-    await expect(page.getByRole("region", { name: "Income statement" }).getByRole("row", { name: /Net profit/ })).toContainText(/\b0(\.00)? USD/);
+    await expect(page.getByRole("region", { name: "Income statement" }).getByRole("row", { name: /Net profit/ }).getByRole("cell")).toHaveText(/^0(\.00)? USD$/);
 
     // A report-only reader, raw responses: the totals and nothing about the lender.
     const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kabul" }).format(new Date());
