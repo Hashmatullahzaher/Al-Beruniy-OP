@@ -22,6 +22,7 @@ All reports derive from posted journals and their lines, through shared primitiv
 | `0057_v1_safe_saraf_statement` | `cb8512702e6ae1141e961d7f30b43855200feeae938fb60f8eadbde0245bae1e` |
 | `0058_v1_shareholder_statement_and_summary` | `71ad6d017c95db75842196e09370d05de70c344c2ee0cfd9af9e809b011793d1` |
 | `0059_v1_income_statement_and_balance_sheet` | `0c5a6c379a1380d0516b23f4eff6d838b5fe53aa5b03f07dc3efc6e7ac41f9c7` |
+| `0060_v1_reversal_confidentiality` | `e1142a9451f8da44301fb22e5806ed1a9ba5d893865ccc11a1081d4f1d0ba6fe` |
 
 Each slice was validated at its exact commit, in order. 0059 was amended before deployment for the owner's Saraf decision, which replaced its earlier checksum `eb19c9c96526edbb9a6563d1e4422ae460cd04f9160b40c41fa745a784b34d0f`. That checksum is superseded and must not be used. The owner authorized deployment on 2026-11-05.
 
@@ -52,6 +53,7 @@ The 15 mocked skips are 13 tests that need a database, which ran in the database
 - `V1_REPORTING_0057_SAFE_STATEMENT.md`, which also holds the audit of the reporting foundation
 - `V1_REPORTING_0058_SHAREHOLDER_AND_SUMMARY.md`
 - `V1_REPORTING_0059_FINANCIAL_STATEMENTS.md`
+- `V1_REPORTING_0060_REVERSAL_CONFIDENTIALITY.md`
 - `docs/03-architecture/V1_CHART_OF_ACCOUNTS_CLASSIFICATION_AUDIT.md`
 
 ## Owner decisions (final, 2026-11-05)

@@ -318,6 +318,11 @@ export const migrationCatalog = [
     checksumSha256: "0c5a6c379a1380d0516b23f4eff6d838b5fe53aa5b03f07dc3efc6e7ac41f9c7",
     relativePath: "infrastructure/database/migrations/0059_v1_income_statement_and_balance_sheet.sql",
   },
+  {
+    id: "0060_v1_reversal_confidentiality",
+    checksumSha256: "e1142a9451f8da44301fb22e5806ed1a9ba5d893865ccc11a1081d4f1d0ba6fe",
+    relativePath: "infrastructure/database/migrations/0060_v1_reversal_confidentiality.sql",
+  },
 ] as const satisfies readonly MigrationDefinition[];
 
 const migrationTableSql = `

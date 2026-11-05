@@ -85,7 +85,7 @@ export class ReportDatabase {
   }
 
   /** A person holding exactly these permissions. */
-  private async person(world: SyntheticWorld, name: string, permissions: readonly string[]): Promise<Session> {
+  async person(world: SyntheticWorld, name: string, permissions: readonly string[]): Promise<Session> {
     const id = randomUUID();
     await this.h.pool.query("INSERT INTO abos.user_accounts (id, login_identifier, display_name, status) VALUES ($1,$2,$3,'ACTIVE')",
       [id, `${name.replaceAll(" ", ".").toLowerCase()}.${id.slice(0, 8)}@synthetic.invalid`, `Synthetic ${name}`]);
@@ -226,7 +226,7 @@ export class ReportDatabase {
     await call("decide_temporary_funding_settlement", f.settleApprover, requested.settlement.id, { expectedVersion: requested.settlement.version, decision: "APPROVED",
       decisionReason: "Synthetic settlement decision", idempotencyKey: `tsd-${randomUUID()}`, correlationId: randomUUID() });
     return { partyA, partyB, profileA: holderA.shareholderProfileId, capitalA: capitalA.journalId, capitalWrong: capitalWrong.journalId, capitalB: capitalB.journalId,
-      capitalReversal: capitalReversal.reversalJournalId, loan: loan.journalId, receipt: receipt.journalId, restricted: restricted.expense.journalId, expense: supplies.expense.journalId };
+      capitalReversal: capitalReversal.reversalJournalId, loan: loan.journalId, receipt: receipt.journalId, restricted: restricted.expense.journalId, expense: supplies.expense.journalId, mistaken: mistaken.expense.journalId };
   }
 
   /** The id of the business record behind a journal. */
