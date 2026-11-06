@@ -252,7 +252,7 @@ if (databaseUrl() === undefined) {
       assert.doesNotMatch(kernel, /\bEXECUTE\s+(format|'|\$|[a-z_]+\s*\|\|)/i, "no dynamic SQL in the kernel");
       const may = async (role: string, routine: string) => (await h.pool.query<{ ok: boolean }>(
         "SELECT has_function_privilege($1, $2, 'EXECUTE') AS ok", [role, routine])).rows[0]?.ok;
-      const draft = "abos.posting_kernel_draft(uuid,uuid,uuid,text,uuid,numeric,text,numeric,text,date,uuid,text,uuid,text,text,uuid,abos.posting_kernel_line[],uuid,uuid,uuid,text,uuid,integer)";
+      const draft = "abos.posting_kernel_draft(uuid,uuid,uuid,text,uuid,numeric,text,numeric,text,date,uuid,text,uuid,text,text,uuid,abos.posting_kernel_line[],uuid,uuid,uuid,text,uuid,integer,numeric[])";
       for (const routine of [draft, "abos.posting_kernel_commit(uuid,uuid,uuid)"]) {
         assert.equal(await may("abos_v1_operational_finance_owner", routine), true);
         for (const role of ["abos_e1_runtime", "abos_e1_treasury_runtime", "abos_v1_identity_runtime", "abos_e1_frozen_lane", "abos_v1_shareholder_setup_owner", "public"]) {

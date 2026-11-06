@@ -258,9 +258,9 @@ test("a repayment that realizes a difference says so, and the statement shows it
   await page.goto(`/finance/loans?loanId=${loanId}`);
   const report = page.getByRole("region", { name: "Loan statement" });
   await expect(report.getByRole("columnheader", { name: "Realized FX" })).toBeVisible();
-  await expect(report.getByRole("row", { name: /Repayment/ })).toContainText("-20 USD");
+  await expect(report.getByRole("row", { name: /Repayment/ })).toContainText("−20 USD");
   await expect(report.getByRole("note")).toContainText("Accounting value still owed: 0 USD.");
-  await expect(report.getByRole("note")).toContainText("Realized FX in this period: -20 USD.");
+  await expect(report.getByRole("note")).toContainText("Realized FX in this period: −20 USD.");
   await expect(report).not.toContainText("remains on the liability");
 });
 

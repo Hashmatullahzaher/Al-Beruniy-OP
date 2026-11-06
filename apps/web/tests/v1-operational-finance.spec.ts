@@ -461,20 +461,22 @@ test.describe("V1 operational finance from a new company", () => {
       const afnRepay = page.getByRole("form", { name: "Repay loan" });
       await afnRepay.getByLabel("Amount (AFN)").fill("35000");
       await afnRepay.getByRole("button", { name: "Record repayment" }).click();
-      await expect(page.locator(".treasury-message.success")).toContainText("Repayment recorded. Realized FX loss: 125 USD.");
+      await expect(page.locator(".treasury-message.success").filter({ hasText: "Repayment recorded." })).toContainText("Realized FX loss: 125 USD.");
       await expect(page.getByRole("region", { name: "Loans" }).getByRole("row", { name: /FX Lender Ltd/ })).toContainText(`${left} AFN`);
     }
     const afnReport = page.getByRole("region", { name: "Loan statement" });
     await expect(afnReport.getByRole("status")).toContainText("Agrees with the liability account.");
     await expect(afnReport.getByRole("row", { name: /^Outstanding/ })).toContainText("0 AFN");
-    await expect(afnReport.getByRole("note")).toContainText("Accounting value still owed: 0 USD.");
-    await expect(afnReport.getByRole("note")).toContainText("Realized FX in this period: -250 USD.");
+    await expect(afnReport.getByRole("note")).toContainText("Accounting value still owed: 0.00 USD.");
+    await expect(afnReport.getByRole("note")).toContainText("Realized FX in this period: −250.00 USD.");
     await nav.getByRole("link", { name: "Balance sheet" }).click();
     const fxSheet = page.getByRole("region", { name: "Balance sheet" });
     await expect(fxSheet.getByRole("status")).toContainText("(balanced)");
     await expect(fxSheet.getByRole("row", { name: /^Total liabilities[^a]*$/ })).toContainText(usd("50,000"));
     await nav.getByRole("link", { name: "Income statement" }).click();
-    await expect(page.getByRole("region", { name: "Income statement" }).getByRole("row", { name: /Net profit/ }).getByRole("cell")).toHaveText(/^-250(\.00)? USD$/);
+    const fxIncome = page.getByRole("region", { name: "Income statement" });
+    await expect(fxIncome.getByRole("row", { name: /Realized FX Loss/ })).toContainText("250.00 USD");
+    await expect(fxIncome.getByRole("row", { name: /Net loss/ }).getByRole("cell")).toHaveText("−250.00 USD");
 
     // A report-only reader, raw responses: the totals and nothing about the lender.
     const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kabul" }).format(new Date());
