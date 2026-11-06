@@ -84,7 +84,10 @@ export interface LoanStatementView {
     /** The carrying value this movement added or removed. */
     readonly baseAmount: string;
     /** The cash at its own frozen rate, which differs from the carrying value when a difference was realized. */
+    /** Carrying value the Treasury account gave up. */
     readonly treasuryBaseAmount: string | null;
+    /** The repayment at its own rate. It is not in the journal. */
+    readonly transactionBaseAmount: string | null;
     /** Positive is a gain, negative is a loss. A reversal shows the opposite. */
     readonly realizedFx: string;
     readonly effect: string;
@@ -114,6 +117,7 @@ export interface LoanCommandResult {
   readonly replayed: boolean;
   /** Known once a repayment is posted: a pending one settles what is owed when it is approved. */
   readonly carryingAmount?: string;
+  readonly treasuryCarryingAmount?: string;
   /** Positive is a gain, negative is a loss. */
   readonly realizedFx?: string;
 }

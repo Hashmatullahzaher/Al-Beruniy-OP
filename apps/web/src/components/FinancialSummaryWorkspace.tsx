@@ -101,6 +101,8 @@ export function FinancialSummaryWorkspace() {
           <dl className="safe-figures">
             <div><dt>{fa ? "عاید" : "Income"}</dt><dd dir="ltr">{money(profit.income, base)}</dd></div>
             <div><dt>{fa ? "مصارف" : "Expenses"}</dt><dd dir="ltr">{money(profit.expenses, base)}</dd></div>
+            {Number(profit.realizedFxGain) !== 0 ? <div><dt>{fa ? "مفاد تحقق‌یافتهٔ تبادله اسعار" : "Realized FX gain"}</dt><dd dir="ltr">{money(profit.realizedFxGain, base)}</dd></div> : null}
+            {Number(profit.realizedFxLoss) !== 0 ? <div><dt>{fa ? "ضرر تحقق‌یافتهٔ تبادله اسعار" : "Realized FX loss"}</dt><dd dir="ltr">{money(profit.realizedFxLoss, base)}</dd></div> : null}
             <div><dt>{profit.netResult.startsWith("-") ? (fa ? "زیان خالص" : "Net loss") : (fa ? "مفاد خالص" : "Net profit")}</dt><dd dir="ltr"><strong>{money(profit.netResult, base)}</strong></dd></div>
           </dl>
           <p><Link href={`/finance/income-statement?${rangeQuery(view.range)}`}>{fa ? "صورت عاید و مصرف" : "Income statement"}</Link></p>

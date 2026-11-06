@@ -15,7 +15,7 @@ const accounts = [
 ];
 const range = { mode: "AS_OF", from: "2026-01-01", to: "2026-09-30", period: null, fiscalYear: null, periods: [] };
 const label = (en: string, fa: string) => ({ en, fa });
-const line = (id: string, extra: object) => ({ id, date: "2026-09-10", postedAt: "2026-09-10T06:00:00Z", moneyIn: "0", moneyOut: "0", balance: "0", currency: "USD", baseAmount: "0",
+const line = (id: string, extra: object) => ({ id, date: "2026-09-10", postedAt: "2026-09-10T06:00:00Z", moneyIn: "0", moneyOut: "0", balance: "0", currency: "USD", baseAmount: "0", runningBase: "0",
   restricted: false, kind: "EXTERNAL", isReversal: false, fx: null, journalId, journalReference: "RC-20260910-AAA",
   source: { type: "CASH_RECEIPT", id: "s", label: label("Money received", "پول دریافت‌شده"), route: "/finance/safes", counterparty: "Tenant", detail: null, reference: "RENT-9", description: "September rent" },
   transferPeer: null, reversedBy: null, reverses: null, ...extra });
@@ -23,10 +23,12 @@ const totals = { moneyIn: "0", moneyOut: "0", transfersIn: "0", transfersOut: "0
 const reconciled = { treasuryBase: "0", ledgerBase: "0", difference: "0", matches: true };
 const statement = (accountId: string) => {
   const account = accounts.find((a) => a.id === accountId) ?? accounts[0]!;
-  const common = { range, canOpenLedger: true, account: { ...account, ledgerAccount: { id: "l1", code: "1100", name: "Cash" } }, reconciliation: reconciled };
+  const common = { range, canOpenLedger: true, carryingStatus: "OK", account: { ...account, ledgerAccount: { id: "l1", code: "1100", name: "Cash" } }, reconciliation: reconciled };
   if (accountId === afnId) return { ...common, opening: { native: "0", base: "0" }, closing: { native: "5600.00", base: "80.00" }, totals: { ...totals, moneyIn: "7000.00", moneyOut: "1400.00", movementCount: 2 },
-    lines: [line("a1", { currency: "AFN", moneyIn: "7000.00", balance: "7000.00", baseAmount: "100.00",
-      fx: { rate: "70", unitCurrency: "USD", quoteCurrency: "AFN", rateDate: "2026-09-14", source: "MARKET", policyVersionId: "p", roundingMode: "HALF_UP", baseScale: 2, exactBaseAmount: "100", roundingDifference: "0" } })] };
+    lines: [line("a1", { currency: "AFN", moneyIn: "7000.00", balance: "7000.00", baseAmount: "100.00", runningBase: "100.00",
+      fx: { rate: "70", unitCurrency: "USD", quoteCurrency: "AFN", rateDate: "2026-09-14", source: "MARKET", policyVersionId: "p", roundingMode: "HALF_UP", baseScale: 2, transactionBaseAmount: "100.00", exactBaseAmount: "100", roundingDifference: "0" } }),
+      line("a2", { currency: "AFN", moneyOut: "1400.00", balance: "5600.00", baseAmount: "-20.00", runningBase: "80.00",
+        fx: { rate: "56", unitCurrency: "USD", quoteCurrency: "AFN", rateDate: "2026-09-23", source: "MARKET", policyVersionId: "p", roundingMode: "HALF_UP", baseScale: 2, transactionBaseAmount: "25.00", exactBaseAmount: "25", roundingDifference: "0" } })] };
   if (accountId === sarafId) return { ...common, opening: { native: "0", base: "0" }, closing: { native: "-300.00", base: "-300.00" }, totals: { ...totals, moneyIn: "100.00", moneyOut: "400.00", movementCount: 2 },
     lines: [line("s1", { moneyIn: "100.00", balance: "100.00", baseAmount: "100.00" }), line("s2", { moneyOut: "400.00", balance: "-300.00", baseAmount: "-400.00" })] };
   return { ...common, opening: { native: "2500.00", base: "2500.00" }, closing: { native: "2900.00", base: "2900.00" },
@@ -95,9 +97,14 @@ test("an AFN Safe's balance is AFN; USD is labelled as accounting value, never a
   await page.goto(`/finance/safe-statement?accountId=${afnId}&asOf=2026-09-30`);
   const report = page.getByRole("region", { name: "Statement" });
   await expect(report.getByRole("definition").filter({ hasText: "5,600.00 AFN" })).toBeVisible();
-  await expect(report.getByText(/This account's balance is in AFN\. Accounting value \(USD/)).toContainText("80.00 USD");
-  await expect(report.getByRole("columnheader", { name: "Accounting value (USD)" })).toBeVisible();
-  await expect(report.getByRole("row").filter({ hasText: "7,000.00" })).toContainText("1 USD = 70 AFN");
+  await expect(report.getByText(/This account's balance is in AFN\. Carrying value \(USD, weighted average/)).toContainText("80.00 USD");
+  await expect(report.getByRole("columnheader", { name: "Carrying value movement (USD)" })).toBeVisible();
+  await expect(report.getByRole("columnheader", { name: "Carrying value (USD)", exact: true })).toBeVisible();
+  await expect(report.getByRole("row").filter({ hasText: "7,000.00" }).first()).toContainText("1 USD = 70 AFN");
+  // The day's value is shown as that, and is not the account's carrying value.
+  const out = report.getByRole("row").filter({ hasText: "1 USD = 56 AFN" });
+  await expect(out).toContainText("At the day's rate: 25.00 USD");
+  await expect(out.getByRole("cell").last()).toHaveText("80.00 USD");
   await expect(report.getByRole("columnheader", { name: "Balance", exact: true })).toBeVisible();
 });
 

@@ -72,7 +72,7 @@ export function FxConversionField({ currency, baseCurrency, date, amount, fa, on
           </select></label>
       ) : rates.length === 1 && rates[0] ? <p className="admin-hint" dir="auto">{fa ? "نرخ: " : "Rate: "}<span dir="ltr">{describe(rates[0])}</span></p> : null}
       {result && preview?.setup?.policy ? (
-        <p className="admin-hint" role="status">{fa ? "در دفاتر ثبت می‌شود: " : "Recorded in the books as "}
+        <p className="admin-hint" role="status">{fa ? "ارزش به نرخ همین روز: " : "Value at this day's rate: "}
           <strong dir="ltr">{money(result.base, preview.baseCurrency)}</strong>
           {fa ? ` (گرد ${preview.setup.policy.roundingMode === "HALF_UP" ? "نیم به بالا" : "فقط دقیق"}، ${preview.setup.policy.baseScale} رقم اعشار)`
             : ` (${preview.setup.policy.roundingMode === "HALF_UP" ? "rounded half up" : "exact only"}, ${preview.setup.policy.baseScale} decimal places)`}</p>

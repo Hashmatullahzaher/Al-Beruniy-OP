@@ -127,8 +127,11 @@ export function SafeStatementWorkspace() {
             <div><dt>{fa ? "خروجی" : "Money out"}</dt><dd dir="ltr">{money(statement.totals.moneyOut, currency)}</dd></div>
             <div><dt>{fa ? "موجودی پایانی" : "Closing balance"}</dt><dd dir="ltr"><strong>{money(statement.closing.native, currency)}</strong></dd></div>
           </dl>
-          {foreign ? <p className="admin-hint">{fa ? `موجودی این حساب به ${currency} است. ارزش حسابداری (${base}، به نرخ ثبت هر حرکت): ` : `This account's balance is in ${currency}. Accounting value (${base}, at each movement's posted rate): `}
+          {foreign ? <p className="admin-hint">{fa ? `موجودی این حساب به ${currency} است. ارزش دفتری (${base}، میانگین موزون): ` : `This account's balance is in ${currency}. Carrying value (${base}, weighted average): `}
             <span dir="ltr">{money(statement.closing.base, base)}</span></p> : null}
+          {foreign && statement.carryingStatus !== "OK" ? <p className="treasury-message error" role="note">{fa
+            ? "ارزش حسابداری این حساب از ثبت‌های پیش از قاعدهٔ ارزش دفتری آمده است و باید اصلاح شود."
+            : "This account's accounting value comes from postings made before carrying value applied, and needs correcting."}</p> : null}
           {owedToSaraf ? <p className="admin-hint" role="note">{fa ? "موجودی منفی یعنی این مقدار به صراف بدهکار هستید." : "A negative balance is an amount owed to the Saraf."}</p> : null}
           {hasTransfers ? <p className="admin-hint">{fa ? "شامل انتقال میان حساب‌های خود شرکت: " : "Includes transfers between the company's own accounts: "}
             <span dir="ltr">{money(statement.totals.transfersIn, currency)}</span>{fa ? " ورودی، " : " in, "}
@@ -146,7 +149,8 @@ export function SafeStatementWorkspace() {
             <div className="table-scroll"><table className="rates-table safe-statement-table">
               <thead><tr><th>{fa ? "تاریخ" : "Date"}</th><th>{fa ? "مرجع" : "Reference"}</th><th>{fa ? "شرح" : "Details"}</th>
                 <th>{fa ? "ورودی" : "Money in"}</th><th>{fa ? "خروجی" : "Money out"}</th><th>{fa ? "موجودی" : "Balance"}</th>
-                {foreign ? <th>{fa ? `ارزش حسابداری (${base})` : `Accounting value (${base})`}</th> : null}</tr></thead>
+                {foreign ? <th>{fa ? `حرکت ارزش دفتری (${base})` : `Carrying value movement (${base})`}</th> : null}
+                {foreign ? <th>{fa ? `ارزش دفتری (${base})` : `Carrying value (${base})`}</th> : null}</tr></thead>
               <tbody>{statement.lines.map((line) => (
                 <tr key={line.id} className={line.restricted ? "restricted" : undefined}>
                   <td data-label={fa ? "تاریخ" : "Date"}>{dualDate(line.date, fa)}</td>
@@ -160,8 +164,10 @@ export function SafeStatementWorkspace() {
                   <td data-label={fa ? "ورودی" : "Money in"} dir="ltr" className="amount">{reportAmount(line.moneyIn)}</td>
                   <td data-label={fa ? "خروجی" : "Money out"} dir="ltr" className="amount">{reportAmount(line.moneyOut)}</td>
                   <td data-label={fa ? "موجودی" : "Balance"} dir="ltr" className="amount">{money(line.balance, currency)}</td>
-                  {foreign ? <td data-label={fa ? "ارزش حسابداری" : "Accounting value"} dir="ltr" className="amount">{money(line.baseAmount, base)}
-                    {line.fx ? <small className="admin-hint"> 1 {line.fx.unitCurrency} = {line.fx.rate} {line.fx.quoteCurrency} · {line.fx.rateDate}</small> : null}</td> : null}
+                  {foreign ? <td data-label={fa ? "حرکت ارزش دفتری" : "Carrying value movement"} dir="ltr" className="amount">{money(line.baseAmount, base)}
+                    {line.fx ? <small className="admin-hint"> 1 {line.fx.unitCurrency} = {line.fx.rate} {line.fx.quoteCurrency} · {line.fx.rateDate}</small> : null}
+                    {line.fx?.transactionBaseAmount ? <small className="admin-hint"> {fa ? "به نرخ همان روز:" : "At the day's rate:"} {money(line.fx.transactionBaseAmount, base)}</small> : null}</td> : null}
+                  {foreign ? <td data-label={fa ? "ارزش دفتری" : "Carrying value"} dir="ltr" className="amount">{money(line.runningBase, base)}</td> : null}
                 </tr>))}</tbody>
             </table></div>
           )}

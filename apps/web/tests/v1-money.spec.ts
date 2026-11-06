@@ -284,7 +284,7 @@ test("an AFN box receives cash at the chosen rate of the day and shows the amoun
   const save = form.getByRole("button", { name: "Save" });
   await expect(save).toBeDisabled();
   await form.getByLabel("Rate for this day *").selectOption(marketRate);
-  const recorded = form.getByRole("status").filter({ hasText: "Recorded in the books as" });
+  const recorded = form.getByRole("status").filter({ hasText: "Value at this day's rate:" });
   await expect(recorded).toContainText("100.00 USD");
   await expect(recorded).toContainText("rounded half up, 2 decimal places");
   await expect(save).toBeEnabled();
@@ -294,6 +294,23 @@ test("an AFN box receives cash at the chosen rate of the day and shows the amoun
   expect(commands[0]).toMatchObject({ url: "/api/v1/finance/money", body: { action: "receive-cash", treasuryAccountId: afnId, amount: "7000",
     currencyCode: "AFN", exchangeRateId: marketRate } });
   expect(asked.some((query) => query.includes("currencyCode=AFN") && query.includes("amount=7000"))).toBe(true);
+});
+
+test("a transaction that needs a realized FX account is refused with the way to create it", async ({ page }) => {
+  const { commands } = await mock(page, { money: options({}, {}, fxReady), refuse: { status: 422, code: "REALIZED_FX_GAIN_ACCOUNT_REQUIRED", message: "This transaction realizes an FX gain. Create a Realized FX Gain account in the Chart of Accounts first. Nothing was recorded." } });
+  await mockPreview(page, "READY");
+  await page.goto("/finance/safes");
+  await page.getByRole("region", { name: "Afghani box" }).getByRole("button", { name: "Receive cash" }).click();
+  const form = page.getByRole("form", { name: "Receive cash — Afghani box" });
+  await form.getByLabel("Amount *").fill("7000");
+  await form.getByLabel("Or a name").fill("Shop tenant");
+  await form.getByLabel("Income account *").selectOption(incomeId);
+  await form.getByLabel("Rate for this day *").selectOption(marketRate);
+  await form.getByRole("button", { name: "Save" }).click();
+  const refused = form.getByRole("alert");
+  await expect(refused).toContainText("Nothing was recorded.");
+  await expect(refused.getByRole("link", { name: "Open the Chart of Accounts" })).toHaveAttribute("href", "/finance/accounts?new=REALIZED_FX_GAIN");
+  expect(commands).toHaveLength(1);
 });
 
 test("an AFN form for a day without a recorded rate says to record it and cannot be saved", async ({ page }) => {

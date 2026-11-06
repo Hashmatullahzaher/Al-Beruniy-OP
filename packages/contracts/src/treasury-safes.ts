@@ -179,6 +179,10 @@ export interface PayPayableCommand extends MoneyRequest {
 export type MoneyCommand = ReceiveCashCommand | TransferCommand | PayPayableCommand;
 
 export interface MoneyResult {
+  /** Carrying value the Treasury account gave up or took on. */
+  readonly carryingAmount?: string;
+  /** Positive is a gain. */
+  readonly realizedFx?: string;
   readonly movementId: string;
   readonly journalId: string;
   readonly reference: string;

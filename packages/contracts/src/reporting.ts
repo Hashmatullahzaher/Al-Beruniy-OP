@@ -146,6 +146,8 @@ export interface TreasuryStatementFx {
   readonly policyVersionId: string | null;
   readonly roundingMode: string | null;
   readonly baseScale: number | null;
+  /** 0064: this movement's value at its own rate. It is not what the account carries. */
+  readonly transactionBaseAmount: string | null;
   readonly exactBaseAmount: string | null;
   readonly roundingDifference: string | null;
 }
@@ -159,8 +161,10 @@ export interface TreasuryStatementLine {
   /** Native running balance after this movement. A Saraf may be negative. */
   readonly balance: string;
   readonly currency: string;
-  /** Signed accounting amount, from the conversion frozen at posting. */
+  /** Signed carrying value this movement added or removed. */
   readonly baseAmount: string;
+  /** Carrying value of the account after this movement. */
+  readonly runningBase: string;
   readonly restricted: boolean;
   /** TRANSFER covers a transfer and its reversal: internal movement, never company money in or out. */
   readonly kind: "EXTERNAL" | "TRANSFER" | "OPENING";
@@ -190,6 +194,8 @@ export interface TreasuryStatement {
   readonly account: TreasuryStatementAccount & { readonly ledgerAccount: { readonly id: string; readonly code: string; readonly name: string } | null };
   readonly opening: { readonly native: string; readonly base: string };
   readonly closing: { readonly native: string; readonly base: string };
+  /** Anything but OK can only come from a history posted before 0064. */
+  readonly carryingStatus: "OK" | "ORPHAN" | "INVERTED";
   readonly totals: { readonly moneyIn: string; readonly moneyOut: string; readonly transfersIn: string; readonly transfersOut: string;
     readonly reversalsIn: string; readonly reversalsOut: string; readonly movementCount: number };
   readonly lines: readonly TreasuryStatementLine[];
@@ -236,7 +242,8 @@ export interface ManagementSummaryView {
   /** The accounting currency. Absent only for a company with no Treasury account. */
   readonly base: SummaryFigures | null;
   readonly currencies: Readonly<Record<string, SummaryFigures>>;
-  readonly profit: { readonly income: string; readonly expenses: string; readonly netResult: string };
+  /** Income and expenses leave realized FX out, so it reads as neither. The net result includes it. */
+  readonly profit: { readonly income: string; readonly expenses: string; readonly realizedFxGain: string; readonly realizedFxLoss: string; readonly netResult: string };
   readonly reconciliation: { readonly treasuryClosing: string; readonly flowsClosing: string; readonly ledgerClosing: string; readonly matches: boolean };
 }
 

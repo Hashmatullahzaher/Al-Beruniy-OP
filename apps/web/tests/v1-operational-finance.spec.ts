@@ -404,8 +404,8 @@ test.describe("V1 operational finance from a new company", () => {
     await nav.getByRole("link", { name: "Income statement" }).click();
     await expect(page.getByRole("region", { name: "Income statement" }).getByRole("row", { name: /Net profit/ }).getByRole("cell")).toHaveText(/^0(\.00)? USD$/);
 
-    // 14. An AFN loan repaid at a worse rate. The accounts are set up from what the loan screen says is missing, then the difference is
-    // realized in each repayment's own journal, and nothing is left on the liability once the AFN is repaid.
+    // 14. AFN that came in at one rate and left at another. The accounts are set up from what the loan screen says is missing. A repayment
+    // from the AFN the same loan brought in realizes nothing, whatever the rate; spending the rest at today's rate realizes the gain once.
     await nav.getByRole("link", { name: "Add money" }).click();
     const needs = page.getByRole("region", { name: "What loans still need" });
     await expect(needs).toContainText("Realized FX Gain");
@@ -450,33 +450,51 @@ test.describe("V1 operational finance from a new company", () => {
     await afnLoan.getByLabel("Who lent the money?").selectOption({ label: "A company" });
     await afnLoan.getByRole("textbox", { name: "Name" }).fill("FX Lender Ltd");
     await afnLoan.getByLabel("Which Safe did it go into?").selectOption({ label: "Main AFN Safe · AFN" });
-    await afnLoan.getByLabel("Amount (AFN)").fill("70000");
+    await afnLoan.getByLabel("Amount (AFN)").fill("140000");
     await afnLoan.getByLabel("Date").fill(kabulDay(-1));
     await afnLoan.getByLabel("Reference (optional)").fill("FX-PRIVATE-REF");
     await afnLoan.getByRole("button", { name: "Record loan" }).click();
     await expect(page.getByText("Loan recorded.")).toBeVisible();
     await page.getByRole("link", { name: "View the loan" }).click();
-    for (const left of ["35,000", "0"]) {
+    for (const left of ["105,000", "70,000"]) {
       await page.getByRole("button", { name: "Repay" }).click();
       const afnRepay = page.getByRole("form", { name: "Repay loan" });
       await afnRepay.getByLabel("Amount (AFN)").fill("35000");
       await afnRepay.getByRole("button", { name: "Record repayment" }).click();
-      await expect(page.locator(".treasury-message.success").filter({ hasText: "Repayment recorded." })).toContainText("Realized FX loss: 125 USD.");
+      await expect(page.locator(".treasury-message.success").filter({ hasText: "Repayment recorded." })).not.toContainText("Realized FX");
       await expect(page.getByRole("region", { name: "Loans" }).getByRole("row", { name: /FX Lender Ltd/ })).toContainText(`${left} AFN`);
     }
     const afnReport = page.getByRole("region", { name: "Loan statement" });
     await expect(afnReport.getByRole("status")).toContainText("Agrees with the liability account.");
-    await expect(afnReport.getByRole("row", { name: /^Outstanding/ })).toContainText("0 AFN");
-    await expect(afnReport.getByRole("note")).toContainText("Accounting value still owed: 0.00 USD.");
-    await expect(afnReport.getByRole("note")).toContainText("Realized FX in this period: −250.00 USD.");
+    await expect(afnReport.getByRole("row", { name: /^Outstanding/ })).toContainText("70,000 AFN");
+    await expect(afnReport.getByRole("note")).toContainText("Accounting value still owed: 1,000.00 USD.");
+    await nav.getByRole("link", { name: "Record expense" }).click();
+    const afnExpense = page.getByRole("form", { name: "Record expense" });
+    await afnExpense.getByLabel("Paid from *").selectOption({ label: "Main AFN Safe · AFN" });
+    await afnExpense.getByLabel("Expense type *").selectOption({ label: "Office supplies" });
+    await afnExpense.getByLabel("Amount (AFN) *").fill("70000");
+    await afnExpense.getByLabel("Receipt or reference number *").fill("EXP-AFN");
+    await afnExpense.getByLabel("What was it for? *").fill("Office supplies paid in AFN");
+    await afnExpense.getByRole("button", { name: "Record expense" }).click();
+    await expect(page.getByRole("status").filter({ hasText: "Expense recorded" })).toContainText("Realized FX gain: 250 USD.");
+    expect((await journalLines()).slice(-3)).toEqual([
+      { source: "OPERATIONAL_EXPENSE", account: "5100", debit: "1250", credit: "0" },
+      { source: "OPERATIONAL_EXPENSE", account: "1120", debit: "0", credit: "1000" },
+      { source: "OPERATIONAL_EXPENSE", account: "4910", debit: "0", credit: "250" }
+    ]);
+    await nav.getByRole("link", { name: "Safe / Saraf statement" }).click();
+    await page.getByLabel(/^Account/).selectOption({ label: "Main AFN Safe" });
+    const afnSafeReport = page.getByRole("region", { name: "Statement" });
+    await expect(afnSafeReport.getByText(/Carrying value \(USD, weighted average/)).toContainText("0.00 USD");
+    await expect(afnSafeReport.getByRole("definition").filter({ hasText: /^0(\.00)? AFN$/ })).toHaveCount(2);
     await nav.getByRole("link", { name: "Balance sheet" }).click();
     const fxSheet = page.getByRole("region", { name: "Balance sheet" });
     await expect(fxSheet.getByRole("status")).toContainText("(balanced)");
-    await expect(fxSheet.getByRole("row", { name: /^Total liabilities[^a]*$/ })).toContainText(usd("50,000"));
+    await expect(fxSheet.getByRole("row", { name: /^Total liabilities[^a]*$/ })).toContainText(usd("51,000"));
     await nav.getByRole("link", { name: "Income statement" }).click();
     const fxIncome = page.getByRole("region", { name: "Income statement" });
-    await expect(fxIncome.getByRole("row", { name: /Realized FX Loss/ })).toContainText("250.00 USD");
-    await expect(fxIncome.getByRole("row", { name: /Net loss/ }).getByRole("cell")).toHaveText("−250.00 USD");
+    await expect(fxIncome.getByRole("row", { name: /Realized FX Gain/ })).toContainText("250.00 USD");
+    await expect(fxIncome.getByRole("row", { name: /Net loss/ }).getByRole("cell")).toHaveText("−1,000.00 USD");
 
     // A report-only reader, raw responses: the totals and nothing about the lender.
     const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kabul" }).format(new Date());
@@ -484,7 +502,7 @@ test.describe("V1 operational finance from a new company", () => {
       const answer = (await browserGet(lawReader, path)).text;
       for (const word of ["Outside Lender Ltd", "FX Lender Ltd", "FX-PRIVATE-REF", "Ahmad Test Shareholder", "LOAN-PRIVATE-REF", "LN-2", "LR-2", "RV-2", "/finance/loans", "Repayment entered in error"]) expect(answer, `${path} must not carry ${word}`).not.toContain(word);
     }
-    expect((await browserGet(lawReader, `/api/v1/finance/balance-sheet?asOf=${today}`)).text).toContain("50000");
+    expect((await browserGet(lawReader, `/api/v1/finance/balance-sheet?asOf=${today}`)).text).toContain("51000");
     await lawReader.context().close();
   });
 });

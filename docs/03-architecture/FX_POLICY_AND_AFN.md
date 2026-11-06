@@ -97,6 +97,8 @@ The account in force, if any, is recorded on each conversion for traceability. L
 
 Those sources need journals whose lines carry different amounts. 0063 added that to the posting kernel for loan settlement. They are not built until their accounting is explicitly designed.
 
+**Since 0064** a foreign-currency Treasury account carries weighted-average value, so an outflow leaves Treasury at carrying value, not at the day's rate. The difference is realized FX on `REALIZED_FX_GAIN` or `REALIZED_FX_LOSS`, never `FX_DIFFERENCE`. See `V1_FX_TREASURY_CARRYING_VALUE.md`.
+
 ## 5. Reading
 
 - **Safe card:** the native book, plus "In the books" (the sum of the accounting amounts of its posted movements) for a foreign-currency Safe.

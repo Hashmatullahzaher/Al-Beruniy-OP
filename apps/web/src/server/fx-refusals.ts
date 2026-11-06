@@ -4,6 +4,21 @@
  */
 
 export const FX_REFUSALS: readonly { readonly pattern: RegExp; readonly status: number; readonly code: string; readonly message: string }[] = [
+  // 0063 and 0064: realized FX and Treasury carrying value, on every lane that can move foreign currency.
+  { pattern: /REALIZED_FX_GAIN_ACCOUNT_REQUIRED/, status: 422, code: "REALIZED_FX_GAIN_ACCOUNT_REQUIRED",
+    message: "This transaction realizes an FX gain. Create a Realized FX Gain account in the Chart of Accounts first. Nothing was recorded." },
+  { pattern: /REALIZED_FX_LOSS_ACCOUNT_REQUIRED/, status: 422, code: "REALIZED_FX_LOSS_ACCOUNT_REQUIRED",
+    message: "This transaction realizes an FX loss. Create a Realized FX Loss account in the Chart of Accounts first. Nothing was recorded." },
+  { pattern: /REALIZED_FX_ACCOUNT_INVALID/, status: 422, code: "REALIZED_FX_ACCOUNT_INVALID",
+    message: "Keep exactly one active Realized FX Gain account and one Realized FX Loss account, in the accounting currency, without dimensions. Nothing was recorded." },
+  { pattern: /TREASURY_FX_OUT_OF_ORDER/, status: 422, code: "TREASURY_FX_OUT_OF_ORDER",
+    message: "This account already has a later movement, and its value was worked out without this one. Date this on or after that day, or reverse the later movement first." },
+  { pattern: /TREASURY_CARRYING_CORRECTION_REQUIRED/, status: 422, code: "TREASURY_CARRYING_CORRECTION_REQUIRED",
+    message: "This account's accounting value comes from older postings and needs correcting before money can leave it. Nothing was recorded." },
+  { pattern: /TREASURY_DISPOSE_IN_FULL/, status: 422, code: "TREASURY_DISPOSE_IN_FULL",
+    message: "So little accounting value remains in this account that its balance can only be moved in full." },
+  { pattern: /TREASURY_FX_OPENING_ORDER/, status: 422, code: "TREASURY_FX_OPENING_ORDER",
+    message: "This account already owes this currency, so it cannot take an opening balance." },
   { pattern: /FX setup: no FX difference account/i, status: 422, code: "FX_SETUP_REQUIRED",
     message: "This would record an FX difference, which needs one active income or expense account in the accounting currency with the control “FX difference” in the Chart of Accounts." },
   { pattern: /FX setup: \d+ active accounts carry control FX_DIFFERENCE/i, status: 422, code: "FX_SETUP_AMBIGUOUS",

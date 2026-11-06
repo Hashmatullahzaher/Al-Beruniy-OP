@@ -35,6 +35,7 @@ const ERROR_FA: Readonly<Record<string, string>> = {
   SECOND_PERSON_REQUIRED: "شخص دیگری باید درباره این درخواست تصمیم بگیرد.",
   PARTICIPANT: "کسی که این معامله را آماده، تأیید یا ثبت کرده نمی‌تواند آن را برگشت دهد، درخواست کند یا تصمیم بگیرد.",
   ALREADY_REVERSED: "این معامله قبلاً برگشت داده شده است.",
+  LATER_TREASURY_MOVEMENT: "حرکت بعدی این حساب اسعاری به این حرکت وابسته است. نخست آن را برگشت دهید.",
   IS_REVERSAL: "این خودش یک برگشت است؛ دوباره برگشت داده نمی‌شود.",
   NOT_REVERSIBLE: "این نوع معامله هنوز برگشت داده نمی‌شود.",
   OPEN_REQUEST: "این معامله درخواست برگشت باز دارد؛ درباره همان تصمیم بگیرید.",
@@ -103,6 +104,7 @@ export function JournalReversalsWorkspace() {
   const why = (journal: ReversibleJournalView): string | null => {
     if (journal.reversal) return null;
     if (journal.blocker === "OPEN_REQUEST" || journal.blocker === "APPROVED_REQUEST") return fa ? "درخواست برگشت دارد" : "Has a reversal request";
+    if (journal.blocker === "LATER_TREASURY_MOVEMENT") return fa ? "نخست حرکت بعدی همین حساب را برگشت دهید" : "Reverse the later movement on this account first";
     if (journal.viewerIsParticipant) return fa ? "شما آن را ثبت کرده‌اید؛ در حالت تأیید شخص دیگری باید برگشت دهد" : "You recorded it; with approvals on, another person must reverse it";
     return null;
   };

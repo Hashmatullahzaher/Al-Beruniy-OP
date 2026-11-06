@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 
 import { api, errorText } from "@/components/AdminUsersWorkspace";
 import { FxConversionField, type FxChoice } from "@/components/FxConversionField";
-import { localizedName, money } from "@/components/OperationalFinanceShared";
+import { fxSetupHref, localizedName, money, realizedFxText } from "@/components/OperationalFinanceShared";
 import type { Copy } from "@/lib/access-copy";
 
 export type MoneyKind = "receive" | "transfer" | "pay";
@@ -30,6 +30,13 @@ const KIND_COPY: Readonly<Record<PaymentKind, Copy>> = {
 
 /** Dari for the refusal codes of moneyErrorResponse and the expense lane. */
 export const MONEY_ERROR_FA: Readonly<Record<string, string>> = {
+  REALIZED_FX_GAIN_ACCOUNT_REQUIRED: "این معامله مفاد تبادله اسعار ایجاد می‌کند. نخست در جدول حساب‌ها حساب مفاد تحقق‌یافتهٔ تبادله اسعار را بسازید. چیزی ثبت نشد.",
+  REALIZED_FX_LOSS_ACCOUNT_REQUIRED: "این معامله ضرر تبادله اسعار ایجاد می‌کند. نخست در جدول حساب‌ها حساب ضرر تحقق‌یافتهٔ تبادله اسعار را بسازید. چیزی ثبت نشد.",
+  REALIZED_FX_ACCOUNT_INVALID: "دقیقاً یک حساب فعال مفاد و یک حساب فعال ضرر تبادله اسعار، به واحد پول حسابداری و بدون ابعاد، نگه دارید. چیزی ثبت نشد.",
+  TREASURY_FX_OUT_OF_ORDER: "این حساب حرکت بعدی دارد و ارزش آن بدون این حرکت محاسبه شده است. تاریخ را همان روز یا بعد از آن بگذارید، یا نخست حرکت بعدی را برگشت دهید.",
+  TREASURY_CARRYING_CORRECTION_REQUIRED: "ارزش حسابداری این حساب از ثبت‌های قدیمی است و پیش از خروج پول باید اصلاح شود. چیزی ثبت نشد.",
+  TREASURY_DISPOSE_IN_FULL: "ارزش حسابداری بسیار کمی در این حساب مانده است و موجودی آن فقط یکجا منتقل می‌شود.",
+  TREASURY_FX_OPENING_ORDER: "این حساب از قبل به این واحد پول بدهکار است و موجودی افتتاحیه نمی‌گیرد.",
   INSUFFICIENT_FUNDS: "صندوق برای این کار پول کافی ندارد. صندوق، صندوقچه و تنخواه هرگز زیر صفر نمی‌رود.",
   APPROVAL_NOT_AVAILABLE: "شرکت برای این مورد تأیید لازم دارد که هنوز برای آن در دسترس نیست. برای ثبت با یک ذخیره، تأیید را در «تأیید جریان‌ها» خاموش کنید.",
   SAME_ACCOUNT: "دو حساب متفاوت انتخاب کنید.",
@@ -94,6 +101,7 @@ export function MoneyMovementForm({ kind, safe, options, fa, close, done }: Read
   const [request, setRequest] = useState(identity);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [setupHref, setSetupHref] = useState<string | null>(null);
   const [fx, setFx] = useState<FxChoice>({ exchangeRateId: null, ready: true });
   const change = <T,>(set: (value: T) => void) => (value: T) => { set(value); setRequest(identity()); };
 
@@ -129,7 +137,7 @@ export function MoneyMovementForm({ kind, safe, options, fa, close, done }: Read
 
   const submit = async () => {
     if (!valid || busy) return;
-    setBusy(true); setError(null);
+    setBusy(true); setError(null); setSetupHref(null);
     const common = { amount: amount.trim(), currencyCode: safe.currencyCode, businessDate: date, reference: reference.trim() || null,
       note: note.trim() || null, exchangeRateId: fx.exchangeRateId, ...request };
     let result: Awaited<ReturnType<typeof api<unknown>>>;
@@ -150,13 +158,15 @@ export function MoneyMovementForm({ kind, safe, options, fa, close, done }: Read
         paymentKind, correlationId: request.correlationId, idempotencyKey: request.idempotencyKey });
     }
     setBusy(false);
-    if (!result.ok) { setError(moneyError(result.error, locale)); return; }
-    const status = (result.data as { expense?: { status?: string } }).expense?.status;
+    if (!result.ok) { setError(moneyError(result.error, locale)); setSetupHref(fxSetupHref(result.error.code)); return; }
+    const posted = result.data as { expense?: { status?: string; realizedFx?: string | null }; realizedFx?: string };
+    const status = posted.expense?.status;
+    const realized = realizedFxText(posted.expense?.realizedFx ?? posted.realizedFx, options.baseCurrency ?? safe.currencyCode);
     await done(status === "PENDING_APPROVAL"
       ? { en: "Payment recorded and waiting for approval. The Safe changes once it is approved.", fa: "پرداخت ثبت شد و منتظر تأیید است. صندوق پس از تأیید تغییر می‌کند." }
-      : kind === "receive" ? { en: "Money received and recorded.", fa: "پول دریافت و ثبت شد." }
-        : kind === "transfer" ? { en: "Transfer recorded.", fa: "انتقال ثبت شد." }
-          : { en: "Payment recorded.", fa: "پرداخت ثبت شد." });
+      : kind === "receive" ? { en: `Money received and recorded.${realized.en}`, fa: `پول دریافت و ثبت شد.${realized.fa}` }
+        : kind === "transfer" ? { en: `Transfer recorded.${realized.en}`, fa: `انتقال ثبت شد.${realized.fa}` }
+          : { en: `Payment recorded.${realized.en}`, fa: `پرداخت ثبت شد.${realized.fa}` });
     close();
   };
 
@@ -250,7 +260,7 @@ export function MoneyMovementForm({ kind, safe, options, fa, close, done }: Read
       <label className="wide"><span>{fa ? "یادداشت (اختیاری)" : "Note (optional)"}</span>
         <textarea value={note} maxLength={1000} rows={2} onChange={(event) => change(setNote)(event.target.value)} /></label>
       {settingNotice ? <p className="admin-hint expense-warning wide" role="status">{settingNotice}</p> : null}
-      {error ? <p className="treasury-message error wide" role="alert">{error}</p> : null}
+      {error ? <p className="treasury-message error wide" role="alert">{error}{setupHref ? <> <Link href={setupHref}>{fa ? "باز کردن جدول حساب‌ها" : "Open the Chart of Accounts"}</Link></> : null}</p> : null}
       <div className="admin-form-actions wide">
         <button className="treasury-button gold" type="submit" disabled={busy || !valid}>{busy ? (fa ? "در حال ذخیره…" : "Saving…") : (fa ? "ذخیره" : "Save")}</button>
         <button className="treasury-button" type="button" onClick={close} disabled={busy}>{fa ? "لغو" : "Cancel"}</button>

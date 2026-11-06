@@ -67,7 +67,7 @@ if (databaseUrl() === undefined) {
                 p.proconfig AS config, has_function_privilege('public', p.oid, 'EXECUTE') AS public_execute
            FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace JOIN pg_roles r ON r.oid = p.proowner
           WHERE n.nspname = 'abos' AND p.prosecdef ORDER BY 1`);
-      assert.equal(rows.rows.length, 149, "every restricted entry point through the 0063 loan readiness is accounted for");
+      assert.equal(rows.rows.length, 150, "every restricted entry point through the 0064 reversal check is accounted for");
       for (const fn of rows.rows) {
         assert.ok((FUNCTION_OWNERS as readonly string[]).includes(fn.owner), `${fn.signature} is owned by ${fn.owner}`);
         assert.equal(fn.superuser, false, fn.signature);
@@ -215,7 +215,7 @@ if (databaseUrl() === undefined) {
         finance_income_statement: "abos_v1_operational_finance_owner", finance_balance_sheet: "abos_v1_operational_finance_owner",
         // 0061 and 0062: the loan lanes and read models.
         finance_loan_record: "abos_v1_operational_finance_owner", finance_loan_repay: "abos_v1_operational_finance_owner", finance_loan_decide: "abos_v1_operational_finance_owner",
-        finance_loan_workspace: "abos_v1_operational_finance_owner", finance_loan_statement: "abos_v1_operational_finance_owner", finance_loan_readiness: "abos_v1_operational_finance_owner",
+        finance_loan_workspace: "abos_v1_operational_finance_owner", finance_loan_statement: "abos_v1_operational_finance_owner", finance_loan_readiness: "abos_v1_operational_finance_owner", treasury_reversal_safe: "abos_v1_operational_finance_owner",
         // WP #17 (0023): reversal requests (request -> Finance Manager decision; posting fail-closed).
         finance_reversal_requests_view: "abos_e1_finance_owner", finance_reversal_request_create: "abos_e1_finance_owner",
         finance_reversal_request_decide: "abos_e1_finance_owner", finance_reversal_request_withdraw: "abos_e1_finance_owner"

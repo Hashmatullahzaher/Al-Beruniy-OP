@@ -6,9 +6,13 @@ import { databaseUrl, MISSING_DATABASE_MESSAGE } from "./harness.ts";
 import { assertAbsent, keys, ReportDatabase, SEPT, type ReportCompany, type Session } from "./report-world.ts";
 
 /**
- * Migration 0063: a loan repayment removes carrying value, and the difference from the cash paid is a realized FX gain or loss in the same
- * journal. The tests run in order on purpose: the USD and same-rate cases finish before any FX account exists, which is the proof that
- * ordinary postings never need one. Rates are USD 1 = this many AFN.
+ * Migration 0063: a loan repayment removes carrying value, and any difference is a realized FX gain or loss in the same journal. The tests
+ * run in order on purpose: the USD and same-rate cases finish before any FX account exists, which is the proof that ordinary postings never
+ * need one. Rates are USD 1 = this many AFN.
+ *
+ * Since 0064 the Treasury side gives up its own carrying value, not the day's value. A repayment here therefore draws by default on a Safe
+ * holding exactly that AFN at that day's rate, so its carrying value is the day's value and these figures stay exact. The cases where the two
+ * differ, including AFN borrowed and repaid from the same basis, are in fx-treasury-carrying.test.ts.
  */
 
 type Line = { account: string; debit: string; credit: string; party: string | null };
@@ -34,7 +38,7 @@ if (databaseUrl() === undefined) {
 } else {
   describe("0063: realized FX on loan settlement", () => {
     const db = new ReportDatabase();
-    let f: ReportCompany; let officer: Session; let approver: Session; let safeCode: string; let lossAccount: string;
+    let f: ReportCompany; let officer: Session; let approver: Session; let safeCode: string; let lossAccount: string; let fundingSafes = 0;
 
     const ledger = async (code: string, type: string, control: string, currency: string | null = "USD") => {
       const id = randomUUID();
@@ -46,13 +50,19 @@ if (databaseUrl() === undefined) {
       VALUES ($1,$2,$3,'MARKET','USD','AFN',$4,'Synthetic rate',$5)`, [randomUUID(), f.e, day, value, f.u]);
     const lines = async (journal: string | null | undefined) => (await db.h.pool.query<Line>(`SELECT a.account_code AS account, l.base_debit::text AS debit, l.base_credit::text AS credit, l.business_party_id AS party
       FROM abos.journal_lines l JOIN abos.ledger_accounts a ON a.id = l.ledger_account_id WHERE l.journal_id = $1 ORDER BY l.line_number`, [journal])).rows;
-    const shape = async (journal: string | null | undefined) => (await lines(journal)).map((l) => [l.account, Number(l.debit), Number(l.credit)]);
+    const shape = async (journal: string | null | undefined) => (await lines(journal)).map((l) => [l.account.startsWith("FUND-") ? safeCode : l.account, Number(l.debit), Number(l.credit)]);
+    /** A new Safe holding exactly this AFN at this day's rate, from an opening balance, so it touches neither income nor expense. */
+    const funded = async (amount: string, day: string) => {
+      const id = await db.treasury(f.world, `Synthetic funding Safe ${++fundingSafes}`, "SAFE", "AFN", await ledger(`FUND-${fundingSafes}`, "ASSET", "CASH", "AFN"));
+      await db.call("treasury_opening_balance_record", officer, { treasuryAccountId: id, amount, currencyCode: "AFN", asOfDate: day, reference: null, note: null, ...keys() });
+      return id;
+    };
     const record = (payload: object) => db.call<Recorded>("finance_loan_record", officer, { lenderType: "COMPANY", lenderName: "Synthetic FX Bank", treasuryAccountId: f.afnSafe, currencyCode: "AFN",
       businessDate: AT_70, reference: null, note: null, ...keys(), ...payload });
     const afnLoan = (amount = "7000.00", extra: object = {}) => record({ amount, ...extra });
     const usdLoan = (amount: string) => record({ amount, treasuryAccountId: f.usdSafe, currencyCode: "USD" });
-    const repay = (loanId: string, amount: string, businessDate: string, extra: object = {}, s: Session = officer) => db.call<Repaid>("finance_loan_repay", s, { loanId, treasuryAccountId: f.afnSafe, amount, businessDate,
-      reference: null, note: null, ...keys(), ...extra });
+    const repay = async (loanId: string, amount: string, businessDate: string, extra: { treasuryAccountId?: string; [key: string]: unknown } = {}, s: Session = officer) => db.call<Repaid>("finance_loan_repay", s, { loanId,
+      treasuryAccountId: extra.treasuryAccountId ?? await funded(amount, businessDate), amount, businessDate, reference: null, note: null, ...keys(), ...extra });
     const reverse = (journalId: string | null, reason: string) => db.call<{ reversalJournalId: string }>("finance_journal_reversal_direct", officer, { journalId, reason, ...keys() });
     const statement = (loanId: string) => db.call<Statement>("finance_loan_statement", officer, { loanId, asOf: "2026-09-30" });
     const readiness = (s: Session = officer) => db.call<Readiness>("finance_loan_readiness", s);
@@ -137,8 +147,9 @@ if (databaseUrl() === undefined) {
 
     test("15. a gain with no gain account is refused before anything is written", async () => {
       const r = await afnLoan();
+      const safe = await funded("3500.00", AT_80);
       const [journalsBefore, conversionsBefore] = [await journals(), await count("SELECT count(*)::text AS n FROM abos.fx_conversions WHERE legal_entity_id = $1", f.e)];
-      await assert.rejects(() => repay(r.loanId, "3500.00", AT_80), /REALIZED_FX_GAIN_ACCOUNT_REQUIRED/);
+      await assert.rejects(() => repay(r.loanId, "3500.00", AT_80, { treasuryAccountId: safe }), /REALIZED_FX_GAIN_ACCOUNT_REQUIRED/);
       assert.equal(await journals(), journalsBefore);
       assert.equal(await count("SELECT count(*)::text AS n FROM abos.loan_repayments WHERE loan_id = $1", r.loanId), 0);
       assert.equal(await count("SELECT count(*)::text AS n FROM abos.fx_conversions WHERE legal_entity_id = $1", f.e), conversionsBefore, "no half-written conversion");
@@ -148,8 +159,9 @@ if (databaseUrl() === undefined) {
     test("16. a loss with no loss account is refused, even when the gain account exists", async () => {
       const r = await afnLoan();
       await ledger(GAIN, "REVENUE", "REALIZED_FX_GAIN");
+      const safe = await funded("3500.00", AT_50);
       const journalsBefore = await journals();
-      await assert.rejects(() => repay(r.loanId, "3500.00", AT_50), /REALIZED_FX_LOSS_ACCOUNT_REQUIRED/);
+      await assert.rejects(() => repay(r.loanId, "3500.00", AT_50, { treasuryAccountId: safe }), /REALIZED_FX_LOSS_ACCOUNT_REQUIRED/);
       assert.equal(await journals(), journalsBefore);
       lossAccount = await ledger(LOSS, "EXPENSE", "REALIZED_FX_LOSS");
     });
@@ -264,7 +276,7 @@ if (databaseUrl() === undefined) {
 
     test("12. an idempotent replay returns the same journal and posts nothing more", async () => {
       const r = await afnLoan();
-      const request = keys();
+      const request = { ...keys(), treasuryAccountId: await funded("3500.00", AT_80) };
       const first = await repay(r.loanId, "3500.00", AT_80, request);
       const count1 = await journals();
       const again = await repay(r.loanId, "3500.00", AT_80, request);
@@ -328,14 +340,14 @@ if (databaseUrl() === undefined) {
       assert.deepEqual(await position(r.loanId), [7000, 100]);
     });
 
-    test("the Safe statement stays native first, with each movement's frozen base value", async () => {
+    test("the Safe statement stays native first, and AFN repaid from where it came in leaves at the value it came in at", async () => {
       const opening = await safeNative(f.afnSafe);
       const r = await afnLoan();
-      await repay(r.loanId, "7000.00", AT_50);
+      await repay(r.loanId, "7000.00", AT_50, { treasuryAccountId: f.afnSafe });
       assert.equal(await safeNative(f.afnSafe), opening, "the AFN that came in went out");
       const flows = await db.h.pool.query<{ native: string; base: string }>(`SELECT e.original_amount::text AS native, e.base_amount::text AS base FROM abos.subledger_entries e JOIN abos.journal_lines l ON l.id = e.journal_line_id
         WHERE e.subledger_type = 'OPERATIONAL_TREASURY' AND l.journal_id IN (SELECT journal_id FROM abos.loan_journals($1)) ORDER BY e.base_amount DESC`, [r.loanId]);
-      assert.deepEqual(flows.rows.map((x) => [Number(x.native), Number(x.base)]), [[7000, 100], [-7000, -140]]);
+      assert.deepEqual(flows.rows.map((x) => [Number(x.native), Number(x.base)]), [[7000, 100], [-7000, -100]]);
     });
 
     test("20. capital and a shareholder's AFN loan stay separate, and FX never touches capital", async () => {
@@ -363,7 +375,7 @@ if (databaseUrl() === undefined) {
       const usd = await usdLoan("900.00");
       await repay(usd.loanId, "900.00", AT_70, { treasuryAccountId: f.usdSafe });
       const after = await income();
-      assert.deepEqual([after[0] - before[0], after[1] - before[1], after[2] - before[2]], [6.25, 20, -13.75], "7,000 AFN and 900 USD of principal moved; only 6.25 and 20 reached the result");
+      assert.deepEqual([after[0] - before[0], after[1] - before[1], after[2] - before[2]].map((x) => Number(x.toFixed(2))), [6.25, 20, -13.75], "7,000 AFN and 900 USD of principal moved; only 6.25 and 20 reached the result");
       const accounts = await db.h.pool.query<{ control: string; type: string }>(`SELECT DISTINCT a.control_account_type AS control, a.account_type AS type FROM abos.journal_lines l JOIN abos.ledger_accounts a ON a.id = l.ledger_account_id
         JOIN abos.journals j ON j.id = l.journal_id JOIN abos.posting_intents i ON i.id = j.posting_intent_id WHERE i.source_type = 'LOAN_REPAYMENT' AND a.account_type IN ('REVENUE', 'EXPENSE') AND j.legal_entity_id = $1 ORDER BY 1`, [f.e]);
       assert.deepEqual(accounts.rows, [{ control: "REALIZED_FX_GAIN", type: "REVENUE" }, { control: "REALIZED_FX_LOSS", type: "EXPENSE" }]);
@@ -421,9 +433,9 @@ if (databaseUrl() === undefined) {
       await assert.rejects(() => readiness(nobody), /missing finance\.loan\.read/);
     });
 
-    test("the registry allows the third line for these two sources alone, and no account appeared on its own", async () => {
+    test("the registry allows the third line for every lane that can carry foreign currency, and no account appeared on its own", async () => {
       const rows = await db.h.pool.query<{ source: string }>("SELECT source_type AS source FROM abos.posting_sources WHERE line_count_max IS NOT NULL ORDER BY 1");
-      assert.deepEqual(rows.rows.map((x) => x.source), ["LOAN_REPAYMENT", "REVERSAL"]);
+      assert.deepEqual(rows.rows.map((x) => x.source), ["CASH_RECEIPT", "LOAN_RECEIPT", "LOAN_REPAYMENT", "OPERATIONAL_EXPENSE", "PAYMENT", "REVERSAL", "TREASURY_TRANSFER"]);
       const accounts = await count("SELECT count(*)::text AS n FROM abos.ledger_accounts WHERE control_account_type LIKE 'REALIZED_FX%' AND legal_entity_id <> $1", f.e);
       assert.equal(accounts, 0, "no migration created an account");
     });

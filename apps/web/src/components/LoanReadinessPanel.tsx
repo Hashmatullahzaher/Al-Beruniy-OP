@@ -15,8 +15,8 @@ import { permissionLabel } from "@/lib/access-copy";
 const ACCOUNT_COPY: Readonly<Record<LoanAccountControl, { name: [string, string]; needed: [string, string] }>> = {
   SHAREHOLDER_LOAN: { name: ["Shareholder Loan Payable", "قرض پرداختنی سهامدار"], needed: ["Needed to record a shareholder loan.", "برای ثبت قرض سهامدار لازم است."] },
   LOAN_PAYABLE: { name: ["Other Loan Payable", "قرض پرداختنی دیگر"], needed: ["Needed to record a loan from anyone else.", "برای ثبت قرض از دیگران لازم است."] },
-  REALIZED_FX_GAIN: { name: ["Realized FX Gain", "مفاد تحقق‌یافتهٔ تبادله اسعار"], needed: ["Needed only when a foreign-currency loan is repaid at a better rate.", "تنها وقتی لازم است که قرض ارزی به نرخ بهتر بازپرداخت شود."] },
-  REALIZED_FX_LOSS: { name: ["Realized FX Loss", "ضرر تحقق‌یافتهٔ تبادله اسعار"], needed: ["Needed only when a foreign-currency loan is repaid at a worse rate.", "تنها وقتی لازم است که قرض ارزی به نرخ بدتر بازپرداخت شود."] }
+  REALIZED_FX_GAIN: { name: ["Realized FX Gain", "مفاد تحقق‌یافتهٔ تبادله اسعار"], needed: ["Needed only when foreign currency settles for more than the value it carried.", "تنها وقتی لازم است که ارز به ارزشی بیشتر از ارزش دفتری آن تسویه شود."] },
+  REALIZED_FX_LOSS: { name: ["Realized FX Loss", "ضرر تحقق‌یافتهٔ تبادله اسعار"], needed: ["Needed only when foreign currency settles for less than the value it carried.", "تنها وقتی لازم است که ارز به ارزشی کمتر از ارزش دفتری آن تسویه شود."] }
 };
 const STATUS_COPY: Readonly<Record<Exclude<LoanAccountStatus, "READY">, [string, string]>> = {
   MISSING: ["Not created yet.", "هنوز ساخته نشده است."],

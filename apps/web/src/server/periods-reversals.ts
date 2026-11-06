@@ -113,6 +113,8 @@ const REFUSALS: readonly { readonly pattern: RegExp; readonly status: number; re
   { pattern: /whoever prepared, approved or posted a journal|actor who posted a journal cannot/i, status: 403, code: "PARTICIPANT",
     message: "Whoever prepared, approved or posted a transaction cannot reverse it, ask for its reversal or decide it." },
   { pattern: /already been reversed/i, status: 409, code: "ALREADY_REVERSED", message: "This transaction has already been reversed." },
+  { pattern: /TREASURY_LATER_MOVEMENT/, status: 422, code: "LATER_TREASURY_MOVEMENT",
+    message: "A later movement on this foreign-currency account depends on this one. Reverse that movement first." },
   { pattern: /itself a reversal/i, status: 422, code: "IS_REVERSAL", message: "This is a reversal; a reversal is not reversed again." },
   { pattern: /cannot be reversed yet|kind of journal cannot be reversed/i, status: 422, code: "NOT_REVERSIBLE",
     message: "This kind of transaction cannot be reversed yet." },

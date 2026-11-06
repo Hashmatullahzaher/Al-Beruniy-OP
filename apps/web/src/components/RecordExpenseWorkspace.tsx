@@ -14,9 +14,11 @@ import { useLocale } from "@/components/LocaleProvider";
 import {
   exactAmount,
   expenseErrorText,
+  fxSetupHref,
   kabulToday,
   localizedName,
-  money
+  money,
+  realizedFxText
 } from "@/components/OperationalFinanceShared";
 import { StageZeroPageHeader } from "@/components/StageZeroWorkspace";
 
@@ -57,6 +59,7 @@ export function RecordExpenseWorkspace() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [setupHref, setSetupHref] = useState<string | null>(null);
   const [recorded, setRecorded] = useState<OperationalExpenseView | null>(null);
   const [identity, setIdentity] = useState(newRequestIdentity);
   // Recorded account activity for the chosen date, used only to warn before an account goes below
@@ -172,6 +175,7 @@ export function RecordExpenseWorkspace() {
     if (!ready || !account) return;
     setBusy(true);
     setError(null);
+    setSetupHref(null);
     const result = await api<OperationalExpenseMutationResult>("/api/v1/finance/operations/expenses", "POST", {
       treasuryAccountId: draft.treasuryAccountId,
       expenseCategoryId: draft.expenseCategoryId,
@@ -194,6 +198,7 @@ export function RecordExpenseWorkspace() {
       // trying again replays the recorded result instead of recording the expense twice.
       if (result.status === 401) setGate("signed-out");
       setError(expenseErrorText(result.error, locale));
+      setSetupHref(fxSetupHref(result.error.code));
       return;
     }
     setRecorded(result.data.expense);
@@ -231,11 +236,12 @@ export function RecordExpenseWorkspace() {
               : `Expense recorded: ${money(recorded.originalAmount, recorded.originalCurrency)} from ${recorded.treasuryAccountNameEn}.`)
             : (fa ? "مصرف برای تأیید فرستاده شد. تا تأیید نشود، موجودی خزانه تغییر نمی‌کند."
               : "Expense sent for approval. The Treasury balance does not change until it is approved.")}
+            {realizedFxText(recorded.realizedFx, recorded.baseCurrency)[fa ? "fa" : "en"]}
             {" "}<Link href="/finance/transactions">{fa ? "دیدن معاملات روزانه" : "See daily transactions"}</Link></span>
           <button onClick={() => setRecorded(null)} aria-label={fa ? "بستن" : "Dismiss"}>×</button>
         </div>
       ) : null}
-      {error ? <div className="treasury-message error" role="alert"><AppIcon name="alert" size={16} /><span>{error}</span><button onClick={() => setError(null)} aria-label={fa ? "بستن" : "Dismiss"}>×</button></div> : null}
+      {error ? <div className="treasury-message error" role="alert"><AppIcon name="alert" size={16} /><span>{error}{setupHref ? <> <Link href={setupHref}>{fa ? "باز کردن جدول حساب‌ها" : "Open the Chart of Accounts"}</Link></> : null}</span><button onClick={() => setError(null)} aria-label={fa ? "بستن" : "Dismiss"}>×</button></div> : null}
       {loadError ? <div className="treasury-message error" role="alert"><AppIcon name="alert" size={16} /><span>{loadError}</span></div> : null}
 
       {options === null ? <p className="treasury-placeholder">{fa ? "در حال بارگذاری…" : "Loading…"}</p> : (
