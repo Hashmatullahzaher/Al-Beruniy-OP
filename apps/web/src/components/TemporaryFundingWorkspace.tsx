@@ -11,6 +11,7 @@ import type {
   TemporaryFundingView,
   TemporaryFundingWorkspace as Workspace
 } from "@abos/contracts";
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
 import { AccessGate, api, errorText } from "@/components/AdminUsersWorkspace";
@@ -227,6 +228,7 @@ export function TemporaryFundingWorkspace() {
           fa: "وقتی یک شخص یا سازمان برای شرکت پرداخت می‌کند یا نقد در صندوق می‌گذارد، شرکت آن را بدهکار است. این یک بدهی جداگانه است — هرگز سرمایه سهامدار نیست و هرگز نقد منفی صندوق نیست."
         }} />
 
+      <p className="treasury-message" role="note">{fa ? "این صفحه برای سوابق موجود است. قرض تازه را در " : "This page is for existing records. Record new borrowing under "}<Link href="/finance/loans">{fa ? "قرض‌ها" : "Loans"}</Link>{fa ? " ثبت کنید." : "."}</p>
       {notice ? <div className="treasury-message success" role="status"><AppIcon name="shield" size={16} /><span>{t(notice)}</span>
         <button onClick={() => setNotice(null)} aria-label={fa ? "بستن" : "Dismiss"}>×</button></div> : null}
       {error ? <div className="treasury-message error" role="alert"><AppIcon name="alert" size={16} /><span>{error}</span>

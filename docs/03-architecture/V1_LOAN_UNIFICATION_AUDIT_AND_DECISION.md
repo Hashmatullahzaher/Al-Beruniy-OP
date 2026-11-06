@@ -90,5 +90,5 @@ Repayment is `LOAN_REPAYMENT`: Dr liability, Cr Treasury.
 
 ## Consequences to note
 
-- **AFN repaid at a different rate.** Native outstanding reaches zero, but the USD liability can keep a small residual, because a repayment uses its own day's rate and settlement differences are excluded. See the owner decision in the delivery record.
+- **AFN repaid at a different rate.** Superseded by 0063 (`V1_LOAN_REALIZED_FX.md`): the difference is realized and no residual remains. As first built, native outstanding reached zero, but the USD liability could keep a small residual, because a repayment uses its own day's rate and settlement differences are excluded. See the owner decision in the delivery record.
 - **A lender paying a bill directly** has no Treasury movement, so it is not a Loan receipt. Temporary funding's `PROVIDER_PAID_EXPENSE_DIRECTLY` mode has no replacement in this slice. It has never been used.

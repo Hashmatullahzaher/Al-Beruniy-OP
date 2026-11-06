@@ -32,7 +32,7 @@ export const operationalRoutes: ReadonlyArray<{ readonly path: string; readonly 
   { path: "/finance/transactions", icon: "reports-analytics", en: "Daily transactions", fa: "معاملات روزانه", section: "daily", visible: (can) => can("finance.expense.read") },
   // 0061: Add money asks where money came from, and Loans holds what is owed. Temporary funding is compatibility only: its page stays
   // reachable by URL for any existing record, and new business uses Loans.
-  { path: "/finance/add-money", icon: "coins", en: "Add money", fa: "افزودن پول", section: "daily", visible: (can) => can("finance.loan.record") || can("shareholder.capital-receipt.record") || can("treasury.opening-balance.record") },
+  { path: "/finance/add-money", icon: "coins", en: "Add money", fa: "افزودن پول", section: "daily", visible: (can) => can("finance.loan.record") || can("finance.ledger-account.manage") || can("admin.roles.manage") || can("shareholder.capital-receipt.record") || can("treasury.opening-balance.record") },
   { path: "/finance/loans", icon: "coins", en: "Loans", fa: "قرض‌ها", section: "daily", visible: (can) => can("finance.loan.read") || can("finance.loan.record") || can("finance.loan.repay") || can("finance.loan.approve") },
   // Reports.
   { path: "/finance/financial-summary", icon: "reports-analytics", en: "Financial summary", fa: "خلاصهٔ مالی", section: "reports", visible: (can) => can("finance.report.operational.read") },

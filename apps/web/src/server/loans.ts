@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import type { LenderType, LoanCommand, LoanCommandResult, LoanStatementView, LoanWorkspace } from "@abos/contracts";
+import type { LenderType, LoanCommand, LoanCommandResult, LoanReadiness, LoanStatementView, LoanWorkspace } from "@abos/contracts";
 import { IdentityError } from "@abos/identity";
 
 import { financeHandoffRuntime } from "@/server/finance-handoff";
@@ -50,6 +50,15 @@ export function loanCommand(body: Record<string, unknown>): LoanCommand {
 export async function loansGet(): Promise<Response> {
   try {
     const data: LoanWorkspace = await restrictedFinanceAuthenticator().loanWorkspace(financeHandoffRuntime().executor, await sessionToken());
+    return json({ ok: true, data });
+  } catch (error) {
+    return operationalExpenseErrorResponse(error);
+  }
+}
+
+export async function loanReadinessGet(): Promise<Response> {
+  try {
+    const data: LoanReadiness = await restrictedFinanceAuthenticator().loanReadiness(financeHandoffRuntime().executor, await sessionToken());
     return json({ ok: true, data });
   } catch (error) {
     return operationalExpenseErrorResponse(error);

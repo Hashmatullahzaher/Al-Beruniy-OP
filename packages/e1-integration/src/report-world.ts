@@ -69,14 +69,14 @@ export class ReportDatabase {
     assert.ok(result.rows[0]); return result.rows[0].value;
   }
 
-  private async ledger(entity: string, code: string, type: string, control: string | null, currency = "USD"): Promise<string> {
+  async ledger(entity: string, code: string, type: string, control: string | null, currency = "USD"): Promise<string> {
     const id = randomUUID();
     await this.h.pool.query(`INSERT INTO abos.ledger_accounts (id,legal_entity_id,account_code,account_name,account_type,control_account_type,posting_allowed,account_currency_code,status)
       VALUES ($1,$2,$3,$4,$5,$6,true,$7,'ACTIVE')`, [id, entity, code, `Synthetic ${code}`, type, control, currency]);
     return id;
   }
 
-  private async treasury(world: SyntheticWorld, name: string, type: string, currency: string, ledgerId: string, saraf: string | null = null): Promise<string> {
+  async treasury(world: SyntheticWorld, name: string, type: string, currency: string, ledgerId: string, saraf: string | null = null): Promise<string> {
     const id = randomUUID();
     await this.h.pool.query(`INSERT INTO abos.operational_treasury_accounts (id,legal_entity_id,name_en,account_type,currency_code,ledger_account_id,saraf_business_party_id,
       status,version,created_by_user_account_id,last_changed_by_user_account_id) VALUES($1,$2,$3,$4,$5,$6,$7,'ACTIVE',1,$8,$8)`,

@@ -217,6 +217,11 @@ const SETUP_REFUSALS: readonly {
   { pattern: /LOAN_ACCOUNT_CHOICE/, status: 422, code: "LOAN_ACCOUNT_CHOICE", message: "Choose which liability account this loan is owed on." },
   { pattern: /cannot exceed what is outstanding/, status: 422, code: "REPAYMENT_EXCEEDS_OUTSTANDING", message: "This is more than is outstanding on the loan." },
   { pattern: /this loan has repayments/, status: 422, code: "LOAN_HAS_REPAYMENTS", message: "This loan has repayments. Reverse them before reversing the loan." },
+  // 0063: realized FX on settlement.
+  { pattern: /REALIZED_FX_GAIN_ACCOUNT_REQUIRED/, status: 422, code: "REALIZED_FX_GAIN_ACCOUNT_REQUIRED", message: "This repayment realizes an FX gain. Create a Realized FX Gain account in the Chart of Accounts first. Nothing was recorded." },
+  { pattern: /REALIZED_FX_LOSS_ACCOUNT_REQUIRED/, status: 422, code: "REALIZED_FX_LOSS_ACCOUNT_REQUIRED", message: "This repayment realizes an FX loss. Create a Realized FX Loss account in the Chart of Accounts first. Nothing was recorded." },
+  { pattern: /REALIZED_FX_ACCOUNT_INVALID/, status: 422, code: "REALIZED_FX_ACCOUNT_INVALID", message: "Keep exactly one active Realized FX Gain account and one Realized FX Loss account, in the accounting currency, that accept postings without dimensions. Nothing was recorded." },
+  { pattern: /LOAN_REPAY_IN_FULL/, status: 422, code: "LOAN_REPAY_IN_FULL", message: "So little accounting value remains on this loan that it can only be repaid in full." },
   // 0049: every lane that takes money out of a Safe, cash box or petty cash.
   { pattern: /not enough money in .* its balance would fall below zero/i, status: 422, code: "INSUFFICIENT_FUNDS",
     message: "The Safe does not hold enough money for this. A Safe, cash box or petty cash can never go below zero." },

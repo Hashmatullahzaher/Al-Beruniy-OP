@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { AccessGate, api, errorText } from "@/components/AdminUsersWorkspace";
 import { AppIcon } from "@/components/AppIcon";
+import { LoanReadinessPanel } from "@/components/LoanReadinessPanel";
 import { useLocale } from "@/components/LocaleProvider";
 import { kabulToday, money } from "@/components/OperationalFinanceShared";
 import { StageZeroPageHeader } from "@/components/StageZeroWorkspace";
@@ -33,24 +34,44 @@ export function loanErrorText(error: { code: string; message: string }, fa: bool
     LOAN_ACCOUNT_REQUIRED: ["Create a loan liability account in the Chart of Accounts first.", "نخست یک حساب بدهی قرض در جدول حساب‌ها بسازید."],
     LOAN_ACCOUNT_CHOICE: ["Choose which liability account this loan is owed on.", "انتخاب کنید این قرض روی کدام حساب بدهی است."],
     REPAYMENT_EXCEEDS_OUTSTANDING: ["This is more than is outstanding on the loan.", "این مبلغ بیشتر از باقی‌ماندهٔ قرض است."],
+    REALIZED_FX_GAIN_ACCOUNT_REQUIRED: ["This repayment realizes an FX gain. Create a Realized FX Gain account first. Nothing was recorded.", "این بازپرداخت مفاد تبادله اسعار دارد. نخست حساب «مفاد تحقق‌یافتهٔ تبادله اسعار» را بسازید. چیزی ثبت نشد."],
+    REALIZED_FX_LOSS_ACCOUNT_REQUIRED: ["This repayment realizes an FX loss. Create a Realized FX Loss account first. Nothing was recorded.", "این بازپرداخت ضرر تبادله اسعار دارد. نخست حساب «ضرر تحقق‌یافتهٔ تبادله اسعار» را بسازید. چیزی ثبت نشد."],
+    REALIZED_FX_ACCOUNT_INVALID: ["Keep exactly one active Realized FX Gain and one Realized FX Loss account, in the accounting currency, without dimensions. Nothing was recorded.", "دقیقاً یک حساب فعال مفاد و یک حساب فعال ضرر تبادله اسعار، به واحد پول حسابداری و بدون ابعاد، نگه دارید. چیزی ثبت نشد."],
+    LOAN_REPAY_IN_FULL: ["So little accounting value remains on this loan that it can only be repaid in full.", "ارزش حسابداری این قرض آن‌قدر کم است که تنها به‌طور کامل بازپرداخت می‌شود."],
     INSUFFICIENT_FUNDS: ["The Safe does not hold enough money for this.", "صندوق پول کافی برای این کار ندارد."]
   };
   const copy = known[error.code];
   return copy ? copy[fa ? 1 : 0] : errorText(error, fa ? "fa" : "en");
 }
 
+/** Where a refusal can be fixed, when a repayment needs an account that is not there. */
+const SETUP_LINK: Readonly<Record<string, string>> = {
+  REALIZED_FX_GAIN_ACCOUNT_REQUIRED: "/finance/accounts?new=REALIZED_FX_GAIN",
+  REALIZED_FX_LOSS_ACCOUNT_REQUIRED: "/finance/accounts?new=REALIZED_FX_LOSS",
+  REALIZED_FX_ACCOUNT_INVALID: "/finance/accounts"
+};
+
+/** What a posted repayment realized, in words. Nothing is said when there was no difference. */
+function realizedText(value: string | undefined, currency: string, fa: boolean): string {
+  const amount = Number(value ?? 0);
+  if (amount === 0) return "";
+  const figure = money(String(Math.abs(amount)), currency);
+  return amount > 0 ? (fa ? ` مفاد تبادله اسعار: ${figure}.` : ` Realized FX gain: ${figure}.`) : (fa ? ` ضرر تبادله اسعار: ${figure}.` : ` Realized FX loss: ${figure}.`);
+}
+
 function RepayForm({ loan, view, fa, onDone }: Readonly<{ loan: LoanView; view: LoanWorkspace; fa: boolean; onDone: (message: string) => void }>) {
   const safes = view.options?.treasuryAccounts.filter((account) => account.currencyCode === loan.currency) ?? [];
   const [form, setForm] = useState({ treasuryAccountId: safes.length === 1 ? safes[0]?.id ?? "" : "", amount: "", businessDate: kabulToday(), reference: "", note: "" });
   const [error, setError] = useState<string | null>(null);
+  const [setup, setSetup] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const request = useRef(identity());
   const submit = async () => {
-    setBusy(true); setError(null);
+    setBusy(true); setError(null); setSetup(null);
     const result = await api<LoanCommandResult>(ENDPOINT, "POST", { action: "repay", loanId: loan.id, ...form, ...request.current });
     setBusy(false);
-    if (!result.ok) { setError(loanErrorText(result.error, fa)); return; }
-    onDone(result.data.status === "POSTED" ? (fa ? "بازپرداخت ثبت شد." : "Repayment recorded.") : (fa ? "بازپرداخت برای تأیید فرستاده شد." : "Repayment sent for approval."));
+    if (!result.ok) { setError(loanErrorText(result.error, fa)); setSetup(SETUP_LINK[result.error.code] ?? null); return; }
+    onDone(result.data.status === "POSTED" ? `${fa ? "بازپرداخت ثبت شد." : "Repayment recorded."}${realizedText(result.data.realizedFx, view.baseCurrency, fa)}` : (fa ? "بازپرداخت برای تأیید فرستاده شد." : "Repayment sent for approval."));
   };
   return (
     <form className="admin-form" aria-label={fa ? "بازپرداخت قرض" : "Repay loan"} onSubmit={(event) => { event.preventDefault(); void submit(); }}>
@@ -65,13 +86,13 @@ function RepayForm({ loan, view, fa, onDone }: Readonly<{ loan: LoanView; view: 
         <label><span>{fa ? "تاریخ" : "Date"}</span><input required type="date" dir="ltr" max={view.today} value={form.businessDate} onChange={(event) => setForm({ ...form, businessDate: event.target.value })} /></label>
         <label><span>{fa ? "مرجع (اختیاری)" : "Reference (optional)"}</span><input maxLength={120} value={form.reference} onChange={(event) => setForm({ ...form, reference: event.target.value })} /></label>
       </div>
-      {error ? <p className="treasury-message error" role="alert">{error}</p> : null}
+      {error ? <p className="treasury-message error" role="alert">{error}{setup ? <> <Link href={setup}>{setup.includes("?new=") ? (fa ? "ساختن حساب" : "Create the account") : (fa ? "جدول حساب‌ها" : "Chart of Accounts")}</Link></> : null}</p> : null}
       <button className="treasury-button gold" type="submit" disabled={busy}>{fa ? "ثبت بازپرداخت" : "Record repayment"}</button>
     </form>
   );
 }
 
-function Statement({ loanId, fa }: Readonly<{ loanId: string; fa: boolean }>) {
+function Statement({ loanId, fa, base }: Readonly<{ loanId: string; fa: boolean; base: string }>) {
   const [view, setView] = useState<LoanStatementView | null>(null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
@@ -85,26 +106,28 @@ function Statement({ loanId, fa }: Readonly<{ loanId: string; fa: boolean }>) {
   if (error) return <p className="treasury-message error" role="alert">{error}</p>;
   if (view === null) return <p className="treasury-placeholder">{fa ? "در حال بارگذاری…" : "Loading…"}</p>;
   const currency = view.loan.currency;
+  const realized = view.lines.some((line) => Number(line.realizedFx) !== 0);
   return (
     <section className="module-content-card" aria-label={fa ? "صورت‌حساب قرض" : "Loan statement"}>
       <h3>{fa ? "صورت‌حساب قرض" : "Loan statement"}</h3>
       <p className={view.reconciliation.matches ? "treasury-message success" : "treasury-message error"} role="status">
         {view.reconciliation.matches ? (fa ? "با حساب بدهی مطابقت دارد." : "Agrees with the liability account.") : (fa ? "با حساب بدهی مطابقت ندارد." : "Does not agree with the liability account.")}</p>
       <div className="table-scroll"><table className="rates-table">
-        <thead><tr><th>{fa ? "تاریخ" : "Date"}</th><th>{fa ? "حرکت" : "Movement"}</th><th>{fa ? "صندوق" : "Safe"}</th><th>{fa ? "مبلغ" : "Amount"}</th><th>{fa ? "باقی‌مانده" : "Outstanding"}</th></tr></thead>
+        <thead><tr><th>{fa ? "تاریخ" : "Date"}</th><th>{fa ? "حرکت" : "Movement"}</th><th>{fa ? "صندوق" : "Safe"}</th><th>{fa ? "مبلغ" : "Amount"}</th>{realized ? <th>{fa ? "تبادله اسعار" : "Realized FX"}</th> : null}<th>{fa ? "باقی‌مانده" : "Outstanding"}</th></tr></thead>
         <tbody>
-          <tr><td colSpan={4}>{fa ? "افتتاحیه" : "Opening"}</td><td dir="ltr" className="amount">{money(view.opening.native, currency)}</td></tr>
+          <tr><td colSpan={realized ? 5 : 4}>{fa ? "افتتاحیه" : "Opening"}</td><td dir="ltr" className="amount">{money(view.opening.native, currency)}</td></tr>
           {view.lines.map((line) => <tr key={line.journalId}>
             <td dir="ltr">{line.date}</td>
             <td><Link href={`/finance/general-ledger?journalId=${line.journalId}`}>{KIND_LABEL[line.kind][fa ? "fa" : "en"]}</Link> <small className="admin-hint" dir="ltr">{line.reference}</small></td>
             <td>{line.treasury ? (fa ? line.treasury.nameFa ?? line.treasury.nameEn : line.treasury.nameEn) : ""}</td>
             <td dir="ltr" className="amount">{money(line.amount, currency)}</td>
+            {realized ? <td dir="ltr" className="amount">{Number(line.realizedFx) === 0 ? "" : money(line.realizedFx, base)}</td> : null}
             <td dir="ltr" className="amount">{money(line.balance, currency)}</td></tr>)}
-          <tr className="summary-total"><th scope="row" colSpan={4}>{fa ? "باقی‌مانده" : "Outstanding"}</th><td dir="ltr" className="amount">{money(view.closing.native, currency)}</td></tr>
+          <tr className="summary-total"><th scope="row" colSpan={realized ? 5 : 4}>{fa ? "باقی‌مانده" : "Outstanding"}</th><td dir="ltr" className="amount">{money(view.closing.native, currency)}</td></tr>
         </tbody></table></div>
-      {Number(view.closing.native) === 0 && Number(view.closing.base) !== 0 ? <p className="admin-hint" role="note">
-        {fa ? `قرض پرداخت شده است. به دلیل تفاوت نرخ، ${view.closing.base} به ارزش حسابداری در حساب بدهی باقی مانده است.`
-          : `This loan is repaid. Because rates differed, ${view.closing.base} of accounting value remains on the liability account.`}</p> : null}
+      {currency !== base ? <p className="admin-hint" role="note">
+        {fa ? `ارزش حسابداری باقی‌مانده: ${money(view.closing.base, base)}.` : `Accounting value still owed: ${money(view.closing.base, base)}.`}
+        {realized ? (fa ? ` تبادله اسعار تحقق‌یافته در این دوره: ${money(view.realizedFx, base)}.` : ` Realized FX in this period: ${money(view.realizedFx, base)}.`) : ""}</p> : null}
     </section>
   );
 }
@@ -150,6 +173,7 @@ export function LoansWorkspace() {
     <div className="module-workspace loans-workspace">
       <StageZeroPageHeader icon="coins" eyebrow={{ en: "Finance", fa: "مالی" }} title={{ en: "Loans", fa: "قرض‌ها" }}
         description={{ en: "Money lent to the company, what has been repaid and what is still owed. A loan is debt, never capital.", fa: "پولی که به شرکت قرض داده شده، آنچه بازپرداخت شده و آنچه هنوز باقی است. قرض بدهی است، نه سرمایه." }} />
+      {view ? <LoanReadinessPanel fa={fa} /> : null}
       {view?.permissions.canRecord ? <p><Link className="treasury-button gold" href="/finance/add-money">{fa ? "افزودن پول" : "Add money"}</Link></p> : null}
       {message ? <p className="treasury-message success" role="status">{message}</p> : null}
       {error ? <div className="treasury-message error" role="alert"><AppIcon name="alert" size={16} /><span>{error}</span></div> : null}
@@ -186,7 +210,7 @@ export function LoansWorkspace() {
         {view.permissions.canRepay && open.status === "POSTED" && Number(open.outstanding) > 0 ? (repaying === open.id
           ? <RepayForm key={open.id} loan={open} view={view} fa={fa} onDone={(text) => { setRepaying(null); setMessage(text); load(); router.refresh(); }} />
           : <button className="treasury-button gold" type="button" onClick={() => setRepaying(open.id)}>{fa ? "بازپرداخت" : "Repay"}</button>) : null}
-        {open.status === "POSTED" && view.permissions.canRead ? <Statement key={`${open.id}-${open.outstanding}`} loanId={open.id} fa={fa} /> : null}
+        {open.status === "POSTED" && view.permissions.canRead ? <Statement key={`${open.id}-${open.outstanding}`} loanId={open.id} fa={fa} base={view.baseCurrency} /> : null}
       </> : null}
     </div>
   );
