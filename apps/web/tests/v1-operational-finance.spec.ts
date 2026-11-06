@@ -1,6 +1,6 @@
-import { expect, test, type Browser, type Page } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
-import { createAccount, expectBusinessCounts, policyCard, readOnly, seedFirstRun, signIn, signOut } from "./support/first-run";
+import { createAccount, employeeHolding, expectBusinessCounts, policyCard, readOnly, seedFirstRun, signIn, signOut } from "./support/first-run";
 
 /**
  * Operational Finance from a brand-new company, through the real UI, identity and database boundaries.
@@ -734,37 +734,6 @@ function expectNoSourceMetadata(body: string): void {
   expect(body).not.toContain("/shareholders");
   expect(body).not.toContain("/finance/transactions");
   expect(body).not.toMatch(/"(id|route|counterparty)":"[^"]*"[^{}]*"label"/);
-}
-
-/** A new employee holding only the named permissions, signed in on their own browser context. */
-async function employeeHolding(admin: Page, browser: Browser, login: string, permissions: readonly string[]): Promise<Page> {
-  await admin.goto("/admin/roles");
-  await admin.getByRole("button", { name: "New role" }).click();
-  const editor = admin.getByRole("form", { name: "Role editor" });
-  await editor.getByLabel("Role name").fill(`Role of ${login}`);
-  await editor.getByLabel("Description").fill("Synthetic confidentiality check.");
-  for (const permission of permissions) await editor.locator(".permission-row", { hasText: permission }).locator("input").check();
-  await editor.getByRole("button", { name: "Create role" }).click();
-  await expect(admin.locator(".treasury-message.success")).toContainText("Role created");
-  await admin.goto("/admin/users");
-  await admin.getByRole("button", { name: "New employee" }).click();
-  const create = admin.getByRole("form", { name: "New employee" });
-  await create.getByLabel("Username").fill(login);
-  await create.getByLabel("Full name").fill(`Synthetic ${login}`);
-  await create.getByLabel("Job title").fill("Synthetic");
-  await create.locator(".admin-role-picker label", { hasText: `Role of ${login}` }).locator("input").check();
-  await create.getByRole("button", { name: "Create account" }).click();
-  const temporaryPassword = (await admin.locator(".admin-secret-value").textContent())?.trim() ?? "";
-  const person = await (await browser.newContext()).newPage();
-  await person.goto("/login");
-  await person.getByLabel("Username").fill(login);
-  await person.getByLabel("Password", { exact: true }).fill(temporaryPassword);
-  await person.getByRole("button", { name: "Sign in" }).click();
-  await person.getByLabel("New password", { exact: true }).fill("Synthetic confidentiality check passphrase 2026");
-  await person.getByLabel("Repeat the new password").fill("Synthetic confidentiality check passphrase 2026");
-  await person.getByRole("button", { name: "Save password and continue" }).click();
-  await expect(person).toHaveURL(/\/dashboard/);
-  return person;
 }
 
 function safeBalance(page: Page, safe: string) {

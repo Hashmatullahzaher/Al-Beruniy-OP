@@ -1,6 +1,6 @@
 # V1 Document Vault: audit and decision
 
-Audited 2026-11-07 at trunk `176ae30`. The decision sets one document model for ABOS, built on the storage that already exists.
+Audited 2026-11-07 at trunk `176ae30`. The decision sets one document model for ABOS, built on the storage that already exists. The core is built in migration 0065: see `docs/04-delivery/V1_DOCUMENT_VAULT_0065.md`.
 
 ## Finding
 
@@ -36,7 +36,7 @@ Production holds one stored document.
 | File size | 10 MB, enforced on the stream as well as the header |
 | File name | Stripped to a safe leaf, with the extension taken from the detected type |
 | Integrity | SHA-256 stored, and rechecked on every download |
-| Download | Through the app only. `no-store`, `nosniff` and a sandbox content policy |
+| Download | Through the app only. `no-store`, `nosniff`, `X-Frame-Options: DENY` and the site content policy |
 | Backup | Manifest, restore and read-only reconciliation against PostgreSQL |
 
 There are no public object URLs and no signed URLs. A file is only reachable through an authorized route, so knowing an ID, a path or a URL gives nothing.
@@ -51,6 +51,9 @@ There are no public object URLs and no signed URLs. A file is only reachable thr
 | The storage ID leaves the server | Agreement responses include it. It grants nothing, but it has no reason to be there |
 | Error wording names agreements | The limits are generic and the messages are not |
 | No document list per subject | Nothing can show a loan's or an expense's files |
+| A header that never applied | The agreement route set a sandbox content policy, but the site-wide headers in `next.config.ts` override route headers, so it never reached a browser |
+
+The sandbox header is removed rather than enforced. A sandbox policy can stop a browser showing a PDF inline, and that could not be tested here. A stored file is PDF, JPEG or PNG by its bytes, sent with that type and `nosniff`, so a browser will not treat it as a page. Adding a stricter policy is a change to make with a real browser to check it.
 
 Deletion: nothing can delete a linked document. Metadata rows are immutable by trigger. `removeUnlinked` only cleans up after a failed upload. That is the right behaviour and it stays.
 
@@ -74,7 +77,7 @@ A document has no permission of its own. Access comes from what it is attached t
 | `COMPANY` | `admin.company.manage` | `admin.company.manage` |
 | `SHAREHOLDER` | `shareholder.read` or `shareholder.setup.manage` | `shareholder.setup.manage` |
 | `LOAN` | `finance.loan.read` | `finance.loan.record` or `finance.loan.repay` |
-| `EXPENSE` | `finance.expense.read` | `finance.expense.create` |
+| `EXPENSE` | `finance.expense.read`, within the person's scope | `finance.expense.create`, within the person's scope |
 | `RECEIPT` | `treasury.safe.read` | `treasury.receipt.record` |
 | `PAYMENT` | `treasury.safe.read` | `treasury.payment.record` |
 
@@ -92,6 +95,8 @@ Nothing is replaced or deleted. A corrected document is a new document, attached
 ### Audit
 
 Upload, link and download each write an audit record with the link, the type, the size and the hash. A refused read writes nothing, as with other refused reads.
+
+**Scope.** An expense can belong to a project, department or cost center. A person outside that scope cannot see the expense, so they cannot reach its documents either, whatever permission they hold.
 
 ### Existing agreement documents
 

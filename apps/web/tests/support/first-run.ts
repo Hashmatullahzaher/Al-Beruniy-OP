@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-import { expect, type Page } from "@playwright/test";
+import { expect, type Browser, type Page } from "@playwright/test";
 import pg from "pg";
 
 import { seedAccounts } from "./seed-credentials";
@@ -90,4 +90,35 @@ export async function signOut(page: Page): Promise<void> {
   await page.locator(".account-control > button").click();
   await page.getByRole("menuitem", { name: "Sign out" }).click();
   await expect(page).toHaveURL(/\/login/);
+}
+
+/** A new employee holding only the named permissions, signed in on their own browser context. */
+export async function employeeHolding(admin: Page, browser: Browser, login: string, permissions: readonly string[]): Promise<Page> {
+  await admin.goto("/admin/roles");
+  await admin.getByRole("button", { name: "New role" }).click();
+  const editor = admin.getByRole("form", { name: "Role editor" });
+  await editor.getByLabel("Role name").fill(`Role of ${login}`);
+  await editor.getByLabel("Description").fill("Synthetic confidentiality check.");
+  for (const permission of permissions) await editor.locator(".permission-row", { hasText: permission }).locator("input").check();
+  await editor.getByRole("button", { name: "Create role" }).click();
+  await expect(admin.locator(".treasury-message.success")).toContainText("Role created");
+  await admin.goto("/admin/users");
+  await admin.getByRole("button", { name: "New employee" }).click();
+  const create = admin.getByRole("form", { name: "New employee" });
+  await create.getByLabel("Username").fill(login);
+  await create.getByLabel("Full name").fill(`Synthetic ${login}`);
+  await create.getByLabel("Job title").fill("Synthetic");
+  await create.locator(".admin-role-picker label", { hasText: `Role of ${login}` }).locator("input").check();
+  await create.getByRole("button", { name: "Create account" }).click();
+  const temporaryPassword = (await admin.locator(".admin-secret-value").textContent())?.trim() ?? "";
+  const person = await (await browser.newContext()).newPage();
+  await person.goto("/login");
+  await person.getByLabel("Username").fill(login);
+  await person.getByLabel("Password", { exact: true }).fill(temporaryPassword);
+  await person.getByRole("button", { name: "Sign in" }).click();
+  await person.getByLabel("New password", { exact: true }).fill("Synthetic confidentiality check passphrase 2026");
+  await person.getByLabel("Repeat the new password").fill("Synthetic confidentiality check passphrase 2026");
+  await person.getByRole("button", { name: "Save password and continue" }).click();
+  await expect(person).toHaveURL(/\/dashboard/);
+  return person;
 }

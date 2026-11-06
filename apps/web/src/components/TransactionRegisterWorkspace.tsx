@@ -6,10 +6,11 @@ import type {
   OperationalExpenseWorkspace
 } from "@abos/contracts";
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
 
 import { AccessGate, api, formatWhen } from "@/components/AdminUsersWorkspace";
 import { AppIcon } from "@/components/AppIcon";
+import { DocumentsPanel } from "@/components/DocumentsPanel";
 import { useLocale } from "@/components/LocaleProvider";
 import {
   EXPENSE_STATUS_COPY,
@@ -31,6 +32,7 @@ export function TransactionRegisterWorkspace() {
   const [gate, setGate] = useState<"signed-out" | "denied" | null>(null);
   const [message, setMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
   const [approving, setApproving] = useState<{ id: string; note: string } | null>(null);
+  const [documentsFor, setDocumentsFor] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async (from: string, to: string) => {
@@ -141,7 +143,7 @@ export function TransactionRegisterWorkspace() {
                   <th>{fa ? "وضعیت" : "Status"}</th><th>{fa ? "ثبت‌کننده" : "Recorded by"}</th><th />
                 </tr></thead>
                 <tbody>{view.expenses.map((expense) => (
-                  <tr key={expense.id}>
+                  <Fragment key={expense.id}><tr>
                     <td data-label={fa ? "تاریخ" : "Date"}>{expense.businessDate}</td>
                     <td data-label={fa ? "مرجع" : "Reference"}>{expense.reference}</td>
                     <td data-label={fa ? "شرح" : "Description"}>{expense.description}{expense.payeeName ? <small className="rates-used">{fa ? "به: " : "To: "}{expense.payeeName}</small> : null}</td>
@@ -160,8 +162,10 @@ export function TransactionRegisterWorkspace() {
                           <button type="button" className="treasury-button" onClick={() => setApproving(null)}>{fa ? "لغو" : "Cancel"}</button>
                         </div>
                       </form>
-                    ) : <button type="button" className="treasury-button" onClick={() => setApproving({ id: expense.id, note: "" })}>{fa ? "تأیید" : "Approve"}</button>) : null}</td>
+                    ) : <button type="button" className="treasury-button" onClick={() => setApproving({ id: expense.id, note: "" })}>{fa ? "تأیید" : "Approve"}</button>) : null}
+                      <button type="button" className="treasury-button quiet" aria-expanded={documentsFor === expense.id} onClick={() => setDocumentsFor(documentsFor === expense.id ? null : expense.id)}>{fa ? "اسناد" : "Documents"}</button></td>
                   </tr>
+                  {documentsFor === expense.id ? <tr><td colSpan={9}><DocumentsPanel subjectType="EXPENSE" subjectId={expense.id} fa={fa} /></td></tr> : null}</Fragment>
                 ))}</tbody>
               </table>
             )}

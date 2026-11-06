@@ -13,10 +13,10 @@ import { restrictedFinanceAuthenticator } from "@/server/operational-finance";
 import { assertSameOrigin, json } from "@/server/treasury";
 import { shareholderSetupErrorResponse } from "@/server/shareholder-setup";
 
-const MULTIPART_OVERHEAD_BYTES = 1024 * 1024;
+export const MULTIPART_OVERHEAD_BYTES = 1024 * 1024;
 let configuredStorage: PrivateDocumentStorage | undefined;
 
-function storage(): PrivateDocumentStorage {
+export function privateStorage(): PrivateDocumentStorage {
   configuredStorage ??= new PrivateDocumentStorage(process.env.ABOS_DOCUMENT_STORAGE_ROOT);
   return configuredStorage;
 }
@@ -52,14 +52,14 @@ export async function uploadAgreementDocument(request: Request, directShareholde
     const authenticator = restrictedFinanceAuthenticator();
     const bytes = new Uint8Array(await file.arrayBuffer());
     // Validate actual bytes before creating even an optional non-financial attachment holder.
-    storage().validate(file.name, bytes);
+    privateStorage().validate(file.name, bytes);
     if (directShareholder && shareholderProfileId) {
       capitalAgreementId = (await authenticator.directCapitalDocumentHolder(finance.executor, token, shareholderProfileId)).capitalAgreementId;
     }
     if (!capitalAgreementId) return documentError("VALIDATION_FAILED", "Choose a shareholder.", 422);
     await authenticator.prepareAgreementDocument(finance.executor, token, capitalAgreementId);
     candidateStorageId = randomUUID();
-    const stored = await storage().write(candidateStorageId, file.name, bytes);
+    const stored = await privateStorage().write(candidateStorageId, file.name, bytes);
     candidateWritten = true;
     const input: AgreementDocumentFinalizeInput = {
       capitalAgreementId,
@@ -76,7 +76,7 @@ export async function uploadAgreementDocument(request: Request, directShareholde
     try {
       const record = await authenticator.finalizeAgreementDocument(finance.executor, token, input);
       if (record.storageId !== candidateStorageId) {
-        await storage().removeUnlinked(candidateStorageId);
+        await privateStorage().removeUnlinked(candidateStorageId);
         candidateWritten = false;
       }
       return json({ ok: true, data: record }, record.replayed ? 200 : 201);
@@ -97,7 +97,7 @@ export async function uploadAgreementDocument(request: Request, directShareholde
   }
 }
 
-async function boundedMultipartForm(request: Request, maximumBytes: number): Promise<FormData> {
+export async function boundedMultipartForm(request: Request, maximumBytes: number): Promise<FormData> {
   if (request.body === null) return new FormData();
   const reader = request.body.getReader();
   const chunks: Uint8Array[] = [];
@@ -129,24 +129,12 @@ export async function downloadAgreementDocument(
     const record = await restrictedFinanceAuthenticator().agreementDocument(
       finance.executor, await sessionToken(), agreementEvidenceId
     );
-    const bytes = await storage().read(record.storageId);
+    const bytes = await privateStorage().read(record.storageId);
     const digest = createHash("sha256").update(bytes).digest("hex");
     if (bytes.byteLength !== Number(record.byteSize) || digest !== record.sha256) {
       return documentError("DOCUMENT_INTEGRITY_FAILURE", "The stored document failed its integrity check.", 503);
     }
-    const encodedName = encodeURIComponent(record.originalFileName).replace(/['()*]/g,
-      character => `%${character.charCodeAt(0).toString(16).toUpperCase()}`);
-    return new Response(new Uint8Array(bytes).buffer, {
-      status: 200,
-      headers: {
-        "Content-Type": record.mediaType,
-        "Content-Length": String(bytes.byteLength),
-        "Content-Disposition": `${disposition}; filename="agreement"; filename*=UTF-8''${encodedName}`,
-        "Cache-Control": "private, no-store, max-age=0",
-        "X-Content-Type-Options": "nosniff",
-        "Content-Security-Policy": "default-src 'none'; sandbox"
-      }
-    });
+    return privateDocumentResponse(bytes, record.mediaType, record.originalFileName, disposition, "agreement");
   } catch (error) {
     if (error instanceof PrivateDocumentStorageError) {
       return documentError(error.code, error.code === "NOT_FOUND" ? "The document file is unavailable." : error.message,
@@ -156,15 +144,30 @@ export async function downloadAgreementDocument(
   }
 }
 
+/** How every private file leaves the server: never cached and never sniffed. The site-wide headers in next.config.ts add the content policy, and they override any set here. */
+export function privateDocumentResponse(bytes: Uint8Array, mediaType: string, fileName: string, disposition: "inline" | "attachment", fallbackName = "document"): Response {
+  const encodedName = encodeURIComponent(fileName).replace(/['()*]/g, character => `%${character.charCodeAt(0).toString(16).toUpperCase()}`);
+  return new Response(new Uint8Array(bytes).buffer, {
+    status: 200,
+    headers: {
+      "Content-Type": mediaType,
+      "Content-Length": String(bytes.byteLength),
+      "Content-Disposition": `${disposition}; filename="${fallbackName}"; filename*=UTF-8''${encodedName}`,
+      "Cache-Control": "private, no-store, max-age=0",
+      "X-Content-Type-Options": "nosniff"
+    }
+  });
+}
+
 function field(form: FormData, name: string): string {
   const value = form.get(name);
   return typeof value === "string" ? value.trim() : "";
 }
 
-function documentError(code: string, message: string, status: number): Response {
+export function documentError(code: string, message: string, status: number): Response {
   return json({ ok: false, error: { code, message } }, status);
 }
 
-async function cleanupCandidate(storageId: string): Promise<void> {
+export async function cleanupCandidate(storageId: string): Promise<void> {
   await configuredStorage?.removeUnlinked(storageId).catch(() => undefined);
 }
