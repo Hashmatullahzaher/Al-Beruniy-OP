@@ -345,7 +345,7 @@ test.describe("V1 operational finance from a new company", () => {
     await createAccount(page, { code: "2510", name: "Shareholder Loans", type: "LIABILITY", control: "SHAREHOLDER_LOAN" });
     await createAccount(page, { code: "2520", name: "Loans Payable", type: "LIABILITY", control: "LOAN_PAYABLE" });
     await nav.getByRole("link", { name: "Add money" }).click();
-    await page.getByRole("button", { name: /Shareholder loan/ }).click();
+    await page.getByRole("region", { name: "Where is this money coming from?" }).getByRole("button", { name: /Shareholder loan/ }).click();
     let loanForm = page.getByRole("form", { name: "Record loan" });
     await loanForm.getByLabel("Which shareholder?").selectOption({ label: "Ahmad Test Shareholder" });
     await loanForm.getByLabel("Which Safe did it go into?").selectOption({ label: "Main USD Safe · USD" });
@@ -353,7 +353,7 @@ test.describe("V1 operational finance from a new company", () => {
     await loanForm.getByRole("button", { name: "Record loan" }).click();
     await expect(page.getByText("Loan recorded.")).toBeVisible();
     await page.goto("/finance/add-money");
-    await page.getByRole("button", { name: /Other loan/ }).click();
+    await page.getByRole("region", { name: "Where is this money coming from?" }).getByRole("button", { name: /Other loan/ }).click();
     loanForm = page.getByRole("form", { name: "Record loan" });
     await loanForm.getByLabel("Who lent the money?").selectOption({ label: "A company" });
     await loanForm.getByRole("textbox", { name: "Name" }).fill("Outside Lender Ltd");
@@ -445,7 +445,7 @@ test.describe("V1 operational finance from a new company", () => {
       await expect(page.locator(".treasury-message.success")).toContainText("exactly as entered");
     }
     await nav.getByRole("link", { name: "Add money" }).click();
-    await page.getByRole("button", { name: /Other loan/ }).click();
+    await page.getByRole("region", { name: "Where is this money coming from?" }).getByRole("button", { name: /Other loan/ }).click();
     const afnLoan = page.getByRole("form", { name: "Record loan" });
     await afnLoan.getByLabel("Who lent the money?").selectOption({ label: "A company" });
     await afnLoan.getByRole("textbox", { name: "Name" }).fill("FX Lender Ltd");
@@ -478,12 +478,12 @@ test.describe("V1 operational finance from a new company", () => {
     await afnExpense.getByRole("button", { name: "Record expense" }).click();
     await expect(page.getByRole("status").filter({ hasText: "Expense recorded" })).toContainText("Realized FX gain: 250 USD.");
     expect((await journalLines()).slice(-3)).toEqual([
-      { source: "OPERATIONAL_EXPENSE", account: "5100", debit: "1250", credit: "0" },
-      { source: "OPERATIONAL_EXPENSE", account: "1120", debit: "0", credit: "1000" },
-      { source: "OPERATIONAL_EXPENSE", account: "4910", debit: "0", credit: "250" }
+      { source: "OPERATIONAL_EXPENSE", account: "5100", debit: "1250.00", credit: "0" },
+      { source: "OPERATIONAL_EXPENSE", account: "1120", debit: "0", credit: "1000.00" },
+      { source: "OPERATIONAL_EXPENSE", account: "4910", debit: "0", credit: "250.00" }
     ]);
     await nav.getByRole("link", { name: "Safe / Saraf statement" }).click();
-    await page.getByLabel(/^Account/).selectOption({ label: "Main AFN Safe" });
+    await page.getByLabel("Safe or Saraf").selectOption({ label: "Main AFN Safe · AFN" });
     const afnSafeReport = page.getByRole("region", { name: "Statement" });
     await expect(afnSafeReport.getByText(/Carrying value \(USD, weighted average/)).toContainText("0.00 USD");
     await expect(afnSafeReport.getByRole("definition").filter({ hasText: /^0(\.00)? AFN$/ })).toHaveCount(2);

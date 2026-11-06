@@ -177,7 +177,7 @@ test("Add money says exactly which accounts are missing, and links each to a fil
   const needs = page.getByRole("region", { name: "What loans still need" });
   await expect(needs).toContainText("Other Loan Payable");
   await expect(needs).toContainText("Realized FX Loss");
-  await expect(needs).toContainText("only when a foreign-currency loan is repaid at a worse rate");
+  await expect(needs).toContainText("only when foreign currency settles for less than the value it carried");
   await expect(needs).not.toContainText("Realized FX Gain");
   await expect(needs.getByRole("link", { name: "Create the account" }).first()).toHaveAttribute("href", "/finance/accounts?new=LOAN_PAYABLE");
   await expect(needs.getByRole("link", { name: "Create the account" }).last()).toHaveAttribute("href", "/finance/accounts?new=REALIZED_FX_LOSS");
