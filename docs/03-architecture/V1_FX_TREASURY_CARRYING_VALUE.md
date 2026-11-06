@@ -22,6 +22,7 @@ Every source that can move a Treasury account, as it stood at 0063:
 | `TEMPORARY_FUNDING` | In | No | A check constraint requires the accounting currency |
 | `TEMPORARY_FUNDING_SETTLEMENT` | Out | No | A check constraint requires the accounting currency |
 | `SHAREHOLDER_CAPITAL_CONTRIBUTION_RECEIPT` | In | No | Frozen |
+| `COUNT_DIFFERENCE` | Not built | No | Registered as planned, with no code behind it |
 
 Four outflow lanes and the transfer lane assumed `native × frozen rate = Treasury ledger amount`. An inflow at one rate and an outflow at another therefore left a base balance with no native behind it. 70,000 AFN in at 70 and out at 56 left the Safe at USD −250.
 

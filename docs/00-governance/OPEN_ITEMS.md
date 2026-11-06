@@ -78,7 +78,7 @@ The following items remain `CLIENT_FINANCE_PENDING`. Provisional inputs may be r
 - **[Partly resolved 2026-09-25]** Saraf accounts are V1 money locations, created like any other account; the following remain open: Saraf acknowledgement, company confirmation, reconciliation thresholds, exception authority, spread/fee treatment and custody/receivable/payable classification
 - reversal versus adjustment authority, reason/evidence requirements, period treatment and reporting presentation — **[Partly resolved 2026-09-25]** a Finance user requests a reversal and the Finance Manager approves; posted history stays immutable; reason/evidence, period treatment and presentation still open
 - operational-report scope during phased openings and the exact gate for company-wide financial statements
-- retention, numbering, signing and audit requirements for capital, cash, approval and journal evidence
+- retention, numbering, signing and audit requirements for capital, cash, approval and journal evidence — **[Audited 2026-11-07]** the document design needs no retention answer yet, because nothing is deleted: see `docs/03-architecture/V1_DOCUMENT_VAULT_AUDIT_AND_DECISION.md`. How long documents must be kept, and whether any may be destroyed, stays an owner and legal decision.
 
 Until these are resolved, E0 must reject or withhold requests requiring the missing policy. No fallback rate, balancing account, assumed opening balance, automatic project attribution or permissive authorization default is allowed.
 
