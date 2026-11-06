@@ -2,7 +2,7 @@
 
 The design and the mathematics are in `docs/03-architecture/V1_LOAN_REALIZED_FX.md`.
 
-Not deployed. Production stays at 0060 until the owner authorizes 0061, 0062 and 0063, which deploy together.
+Not deployed. Production stays at 0060 until the owner authorizes 0061 to 0064, which deploy together. The journals below assume Treasury carried that AFN at the repayment's rate. Since 0064 the Treasury line is its own carrying value: see `V1_FX_TREASURY_CARRYING_0064.md`.
 
 ## What was built
 

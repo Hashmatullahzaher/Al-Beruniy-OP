@@ -99,7 +99,12 @@ export interface OperationalExpenseView {
   readonly businessDate: string;
   readonly originalAmount: string;
   readonly originalCurrency: SupportedCurrency;
+  /** The expense at its own rate. */
   readonly baseAmount: string | null;
+  /** 0064: what the Treasury account gave up. Null until posted. */
+  readonly treasuryCarryingAmount?: string | null;
+  /** 0064: positive is a gain. Null until posted. */
+  readonly realizedFx?: string | null;
   readonly baseCurrency: SupportedCurrency;
   readonly exchangeRateSnapshot: OperationalExpenseExchangeRateSnapshot | null;
   /** null: no saved setting, recorded in Simple Mode (approval OFF), 0049. */

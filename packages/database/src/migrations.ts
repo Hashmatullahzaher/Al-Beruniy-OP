@@ -338,6 +338,11 @@ export const migrationCatalog = [
     checksumSha256: "41b93e06ad2c8c8c7bbd5606d3fbfdd14066ca47bbf164e4c21346df2a5c56a4",
     relativePath: "infrastructure/database/migrations/0063_v1_realized_fx_loan_settlement.sql",
   },
+  {
+    id: "0064_v1_fx_treasury_carrying_value",
+    checksumSha256: "b9cbc161e67ecedf39892bb81a80687223422a854371acb0a9eafec28207211c",
+    relativePath: "infrastructure/database/migrations/0064_v1_fx_treasury_carrying_value.sql",
+  },
 ] as const satisfies readonly MigrationDefinition[];
 
 const migrationTableSql = `

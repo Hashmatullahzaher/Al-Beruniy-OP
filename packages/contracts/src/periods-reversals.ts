@@ -55,7 +55,7 @@ export interface FinancialYearCloseResult {
   readonly year: FinancialYearView;
 }
 
-export type ReversalBlocker = "NOT_FOUND" | "NOT_POSTED" | "IS_REVERSAL" | "ALREADY_REVERSED" | "APPROVED_REQUEST" | "OPEN_REQUEST";
+export type ReversalBlocker = "NOT_FOUND" | "NOT_POSTED" | "IS_REVERSAL" | "ALREADY_REVERSED" | "APPROVED_REQUEST" | "OPEN_REQUEST" | "LATER_TREASURY_MOVEMENT";
 
 export interface ReversibleJournalView {
   readonly id: string;

@@ -38,6 +38,13 @@ export const EXPENSE_STATUS_COPY: Readonly<Record<OperationalExpenseStatus, Copy
 
 /** Dari for the expense refusals the server returns (codes from operationalExpenseErrorResponse). */
 const EXPENSE_ERROR_FA: Readonly<Record<string, string>> = {
+  REALIZED_FX_GAIN_ACCOUNT_REQUIRED: "این معامله مفاد تبادله اسعار ایجاد می‌کند. نخست در جدول حساب‌ها حساب مفاد تحقق‌یافتهٔ تبادله اسعار را بسازید. چیزی ثبت نشد.",
+  REALIZED_FX_LOSS_ACCOUNT_REQUIRED: "این معامله ضرر تبادله اسعار ایجاد می‌کند. نخست در جدول حساب‌ها حساب ضرر تحقق‌یافتهٔ تبادله اسعار را بسازید. چیزی ثبت نشد.",
+  REALIZED_FX_ACCOUNT_INVALID: "دقیقاً یک حساب فعال مفاد و یک حساب فعال ضرر تبادله اسعار، به واحد پول حسابداری و بدون ابعاد، نگه دارید. چیزی ثبت نشد.",
+  TREASURY_FX_OUT_OF_ORDER: "این حساب حرکت بعدی دارد و ارزش آن بدون این حرکت محاسبه شده است. تاریخ را همان روز یا بعد از آن بگذارید، یا نخست حرکت بعدی را برگشت دهید.",
+  TREASURY_CARRYING_CORRECTION_REQUIRED: "ارزش حسابداری این حساب از ثبت‌های قدیمی است و پیش از خروج پول باید اصلاح شود. چیزی ثبت نشد.",
+  TREASURY_DISPOSE_IN_FULL: "ارزش حسابداری بسیار کمی در این حساب مانده است و موجودی آن فقط یکجا منتقل می‌شود.",
+  TREASURY_FX_OPENING_ORDER: "این حساب از قبل به این واحد پول بدهکار است و موجودی افتتاحیه نمی‌گیرد.",
   RATE_MISSING: "برای این تاریخ نرخ اسعار ثبت نشده است. ابتدا نرخ همان روز را ثبت کنید.",
   RATE_CHOICE_REQUIRED: "برای این تاریخ چند نرخ وجود دارد. نرخی را که این مصرف استفاده می‌کند انتخاب کنید.",
   RATE_INVALID: "نرخ انتخاب‌شده، نرخ جاری این تاریخ نیست.",
@@ -59,6 +66,21 @@ const EXPENSE_ERROR_FA: Readonly<Record<string, string>> = {
   PERMISSION_DENIED: "شما صلاحیت این کار را ندارید.",
   NETWORK: "سرور در دسترس نیست. دوباره تلاش کنید؛ همان درخواست دوباره ثبت نمی‌شود."
 };
+
+/** 0064: where to fix a refusal about a missing or unusable realized FX account. */
+export function fxSetupHref(code: string): string | null {
+  return code === "REALIZED_FX_GAIN_ACCOUNT_REQUIRED" ? "/finance/accounts?new=REALIZED_FX_GAIN"
+    : code === "REALIZED_FX_LOSS_ACCOUNT_REQUIRED" ? "/finance/accounts?new=REALIZED_FX_LOSS"
+      : code === "REALIZED_FX_ACCOUNT_INVALID" ? "/finance/accounts" : null;
+}
+
+/** 0064: a realized gain or loss, as a sentence to add to a success message. Positive is a gain. */
+export function realizedFxText(value: string | null | undefined, currency: string): { readonly en: string; readonly fa: string } {
+  const amount = Number(value ?? 0);
+  if (amount === 0) return { en: "", fa: "" };
+  const figure = money(String(Math.abs(amount)), currency);
+  return amount > 0 ? { en: ` Realized FX gain: ${figure}.`, fa: ` مفاد تبادله اسعار: ${figure}.` } : { en: ` Realized FX loss: ${figure}.`, fa: ` ضرر تبادله اسعار: ${figure}.` };
+}
 
 export function expenseErrorText(error: { code: string; message: string }, locale: "en" | "fa"): string {
   if (locale === "fa") return EXPENSE_ERROR_FA[error.code] ?? errorText(error, locale);

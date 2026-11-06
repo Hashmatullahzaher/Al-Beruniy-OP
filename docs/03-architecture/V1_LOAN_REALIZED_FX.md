@@ -1,6 +1,8 @@
 # V1 loans: realized FX on settlement
 
-Migration 0063. The owner decided that a foreign-currency loan must leave no USD behind once its native principal is repaid.
+Migration 0063, changed by 0064. The owner decided that a foreign-currency loan must leave no USD behind once its native principal is repaid.
+
+**Superseded in part.** 0064 gave the Treasury side its own carrying value. The liability mathematics below still apply: `K` is what leaves the loan. But the realized result is now the difference between the two carrying values, not `P − K`. Read `V1_FX_TREASURY_CARRYING_VALUE.md` for the current rule, and "Consequences to know" below as history.
 
 ## The rule
 

@@ -18,7 +18,7 @@ const figures = { opening: "0", closing: "5080.00", capitalReceived: "1700.00", 
 const summary = { legalEntityId: "e", baseCurrency: "USD", range, base: figures,
   currencies: { USD: figures, AFN: { ...figures, closing: "5600.00", otherReceipts: "7000.00", moneyReceived: "7000.00", paymentsMade: "1400.00", moneyPaid: "1400.00", capitalReceived: "0", loansReceived: "0", expensesPaid: "0", loanRepayments: "0", openingBalancesRecorded: "0" } },
   accounts: [{ id: safeId, nameEn: "Main Safe", nameFa: "صندوق اصلی", accountType: "SAFE", currency: "USD", status: "ACTIVE", opening: "0", closing: "5000.00", baseOpening: "0", baseClosing: "5000.00" }],
-  profit: { income: "1200.00", expenses: "400.00", netResult: "800.00" }, reconciliation: { treasuryClosing: "5080.00", flowsClosing: "5080.00", ledgerClosing: "5080.00", matches: true } };
+  profit: { income: "1200.00", expenses: "400.00", realizedFxGain: "0", realizedFxLoss: "0", netResult: "800.00" }, reconciliation: { treasuryClosing: "5080.00", flowsClosing: "5080.00", ledgerClosing: "5080.00", matches: true } };
 const source = { type: "DIRECT_SHAREHOLDER_CAPITAL", id: "s", label: { en: "Capital received", fa: "سرمایه دریافت‌شده" }, route: "/shareholders?shareholder=p", counterparty: null, reference: "CAP-REF-1", description: "First payment" };
 const transaction = (extra: object) => ({ id: "t1", date: "2026-09-06", kind: "CAPITAL_RECEIVED", section: "CAPITAL", amount: "700.00", effect: "700.00", balance: "700.00", currency: "USD", baseAmount: "700.00",
   restricted: false, source, journalId, journalReference: "CAP-20260906-AAA", safe: { id: safeId, nameEn: "Main Safe", nameFa: "صندوق اصلی" }, reversedBy: null, reverses: null, ...extra });
@@ -71,11 +71,25 @@ test("transfers and reversals are apart from money in and out, and each account 
 });
 
 test("a net loss says so, a mismatch is impossible to miss, and AFN has its own section", async ({ page }) => {
-  await mock(page, ALL, { summary: { ...summary, profit: { income: "100.00", expenses: "400.00", netResult: "-300.00" }, reconciliation: { ...summary.reconciliation, matches: false } } });
+  await mock(page, ALL, { summary: { ...summary, profit: { income: "100.00", expenses: "400.00", realizedFxGain: "0", realizedFxLoss: "0", netResult: "-300.00" }, reconciliation: { ...summary.reconciliation, matches: false } } });
   await page.goto("/finance/financial-summary?asOf=2026-09-30");
   await expect(page.getByText("Net loss")).toBeVisible();
   await expect(page.getByRole("region", { name: "Treasury", exact: true }).getByRole("status")).toContainText("does not agree with the General Ledger");
   await expect(page.getByRole("region", { name: "AFN" }).getByRole("row", { name: /Closing Treasury position/ })).toContainText("5,600.00 AFN");
+});
+
+test("realized FX stands on its own line, apart from income and expenses, and only when there is some", async ({ page }) => {
+  await mock(page, ALL, { summary: { ...summary, profit: { income: "1200.00", expenses: "400.00", realizedFxGain: "250.00", realizedFxLoss: "25.00", netResult: "1025.00" } } });
+  await page.goto("/finance/financial-summary?asOf=2026-09-30");
+  const result = page.getByRole("region", { name: "Result" });
+  await expect(result.getByRole("definition").filter({ hasText: "250.00 USD" })).toBeVisible();
+  await expect(result.getByText("Realized FX gain")).toBeVisible();
+  await expect(result.getByText("Realized FX loss")).toBeVisible();
+  await page.unrouteAll({ behavior: "ignoreErrors" });
+  await mock(page, ALL);
+  await page.reload();
+  await expect(page.getByRole("region", { name: "Result" }).getByText("Net profit")).toBeVisible();
+  await expect(page.getByRole("region", { name: "Result" }).getByText("Realized FX gain")).toHaveCount(0);
 });
 
 test("a financial year can be chosen and stays in the address", async ({ page }) => {

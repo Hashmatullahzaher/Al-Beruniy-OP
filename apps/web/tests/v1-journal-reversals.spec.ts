@@ -19,8 +19,9 @@ const workspace = (approval = false) => ({ today: "2026-10-28", approvalRequired
     journal(closedId, "PY-20260912-CCC", { date: "2026-09-12", periodStatus: "CLOSED" })],
   requests: [] as object[] });
 
-async function mock(page: Page, options: { approval?: boolean; refuse?: { status: number; code: string; message: string } } = {}) {
+async function mock(page: Page, options: { approval?: boolean; journals?: object[]; refuse?: { status: number; code: string; message: string } } = {}) {
   const view = workspace(options.approval);
+  if (options.journals) view.journals = options.journals as never;
   const commands: Record<string, unknown>[] = [];
   await page.route("**/api/v1/auth/me", (route) => route.fulfill({ json: { ok: true, data: auth(["finance.reversal.direct", "finance.reversal.request", "finance.reversal.approve"]) } }));
   await page.route("**/api/v1/finance/journal-reversals", async (route) => {
@@ -38,6 +39,14 @@ async function mock(page: Page, options: { approval?: boolean; refuse?: { status
   });
   return { view, commands };
 }
+
+test("a receipt whose money has been spent says what to do first, and offers no reversal", async ({ page }) => {
+  await mock(page, { journals: [journal(paymentId, "RC-20261012-AFN", { sourceType: "CASH_RECEIPT", blocker: "LATER_TREASURY_MOVEMENT" })] });
+  await page.goto("/finance/reversals");
+  const row = page.getByRole("row", { name: /RC-20261012-AFN/ });
+  await expect(row).toContainText("Reverse the later movement on this account first");
+  await expect(row.getByRole("button", { name: "Reverse" })).toHaveCount(0);
+});
 
 test("@smoke Simple Mode reverses a payment directly with a reason, showing the inverted lines first", async ({ page }) => {
   const { commands } = await mock(page);
