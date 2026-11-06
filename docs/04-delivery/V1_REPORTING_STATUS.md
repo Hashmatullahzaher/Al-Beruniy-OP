@@ -65,7 +65,7 @@ The 15 mocked skips are 13 tests that need a database, which ran in the database
 ## Known debt
 
 - The operational E2E can stall under `next dev` on a machine short of memory. See "The `next dev` stall" in `V1_REPORTING_DEPLOYMENT_2026-11-05.md`. Treat the database-backed suite on a production build as the gate.
-- Loans moved to their own lane in 0061 and 0062 (`V1_LOANS_0061_0062.md`), on trunk and not yet deployed. Legacy temporary funding keeps its behaviour and still cannot be reversed.
+- Loans moved to their own lane in 0061 and 0062 (`V1_LOANS_0061_0062.md`), with realized FX on settlement in 0063 (`V1_LOAN_REALIZED_FX_0063.md`), not yet deployed. Legacy temporary funding keeps its behaviour and still cannot be reversed.
 - PDF and Excel export are not built. Reports print cleanly.
 - `ledger_account_balances` and `finance_general_ledger` are unused older functions, kept because applied migrations are not rewritten.
 - `/finance/capital-bridge-review` shows signed-out visitors an error page instead of "not found". It exposes no data.

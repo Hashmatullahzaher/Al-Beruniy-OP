@@ -73,6 +73,7 @@ import type {
   ShareholderContributionsWorkspace,
   LoanCommand,
   LoanCommandResult,
+  LoanReadiness,
   LoanStatementView,
   LoanWorkspace,
   TemporaryFundingCommand,
@@ -683,6 +684,11 @@ export class SandboxAuthenticator {
   /** The loan register, approvals and entry options (0062). */
   async loanWorkspace(executor: SqlExecutor, token: string): Promise<LoanWorkspace> {
     return this.operationalFinanceFunction<LoanWorkspace>(executor, "SELECT abos.finance_loan_workspace($1,$2,$3) AS value", token, [], "Loans are unavailable");
+  }
+
+  /** What the loan screens still need (0063). */
+  async loanReadiness(executor: SqlExecutor, token: string): Promise<LoanReadiness> {
+    return this.operationalFinanceFunction<LoanReadiness>(executor, "SELECT abos.finance_loan_readiness($1,$2,$3) AS value", token, [], "Loan readiness is unavailable");
   }
 
   /** One loan's statement, proved against its liability account (0062). */

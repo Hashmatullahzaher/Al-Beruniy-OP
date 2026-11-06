@@ -404,11 +404,83 @@ test.describe("V1 operational finance from a new company", () => {
     await nav.getByRole("link", { name: "Income statement" }).click();
     await expect(page.getByRole("region", { name: "Income statement" }).getByRole("row", { name: /Net profit/ }).getByRole("cell")).toHaveText(/^0(\.00)? USD$/);
 
+    // 14. An AFN loan repaid at a worse rate. The accounts are set up from what the loan screen says is missing, then the difference is
+    // realized in each repayment's own journal, and nothing is left on the liability once the AFN is repaid.
+    await nav.getByRole("link", { name: "Add money" }).click();
+    const needs = page.getByRole("region", { name: "What loans still need" });
+    await expect(needs).toContainText("Realized FX Gain");
+    await expect(needs).toContainText("Realized FX Loss");
+    await expect(needs).not.toContainText("Shareholder Loan Payable");
+    for (const [code, name, type, control] of [["4910", "Realized FX Gain", "REVENUE", "REALIZED_FX_GAIN"], ["5910", "Realized FX Loss", "EXPENSE", "REALIZED_FX_LOSS"]] as const) {
+      await needs.getByRole("link", { name: "Create the account" }).first().click();
+      const setupForm = page.getByRole("form", { name: "Account form" });
+      await expect(setupForm.getByLabel("Account name")).toHaveValue(name);
+      await expect(setupForm.getByLabel("Account type")).toHaveValue(type);
+      await expect(setupForm.getByLabel("Control type")).toHaveValue(control);
+      await setupForm.getByLabel("Account code").fill(code);
+      await setupForm.getByRole("button", { name: "Create account" }).click();
+      await expect(page.locator(".treasury-message.success")).toContainText("Account created under the current approval policy.");
+      await nav.getByRole("link", { name: "Add money" }).click();
+    }
+    await expect(page.getByRole("region", { name: "Where is this money coming from?" })).toBeVisible();
+    await expect(needs).toHaveCount(0);
+    await nav.getByRole("link", { name: "Chart of Accounts" }).click();
+    await createAccount(page, { code: "1120", name: "AFN Cash Safe", type: "ASSET", control: "CASH", currency: "AFN" });
+    await nav.getByRole("link", { name: "Finance setup" }).click();
+    await page.getByRole("button", { name: "Add account" }).click();
+    const afnTreasury = page.getByRole("form", { name: "Treasury account" });
+    await afnTreasury.getByLabel("Name (English) *").fill("Main AFN Safe");
+    await afnTreasury.getByLabel("Type *").selectOption({ label: "Safe" });
+    await afnTreasury.getByLabel("Currency *").selectOption("AFN");
+    await afnTreasury.getByLabel("Chart of Accounts account *").selectOption({ label: "1120 · AFN Cash Safe" });
+    await afnTreasury.getByRole("button", { name: "Save" }).click();
+    await expect(page.getByRole("status").filter({ hasText: "Treasury account saved" })).toBeVisible();
+    const kabulDay = (offset: number) => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kabul" }).format(new Date(Date.now() + offset * 86_400_000));
+    await nav.getByRole("link", { name: "Exchange rates" }).click();
+    for (const [rateDay, value] of [[kabulDay(-1), "70"], [kabulDay(0), "56"]] as const) {
+      const rateForm = page.getByRole("form", { name: "Record exchange rate" });
+      await rateForm.getByLabel("Rate date").fill(rateDay);
+      await rateForm.getByLabel(/^Rate \(/).fill(value);
+      await rateForm.getByRole("button", { name: "Record rate" }).click();
+      await expect(page.locator(".treasury-message.success")).toContainText("exactly as entered");
+    }
+    await nav.getByRole("link", { name: "Add money" }).click();
+    await page.getByRole("button", { name: /Other loan/ }).click();
+    const afnLoan = page.getByRole("form", { name: "Record loan" });
+    await afnLoan.getByLabel("Who lent the money?").selectOption({ label: "A company" });
+    await afnLoan.getByRole("textbox", { name: "Name" }).fill("FX Lender Ltd");
+    await afnLoan.getByLabel("Which Safe did it go into?").selectOption({ label: "Main AFN Safe · AFN" });
+    await afnLoan.getByLabel("Amount (AFN)").fill("70000");
+    await afnLoan.getByLabel("Date").fill(kabulDay(-1));
+    await afnLoan.getByLabel("Reference (optional)").fill("FX-PRIVATE-REF");
+    await afnLoan.getByRole("button", { name: "Record loan" }).click();
+    await expect(page.getByText("Loan recorded.")).toBeVisible();
+    await page.getByRole("link", { name: "View the loan" }).click();
+    for (const left of ["35,000", "0"]) {
+      await page.getByRole("button", { name: "Repay" }).click();
+      const afnRepay = page.getByRole("form", { name: "Repay loan" });
+      await afnRepay.getByLabel("Amount (AFN)").fill("35000");
+      await afnRepay.getByRole("button", { name: "Record repayment" }).click();
+      await expect(page.locator(".treasury-message.success")).toContainText("Repayment recorded. Realized FX loss: 125 USD.");
+      await expect(page.getByRole("region", { name: "Loans" }).getByRole("row", { name: /FX Lender Ltd/ })).toContainText(`${left} AFN`);
+    }
+    const afnReport = page.getByRole("region", { name: "Loan statement" });
+    await expect(afnReport.getByRole("status")).toContainText("Agrees with the liability account.");
+    await expect(afnReport.getByRole("row", { name: /^Outstanding/ })).toContainText("0 AFN");
+    await expect(afnReport.getByRole("note")).toContainText("Accounting value still owed: 0 USD.");
+    await expect(afnReport.getByRole("note")).toContainText("Realized FX in this period: -250 USD.");
+    await nav.getByRole("link", { name: "Balance sheet" }).click();
+    const fxSheet = page.getByRole("region", { name: "Balance sheet" });
+    await expect(fxSheet.getByRole("status")).toContainText("(balanced)");
+    await expect(fxSheet.getByRole("row", { name: /^Total liabilities[^a]*$/ })).toContainText(usd("50,000"));
+    await nav.getByRole("link", { name: "Income statement" }).click();
+    await expect(page.getByRole("region", { name: "Income statement" }).getByRole("row", { name: /Net profit/ }).getByRole("cell")).toHaveText(/^-250(\.00)? USD$/);
+
     // A report-only reader, raw responses: the totals and nothing about the lender.
     const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kabul" }).format(new Date());
     for (const path of [`/api/v1/finance/trial-balance?asOf=${today}`, `/api/v1/finance/balance-sheet?asOf=${today}`, `/api/v1/finance/general-ledger?from=2026-01-01&to=${today}`, `/api/v1/finance/shareholder-statement?asOf=${today}`]) {
       const answer = (await browserGet(lawReader, path)).text;
-      for (const word of ["Outside Lender Ltd", "Ahmad Test Shareholder", "LOAN-PRIVATE-REF", "LN-2", "LR-2", "RV-2", "/finance/loans", "Repayment entered in error"]) expect(answer, `${path} must not carry ${word}`).not.toContain(word);
+      for (const word of ["Outside Lender Ltd", "FX Lender Ltd", "FX-PRIVATE-REF", "Ahmad Test Shareholder", "LOAN-PRIVATE-REF", "LN-2", "LR-2", "RV-2", "/finance/loans", "Repayment entered in error"]) expect(answer, `${path} must not carry ${word}`).not.toContain(word);
     }
     expect((await browserGet(lawReader, `/api/v1/finance/balance-sheet?asOf=${today}`)).text).toContain("50000");
     await lawReader.context().close();
@@ -686,13 +758,14 @@ function safeBalance(page: Page, safe: string) {
   return page.locator(".safe-card").filter({ has: page.getByRole("heading", { name: safe }) }).getByLabel("Book balance");
 }
 
-async function createAccount(page: Page, account: { code: string; name: string; type: string; control?: string }): Promise<void> {
+async function createAccount(page: Page, account: { code: string; name: string; type: string; control?: string; currency?: string }): Promise<void> {
   await page.getByRole("button", { name: "New account" }).click();
   const form = page.getByRole("form", { name: "Account form" });
   await form.getByLabel("Account code").fill(account.code);
   await form.getByLabel("Account type").selectOption(account.type);
   await form.getByLabel("Account name").fill(account.name);
   if (account.control !== undefined) await form.getByLabel("Control type").selectOption(account.control);
+  if (account.currency !== undefined) await form.getByLabel("Currency").selectOption(account.currency);
   await form.getByRole("button", { name: "Create account" }).click();
   await expect(page.locator(".treasury-message.success")).toContainText("Account created under the current approval policy.");
 }

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
 import { api } from "@/components/AdminUsersWorkspace";
+import { LoanReadinessPanel } from "@/components/LoanReadinessPanel";
 import { useLocale } from "@/components/LocaleProvider";
 import { loanErrorText } from "@/components/LoansWorkspace";
 import { kabulToday } from "@/components/OperationalFinanceShared";
@@ -53,7 +54,7 @@ function LoanForm({ source, view, fa }: Readonly<{ source: Source; view: LoanWor
     {saved.status === "POSTED" ? (fa ? "قرض ثبت شد." : "Loan recorded.") : (fa ? "قرض برای تأیید فرستاده شد." : "Loan sent for approval.")}{" "}
     <Link href={saved.loanId ? `/finance/loans?loanId=${saved.loanId}` : "/finance/loans"}>{fa ? "دیدن قرض" : "View the loan"}</Link></p>;
   if (accounts.length === 0) return <p className="treasury-message" role="status">
-    {fa ? "نخست یک حساب بدهی قرض در " : "First create a loan liability account in the "}<Link href="/finance/accounts">{fa ? "جدول حساب‌ها" : "Chart of Accounts"}</Link>{fa ? " بسازید." : "."}</p>;
+    {fa ? "نخست یک حساب بدهی قرض در " : "First create a loan liability account in the "}<Link href={`/finance/accounts?new=${shareholder ? "SHAREHOLDER_LOAN" : "LOAN_PAYABLE"}`}>{fa ? "جدول حساب‌ها" : "Chart of Accounts"}</Link>{fa ? " بسازید." : "."}</p>;
   return (
     <form className="admin-form" aria-label={fa ? "ثبت قرض" : "Record loan"} onSubmit={(event) => { event.preventDefault(); void submit(); }}>
       <div className="admin-form-grid">
@@ -115,6 +116,7 @@ export function AddMoneyWorkspace() {
     <div className="module-workspace add-money-workspace">
       <StageZeroPageHeader icon="coins" eyebrow={{ en: "Finance", fa: "مالی" }} title={{ en: "Add money", fa: "افزودن پول" }}
         description={{ en: "Where is this money coming from?", fa: "این پول از کجا می‌آید؟" }} />
+      <LoanReadinessPanel fa={fa} />
       <section className="module-content-card" aria-label={fa ? "این پول از کجا می‌آید؟" : "Where is this money coming from?"}>
         <div className="add-money-choices">
           <Link className="treasury-card" href="/shareholders"><strong>{fa ? "سرمایهٔ سهامدار" : "Shareholder capital"}</strong>

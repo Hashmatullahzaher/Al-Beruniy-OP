@@ -36,8 +36,9 @@ Policy versions are recorded in `abos.fx_policy_versions` per company and curren
 - An ordinary posting never needs it. Such a posting uses one immutable rate snapshot for the whole event and balances exactly after rounding, so no FX difference arises. This covers the AFN receipt, Safe or Saraf funding, expense, payment and same-currency transfer.
 - It is required only by a source that can produce a realized or unrealized FX difference:
   - currency exchange (AFN ↔ USD);
-  - settlement at a rate different from the original recognition rate;
   - revaluation.
+
+  Loan settlement at a different rate does not use it. On 2026-11-06 the owner required a gain to be income and a loss to be expense, which one account of either type cannot hold, so 0063 added the `REALIZED_FX_GAIN` and `REALIZED_FX_LOSS` roles. See `V1_LOAN_REALIZED_FX.md`.
 
   None of these sources exists yet.
 - **Which account is in force:** the account the policy names, else the one active account with the Chart of Accounts control `FX_DIFFERENCE`. That is an income or expense account in the accounting currency that accepts postings without dimensions.
@@ -92,10 +93,9 @@ Each journal uses one snapshot for all its lines, so every journal balances in t
 
 The account in force, if any, is recorded on each conversion for traceability. Later difference-producing sources will resolve it through `abos.fx_difference_account_for` and refuse without it:
 - currency exchange (AFN ↔ USD between Treasury accounts);
-- settlement at a different rate;
 - revaluation.
 
-Those sources need journals whose lines carry different amounts (three lines), which is a posting-kernel extension (`OPEN_ITEMS.md`). They are not built until their accounting is explicitly designed.
+Those sources need journals whose lines carry different amounts. 0063 added that to the posting kernel for loan settlement. They are not built until their accounting is explicitly designed.
 
 ## 5. Reading
 

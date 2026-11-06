@@ -119,8 +119,6 @@ if (databaseUrl() === undefined) {
     });
 
     test("7. AFN keeps native, base, its own frozen rate and no revaluation; a repayment is in the loan's currency", async () => {
-      await db.h.pool.query(`INSERT INTO abos.exchange_rates (id,legal_entity_id,rate_date,rate_source,unit_currency_code,quote_currency_code,rate_value,note,entered_by_user_account_id)
-        VALUES ($1,$2,'2026-09-20','MARKET','USD','AFN','80','Synthetic rate',$3)`, [randomUUID(), f.e, f.u]);
       const r = await record(officer, { lenderType: "INDIVIDUAL", lenderName: "Synthetic AFN Lender", treasuryAccountId: f.afnSafe, currencyCode: "AFN", amount: "7000.00", businessDate: "2026-09-14" });
       assert.equal(Number(r.baseAmount), 100);
       const [debit] = await lines(r.journalId ?? "");
@@ -128,13 +126,13 @@ if (databaseUrl() === undefined) {
       const intent = await db.h.pool.query<{ snap: string | null; original: string }>("SELECT i.conversion_snapshot_reference AS snap, i.original_amount::text AS original FROM abos.journals j JOIN abos.posting_intents i ON i.id = j.posting_intent_id WHERE j.id = $1", [r.journalId]);
       assert.ok(intent.rows[0]?.snap, "an immutable snapshot");
       assert.equal(Number(intent.rows[0]?.original), 7000);
-      await assert.rejects(() => repay(officer, r.loanId, "7000.00", { treasuryAccountId: f.usdSafe, businessDate: "2026-09-20" }), /holds USD, not AFN/, "no cross-currency repayment");
-      const paid = await repay(officer, r.loanId, "7000.00", { treasuryAccountId: f.afnSafe, businessDate: "2026-09-20" });
-      assert.equal(Number(paid.baseAmount), 87.5, "its own day's rate");
+      await assert.rejects(() => repay(officer, r.loanId, "7000.00", { treasuryAccountId: f.usdSafe, businessDate: "2026-09-14" }), /holds USD, not AFN/, "no cross-currency repayment");
+      const paid = await repay(officer, r.loanId, "7000.00", { treasuryAccountId: f.afnSafe, businessDate: "2026-09-14" });
+      assert.equal(Number(paid.baseAmount), 100, "at the rate it came in at");
       const l = await loan(r.loanId);
-      assert.deepEqual([Number(l.outstanding), Number(l.baseOutstanding)], [0, 12.5], "native clears; the base difference stays visible, with no gain or loss posted");
+      assert.deepEqual([Number(l.outstanding), Number(l.baseOutstanding)], [0, 0], "native and base clear together. A different rate is in loan-realized-fx.test.ts");
       const fx = await db.h.pool.query<{ n: string }>("SELECT count(*)::text AS n FROM abos.journal_lines l WHERE l.ledger_account_id = $1", [f.fxAccount]);
-      assert.equal(fx.rows[0]?.n, "0", "no settlement difference is invented");
+      assert.equal(fx.rows[0]?.n, "0", "no settlement difference is invented, and a realized one never uses this account");
     });
 
     test("8. a repayment the Safe cannot cover is refused by the existing guard", async () => {

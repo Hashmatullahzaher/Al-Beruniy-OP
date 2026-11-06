@@ -22,13 +22,19 @@ const workspace = (extra: object = {}) => ({ legalEntityId: "e", baseCurrency: "
     liabilityAccounts: [{ id: shareholderAccount, code: "2510", name: "Shareholder loans", control: "SHAREHOLDER_LOAN" }, { id: otherAccount, code: "2520", name: "Loans payable", control: "LOAN_PAYABLE" }],
     shareholders: [{ id: profile, name: "Ahmad Holder" }], lenders: [{ id: party, name: "Outside Lender Ltd" }] }, ...extra });
 const statement = { legalEntityId: "e", range: { from: "2026-01-01", to: "2026-09-30" }, loan: loan(), opening: { native: "0", base: "0" }, closing: { native: "25000", base: "25000" },
-  lines: [{ journalId: journal, date: "2026-09-10", kind: "RECEIPT", reference: "LN-20260910-ABC", amount: "30000", baseAmount: "30000", effect: "30000", balance: "30000", treasury },
-    { journalId: "j2", date: "2026-09-12", kind: "REPAYMENT", reference: "LR-20260912-ABC", amount: "5000", baseAmount: "5000", effect: "-5000", balance: "25000", treasury }],
-  reconciliation: { loansBase: "25000", ledgerBase: "25000", matches: true } };
+  lines: [{ journalId: journal, date: "2026-09-10", kind: "RECEIPT", reference: "LN-20260910-ABC", amount: "30000", baseAmount: "30000", treasuryBaseAmount: "30000", realizedFx: "0", effect: "30000", balance: "30000", treasury },
+    { journalId: "j2", date: "2026-09-12", kind: "REPAYMENT", reference: "LR-20260912-ABC", amount: "5000", baseAmount: "5000", treasuryBaseAmount: "5000", realizedFx: "0", effect: "-5000", balance: "25000", treasury }],
+  realizedFx: "0", reconciliation: { loansBase: "25000", ledgerBase: "25000", matches: true } };
 
-async function mock(page: Page, data: object = workspace(), permissions: readonly string[] = ALL) {
+const readiness = (extra: object = {}) => ({ legalEntityId: "e", baseCurrency: "USD", approvalRequired: false, canManageAccounts: true, canManageRoles: false,
+  permissions: { canRead: true, canRecord: true, canRepay: true, canApprove: true },
+  accounts: [{ control: "SHAREHOLDER_LOAN", accountType: "LIABILITY", status: "READY" }, { control: "LOAN_PAYABLE", accountType: "LIABILITY", status: "READY" },
+    { control: "REALIZED_FX_GAIN", accountType: "REVENUE", status: "READY" }, { control: "REALIZED_FX_LOSS", accountType: "EXPENSE", status: "READY" }], ...extra });
+
+async function mock(page: Page, data: object = workspace(), permissions: readonly string[] = ALL, ready: object = readiness()) {
   const posted: Record<string, unknown>[] = [];
   await page.route("**/api/v1/auth/me", (route) => route.fulfill({ json: { ok: true, data: auth(permissions) } }));
+  await page.route(/\/api\/v1\/finance\/loans\/readiness/, (route) => route.fulfill({ json: { ok: true, data: ready } }));
   await page.route(/\/api\/v1\/finance\/loans\/statement/, (route) => route.fulfill({ json: { ok: true, data: statement } }));
   await page.route(/\/api\/v1\/finance\/loans$/, async (route) => {
     if (route.request().method() === "POST") {
@@ -92,7 +98,7 @@ test("without a loan account the form says what to do, and with approval ON it s
   await mock(page, workspace({ options: { ...workspace().options, liabilityAccounts: [] } }));
   await page.goto("/finance/add-money");
   await page.getByRole("button", { name: /Other loan/ }).click();
-  await expect(page.getByRole("link", { name: "Chart of Accounts" }).last()).toHaveAttribute("href", "/finance/accounts");
+  await expect(page.getByRole("link", { name: "Chart of Accounts" }).last()).toHaveAttribute("href", "/finance/accounts?new=LOAN_PAYABLE");
   await expect(page.getByRole("form", { name: "Record loan" })).toHaveCount(0);
   await page.unrouteAll();
   await mock(page, workspace({ approvalRequired: true }));
@@ -161,4 +167,107 @@ test("without loan permission the menu hides Loans and the page refuses", async 
   await expect(page.getByText("Loans need permission to read or record loans.")).toBeVisible();
   await expect(page.getByRole("navigation", { name: "Operations" }).getByRole("link", { name: "Loans" })).toHaveCount(0);
   await expect(page.getByRole("navigation", { name: "Operations" }).getByRole("link", { name: "Temporary funding" })).toHaveCount(0);
+});
+
+const missing = (...controls: readonly string[]) => readiness().accounts.map((account) => controls.includes(account.control) ? { ...account, status: "MISSING" } : account);
+
+test("Add money says exactly which accounts are missing, and links each to a filled-in form", async ({ page }) => {
+  await mock(page, workspace(), ALL, readiness({ accounts: missing("LOAN_PAYABLE", "REALIZED_FX_LOSS") }));
+  await page.goto("/finance/add-money");
+  const needs = page.getByRole("region", { name: "What loans still need" });
+  await expect(needs).toContainText("Other Loan Payable");
+  await expect(needs).toContainText("Realized FX Loss");
+  await expect(needs).toContainText("only when a foreign-currency loan is repaid at a worse rate");
+  await expect(needs).not.toContainText("Realized FX Gain");
+  await expect(needs.getByRole("link", { name: "Create the account" }).first()).toHaveAttribute("href", "/finance/accounts?new=LOAN_PAYABLE");
+  await expect(needs.getByRole("link", { name: "Create the account" }).last()).toHaveAttribute("href", "/finance/accounts?new=REALIZED_FX_LOSS");
+});
+
+test("nothing is said when everything is ready", async ({ page }) => {
+  await mock(page);
+  await page.goto("/finance/add-money");
+  await expect(page.getByRole("button", { name: /Other loan/ })).toBeEnabled();
+  await expect(page.getByRole("region", { name: "What loans still need" })).toHaveCount(0);
+});
+
+test("someone who cannot manage accounts is told whom to ask, in Dari too, and two active accounts are named as the problem", async ({ page }) => {
+  await mock(page, workspace(), ALL, readiness({ canManageAccounts: false, accounts: readiness().accounts.map((a) => a.control === "REALIZED_FX_GAIN" ? { ...a, status: "AMBIGUOUS" } : a) }));
+  await page.goto("/finance/add-money");
+  const needs = page.getByRole("region", { name: "What loans still need" });
+  await expect(needs).toContainText("Several active accounts have this role. Keep one.");
+  await expect(needs).toContainText("Ask whoever manages the Chart of Accounts.");
+  await expect(needs.getByRole("link")).toHaveCount(0);
+  await page.getByRole("button", { name: "Switch to Dari" }).click();
+  await expect(page.getByRole("region", { name: "آنچه قرض‌ها هنوز لازم دارند" })).toContainText("مفاد تحقق‌یافتهٔ تبادله اسعار");
+});
+
+test("an administrator sees which loan permissions reach nobody, by name, and where to give them", async ({ page }) => {
+  const denied = { ok: false, error: { code: "PERMISSION_DENIED", message: "denied" } };
+  await mock(page, workspace(), ["admin.roles.manage"], readiness({ canManageRoles: true, canManageAccounts: false, permissions: { canRead: false, canRecord: false, canRepay: false, canApprove: false } }));
+  await page.route(/\/api\/v1\/finance\/loans$/, (route) => route.fulfill({ status: 403, json: denied }));
+  await page.route("**/api/v1/admin/roles", (route) => route.fulfill({ json: { ok: true, data: [
+    { id: "r1", status: "ACTIVE", permissions: ["finance.loan.read"], holders: [{ id: "u1", displayName: "Finance", status: "ACTIVE" }] },
+    { id: "r2", status: "ACTIVE", permissions: ["finance.loan.record"], holders: [] },
+    { id: "r3", status: "INACTIVE", permissions: ["finance.loan.repay"], holders: [{ id: "u1", displayName: "Finance", status: "ACTIVE" }] }] } }));
+  await page.goto("/finance/add-money");
+  const needs = page.getByRole("region", { name: "What loans still need" });
+  await expect(needs).toContainText("Nobody holds these permissions:");
+  await expect(needs).toContainText("Record loans, Repay loans, Approve loans.");
+  await expect(needs).not.toContainText("View loans and lenders");
+  await expect(needs.getByRole("link", { name: "Roles & permissions" })).toHaveAttribute("href", "/admin/roles");
+});
+
+test("a person who lacks a permission is told so, and approval is mentioned only when the company requires it", async ({ page }) => {
+  const held = { canRead: true, canRecord: true, canRepay: false, canApprove: false };
+  await mock(page, workspace(), ALL, readiness({ permissions: held }));
+  await page.goto("/finance/add-money");
+  const needs = page.getByRole("region", { name: "What loans still need" });
+  await expect(needs).toContainText("You do not hold these permissions:");
+  await expect(needs).toContainText("Repay loans.");
+  await expect(needs).toContainText("Ask an administrator.");
+  await page.unrouteAll();
+  await mock(page, workspace(), ALL, readiness({ permissions: held, approvalRequired: true }));
+  await page.reload();
+  await expect(needs).toContainText("Repay loans, Approve loans.");
+});
+
+test("a repayment that needs a missing FX account is refused in words, with the way to fix it", async ({ page }) => {
+  await mock(page);
+  await page.route(/\/api\/v1\/finance\/loans$/, async (route) => {
+    if (route.request().method() === "POST") {
+      await route.fulfill({ status: 422, json: { ok: false, error: { code: "REALIZED_FX_LOSS_ACCOUNT_REQUIRED", message: "x" } } });
+      return;
+    }
+    await route.fallback();
+  });
+  await page.goto(`/finance/loans?loanId=${loanId}`);
+  await page.getByRole("button", { name: "Repay" }).click();
+  const form = page.getByRole("form", { name: "Repay loan" });
+  await form.getByLabel("From which Safe?").selectOption({ label: "Main Safe" });
+  await form.getByLabel("Amount (USD)").fill("100");
+  await form.getByRole("button", { name: "Record repayment" }).click();
+  await expect(form.getByRole("alert")).toContainText("This repayment realizes an FX loss. Create a Realized FX Loss account first. Nothing was recorded.");
+  await expect(form.getByRole("link", { name: "Create the account" })).toHaveAttribute("href", "/finance/accounts?new=REALIZED_FX_LOSS");
+});
+
+test("a repayment that realizes a difference says so, and the statement shows it and no residual", async ({ page }) => {
+  const afn = loan({ currency: "AFN", principal: "7000", basePrincipal: "100", outstanding: "0", baseOutstanding: "0" });
+  await mock(page, workspace({ loans: [afn] }));
+  await page.route(/\/api\/v1\/finance\/loans\/statement/, (route) => route.fulfill({ json: { ok: true, data: { ...statement, loan: afn, closing: { native: "0", base: "0" }, realizedFx: "-20",
+    lines: [{ journalId: "j3", date: "2026-09-21", kind: "REPAYMENT", reference: "LR-1", amount: "7000", baseAmount: "100", treasuryBaseAmount: "120", realizedFx: "-20", effect: "-7000", balance: "0", treasury }] } } }));
+  await page.goto(`/finance/loans?loanId=${loanId}`);
+  const report = page.getByRole("region", { name: "Loan statement" });
+  await expect(report.getByRole("columnheader", { name: "Realized FX" })).toBeVisible();
+  await expect(report.getByRole("row", { name: /Repayment/ })).toContainText("-20 USD");
+  await expect(report.getByRole("note")).toContainText("Accounting value still owed: 0 USD.");
+  await expect(report.getByRole("note")).toContainText("Realized FX in this period: -20 USD.");
+  await expect(report).not.toContainText("remains on the liability");
+});
+
+test("a statement with no difference has no FX column", async ({ page }) => {
+  await mock(page);
+  await page.goto(`/finance/loans?loanId=${loanId}`);
+  const report = page.getByRole("region", { name: "Loan statement" });
+  await expect(report.getByRole("status")).toBeVisible();
+  await expect(report.getByRole("columnheader", { name: "Realized FX" })).toHaveCount(0);
 });

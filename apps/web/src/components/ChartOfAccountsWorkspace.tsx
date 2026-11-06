@@ -35,7 +35,9 @@ const CONTROLS: Readonly<Record<ControlType, Copy>> = {
   TEMPORARY_FUNDING_PAYABLE: { en: "Temporary funding payable", fa: "بدهی تمویل موقت" },
   SHAREHOLDER_CONTRIBUTED_ASSETS: { en: "Shareholder contributed assets", fa: "دارایی‌های آوردهٔ سهامدار" },
   OPENING_BALANCE_EQUITY: { en: "Opening balance equity", fa: "سرمایهٔ موجودی افتتاحیه" },
-  FX_DIFFERENCE: { en: "FX difference", fa: "تفاوت تبادله اسعار" }
+  FX_DIFFERENCE: { en: "FX difference", fa: "تفاوت تبادله اسعار" },
+  REALIZED_FX_GAIN: { en: "Realized FX gain", fa: "مفاد تحقق‌یافتهٔ تبادله اسعار" },
+  REALIZED_FX_LOSS: { en: "Realized FX loss", fa: "ضرر تحقق‌یافتهٔ تبادله اسعار" }
 };
 const REVIEW_COPY: Readonly<Record<string, Copy>> = {
   PENDING_REVIEW: { en: "Awaiting review", fa: "در انتظار بازبینی" },
@@ -68,6 +70,14 @@ interface FormState {
 const EMPTY_FORM: FormState = {
   code: "", name: "", nameFa: "", description: "", type: "ASSET", controlType: "", currency: "USD", parentId: "",
   postingAllowed: true, requiresProject: false, requiresDepartment: false, requiresCostCenter: false
+};
+
+/** What a setup link may fill in. The person still gives the code, sees every field and saves through the usual command. */
+const SETUP_PRESETS: Readonly<Record<string, Pick<FormState, "name" | "nameFa" | "type" | "controlType">>> = {
+  SHAREHOLDER_LOAN: { name: "Shareholder Loan Payable", nameFa: "قرض پرداختنی سهامدار", type: "LIABILITY", controlType: "SHAREHOLDER_LOAN" },
+  LOAN_PAYABLE: { name: "Other Loan Payable", nameFa: "قرض پرداختنی دیگر", type: "LIABILITY", controlType: "LOAN_PAYABLE" },
+  REALIZED_FX_GAIN: { name: "Realized FX Gain", nameFa: "مفاد تحقق‌یافتهٔ تبادله اسعار", type: "REVENUE", controlType: "REALIZED_FX_GAIN" },
+  REALIZED_FX_LOSS: { name: "Realized FX Loss", nameFa: "ضرر تحقق‌یافتهٔ تبادله اسعار", type: "EXPENSE", controlType: "REALIZED_FX_LOSS" }
 };
 
 function formFrom(account: LedgerAccountView): FormState {
@@ -122,6 +132,7 @@ export function ChartOfAccountsWorkspace() {
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<string | "new" | null>(null);
   const [editing, setEditing] = useState(false);
+  const [preset, setPreset] = useState<Partial<FormState> | null>(null);
 
   const fail = useCallback((error: { code: string; message: string }) => {
     const copy = ERRORS[error.code];
@@ -145,6 +156,8 @@ export function ChartOfAccountsWorkspace() {
       if (!current) return;
       if (!result.ok) { setGate(result.status === 401 ? "signed-out" : result.status === 403 ? "denied" : null); return; }
       setView(result.data);
+      const wanted = new URLSearchParams(window.location.search).get("new");
+      if (wanted !== null && Object.hasOwn(SETUP_PRESETS, wanted) && result.data.canManage) { setPreset(SETUP_PRESETS[wanted] ?? null); setSelected("new"); setEditing(true); }
     });
     return () => { current = false; };
   }, []);
@@ -221,7 +234,7 @@ export function ChartOfAccountsWorkspace() {
           </div>
           <div className="module-content-card admin-detail">
             {selected === "new" && view.canManage ? (
-              <AccountForm key="new" view={view} account={null} fa={fa} t={t} onCancel={() => setSelected(null)} onError={fail}
+              <AccountForm key="new" view={view} account={null} preset={preset} fa={fa} t={t} onCancel={() => setSelected(null)} onError={fail}
                 onSaved={(id) => saved({ en: "Account created under the current approval policy.", fa: "حساب طبق سیاست تأیید جاری ایجاد شد." }, id)} />
             ) : current && editing && view.canManage ? (
               <AccountForm key={`${current.id}-${current.version}`} view={view} account={current} fa={fa} t={t} onCancel={() => setEditing(false)} onError={fail}
@@ -254,11 +267,11 @@ function WarningList({ warnings, fa, t }: { readonly warnings: readonly Duplicat
   );
 }
 
-function AccountForm({ view, account, fa, t, onCancel, onSaved, onError }: {
-  readonly view: ChartOfAccountsView; readonly account: LedgerAccountView | null; readonly fa: boolean; readonly t: (copy: Copy) => string;
+function AccountForm({ view, account, preset = null, fa, t, onCancel, onSaved, onError }: {
+  readonly view: ChartOfAccountsView; readonly account: LedgerAccountView | null; readonly preset?: Partial<FormState> | null; readonly fa: boolean; readonly t: (copy: Copy) => string;
   readonly onCancel: () => void; readonly onSaved: (id: string) => Promise<void>; readonly onError: (error: { code: string; message: string }) => void;
 }) {
-  const [form, setForm] = useState<FormState>(account ? formFrom(account) : EMPTY_FORM);
+  const [form, setForm] = useState<FormState>(account ? formFrom(account) : { ...EMPTY_FORM, ...preset, currency: preset ? view.legalEntity.baseCurrency ?? EMPTY_FORM.currency : EMPTY_FORM.currency });
   const [warnings, setWarnings] = useState<readonly DuplicateWarning[]>([]);
   const [codeTaken, setCodeTaken] = useState<string | null>(null);
   const [confirm, setConfirm] = useState(false);
