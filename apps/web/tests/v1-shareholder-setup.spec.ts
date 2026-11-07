@@ -114,57 +114,69 @@ test.describe("V1 shareholder setup", () => {
     await expect(why).toContainText("The agreement is still a draft");
     await expect(card.locator(".shareholder-documents")).toContainText("No document attached");
     await expect(card.locator(".shareholder-documents")).toContainText("Agreement document (Optional)");
-    await expect(card.getByRole("button", { name: "Upload agreement" })).toBeEnabled();
+    const documents = card.getByRole("region", { name: "Documents", exact: true });
+    const attach = documents.getByRole("form", { name: "Attach a document" });
+    await expect(attach).toBeVisible();
     await expect(why).not.toContainText("Agreement evidence is required by this legal entity's policy");
     await expect(why).toContainText("Receiving capital is not operational on company data yet");
 
-    // The optional attachment is operational: bytes are private, SHA-256 is server-generated,
-    // versions are immutable, and an attachment is never described as legal verification.
-    await card.getByRole("button", { name: "Upload agreement" }).click();
-    let upload = card.getByRole("form", { name: "Upload agreement document" });
-    // The user is never asked to type a fingerprint: no SHA-256 field and no SHA-256 instruction.
-    await expect(upload.getByLabel(/SHA-?256|fingerprint/i)).toHaveCount(0);
-    await expect(upload).not.toContainText(/SHA-?256/i);
-    await upload.getByLabel(/PDF or image file/).setInputFiles({ name: "agreement-v1.pdf", mimeType: "application/pdf", buffer: PDF });
-    await upload.getByLabel("Document reference").fill("SYN-AGR-BETA-DOC");
-    await upload.getByLabel("Document date").fill(kabulDate(-5));
-    await upload.getByRole("button", { name: "Upload agreement" }).click();
-    await expect(page.locator(".treasury-message.success")).toContainText("document version was uploaded");
-    await expect(card.locator(".shareholder-documents")).toContainText("Document attached");
-    await expect(card.locator(".shareholder-documents")).toContainText("agreement-v1.pdf");
+    // 0067: the agreement file goes through the Document Vault. The bytes are private, the fingerprint is computed by the server, nobody can open
+    // the file until the malware scan clears it, a version is never replaced, and an attachment is never described as legal verification.
+    await expect(attach.getByLabel(/SHA-?256|fingerprint/i)).toHaveCount(0);
+    await expect(attach).not.toContainText(/SHA-?256/i);
+    await attach.getByLabel("Title").fill("SYN-AGR-BETA-DOC");
+    await attach.getByLabel(/PDF or image file/).setInputFiles({ name: "agreement-v1.pdf", mimeType: "application/pdf", buffer: PDF });
+    await expect(attach.getByRole("button", { name: "Attach document" })).toBeDisabled();
+    await attach.getByLabel("Document date").fill(kabulDate(-5));
+    await attach.getByRole("button", { name: "Attach document" }).click();
+    await expect(attach.getByRole("status")).toHaveText("Document attached.");
+    await expect(card.locator(".shareholder-documents > strong")).toHaveText("Document attached");
+    const versions = card.getByRole("list", { name: "Agreement document versions" });
+    await expect(versions).toContainText("v1 · SYN-AGR-BETA-DOC");
     await expect(card.locator("code[title='Document fingerprint (automatic)']")).toHaveText(createHash("sha256").update(PDF).digest("hex"));
     await expect(card.locator(".shareholder-documents")).toContainText("fingerprint proves file integrity only, not legal verification");
-    const firstView = await card.getByRole("link", { name: "View document" }).first().getAttribute("href");
-    expect(firstView).toBeTruthy();
+    const firstView = await documents.getByRole("link", { name: "View", exact: true }).first().getAttribute("href");
+    expect(firstView).toMatch(/^\/api\/v1\/documents\/[0-9a-f-]{36}$/);
     const firstDownload = await page.evaluate(async (url) => {
       const response = await fetch(url ?? "");
       return { status: response.status, type: response.headers.get("content-type"), bytes: [...new Uint8Array(await response.arrayBuffer())] };
     }, firstView);
     expect(firstDownload).toEqual({ status: 200, type: "application/pdf", bytes: [...PDF] });
 
-    await card.getByRole("button", { name: "Upload another version" }).click();
-    upload = card.getByRole("form", { name: "Upload agreement document" });
-    await upload.getByLabel(/PDF or image file/).setInputFiles({ name: "agreement-v2.png", mimeType: "image/png", buffer: PNG });
-    await upload.getByLabel("Document reference").fill("SYN-AGR-BETA-DOC-V2");
-    await upload.getByRole("button", { name: "Upload agreement" }).click();
-    await expect(card.locator(".shareholder-documents li")).toHaveCount(2);
-    await expect(card.locator(".shareholder-documents")).toContainText("v2 · SYN-AGR-BETA-DOC-V2");
+    await attach.getByLabel("Title").fill("SYN-AGR-BETA-DOC-V2");
+    await attach.getByLabel(/PDF or image file/).setInputFiles({ name: "agreement-v2.png", mimeType: "image/png", buffer: PNG });
+    await attach.getByLabel("Document date").fill(kabulDate(-1));
+    await attach.getByRole("button", { name: "Attach document" }).click();
+    await expect(versions.getByRole("listitem")).toHaveCount(2);
+    await expect(versions).toContainText("v2 · SYN-AGR-BETA-DOC-V2");
 
-    await card.getByRole("button", { name: "Upload another version" }).click();
-    upload = card.getByRole("form", { name: "Upload agreement document" });
-    await upload.getByLabel(/PDF or image file/).setInputFiles({ name: "fake.pdf", mimeType: "application/pdf", buffer: Buffer.from("not a pdf") });
-    await upload.getByRole("button", { name: "Upload agreement" }).click();
-    await expect(page.locator(".treasury-message.error")).toContainText("Only genuine PDF, JPEG, and PNG files are accepted");
-    await upload.getByRole("button", { name: "Cancel" }).click();
+    await attach.getByLabel("Title").fill("Not a real PDF");
+    await attach.getByLabel(/PDF or image file/).setInputFiles({ name: "fake.pdf", mimeType: "application/pdf", buffer: Buffer.from("not a pdf") });
+    await attach.getByLabel("Document date").fill(kabulDate(-1));
+    await attach.getByRole("button", { name: "Attach document" }).click();
+    await expect(attach.getByRole("alert")).toContainText("Only genuine PDF, JPEG and PNG files are accepted");
+    await expect(versions.getByRole("listitem")).toHaveCount(2);
+
+    // The older upload lane is retired: it answers that the file belongs in the vault, and stores nothing.
+    const retired = await page.evaluate(async ({ agreementId, documentDate }) => {
+      const formData = new FormData();
+      formData.set("capitalAgreementId", agreementId); formData.set("documentReference", "OLD-LANE"); formData.set("documentDate", documentDate);
+      formData.set("idempotencyKey", crypto.randomUUID()); formData.set("file", new File(["%PDF-1.7\n%%EOF\n"], "old.pdf", { type: "application/pdf" }));
+      const response = await fetch("/api/v1/shareholder/setup/documents", { method: "POST", body: formData });
+      return { status: response.status, body: await response.json() };
+    }, { agreementId: await card.getAttribute("data-agreement-id") ?? "", documentDate: kabulDate(-5) });
+    expect([retired.status, retired.body.error.code]).toEqual([410, "AGREEMENT_UPLOAD_MOVED"]);
+    await expect(versions.getByRole("listitem")).toHaveCount(2);
 
     const oversized = await page.evaluate(async ({ agreementId, documentDate }) => {
       const formData = new FormData();
-      formData.set("capitalAgreementId", agreementId);
-      formData.set("documentReference", "TOO-LARGE");
+      formData.set("subjectType", "AGREEMENT");
+      formData.set("subjectId", agreementId);
+      formData.set("title", "TOO-LARGE");
       formData.set("documentDate", documentDate);
       formData.set("idempotencyKey", crypto.randomUUID());
       formData.set("file", new File([new Uint8Array(10 * 1024 * 1024 + 1)], "too-large.pdf", { type: "application/pdf" }));
-      const response = await fetch("/api/v1/shareholder/setup/documents", { method: "POST", body: formData });
+      const response = await fetch("/api/v1/documents", { method: "POST", body: formData });
       return { status: response.status, body: await response.json() };
     }, { agreementId: await card.getAttribute("data-agreement-id") ?? "", documentDate: kabulDate(-5) });
     expect(oversized.status).toBe(413);
@@ -210,7 +222,7 @@ test.describe("V1 shareholder setup", () => {
     await page.getByRole("tab", { name: /^قراردادهای سرمایه/ }).click();
     await expect(card).toContainText("پیش‌نویس");
     await expect(card.locator(".shareholder-documents")).toContainText("سند ضمیمه شده");
-    await expect(card.getByRole("button", { name: "بارگذاری نسخهٔ دیگر" })).toBeVisible();
+    await expect(card.getByRole("region", { name: "اسناد", exact: true }).getByRole("button", { name: "پیوست سند" })).toBeVisible();
     await expect(card.locator(".shareholder-why")).toContainText("دریافت سرمایه هنوز روی داده‌های شرکت فعال نیست");
     expect(await page.evaluate(() => document.documentElement.dir)).toBe("rtl");
     await page.screenshot({ path: resolve(SHOTS, "02-agreements-dari.png"), fullPage: true });
@@ -241,9 +253,12 @@ test.describe("V1 shareholder setup", () => {
       read: (await fetch("/api/v1/shareholder/setup")).status,
       write: (await fetch("/api/v1/shareholder/setup", { method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "create-shareholder", displayName: "Refused", shareholderSince: "2026-01-01" }) })).status,
-      document: (await fetch(documentUrl ?? "")).status
+      document: (await fetch(documentUrl ?? "")).status,
+      unknownDocument: (await fetch("/api/v1/documents/00000000-0000-4000-8000-000000000001")).status
     }), firstView);
-    expect(status).toEqual({ read: 403, write: 403, document: 403 });
+    // 0067: the agreement file is a vault document now, so a person without access gets the vault's not-found answer, the same as for a document
+    // that does not exist (the older lane answered 403).
+    expect(status).toEqual({ read: 403, write: 403, document: 404, unknownDocument: 404 });
     await page.goto("/shareholders/legacy");
     await expect(page.getByRole("heading", { name: "You do not have access" }).first()).toBeVisible();
     expect(await partyCount("Refused")).toBe(0);

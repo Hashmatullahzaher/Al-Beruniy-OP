@@ -88,6 +88,7 @@ export function DirectShareholderCapitalWorkspace() {
   const [selected, setSelected] = useState<string | null>(null);
   const [form, setForm] = useState<Form | null>(null);
   const [upload, setUpload] = useState<Upload | null>(null);
+  const [documentsVersion, setDocumentsVersion] = useState(0);
   const [busy, setBusy] = useState(false);
   const [uncertain, setUncertain] = useState(false);
   const [query, setQuery] = useState("");
@@ -121,17 +122,20 @@ export function DirectShareholderCapitalWorkspace() {
     return () => { active = false; };
   }, [locale]);
 
+  // A direct shareholder has no agreement record, so the agreement file is the shareholder's own document in the Document Vault (0067). It is
+  // locked until its security check passes, like every other document.
   const uploadDocument = async (attachment: Upload) => {
     const data = new FormData();
-    data.set("shareholderProfileId", attachment.shareholder);
+    data.set("subjectType", "SHAREHOLDER");
+    data.set("subjectId", attachment.shareholder);
     data.set("file", attachment.file);
     data.set("idempotencyKey", attachment.key);
-    data.set("documentReference", attachment.file.name);
+    data.set("title", copy("Agreement document", "سند توافق"));
     data.set("documentDate", attachment.date);
     setAttachmentError(null);
     let detail = "";
     try {
-      const response = await fetch(`${ENDPOINT}/documents`, { method: "POST", body: data });
+      const response = await fetch("/api/v1/documents", { method: "POST", body: data });
       const result = await response.json() as { ok: boolean; error?: { code: string; message: string } };
       if (!response.ok || !result.ok) {
         if (response.status === 401) setGate("signed-out");
@@ -140,7 +144,7 @@ export function DirectShareholderCapitalWorkspace() {
         throw new Error(result.error ? errorText(result.error, locale) : copy("Upload did not finish.", "بارگذاری کامل نشد."));
       }
       setUpload(null);
-      await refresh();
+      setDocumentsVersion(value => value + 1);
     } catch {
       // Saving the shareholder and attaching a file are independent. Keep the same upload key for retry.
       setUpload(attachment);
@@ -311,7 +315,7 @@ export function DirectShareholderCapitalWorkspace() {
             {capital.agreedTotal !== null && capital.remaining !== null ? <div><dt>{copy("Still to come", "باقی‌مانده")}</dt><dd dir="ltr">{money(capital.remaining, capital.currency)}</dd></div> : null}
           </dl></section>)}
         <HolderLoans profileId={holder.id} fa={locale === "fa"} />
-        <DocumentsPanel key={`documents-${holder.id}`} subjectType="SHAREHOLDER" subjectId={holder.id} fa={locale === "fa"} />
+        <DocumentsPanel key={`documents-${holder.id}-${documentsVersion}`} subjectType="SHAREHOLDER" subjectId={holder.id} fa={locale === "fa"} />
         <h3>{copy("History", "تاریخچه")}</h3>
         {holder.transactions.length === 0 ? <p className="admin-hint">{copy("No capital has been recorded yet.", "هنوز سرمایه‌ای ثبت نشده است.")}</p> : <div style={{ overflowX: "auto" }}><table className="shareholder-installments contribution-table"><caption className="sr-only">{copy("Capital put in", "سرمایهٔ گذاشته‌شده")}</caption><thead><tr>{[copy("Date", "تاریخ"), copy("Amount", "مبلغ"), copy("What", "چه"), copy("Where it went", "به کجا رفت"), copy("Reference", "مرجع"), copy("Note", "یادداشت"), copy("General Ledger", "دفتر کل")].map(label => <th scope="col" key={label}>{label}</th>)}</tr></thead><tbody>{holder.transactions.map(entry => <tr key={entry.id}>
           <td><time dateTime={entry.date}>{entry.date}</time></td>
@@ -322,9 +326,6 @@ export function DirectShareholderCapitalWorkspace() {
           <td>{entry.note ?? "—"}</td>
           <td><Link href={`/finance/general-ledger?journalId=${encodeURIComponent(entry.journalId)}`}>{copy("View journal", "مشاهده سند")}</Link><small style={{ display: "block", overflowWrap: "anywhere" }}>{entry.journalId}</small></td>
         </tr>)}</tbody></table></div>}
-        <h3>{copy("Agreement document (optional)", "سند توافق (اختیاری)")}</h3>
-        {holder.documents.length === 0 ? <p className="admin-hint">{copy("No document attached", "سندی ضمیمه نشده است")}</p> : <ul style={{ display: "grid", gap: 10, paddingInlineStart: 20 }}>{holder.documents.map(document => <li key={document.id} style={{ overflowWrap: "anywhere" }}>{copy("Document attached", "سند ضمیمه شده است")} · {document.fileName} · {copy("Version", "نسخه")} {document.version} <a href={`/api/v1/shareholder/setup/documents/${encodeURIComponent(document.id)}`} target="_blank" rel="noreferrer">{copy("View document", "مشاهده سند")}</a> · <a href={`/api/v1/shareholder/setup/documents/${encodeURIComponent(document.id)}?download=1`}>{copy("Download document", "دریافت سند")}</a></li>)}</ul>}
-        {view.permissions.canManage ? <div className="admin-form"><Field label={holder.documents.length ? copy("Upload another version", "بارگذاری نسخهٔ دیگر") : copy("Upload agreement", "بارگذاری سند توافق")}><input disabled={busy || !!upload} type="file" accept="application/pdf,image/jpeg,image/png" onChange={async e => { const file = e.target.files?.[0]; if (!file || running.current) return; e.target.value = ""; running.current = true; setBusy(true); const attachment = { shareholder: holder.id, file, key: crypto.randomUUID(), date: kabulToday() }; setUpload(attachment); try { await uploadDocument(attachment); } finally { running.current = false; setBusy(false); } }} /></Field></div> : null}
       </article> : null}
       {view.destinations.length ? <section className="treasury-card contribution-card" aria-label={copy("Safe balances", "موجودی صندوق‌ها")}><h2>{copy("Visible recorded Safe activity", "گردش ثبت‌شدهٔ قابل مشاهدهٔ صندوق")}</h2><p className="admin-hint">{copy("The recorded receipts and payments you may view; not a physical cash count or verified opening balance.", "دریافت‌ها و پرداخت‌های ثبت‌شده در حدود صلاحیت شما؛ نه شمارش فیزیکی نقد یا موجودی افتتاحیهٔ تأییدشده.")}</p><dl style={fieldGrid}>{view.destinations.map(destination => <div key={destination.id}><dt>{destination.name}</dt><dd dir="ltr" style={{ marginInlineStart: 0 }}>{destination.balance === null ? copy("Not available with your permissions", "با صلاحیت‌های شما قابل مشاهده نیست") : money(destination.balance, destination.currency)}</dd></div>)}</dl></section> : null}
     </>}

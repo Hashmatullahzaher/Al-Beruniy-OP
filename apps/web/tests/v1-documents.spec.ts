@@ -184,3 +184,38 @@ test("the not-found page follows the person's language", async ({ page }) => {
   await expect(page.getByText("این صفحه پیدا نشد")).toBeVisible();
   await expect(page.getByRole("link", { name: "بازگشت به صفحهٔ اصلی" })).toBeVisible();
 });
+
+test("a scan that could not finish says so, stays locked, and can be checked again only by someone who may attach", async ({ page }) => {
+  const failed = { ...attached, id: "22222222-2222-4222-8222-222222222222", title: "Scan failed file", scanStatus: "SCAN_FAILED" };
+  await mock(page, { canRead: true, canAttach: true, documents: [failed] });
+  await page.goto("/admin/company");
+  const row = page.getByRole("region", { name: "Documents" }).getByRole("listitem").filter({ hasText: "Scan failed file" });
+  await expect(row).toContainText("Security check could not finish. It stays locked");
+  await expect(row.getByRole("link")).toHaveCount(0);
+  await expect(row.getByRole("button", { name: "Check again" })).toBeVisible();
+  await page.unrouteAll({ behavior: "ignoreErrors" });
+  await mock(page, { canRead: true, canAttach: false, documents: [failed] });
+  await page.reload();
+  const readOnly = page.getByRole("region", { name: "Documents" }).getByRole("listitem").filter({ hasText: "Scan failed file" });
+  await expect(readOnly).toContainText("Security check could not finish");
+  await expect(readOnly.getByRole("button")).toHaveCount(0);
+});
+
+test("an upload whose scan could not finish tells the person the file is attached but locked", async ({ page }) => {
+  await mock(page, { canRead: true, canAttach: true, documents: [] }, { status: 201, body: { ok: true, data: { ...attached, scanStatus: "SCAN_FAILED" } } });
+  await page.goto("/admin/company");
+  const form = page.getByRole("form", { name: "Attach a document" });
+  await form.getByLabel("Title").fill("Certificate");
+  await form.getByLabel(/PDF or image file/).setInputFiles(PDF);
+  await form.getByRole("button", { name: "Attach document" }).click();
+  await expect(form.getByRole("status")).toHaveText("Document attached, but its security check could not finish. It stays locked until a check passes.");
+});
+
+test("a document attached to a capital agreement is marked with its agreement where it appears", async ({ page }) => {
+  const onAgreement = { ...attached, id: "33333333-3333-4333-8333-333333333333", title: "Signed capital agreement", subjectType: "AGREEMENT", agreementReference: "SYN-AGR-7" };
+  await mock(page, { canRead: true, canAttach: true, documents: [onAgreement] });
+  await page.goto("/admin/company");
+  const row = page.getByRole("region", { name: "Documents" }).getByRole("listitem").filter({ hasText: "Signed capital agreement" });
+  await expect(row).toContainText("Agreement SYN-AGR-7");
+  await expect(row.getByRole("link", { name: "View" })).toHaveAttribute("href", `/api/v1/documents/${onAgreement.id}`);
+});

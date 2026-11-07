@@ -115,7 +115,8 @@ test("@smoke one save records the shareholder and the money, then more money, wi
   await addShareholder(page, { cash: "20000", agreedTotal: "100000" });
   const holder = page.getByRole("article", { name: "Demo Shareholder", exact: true });
   await expect(holder).toContainText("USD 20,000.00");
-  await expect(holder).toContainText("No document attached");
+  // 0067: the older agreement section is retired; a shareholder's files, agreement included, are in the Documents panel.
+  await expect(holder.getByRole("heading", { level: 3, name: "Agreement document (optional)" })).toHaveCount(0);
   const form = await addMoney(page, "10000");
   await expect(form.getByRole("combobox", { name: "Which Safe did it go into?", exact: true })).not.toContainText("AFN");
   await form.getByRole("button", { name: "Save", exact: true }).click();
@@ -273,26 +274,36 @@ test("a user without financial reporting access sees no invented zero Safe balan
   await expect(safes).not.toContainText("USD 0");
 });
 
-test("optional upload failure preserves the saved shareholder and retries the same version key", async ({ page }) => {
+test("an agreement file chosen with a new shareholder goes to the Document Vault; a failed upload keeps the shareholder and retries with the same key", async ({ page }) => {
+  // 0067: a direct shareholder has no agreement record, so the file is the shareholder's own vault document. The older lane is not used.
   const mocked = await mockWorkspace(page);
-  const keys: string[] = []; let uploads = 0;
-  await page.route("**/api/v1/shareholder/capital/documents", async route => {
+  const keys: string[] = []; const fields: string[] = []; let uploads = 0; let legacy = 0;
+  const documents: { id: string; title: string; documentDate: string | null; fileName: string; mediaType: string; byteSize: number; attachedAt: string; scanStatus: string }[] = [];
+  await page.route("**/api/v1/shareholder/capital/documents", async route => { legacy += 1; await route.fulfill({ status: 410, json: { ok: false, error: { code: "AGREEMENT_UPLOAD_MOVED", message: "x" } } }); });
+  await page.route(/\/api\/v1\/documents(\?.*)?$/, async route => {
+    if (route.request().method() === "GET") { await route.fulfill({ json: { ok: true, data: { canRead: true, canAttach: true, documents } } }); return; }
     uploads += 1; const body = route.request().postDataBuffer()!.toString();
-    keys.push(/name="idempotencyKey"\r\n\r\n([^\r]+)/.exec(body)![1]!);
+    const field = (name: string) => new RegExp(`name="${name}"\\r\\n\\r\\n([^\\r]*)`).exec(body)?.[1] ?? "";
+    keys.push(field("idempotencyKey")); fields.push(`${field("subjectType")}:${field("subjectId")}:${field("title")}`);
     if (uploads === 1) { await route.fulfill({ status: 503, json: { ok: false, error: { code: "UNAVAILABLE", message: "Upload unavailable" } } }); return; }
-    mocked.view.shareholders[0]!.documents.push({ id: "document-1", fileName: "agreement.pdf", version: 1 });
-    await route.fulfill({ json: { ok: true, data: {} } });
+    documents.push({ id: "document-1", title: "Agreement document", documentDate: null, fileName: "agreement.pdf", mediaType: "application/pdf", byteSize: 2048,
+      attachedAt: "2026-11-07T08:00:00Z", scanStatus: "CLEAN" });
+    await route.fulfill({ status: 201, json: { ok: true, data: { id: "document-1", scanStatus: "CLEAN" } } });
   });
   await page.goto("/shareholders");
-  await addShareholder(page, { cash: "20000", file: { name: "agreement.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.7\nUI test only") } });
+  await addShareholder(page, { cash: "20000", file: { name: "agreement.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.7\nUI test only\n%%EOF\n") } });
   await expect(page.getByRole("main").getByRole("alert")).toContainText("The shareholder is saved");
   const holder = page.getByRole("article", { name: "Demo Shareholder", exact: true });
   await expect(holder.getByRole("button", { name: "Add money", exact: true })).toBeEnabled();
   await page.getByRole("button", { name: "Retry document upload", exact: true }).click();
-  await expect(holder.getByRole("link", { name: "View document", exact: true })).toHaveAttribute("href", "/api/v1/shareholder/setup/documents/document-1");
-  await expect(holder.getByRole("link", { name: "Download document", exact: true })).toHaveAttribute("href", "/api/v1/shareholder/setup/documents/document-1?download=1");
-  await expect(holder.getByLabel("Upload another version")).toBeVisible();
-  expect(keys[0]).toBe(keys[1]); expect(mocked.commands).toHaveLength(1);
+  const panel = holder.getByRole("region", { name: "Documents", exact: true });
+  await expect(panel.getByRole("link", { name: "View", exact: true })).toHaveAttribute("href", "/api/v1/documents/document-1");
+  await expect(panel).toContainText("Agreement document");
+  expect(keys).toHaveLength(2); expect(keys[0]).toBe(keys[1]);
+  expect(fields[0]).toBe(`SHAREHOLDER:${shareholderId}:Agreement document`);
+  expect(legacy).toBe(0); expect(mocked.commands).toHaveLength(1);
+  await expect(holder.getByText("Upload another version", { exact: true })).toHaveCount(0);
+  await expect(holder.getByRole("link", { name: "Download document", exact: true })).toHaveCount(0);
 });
 
 test("Dari labels and RTL remain usable at tablet width", async ({ page }) => {

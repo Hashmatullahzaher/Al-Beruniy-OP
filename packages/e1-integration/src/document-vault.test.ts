@@ -198,11 +198,13 @@ if (databaseUrl() === undefined) {
       assert.equal(await audits("DOCUMENT_SCANNED", attached.id), 1);
     });
 
-    test("a scanner that is down decides nothing: the document stays locked, and can be scanned again", async () => {
+    test("a scanner that is down decides nothing: the document stays locked as SCAN_FAILED, and can be scanned again", async () => {
       const attached = await attach(officer, "LOAN", loanId);
-      for (let attempt = 0; attempt < 3; attempt += 1) assert.equal((await scan(officer, attached.id, "UNAVAILABLE", { detail: "The scanner timed out." })).scanStatus, "PENDING");
+      // 0067: a failed attempt is visible as SCAN_FAILED instead of PENDING. It is still locked and still scannable.
+      for (let attempt = 0; attempt < 3; attempt += 1) assert.equal((await scan(officer, attached.id, "UNAVAILABLE", { detail: "The scanner timed out." })).scanStatus, "SCAN_FAILED");
       await assert.rejects(() => open(officer, attached.id), NOT_CLEARED);
-      assert.equal((await target(officer, attached.id)).scanStatus, "PENDING");
+      assert.equal((await target(officer, attached.id)).scanStatus, "SCAN_FAILED");
+      assert.equal(await status(officer, "LOAN", loanId, attached.id), "SCAN_FAILED");
       assert.equal((await scan(officer, attached.id, "CLEAN")).scanStatus, "CLEAN");
       assert.equal(await audits("DOCUMENT_SCANNED", attached.id), 4, "every attempt is on record");
     });
@@ -293,7 +295,8 @@ if (databaseUrl() === undefined) {
       assert.deepEqual(rows.find((r) => r.storage_id === pending.storageId)?.scan_status, "PENDING");
       const row = rows.find((r) => r.storage_id === clean.storageId);
       assert.deepEqual([row?.source, row?.scan_status, row?.sha256, Number(row?.byte_size)], ["DOCUMENT", "CLEAN", HASH, 1200]);
-      const stored = await db.h.pool.query<{ n: string }>("SELECT (SELECT count(*) FROM abos.documents) + (SELECT count(*) FROM abos.capital_agreement_document_files) AS n");
+      // 0067: one row per stored object. An imported agreement file is one object with two records.
+      const stored = await db.h.pool.query<{ n: string }>("SELECT count(DISTINCT s) AS n FROM (SELECT storage_id AS s FROM abos.documents UNION ALL SELECT storage_id FROM abos.capital_agreement_document_files) x");
       assert.equal(rows.length, Number(stored.rows[0]?.n));
     });
   });

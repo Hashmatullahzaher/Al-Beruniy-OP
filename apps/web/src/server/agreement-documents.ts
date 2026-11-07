@@ -1,17 +1,6 @@
-import { createHash, randomUUID } from "node:crypto";
+import { PrivateDocumentStorage, PrivateDocumentStorageError } from "@abos/persistence";
 
-import type { AgreementDocumentFinalizeInput } from "@abos/contracts";
-import {
-  AGREEMENT_DOCUMENT_MAX_BYTES,
-  PrivateDocumentStorage,
-  PrivateDocumentStorageError
-} from "@abos/persistence";
-
-import { sessionToken } from "@/server/identity";
-import { financeHandoffRuntime } from "@/server/finance-handoff";
-import { restrictedFinanceAuthenticator } from "@/server/operational-finance";
-import { assertSameOrigin, json } from "@/server/treasury";
-import { shareholderSetupErrorResponse } from "@/server/shareholder-setup";
+import { json } from "@/server/treasury";
 
 export const MULTIPART_OVERHEAD_BYTES = 1024 * 1024;
 let configuredStorage: PrivateDocumentStorage | undefined;
@@ -21,80 +10,12 @@ export function privateStorage(): PrivateDocumentStorage {
   return configuredStorage;
 }
 
-export async function uploadAgreementDocument(request: Request, directShareholder = false): Promise<Response> {
-  let candidateStorageId: string | null = null;
-  let candidateWritten = false;
-  try {
-    assertSameOrigin(request);
-    const type = request.headers.get("content-type")?.toLowerCase() ?? "";
-    if (!type.startsWith("multipart/form-data;")) return documentError("INVALID_FILE", "Use a multipart file upload.", 415);
-    const length = Number(request.headers.get("content-length") ?? "0");
-    if (Number.isFinite(length) && length > AGREEMENT_DOCUMENT_MAX_BYTES + MULTIPART_OVERHEAD_BYTES) {
-      return documentError("FILE_TOO_LARGE", "Agreement files cannot exceed 10 MB.", 413);
-    }
-    // Authenticate before accepting the request body. The bounded reader below also enforces the
-    // transport limit for chunked requests that legitimately have no Content-Length header.
-    const token = await sessionToken();
-    const form = await boundedMultipartForm(request, AGREEMENT_DOCUMENT_MAX_BYTES + MULTIPART_OVERHEAD_BYTES);
-    const file = form.get("file");
-    let capitalAgreementId = field(form, "capitalAgreementId");
-    const shareholderProfileId = directShareholder ? field(form, "shareholderProfileId") : null;
-    const documentReference = field(form, "documentReference");
-    const documentDate = field(form, "documentDate");
-    const idempotencyKey = field(form, "idempotencyKey");
-    if (!(file instanceof File) || !(directShareholder ? shareholderProfileId : capitalAgreementId) || !documentReference || !documentDate || !idempotencyKey) {
-      return documentError("VALIDATION_FAILED", "Choose a file and enter its agreement details.", 422);
-    }
-    if (file.size > AGREEMENT_DOCUMENT_MAX_BYTES) {
-      return documentError("FILE_TOO_LARGE", "Agreement files cannot exceed 10 MB.", 413);
-    }
-    const finance = financeHandoffRuntime();
-    const authenticator = restrictedFinanceAuthenticator();
-    const bytes = new Uint8Array(await file.arrayBuffer());
-    // Validate actual bytes before creating even an optional non-financial attachment holder.
-    privateStorage().validate(file.name, bytes);
-    if (directShareholder && shareholderProfileId) {
-      capitalAgreementId = (await authenticator.directCapitalDocumentHolder(finance.executor, token, shareholderProfileId)).capitalAgreementId;
-    }
-    if (!capitalAgreementId) return documentError("VALIDATION_FAILED", "Choose a shareholder.", 422);
-    await authenticator.prepareAgreementDocument(finance.executor, token, capitalAgreementId);
-    candidateStorageId = randomUUID();
-    const stored = await privateStorage().write(candidateStorageId, file.name, bytes);
-    candidateWritten = true;
-    const input: AgreementDocumentFinalizeInput = {
-      capitalAgreementId,
-      storageId: stored.storageId,
-      originalFileName: stored.originalFileName,
-      mediaType: stored.mediaType,
-      byteSize: stored.byteSize,
-      sha256: stored.sha256,
-      documentReference,
-      documentDate,
-      idempotencyKey,
-      correlationId: randomUUID()
-    };
-    try {
-      const record = await authenticator.finalizeAgreementDocument(finance.executor, token, input);
-      if (record.storageId !== candidateStorageId) {
-        await privateStorage().removeUnlinked(candidateStorageId);
-        candidateWritten = false;
-      }
-      return json({ ok: true, data: record }, record.replayed ? 200 : 201);
-    } catch (error) {
-      if (candidateWritten) {
-        await cleanupCandidate(candidateStorageId);
-        candidateWritten = false;
-      }
-      throw error;
-    }
-  } catch (error) {
-    if (candidateStorageId !== null && candidateWritten) await cleanupCandidate(candidateStorageId);
-    if (error instanceof PrivateDocumentStorageError) {
-      const status = error.code === "TOO_LARGE" ? 413 : error.code === "NOT_FOUND" ? 404 : error.code === "NOT_CONFIGURED" ? 503 : 422;
-      return documentError(error.code, error.message, status);
-    }
-    return shareholderSetupErrorResponse(error);
-  }
+/**
+ * The older agreement upload lane, retired by migration 0067. A new agreement file is attached in the Document Vault, where it is locked until a
+ * malware scan passes. The database also refuses this lane, so this answer is not the only thing standing in the way.
+ */
+export async function uploadAgreementDocument(): Promise<Response> {
+  return documentError("AGREEMENT_UPLOAD_MOVED", "Agreement documents are now attached in the Document Vault.", 410);
 }
 
 export async function boundedMultipartForm(request: Request, maximumBytes: number): Promise<FormData> {
@@ -120,28 +41,12 @@ export async function boundedMultipartForm(request: Request, maximumBytes: numbe
   return new Request(request.url, { method: "POST", headers: request.headers, body }).formData();
 }
 
-export async function downloadAgreementDocument(
-  agreementEvidenceId: string,
-  disposition: "inline" | "attachment"
-): Promise<Response> {
-  try {
-    const finance = financeHandoffRuntime();
-    const record = await restrictedFinanceAuthenticator().agreementDocument(
-      finance.executor, await sessionToken(), agreementEvidenceId
-    );
-    const bytes = await privateStorage().read(record.storageId);
-    const digest = createHash("sha256").update(bytes).digest("hex");
-    if (bytes.byteLength !== Number(record.byteSize) || digest !== record.sha256) {
-      return documentError("DOCUMENT_INTEGRITY_FAILURE", "The stored document failed its integrity check.", 503);
-    }
-    return privateDocumentResponse(bytes, record.mediaType, record.originalFileName, disposition, "agreement");
-  } catch (error) {
-    if (error instanceof PrivateDocumentStorageError) {
-      return documentError(error.code, error.code === "NOT_FOUND" ? "The document file is unavailable." : error.message,
-        error.code === "NOT_FOUND" ? 404 : 503);
-    }
-    return shareholderSetupErrorResponse(error);
-  }
+/**
+ * Retired with the upload lane. This route served stored agreement files without a malware scan. An agreement file is opened through the
+ * Document Vault once it has been brought in and passed its scan; until then it stays stored and untouched, and nothing serves it.
+ */
+export async function downloadAgreementDocument(): Promise<Response> {
+  return documentError("AGREEMENT_DOCUMENT_MOVED", "This agreement document is opened from the Document Vault.", 410);
 }
 
 /** How every private file leaves the server: never cached and never sniffed. The site-wide headers in next.config.ts add the content policy, and they override any set here. */
@@ -157,11 +62,6 @@ export function privateDocumentResponse(bytes: Uint8Array, mediaType: string, fi
       "X-Content-Type-Options": "nosniff"
     }
   });
-}
-
-function field(form: FormData, name: string): string {
-  const value = form.get(name);
-  return typeof value === "string" ? value.trim() : "";
 }
 
 export function documentError(code: string, message: string, status: number): Response {

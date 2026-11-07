@@ -167,20 +167,16 @@ if (databaseUrl() === undefined) {
       await zero();
     });
 
-    test("optional private document holder is stable, remains DRAFT and is not a receipt prerequisite", async () => {
+    test("the attachment-only agreement holder is retired, creates nothing, and an agreement file was never a receipt prerequisite", async () => {
+      // 0067: a direct shareholder's agreement file is the shareholder's own document in the Document Vault, so no holder agreement is created.
       const f = await fixture(); const s = await create(f);
-      const p = { shareholderProfileId: s.shareholderProfileId };
-      const first = await call<{ capitalAgreementId: string }>("direct_shareholder_document_holder", f.actor, p);
-      const again = await call<{ capitalAgreementId: string }>("direct_shareholder_document_holder", f.actor, p);
-      assert.equal(again.capitalAgreementId, first.capitalAgreementId);
-      const row = await h.pool.query("SELECT status FROM abos.capital_agreements WHERE id=$1", [first.capitalAgreementId]);
-      assert.equal(row.rows[0]?.status, "DRAFT");
-      assert.equal((await h.pool.query("SELECT count(*)::int AS n FROM abos.capital_agreement_document_files WHERE capital_agreement_id=$1", [first.capitalAgreementId])).rows[0]?.n, 0);
-      await assert.rejects(() => call("direct_shareholder_document_holder", f.actor, { shareholderProfileId: randomUUID() }), /shareholder|entity|found/i);
+      const agreements = async () => (await h.pool.query<{ n: number }>("SELECT count(*)::int AS n FROM abos.capital_agreements")).rows[0]?.n;
+      const before = await agreements();
+      await assert.rejects(() => call("direct_shareholder_document_holder", f.actor, { shareholderProfileId: s.shareholderProfileId }), /permission denied/);
+      assert.equal(await agreements(), before, "no holder agreement appears");
       await zero();
       const receipt = await receive(f, s.shareholderProfileId);
       assert.equal(receipt.status, "POSTED", "missing optional physical agreement does not block receipt");
-      assert.equal((await h.pool.query("SELECT status FROM abos.capital_agreements WHERE id=$1", [first.capitalAgreementId])).rows[0]?.status, "DRAFT");
     });
 
     test("20,000 then 10,000 receipts produce exactly balanced linked journals and accurate remaining capital", async () => {
