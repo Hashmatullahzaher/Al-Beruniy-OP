@@ -72,7 +72,9 @@ test("one person adds a shareholder with 20,000 in one save, adds 10,000 more an
     expect(["CLEAN", "PENDING", "SCAN_FAILED"]).toContain(record.data.scanStatus);
   }
   await expect(panel.getByRole("listitem")).toHaveCount(2);
-  const viewUrl = await panel.getByRole("link", { name: "View", exact: true }).first().getAttribute("href").catch(() => null);
+  // A file opens only once its scan has cleared it. On a fixture with no scanner nothing clears, so there may be no link to follow.
+  const views = panel.getByRole("link", { name: "View", exact: true });
+  const viewUrl = (await views.count()) > 0 ? await views.first().getAttribute("href") : null;
   if (viewUrl) {
     const downloaded = await page.request.get(viewUrl);
     expect(downloaded.status()).toBe(200);

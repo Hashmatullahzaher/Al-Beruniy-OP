@@ -253,9 +253,12 @@ test.describe("V1 shareholder setup", () => {
       read: (await fetch("/api/v1/shareholder/setup")).status,
       write: (await fetch("/api/v1/shareholder/setup", { method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "create-shareholder", displayName: "Refused", shareholderSince: "2026-01-01" }) })).status,
-      document: (await fetch(documentUrl ?? "")).status
+      document: (await fetch(documentUrl ?? "")).status,
+      unknownDocument: (await fetch("/api/v1/documents/00000000-0000-4000-8000-000000000001")).status
     }), firstView);
-    expect(status).toEqual({ read: 403, write: 403, document: 403 });
+    // 0067: the agreement file is a vault document now, so a person without access gets the vault's not-found answer, the same as for a document
+    // that does not exist (the older lane answered 403).
+    expect(status).toEqual({ read: 403, write: 403, document: 404, unknownDocument: 404 });
     await page.goto("/shareholders/legacy");
     await expect(page.getByRole("heading", { name: "You do not have access" }).first()).toBeVisible();
     expect(await partyCount("Refused")).toBe(0);
