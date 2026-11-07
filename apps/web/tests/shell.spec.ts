@@ -75,7 +75,11 @@ test("keyboard skip link and English/Dari switching work", async ({ page }) => {
   await page.getByRole("button", { name: "Switch to Dari" }).click();
   await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
   await expect(page.locator("html")).toHaveAttribute("lang", "fa");
-  await expect(page.getByRole("navigation", { name: "Primary navigation" }).getByRole("link", { name: "مالی" })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "ناوبری اصلی" }).getByRole("link", { name: "مالی" })).toBeVisible();
+  // The menu toggle is hidden at desktop width; its screen-reader name still follows the language.
+  await expect(page.getByRole("button", { name: "باز و بسته کردن ناوبری", includeHidden: true })).toBeAttached();
+  await expect(page.getByText("Stage 0", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("DEMO", { exact: true })).toHaveCount(0);
 });
 
 test("tablet navigation remains operable", async ({ page }) => {

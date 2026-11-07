@@ -63,7 +63,7 @@ test.describe("V1 workflow approval policy", () => {
 
     // Navigation and search are derived from the employee's live permissions.
     const policyNav = page.getByRole("navigation", { name: "Operations" });
-    await expect(policyNav.getByRole("link")).toHaveText(["My dashboard", "Company", "Workflow approvals"]);
+    await expect(policyNav.getByRole("link")).toHaveText(["My dashboard", "Company", "Documents", "Workflow approvals"]);
     await page.getByLabel("Search workspaces").fill("workflow");
     const search = page.getByRole("navigation", { name: "Workspace search results" });
     await expect(search.getByRole("link")).toHaveText(["Workflow approvals"]);

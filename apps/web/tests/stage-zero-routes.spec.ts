@@ -219,28 +219,18 @@ test("Reports and AI Insights remain usable at tablet width and in Dari RTL", as
   await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
 });
 
-test("Documents supports guarded synthetic discovery and read-only preview", async ({ page }) => {
+test("Documents says where each kind of document is kept, opens nothing itself, and shows no demo data", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await open(page, "/documents");
-
   await expect(page.getByRole("heading", { level: 1, name: "Documents" })).toBeVisible();
-  const boundary = page.getByRole("region", { name: "Documents Stage 0 boundary" });
-  await expect(boundary).toContainText(/No real storage, sharing, approvals, signing, or unrestricted downloads/i);
-  await expect(boundary.getByText("DEMO DATA", { exact: true })).toBeVisible();
-
-  const search = page.getByRole("searchbox", { name: "Search demo metadata" });
-  await search.fill("DEMO-DOC-002");
-  const contractFixture = page.getByRole("button", { name: "Preview Illustrative contract index entry" });
-  await expect(contractFixture).toBeVisible();
-  await contractFixture.click();
-  await expect(contractFixture).toHaveAttribute("aria-pressed", "true");
-  await expect(page.locator(".docw-preview").getByRole("heading", { level: 2, name: "Illustrative contract index entry" })).toBeVisible();
-  await expect(page.locator(".docw-preview")).toContainText("Synthetic · unverified");
-  await expect(page.getByRole("button", { name: "Download locked" })).toBeDisabled();
-  await expect(page.getByRole("button", { name: "Share locked" })).toBeDisabled();
-
-  await search.fill("no matching synthetic fixture");
-  await expect(page.getByRole("status")).toContainText("No demo metadata matches");
+  const places = page.getByRole("region", { name: "Where documents are kept" });
+  for (const [name, href] of [["Company", "/admin/company"], ["Shareholders", "/shareholders"], ["Capital agreements", "/shareholders/legacy"], ["Loans", "/finance/loans"],
+    ["Expenses", "/finance/transactions"], ["Receipts and payments", "/finance/safe-statement"]] as const) {
+    await expect(places.getByRole("link", { name, exact: true })).toHaveAttribute("href", href);
+  }
+  await expect(page.getByRole("region", { name: "Security check" })).toContainText("Until the check passes, the file stays locked.");
+  await expect(page.getByRole("main")).not.toContainText(/DEMO|Stage 0|synthetic/i);
+  await expect(page.getByRole("main").getByRole("link", { name: /download|view/i })).toHaveCount(0);
 });
 
 test("Settings changes local interface previews without operational mutation", async ({ page }) => {
@@ -274,6 +264,7 @@ test("Documents and Settings remain usable at tablet width and in Dari RTL", asy
   expect(await page.locator("html").evaluate((element) => element.scrollWidth > element.clientWidth)).toBeFalsy();
   await page.getByRole("button", { name: "Switch to Dari" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "اسناد" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "جای اسناد" }).getByRole("link", { name: "قرض‌ها", exact: true })).toBeVisible();
   await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
   await expect(page.locator("html")).toHaveAttribute("lang", "fa");
 
