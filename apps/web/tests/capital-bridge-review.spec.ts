@@ -3,6 +3,11 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 /** Memory-only review harness: no database setup, seed, credentials or business API requests. */
 test.use({ viewport: { width: 1440, height: 1000 } });
 
+/** Streaming keeps a hidden copy of the page in #S:0 until it is swapped in; strict locators must not race it. */
+async function streamed(page: Page): Promise<void> {
+  await page.waitForFunction(() => document.querySelector('[id^="S:"]') === null);
+}
+
 async function openReview(page: Page): Promise<string[]> {
   const businessRequests: string[] = [];
   await page.route("**/api/**", async (route) => {
@@ -19,6 +24,7 @@ async function openReview(page: Page): Promise<string[]> {
     await route.fulfill({ status: 403, json: { ok: false, error: { code: "REVIEW_ONLY", message: "No business API in this test." } } });
   });
   await page.goto("/finance/capital-bridge-review");
+  await streamed(page);
   await expect(page.getByRole("heading", { level: 1, name: "Shareholder capital → Finance" })).toBeVisible();
   return businessRequests;
 }
@@ -137,7 +143,7 @@ test("rejected receipt remains in received history with no posting, refresh clea
   await expect(card.getByRole("button", { name: "Simulate posting" })).toHaveCount(0);
   await expect(page.locator('[data-audit-action="REJECT"]')).toHaveCount(1);
   await page.reload();
-  // Streaming briefly holds a hidden second copy of the page; read the card once it has settled to one.
+  await streamed(page);
   await expect(card).toHaveCount(1);
   await expect(card.locator('[data-figure="received"]')).toContainText("USD 0");
   await expect(page.locator("[data-audit-action]")).toHaveCount(0);

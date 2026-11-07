@@ -71,11 +71,16 @@ import type {
   ShareholderSetupResult,
   ShareholderSetupWorkspace,
   ShareholderContributionsWorkspace,
+  DocumentAttachInput,
+  DocumentListView,
+  DocumentSubject,
   LoanCommand,
   LoanCommandResult,
   LoanReadiness,
   LoanStatementView,
   LoanWorkspace,
+  OpenedDocumentRecord,
+  StoredDocumentRecord,
   TemporaryFundingCommand,
   TemporaryFundingResult,
   TemporaryFundingWorkspace,
@@ -793,6 +798,23 @@ export class SandboxAuthenticator {
     return this.operationalFinanceFunction<AgreementDocumentRecord>(executor,
       "SELECT abos.shareholder_agreement_document_read($1,$2,$3,$4::uuid) AS value",
       token, [agreementEvidenceId], "Agreement document is unavailable");
+  }
+
+  /** Document Vault (0065). Each call is authorized in PostgreSQL from the record the document belongs to. */
+  async documentPrepare(executor: SqlExecutor, token: string, subject: DocumentSubject): Promise<unknown> {
+    return this.operationalFinanceFunction<unknown>(executor, "SELECT abos.document_prepare($1,$2,$3,$4::jsonb) AS value", token, [JSON.stringify(subject)], "Documents are unavailable");
+  }
+
+  async documentAttach(executor: SqlExecutor, token: string, input: DocumentAttachInput): Promise<StoredDocumentRecord> {
+    return this.operationalFinanceFunction<StoredDocumentRecord>(executor, "SELECT abos.document_attach($1,$2,$3,$4::jsonb) AS value", token, [JSON.stringify(input)], "Documents are unavailable");
+  }
+
+  async documentList(executor: SqlExecutor, token: string, subject: DocumentSubject): Promise<DocumentListView> {
+    return this.operationalFinanceFunction<DocumentListView>(executor, "SELECT abos.document_list($1,$2,$3,$4::jsonb) AS value", token, [JSON.stringify(subject)], "Documents are unavailable");
+  }
+
+  async documentOpen(executor: SqlExecutor, token: string, linkId: string, correlationId: string): Promise<OpenedDocumentRecord> {
+    return this.operationalFinanceFunction<OpenedDocumentRecord>(executor, "SELECT abos.document_open($1,$2,$3,$4::uuid,$5::uuid) AS value", token, [linkId, correlationId], "Documents are unavailable");
   }
 
   async agreementDocuments(executor: SqlExecutor, token: string): Promise<readonly AgreementDocumentRecord[]> {

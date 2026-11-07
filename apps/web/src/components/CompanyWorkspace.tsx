@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { AccessGate, api, errorText } from "@/components/AdminUsersWorkspace";
 import { AppIcon } from "@/components/AppIcon";
+import { DocumentsPanel } from "@/components/DocumentsPanel";
 import { useLocale } from "@/components/LocaleProvider";
 import { StageZeroPageHeader } from "@/components/StageZeroWorkspace";
 import type { Copy } from "@/lib/access-copy";
@@ -108,6 +109,7 @@ export function CompanyWorkspace() {
           </div>
         </section>
       )}
+      {company?.canManage ? <DocumentsPanel subjectType="COMPANY" subjectId={null} fa={fa} /> : null}
     </div>
   );
 }

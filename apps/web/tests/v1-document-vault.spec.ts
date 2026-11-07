@@ -1,0 +1,96 @@
+import { createHash } from "node:crypto";
+
+import { expect, test, type Page } from "@playwright/test";
+
+import { employeeHolding, expectBusinessCounts, readOnly, seedFirstRun, signIn, signOut } from "./support/first-run";
+
+/**
+ * The Document Vault through the real UI, identity, database and private storage. Raw responses are inspected, not only the screen.
+ * SQL only reads and verifies. It resets only an explicitly disposable preview database and must run serially:
+ *
+ *   ABOS_V1_PREVIEW_E2E=1 pnpm exec playwright test v1-document-vault --workers=1
+ */
+test.use({ viewport: { width: 1440, height: 900 } });
+
+const PDF = Buffer.from("%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>\nendobj\ntrailer\n<< /Root 1 0 R >>\n%%EOF\n", "utf8");
+const FAKE_PDF = Buffer.from("<html><script>alert('not a document')</script></html>", "utf8");
+
+type Raw = { status: number; text: string; headers: Record<string, string>; hash: string };
+
+/** A request from the signed-in page, as the app makes it, so the Secure session cookie goes with it. */
+async function raw(page: Page, url: string): Promise<Raw> {
+  const seen = await page.evaluate(async (path) => {
+    const response = await fetch(path);
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    return { status: response.status, bytes: Array.from(bytes), headers: Object.fromEntries(response.headers.entries()) };
+  }, url);
+  const bytes = Buffer.from(seen.bytes);
+  return { status: seen.status, text: bytes.toString("utf8"), headers: seen.headers, hash: createHash("sha256").update(bytes).digest("hex") };
+}
+
+test.describe("V1 Document Vault", () => {
+  test.skip(process.env.ABOS_V1_PREVIEW_E2E !== "1", "Set ABOS_V1_PREVIEW_E2E=1 with an isolated preview database to run this.");
+
+  test("a company document is stored privately, served safely, audited, and reaches nobody else", async ({ page: admin, browser }) => {
+    test.setTimeout(180_000);
+    const accounts = seedFirstRun();
+    await signIn(admin, "super.admin", accounts["super.admin"]);
+    const page = await employeeHolding(admin, browser, "company.records", ["Manage company details"]);
+    await page.goto("/admin/company");
+    const panel = page.getByRole("region", { name: "Documents" });
+    await expect(panel).toContainText("No documents attached.");
+    const form = panel.getByRole("form", { name: "Attach a document" });
+
+    // The bytes decide, not the name: a web page called a PDF is refused, and nothing is recorded.
+    await form.getByLabel("Title").fill("Not really a PDF");
+    await form.getByLabel(/^PDF or image file/).setInputFiles({ name: "fake.pdf", mimeType: "application/pdf", buffer: FAKE_PDF });
+    await form.getByRole("button", { name: "Attach document" }).click();
+    await expect(form.getByRole("alert")).toContainText("Only genuine PDF, JPEG and PNG files are accepted.");
+    expect(await readOnly("SELECT id FROM abos.documents")).toEqual([]);
+
+    await form.getByLabel("Title").fill("Certificate of registration");
+    await form.getByLabel(/^PDF or image file/).setInputFiles({ name: "../../certificate.pdf", mimeType: "application/pdf", buffer: PDF });
+    await form.getByRole("button", { name: "Attach document" }).click();
+    await expect(form.getByRole("status")).toContainText("Document attached.");
+    await expect(panel.getByRole("listitem").filter({ hasText: "Certificate of registration" })).toContainText("certificate.pdf");
+
+    // What the browser receives names no storage object, and the stored name is only a leaf.
+    const listed = await raw(page, "/api/v1/documents?subjectType=COMPANY");
+    const stored = await readOnly<{ storage: string; name: string; hash: string }>("SELECT storage_id::text AS storage, original_file_name AS name, sha256 AS hash FROM abos.documents");
+    expect(stored).toHaveLength(1);
+    expect(stored[0]!.name).toBe("certificate.pdf");
+    expect(listed.text).not.toContain(stored[0]!.storage);
+    expect(listed.text).not.toContain("storageId");
+    const linkId = (JSON.parse(listed.text) as { data: { documents: { id: string }[] } }).data.documents[0]!.id;
+
+    // Served through the app only: the same bytes, never cached, never sniffed, and never framed or embedded.
+    const inline = await raw(page, `/api/v1/documents/${linkId}`);
+    expect(inline.status).toBe(200);
+    expect(inline.hash).toBe(stored[0]!.hash);
+    expect(inline.headers["content-type"]).toBe("application/pdf");
+    expect(inline.headers["cache-control"]).toContain("no-store");
+    expect(inline.headers["x-content-type-options"]).toBe("nosniff");
+    expect(inline.headers["content-security-policy"]).toContain("frame-ancestors 'none'");
+    expect(inline.headers["content-security-policy"]).toContain("object-src 'none'");
+    expect(inline.headers["x-frame-options"]).toBe("DENY");
+    expect(inline.headers["content-disposition"]).toContain("inline");
+    expect((await raw(page, `/api/v1/documents/${linkId}?download=1`)).headers["content-disposition"]).toContain("attachment");
+    const audit = await readOnly<{ action: string; n: number }>("SELECT action, count(*)::int AS n FROM abos.audit_records WHERE entity_type = 'DOCUMENT' GROUP BY action ORDER BY action");
+    expect(audit).toEqual([{ action: "DOCUMENT_ATTACHED", n: 1 }, { action: "DOCUMENT_OPENED", n: 2 }]);
+
+    // Another person who knows the address gets the answer an unknown address gets. Without a session, nothing either.
+    await signOut(admin);
+    await signIn(admin, "demo.finance.manager", accounts["demo.finance.manager"]);
+    const refused = await raw(admin, `/api/v1/documents/${linkId}`);
+    const unknown = await raw(admin, "/api/v1/documents/00000000-0000-4000-8000-000000000001");
+    expect(refused.status).toBe(404);
+    expect(refused.text).toBe(unknown.text);
+    expect((await raw(admin, "/api/v1/documents?subjectType=COMPANY")).status).toBe(404);
+    await signOut(admin);
+    expect((await raw(admin, `/api/v1/documents/${linkId}`)).status).toBe(401);
+
+    // No file reached a public path, and attaching touched no accounting.
+    expect((await raw(admin, `/objects/${stored[0]!.storage.slice(0, 2)}/${stored[0]!.storage}.bin`)).text).not.toContain("%PDF-");
+    await expectBusinessCounts({ journals: 0 });
+  });
+});

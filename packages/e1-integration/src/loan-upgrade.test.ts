@@ -12,7 +12,7 @@ import { keys, ReportDatabase, SEPT, type ReportCompany, type ReportEvents } fro
  * posted row exactly as it was, and the legacy records must keep reporting, drilling down and refusing reversal as they did.
  */
 const PREDECESSOR = "0060_v1_reversal_confidentiality";
-const NEW = ["0061_v1_loan_model_and_lanes", "0062_v1_loan_reporting", "0063_v1_realized_fx_loan_settlement", "0064_v1_fx_treasury_carrying_value"];
+const NEW = ["0061_v1_loan_model_and_lanes", "0062_v1_loan_reporting", "0063_v1_realized_fx_loan_settlement", "0064_v1_fx_treasury_carrying_value", "0065_v1_document_vault"];
 
 if (databaseUrl() === undefined) {
   test("0061 upgrade with legacy temporary funding", () => assert.fail(MISSING_DATABASE_MESSAGE));

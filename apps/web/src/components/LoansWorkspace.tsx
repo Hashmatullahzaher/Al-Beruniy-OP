@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { AccessGate, api, errorText } from "@/components/AdminUsersWorkspace";
 import { AppIcon } from "@/components/AppIcon";
+import { DocumentsPanel } from "@/components/DocumentsPanel";
 import { LoanReadinessPanel } from "@/components/LoanReadinessPanel";
 import { useLocale } from "@/components/LocaleProvider";
 import { kabulToday, money } from "@/components/OperationalFinanceShared";
@@ -211,6 +212,7 @@ export function LoansWorkspace() {
           ? <RepayForm key={open.id} loan={open} view={view} fa={fa} onDone={(text) => { setRepaying(null); setMessage(text); load(); router.refresh(); }} />
           : <button className="treasury-button gold" type="button" onClick={() => setRepaying(open.id)}>{fa ? "بازپرداخت" : "Repay"}</button>) : null}
         {open.status === "POSTED" && view.permissions.canRead ? <Statement key={`${open.id}-${open.outstanding}`} loanId={open.id} fa={fa} base={view.baseCurrency} /> : null}
+        <DocumentsPanel key={`documents-${open.id}`} subjectType="LOAN" subjectId={open.id} fa={fa} />
       </> : null}
     </div>
   );
