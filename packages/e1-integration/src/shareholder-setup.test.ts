@@ -38,10 +38,13 @@ const SETUP_FUNCTIONS = [
   "shareholder_setup_create_agreement(text,text,text,jsonb)", "shareholder_setup_update_agreement(text,text,text,jsonb)",
   "shareholder_setup_add_installment(text,text,text,jsonb)", "shareholder_setup_update_installment(text,text,text,jsonb)",
   "shareholder_setup_cancel_installment(text,text,text,jsonb)", "shareholder_setup_workspace(text,text,text)",
+  "shareholder_agreement_document_list(text,text,text)"
+] as const;
+/** 0067: the older agreement file lane is retired. A new agreement file goes through the Document Vault and its malware scan. */
+const RETIRED_AGREEMENT_FUNCTIONS = [
   "shareholder_agreement_document_prepare(text,text,text,uuid)",
   "shareholder_agreement_document_finalize(text,text,text,jsonb)",
-  "shareholder_agreement_document_read(text,text,text,uuid)",
-  "shareholder_agreement_document_list(text,text,text)"
+  "shareholder_agreement_document_read(text,text,text,uuid)"
 ] as const;
 
 interface SessionArgs { readonly proof: string; readonly runtimeDigest: string; readonly tokenDigest: string }
@@ -95,12 +98,19 @@ if (databaseUrl() === undefined) {
     const addInstallment = (session: SessionArgs, agreementId: string, amount: string, input: Json = {}) => call<{ capitalInstallmentId: string; sequenceNumber: number }>(
       "shareholder_setup_add_installment", session,
       { capitalAgreementId: agreementId, expectedAmount: amount, dueOn: "2026-12-01", idempotencyKey: randomUUID(), correlationId: randomUUID(), ...input });
-    const recordDocument = (session: SessionArgs, agreementId: string, input: Json = {}) => call<{
-      agreementEvidenceId: string; evidenceReferenceId: string; storageId: string; version: number; replayed: boolean
-    }>("shareholder_agreement_document_finalize", session,
-      { capitalAgreementId: agreementId, storageId: randomUUID(), originalFileName: "synthetic-agreement.pdf",
-        mediaType: "application/pdf", byteSize: 128, documentReference: "Synthetic signed agreement v1", documentDate: "2026-08-30",
-        sha256: "a".repeat(64), idempotencyKey: randomUUID(), correlationId: randomUUID(), ...input });
+    // 0067: agreement files enter through the Document Vault. The scan verdict is recorded by the server's scan path, as the web server does.
+    const attachAgreementDocument = (session: SessionArgs, agreementId: string, input: Json = {}) => call<{ id: string; storageId: string; replayed: boolean }>(
+      "document_attach", session,
+      { subjectType: "AGREEMENT", subjectId: agreementId, storageId: randomUUID(), originalFileName: "synthetic-agreement.pdf", mediaType: "application/pdf",
+        byteSize: 128, sha256: "a".repeat(64), title: "Synthetic signed agreement v1", documentDate: "2026-08-30", idempotencyKey: randomUUID(),
+        correlationId: randomUUID(), ...input });
+    const scanVerdict = (session: SessionArgs, linkId: string, outcome = "CLEAN") => call<{ scanStatus: string }>("document_scan_record", session,
+      { linkId, outcome, engine: "windows-defender", detail: null, correlationId: randomUUID() });
+    const recordDocument = async (session: SessionArgs, agreementId: string, input: Json = {}) => {
+      const attached = await attachAgreementDocument(session, agreementId, input);
+      await scanVerdict(session, attached.id);
+      return attached;
+    };
 
     async function manager(world: SyntheticWorld, userId = world.treasuryManagerId): Promise<SessionArgs> {
       await grant(harness.executor, world, userId, [MANAGE]);
@@ -234,7 +244,7 @@ if (databaseUrl() === undefined) {
       const other = sessionArgs(second.token);
       await assert.rejects(() => createAgreement(other, holder.shareholderProfileId), /not an active shareholder of this legal entity/);
       await assert.rejects(() => addInstallment(other, agreement.capitalAgreementId, "1000"), /not found in this legal entity/);
-      await assert.rejects(() => recordDocument(other, agreement.capitalAgreementId), /not found in this legal entity/);
+      await assert.rejects(() => attachAgreementDocument(other, agreement.capitalAgreementId), /document subject not found/);
       await assert.rejects(() => call("shareholder_setup_correct_shareholder", other,
         { shareholderProfileId: holder.shareholderProfileId, displayName: "Hijacked" }), /not found in this legal entity/);
       const otherView = await workspace(other);
@@ -360,7 +370,7 @@ if (databaseUrl() === undefined) {
       assert.equal(view?.installments[0]?.editable, false);
     });
 
-    test("agreement documents are linked to exactly one agreement, persist their metadata, and never cross legal entities", async () => {
+    test("agreement documents enter through the vault, become evidence only when cleared, are linked to exactly one agreement, and never cross legal entities", async () => {
       await resetSchema(harness.pool);
       const world = await seedSyntheticWorld(harness.executor);
       const session = await manager(world);
@@ -368,27 +378,42 @@ if (databaseUrl() === undefined) {
       const { capitalAgreementId: agreementId } = await createAgreement(session, holder.shareholderProfileId);
       const hash = "0123456789abcdef".repeat(4);
       const key = randomUUID();
-      const recorded = await recordDocument(session, agreementId, { documentReference: "  Synthetic agreement AGR-7 ", documentDate: "2026-08-30", sha256: hash.toUpperCase(), idempotencyKey: key });
-      assert.equal(recorded.version, 1);
-      assert.deepEqual(await recordDocument(session, agreementId, { documentReference: "  Synthetic agreement AGR-7 ", documentDate: "2026-08-30", sha256: hash.toUpperCase(), idempotencyKey: key }),
-        { ...recorded, replayed: true });
-      const persisted = (await harness.executor.query<{ document_reference: string; document_date: Date; version: number; sha256: string; evidence_kind: string; recorded_by_user_account_id: string }>(
-        `SELECT link.document_reference, link.document_date, link.version, er.sha256, er.evidence_kind, link.recorded_by_user_account_id
+      const details = { title: "  Synthetic agreement AGR-7 ", documentDate: "2026-08-30", sha256: hash.toUpperCase(), idempotencyKey: key };
+      const first = await attachAgreementDocument(session, agreementId, details);
+      const replay = await attachAgreementDocument(session, agreementId, details);
+      assert.deepEqual([replay.id, replay.replayed], [first.id, true], "a retry is the same request");
+      const evidence = async () => (await harness.executor.query<{ id: string; document_reference: string; document_date: Date; version: number; sha256: string; evidence_kind: string;
+        recorded_by_user_account_id: string; document_id: string }>(
+        `SELECT er.id, link.document_reference, link.document_date, link.version, er.sha256, er.evidence_kind, link.recorded_by_user_account_id, er.document_id
            FROM abos.capital_agreement_evidence link JOIN abos.evidence_references er ON er.id = link.evidence_reference_id
-          WHERE link.capital_agreement_id = $1`, [agreementId])).rows;
+          WHERE link.capital_agreement_id = $1 ORDER BY link.version`, [agreementId])).rows;
+      assert.deepEqual(await evidence(), [], "a document still waiting for its security check is not evidence");
+      assert.ok((await workspace(session)).agreements.find((candidate) => candidate.id === agreementId)?.requestBlockers.includes("AGREEMENT_EVIDENCE_MISSING"));
+      assert.equal((await scanVerdict(session, first.id)).scanStatus, "CLEAN");
+      const persisted = await evidence();
       assert.equal(persisted.length, 1);
       assert.equal(persisted[0]?.document_reference, "Synthetic agreement AGR-7");
       assert.equal(isoDate(persisted[0]?.document_date), "2026-08-30", "the document date is stored, not discarded");
       assert.equal(persisted[0]?.sha256, hash);
       assert.equal(persisted[0]?.evidence_kind, "CAPITAL_AGREEMENT");
+      assert.equal(persisted[0]?.version, 1);
       assert.equal(persisted[0]?.recorded_by_user_account_id, world.treasuryManagerId);
-      const second = await recordDocument(session, agreementId, { documentReference: "Synthetic amended agreement", documentDate: "2026-09-01" });
-      assert.equal(second.version, 2);
+      const vaultDocument = (await harness.executor.query<{ document_id: string }>("SELECT document_id FROM abos.document_links WHERE id = $1", [first.id])).rows[0]?.document_id;
+      assert.equal(persisted[0]?.document_id, vaultDocument, "the evidence names the vault document");
+      // A blocked file and a failed scan are never evidence.
+      const blocked = await attachAgreementDocument(session, agreementId, { title: "Synthetic infected copy", documentDate: "2026-09-01" });
+      assert.equal((await scanVerdict(session, blocked.id, "INFECTED")).scanStatus, "INFECTED");
+      const failed = await attachAgreementDocument(session, agreementId, { title: "Synthetic unscanned copy", documentDate: "2026-09-01" });
+      assert.equal((await scanVerdict(session, failed.id, "UNAVAILABLE")).scanStatus, "SCAN_FAILED");
+      assert.equal((await evidence()).length, 1);
+      await recordDocument(session, agreementId, { title: "Synthetic amended agreement", documentDate: "2026-09-01" });
       const view = (await workspace(session)).agreements.find((candidate) => candidate.id === agreementId);
       assert.deepEqual(view?.documents.map((document) => [document.version, document.documentDate]), [[1, "2026-08-30"], [2, "2026-09-01"]]);
       assert.ok(!view?.requestBlockers.includes("AGREEMENT_EVIDENCE_MISSING"));
-      await assert.rejects(() => recordDocument(session, agreementId, { documentDate: "2999-01-01" }), /cannot be in the future/);
-      await assert.rejects(() => recordDocument(session, agreementId, { sha256: "xyz" }), /valid agreement document metadata/);
+      await assert.rejects(() => attachAgreementDocument(session, agreementId, { documentDate: "2999-01-01" }), /cannot be in the future/);
+      await assert.rejects(() => attachAgreementDocument(session, agreementId, { documentDate: null }), /agreement document needs its date/);
+      await assert.rejects(() => attachAgreementDocument(session, agreementId, { sha256: "xyz" }), /valid document details/);
+      const recorded = { evidenceReferenceId: persisted[0]?.id };
       // Links are append-only and one document evidences one agreement.
       await assert.rejects(() => harness.executor.query("UPDATE abos.capital_agreement_evidence SET document_reference = 'x'"), /audit|immutable|not permitted|cannot/i);
       const { capitalAgreementId: otherAgreement } = await createAgreement(session, holder.shareholderProfileId);
@@ -615,6 +640,10 @@ if (databaseUrl() === undefined) {
         "TRUNCATE abos.capital_agreement_evidence"
       ]) await ownerRefused(harness, statement, /permission denied/);
       // The runtime executes the reviewed entry points only, and cannot touch the tables directly.
+      for (const fn of RETIRED_AGREEMENT_FUNCTIONS) {
+        assert.equal((await harness.executor.query<{ ok: boolean }>("SELECT has_function_privilege('abos_e1_runtime', $1, 'EXECUTE') AS ok", [`abos.${fn}`])).rows[0]?.ok, false,
+          `${fn} is retired by 0067`);
+      }
       for (const fn of SETUP_FUNCTIONS) {
         const callers = await harness.executor.query<{ role: string }>(
           `SELECT role FROM unnest(ARRAY['abos_e1_runtime','abos_e1_treasury_runtime','abos_v1_identity_runtime','public']) role
@@ -700,13 +729,15 @@ async function footprint(harness: Harness): Promise<unknown> {
             (SELECT count(*) FROM abos.audit_records) AS audit`)).rows[0];
 }
 
+// 0067: an agreement file goes through the Document Vault, whose attach and scan emit notifications about a file (aggregate DOCUMENT), never about
+// money. Every money table, and every other outbox event, is still counted.
 async function moneyFootprint(harness: Harness): Promise<unknown> {
   return (await harness.executor.query(
     `SELECT (SELECT count(*) FROM abos.cash_receipts) AS cash_receipts, (SELECT count(*) FROM abos.physical_cash_counts) AS counts,
             (SELECT count(*) FROM abos.treasury_finance_handoffs) AS handoffs, (SELECT count(*) FROM abos.capital_receipt_intents) AS requests,
             (SELECT count(*) FROM abos.posting_intents) AS posting_intents, (SELECT count(*) FROM abos.posting_approvals) AS approvals,
             (SELECT count(*) FROM abos.journals) AS journals, (SELECT count(*) FROM abos.journal_lines) AS lines,
-            (SELECT count(*) FROM abos.subledger_entries) AS subledger, (SELECT count(*) FROM abos.outbox_events) AS outbox,
+            (SELECT count(*) FROM abos.subledger_entries) AS subledger, (SELECT count(*) FROM abos.outbox_events WHERE aggregate_type <> 'DOCUMENT') AS outbox,
             (SELECT coalesce(sum(consumed_amount), 0) FROM abos.capital_agreement_commitment_usage) AS consumed`)).rows[0];
 }
 

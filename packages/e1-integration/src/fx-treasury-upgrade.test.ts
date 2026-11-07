@@ -17,7 +17,7 @@ import { keys, ReportDatabase, type ReportCompany, type Session } from "./report
  *   value of the wrong sign:             money cannot leave until an inflow restores the sign, or someone corrects it
  */
 const PREDECESSOR = "0063_v1_realized_fx_loan_settlement";
-const NEW = ["0064_v1_fx_treasury_carrying_value", "0065_v1_document_vault", "0066_v1_document_scanning"];
+const NEW = ["0064_v1_fx_treasury_carrying_value", "0065_v1_document_vault", "0066_v1_document_scanning", "0067_v1_agreement_documents"];
 const AT_70 = "2026-09-14";
 const AT_56 = "2026-09-23";
 const AT_40 = "2026-09-24";

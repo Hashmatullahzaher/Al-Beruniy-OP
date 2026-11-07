@@ -3,6 +3,7 @@ export * from "./pg-executor.ts";
 export * from "./shareholder-repository.ts";
 export * from "./malware-scanner.ts";
 export * from "./private-document-storage.ts";
+export * from "./document-vault-operations.ts";
 export * from "./finance-repository.ts";
 export * from "./secure-capital-posting.ts";
 export * from "./treasury-repository.ts";

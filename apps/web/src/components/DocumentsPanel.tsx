@@ -20,10 +20,11 @@ function size(bytes: number, fa: boolean): string {
 function uploadError(code: string | undefined, fa: boolean): string {
   if (code === "TOO_LARGE") return fa ? "فایل نباید بیشتر از ۱۰ مگابایت باشد." : "Files cannot exceed 10 MB.";
   if (code === "INVALID_FILE") return fa ? "تنها فایل‌های واقعی PDF، JPEG و PNG پذیرفته می‌شوند." : "Only genuine PDF, JPEG and PNG files are accepted.";
+  if (code === "DOCUMENT_DATE_REQUIRED") return fa ? "سند قرارداد به تاریخ نیاز دارد." : "An agreement document needs its date.";
   return fa ? "سند ذخیره نشد. دوباره کوشش کنید." : "The document was not saved. Try again.";
 }
 
-export function DocumentsPanel({ subjectType, subjectId, fa }: Readonly<{ subjectType: DocumentSubjectType; subjectId: string | null; fa: boolean }>) {
+export function DocumentsPanel({ subjectType, subjectId, fa, onChange }: Readonly<{ subjectType: DocumentSubjectType; subjectId: string | null; fa: boolean; onChange?: () => void }>) {
   const query = `subjectType=${subjectType}${subjectId ? `&subjectId=${subjectId}` : ""}`;
   const [view, setView] = useState<DocumentListView | null>(null);
   const [title, setTitle] = useState("");
@@ -38,6 +39,8 @@ export function DocumentsPanel({ subjectType, subjectId, fa }: Readonly<{ subjec
   const request = useRef(`document-${crypto.randomUUID()}`);
 
   const [version, setVersion] = useState(0);
+  // A capital agreement's evidence record needs a date, so an agreement document does too.
+  const dateRequired = subjectType === "AGREEMENT";
   useEffect(() => {
     let current = true;
     void api<DocumentListView>(`${ENDPOINT}?${query}`).then((result) => { if (current) setView(result.ok ? result.data : null); });
@@ -58,6 +61,7 @@ export function DocumentsPanel({ subjectType, subjectId, fa }: Readonly<{ subjec
     if (input.current) input.current.value = "";
     request.current = `document-${crypto.randomUUID()}`;
     setVersion((value) => value + 1);
+    onChange?.();
   };
 
   const checkAgain = async (id: string) => {
@@ -66,17 +70,22 @@ export function DocumentsPanel({ subjectType, subjectId, fa }: Readonly<{ subjec
     setChecking(null);
     if (response === null || !response.ok) setError(fa ? "بررسی امنیتی انجام نشد. دوباره کوشش کنید." : "The security check could not run. Try again.");
     setVersion((value) => value + 1);
+    onChange?.();
   };
 
   if (view === null) return null;
   const row = (document: AttachedDocument) => <li key={document.id}>
-    <strong>{document.title}</strong> <span className="admin-hint" dir="ltr">{document.fileName} · {size(document.byteSize, fa)}{document.documentDate ? ` · ${document.documentDate}` : ""}</span>{" "}
+    <strong>{document.title}</strong>{" "}
+    {document.subjectType === "AGREEMENT" && subjectType !== "AGREEMENT" ? <em className="treasury-chip muted">{fa ? "قرارداد" : "Agreement"}{document.agreementReference ? <> <span dir="ltr">{document.agreementReference}</span></> : null}</em> : null}{" "}
+    <span className="admin-hint" dir="ltr">{document.fileName} · {size(document.byteSize, fa)}{document.documentDate ? ` · ${document.documentDate}` : ""}</span>{" "}
     {document.scanStatus === "CLEAN" ? <>
       <a href={`${ENDPOINT}/${document.id}`} target="_blank" rel="noreferrer">{fa ? "دیدن" : "View"}</a>{" "}
       <a href={`${ENDPOINT}/${document.id}?download=1`}>{fa ? "دانلود" : "Download"}</a>
     </> : document.scanStatus === "INFECTED" ? <em className="treasury-chip muted">{fa ? "مسدود: در بررسی امنیتی رد شد و باز نمی‌شود" : "Blocked: failed its security check and cannot be opened"}</em>
       : <>
-        <em className="treasury-chip muted">{fa ? "قفل است تا بررسی امنیتی تمام شود" : "Locked until its security check passes"}</em>{" "}
+        <em className="treasury-chip muted">{document.scanStatus === "SCAN_FAILED"
+          ? (fa ? "بررسی امنیتی کامل نشد؛ قفل می‌ماند" : "Security check could not finish. It stays locked")
+          : (fa ? "قفل است تا بررسی امنیتی تمام شود" : "Locked until its security check passes")}</em>{" "}
         {view.canAttach ? <button type="button" className="treasury-button quiet" disabled={checking === document.id} onClick={() => void checkAgain(document.id)}>{fa ? "بررسی دوباره" : "Check again"}</button> : null}
       </>}
   </li>;
@@ -89,16 +98,17 @@ export function DocumentsPanel({ subjectType, subjectId, fa }: Readonly<{ subjec
         <form className="admin-form" aria-label={fa ? "پیوست سند" : "Attach a document"} onSubmit={(event) => { event.preventDefault(); void upload(); }}>
           <div className="admin-form-grid">
             <label><span>{fa ? "عنوان" : "Title"}</span><input required maxLength={200} value={title} onChange={(event) => setTitle(event.target.value)} /></label>
-            <label><span>{fa ? "تاریخ سند (اختیاری)" : "Document date (optional)"}</span><input type="date" dir="ltr" value={documentDate} onChange={(event) => setDocumentDate(event.target.value)} /></label>
+            <label><span>{dateRequired ? (fa ? "تاریخ سند" : "Document date") : (fa ? "تاریخ سند (اختیاری)" : "Document date (optional)")}</span><input type="date" dir="ltr" required={dateRequired} value={documentDate} onChange={(event) => setDocumentDate(event.target.value)} /></label>
             <label><span>{fa ? "فایل PDF یا تصویر (حداکثر ۱۰ مگابایت)" : "PDF or image file (up to 10 MB)"}</span>
               <input ref={input} required type="file" accept="application/pdf,image/jpeg,image/png,.pdf,.jpg,.jpeg,.png" onChange={(event) => setFile(event.target.files?.[0] ?? null)} /></label>
           </div>
           <p className="admin-hint">{fa ? "سند پیوست‌شده جایگزین یا حذف نمی‌شود. برای اصلاح، سند تازه‌ای پیوست کنید." : "An attached document is never replaced or removed. To correct one, attach a new document."}</p>
           {error ? <p className="treasury-message error" role="alert">{error}</p> : null}
           {saved === "CLEAN" ? <p className="treasury-message success" role="status">{fa ? "سند پیوست شد." : "Document attached."}</p> : null}
+          {saved === "SCAN_FAILED" ? <p className="treasury-message" role="status">{fa ? "سند پیوست شد، اما بررسی امنیتی کامل نشد. قفل می‌ماند تا بررسی دوباره موفق شود." : "Document attached, but its security check could not finish. It stays locked until a check passes."}</p> : null}
           {saved === "PENDING" ? <p className="treasury-message" role="status">{fa ? "سند پیوست شد و تا پایان بررسی امنیتی قفل می‌ماند." : "Document attached. It stays locked until its security check passes."}</p> : null}
           {saved === "INFECTED" ? <p className="treasury-message error" role="alert">{fa ? "این فایل در بررسی امنیتی رد شد. نگهداری می‌شود و باز نمی‌شود." : "This file failed its security check. It is kept, and it cannot be opened."}</p> : null}
-          <button className="treasury-button gold" type="submit" disabled={busy || file === null || title.trim() === ""}>{busy ? (fa ? "در حال ذخیره…" : "Saving…") : (fa ? "پیوست سند" : "Attach document")}</button>
+          <button className="treasury-button gold" type="submit" disabled={busy || file === null || title.trim() === "" || (dateRequired && documentDate === "")}>{busy ? (fa ? "در حال ذخیره…" : "Saving…") : (fa ? "پیوست سند" : "Attach document")}</button>
         </form>
       ) : null}
     </section>

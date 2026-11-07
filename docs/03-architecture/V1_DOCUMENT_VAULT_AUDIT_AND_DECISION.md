@@ -114,7 +114,8 @@ A new document is locked until it passes a scan. The safe state is the default: 
 
 | State | Meaning | Can be opened |
 |---|---|---|
-| `PENDING` | No verdict yet, or every attempt so far failed | No |
+| `PENDING` | No attempt has finished yet | No |
+| `SCAN_FAILED` | Every attempt so far failed (0067). It can be scanned again | No |
 | `CLEAN` | The scanner said so, for this file | Yes |
 | `INFECTED` | The scanner found a threat. Final | No, and the file is kept |
 
@@ -144,5 +145,5 @@ The scanner is Windows Defender through `MpCmdRun.exe`, already on the productio
 - Moving existing agreement files into the new tables.
 - Connecting documents to `evidence_references`.
 - Replacing the illustrative `/documents` page with a company-wide register. It needs a rule for what one person may list across subjects.
-- Scanning agreement documents. That older upload lane is live and is not scanned. See `OPEN_ITEMS.md`.
+- Agreement documents and the existing agreement file: done in 0067. See `V1_DOCUMENT_VAULT_AGREEMENTS_0067.md`.
 - File types beyond PDF, JPEG and PNG.

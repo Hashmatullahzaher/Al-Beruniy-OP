@@ -1,6 +1,7 @@
 /** The Document Vault (migration 0065). A document is reached through the record it is attached to, never by a storage name or path. */
 
-export const DOCUMENT_SUBJECT_TYPES = ["COMPANY", "SHAREHOLDER", "LOAN", "EXPENSE", "RECEIPT", "PAYMENT"] as const;
+/** AGREEMENT is a capital agreement (migration 0067). A direct shareholder has no agreement record, so their agreement file is a SHAREHOLDER document. */
+export const DOCUMENT_SUBJECT_TYPES = ["COMPANY", "SHAREHOLDER", "LOAN", "EXPENSE", "RECEIPT", "PAYMENT", "AGREEMENT"] as const;
 export type DocumentSubjectType = (typeof DOCUMENT_SUBJECT_TYPES)[number];
 
 export interface DocumentSubject {
@@ -9,8 +10,11 @@ export interface DocumentSubject {
   readonly subjectId: string | null;
 }
 
-/** PENDING until a scan passes. INFECTED is final. Only a CLEAN document can be opened (migration 0066). */
-export const DOCUMENT_SCAN_STATUSES = ["PENDING", "CLEAN", "INFECTED"] as const;
+/**
+ * PENDING: no scan has finished. SCAN_FAILED: every attempt so far failed, and it can be scanned again. INFECTED is final. Only a CLEAN document
+ * can be opened (migrations 0066 and 0067). Nothing a browser sends can set any of these.
+ */
+export const DOCUMENT_SCAN_STATUSES = ["PENDING", "SCAN_FAILED", "CLEAN", "INFECTED"] as const;
 export type DocumentScanStatus = (typeof DOCUMENT_SCAN_STATUSES)[number];
 
 export interface AttachedDocument {
@@ -22,6 +26,9 @@ export interface AttachedDocument {
   readonly byteSize: number;
   readonly attachedAt: string;
   readonly scanStatus: DocumentScanStatus;
+  /** Where it is attached. A shareholder's list also shows the documents of that shareholder's capital agreements. */
+  readonly subjectType?: DocumentSubjectType;
+  readonly agreementReference?: string | null;
 }
 
 export interface DocumentListView {
@@ -43,7 +50,7 @@ export interface DocumentAttachInput extends DocumentSubject {
 }
 
 /** What the server learns when it attaches or opens a document. The storage ID stays on the server. */
-export interface StoredDocumentRecord extends Omit<AttachedDocument, "scanStatus"> {
+export interface StoredDocumentRecord extends Omit<AttachedDocument, "scanStatus" | "subjectType" | "agreementReference"> {
   readonly storageId: string;
   readonly replayed: boolean;
 }
@@ -55,6 +62,8 @@ export interface DocumentScanTarget {
   readonly byteSize: number;
   readonly sha256: string;
   readonly scanStatus: DocumentScanStatus;
+  /** The original name, for the scanner's description only. It never selects the file that is scanned. */
+  readonly fileName?: string;
 }
 
 /** Written by the server from the scanner's verdict. No request from a browser carries this. */

@@ -148,18 +148,19 @@ if (databaseUrl() === undefined) {
           await contribution(horizon);
           await assert.rejects(() => contribution(beyond), /contribution date is required/, label);
 
-          // The attachment holder (0040) is dated the business day.
-          const holder = await call<{ capitalAgreementId: string }>(runtime.db, "direct_shareholder_document_holder", actor,
-            { shareholderProfileId: created.shareholderProfileId });
-          const effective = (await h.pool.query<{ d: string }>("SELECT effective_on::text AS d FROM abos.capital_agreements WHERE id = $1",
-            [holder.capitalAgreementId])).rows[0]?.d;
-          assert.equal(effective, day.kabul, `attachment holder effective date: ${label}`);
+          // 0067 retired the attachment-only holder and the older agreement file lane. The runtime can no longer reach either.
+          await assert.rejects(() => call(runtime.db, "direct_shareholder_document_holder", actor, { shareholderProfileId: created.shareholderProfileId }),
+            /permission denied/, label);
+          await assert.rejects(() => call(runtime.db, "shareholder_agreement_document_finalize", actor, { capitalAgreementId: randomUUID() }), /permission denied/, label);
 
-          // An agreement document dated the business day is accepted; the next day is refused.
-          const document = (documentDate: string) => call(runtime.db, "shareholder_agreement_document_finalize", actor, {
-            capitalAgreementId: holder.capitalAgreementId, storageId: randomUUID(), originalFileName: "synthetic-agreement.pdf",
-            mediaType: "application/pdf", byteSize: 128, documentReference: `Synthetic business-day document ${randomUUID().slice(0, 8)}`,
-            documentDate, sha256: randomUUID().replaceAll("-", "").repeat(2), ...keys() });
+          // An agreement document now enters through the Document Vault. Dated the business day it is accepted; the next day is refused.
+          const agreement = await call<{ capitalAgreementId: string }>(runtime.db, "shareholder_setup_create_agreement", actor, {
+            shareholderProfileId: created.shareholderProfileId, agreementReference: `SYN-BD-${randomUUID().slice(0, 8)}`, committedAmount: "1000",
+            currencyCode: "USD", effectiveOn: day.kabul, ...keys() });
+          const document = (documentDate: string) => call(runtime.db, "document_attach", actor, {
+            subjectType: "AGREEMENT", subjectId: agreement.capitalAgreementId, storageId: randomUUID(), originalFileName: "synthetic-agreement.pdf",
+            mediaType: "application/pdf", byteSize: 128, sha256: randomUUID().replaceAll("-", "").repeat(2),
+            title: `Synthetic business-day document ${randomUUID().slice(0, 8)}`, documentDate, ...keys() });
           await document(day.kabul);
           await assert.rejects(() => document(tomorrow), /cannot be in the future/, label);
         } finally { await runtime.close(); }

@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { expect, test } from "@playwright/test";
 
 const fixtureFile = process.env.ABOS_DIRECT_CAPITAL_BROWSER_FILE;
@@ -28,7 +28,8 @@ test("one person adds a shareholder with 20,000 in one save, adds 10,000 more an
   expect((await created).status()).toBe(201);
   const holder = page.getByRole("article", { name: "Demo Shareholder", exact: true });
   await expect(holder).toBeVisible();
-  await expect(holder).toContainText("No document attached");
+  // 0067: the older agreement section is retired; a shareholder's files, agreement included, are in the Documents panel.
+  await expect(holder.getByRole("heading", { level: 3, name: "Agreement document (optional)" })).toHaveCount(0);
   await holder.getByRole("button", { name: "Add money", exact: true }).click();
   const form = page.getByRole("form", { name: /^Add money/ });
   await form.getByLabel("Amount", { exact: true }).fill("10000");
@@ -54,37 +55,38 @@ test("one person adds a shareholder with 20,000 in one save, adds 10,000 more an
   expect(gl.data.lines.filter(line => line.sourceType === "DIRECT_SHAREHOLDER_CAPITAL")).toHaveLength(4);
   // The complete financial flow above succeeds with no agreement/document. Attachment is an
   // independent optional action and must leave those exact posted lines unchanged.
+  // 0067: the file goes into the Document Vault as the shareholder's own document. It opens only after its malware scan clears it.
   const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=", "base64");
+  const panel = holder.getByRole("region", { name: "Documents", exact: true });
+  const attach = panel.getByRole("form", { name: "Attach a document" });
   for (const version of [1, 2]) {
-    const uploaded = page.waitForResponse(r => r.url().endsWith("/api/v1/shareholder/capital/documents") && r.request().method() === "POST");
-    await holder.getByLabel(version === 1 ? "Upload agreement" : "Upload another version", { exact: true })
-      .setInputFiles({ name: `agreement-v${version}.png`, mimeType: "image/png", buffer: png });
+    const uploaded = page.waitForResponse(r => new URL(r.url()).pathname === "/api/v1/documents" && r.request().method() === "POST");
+    await attach.getByLabel("Title").fill(`Agreement v${version}`);
+    await attach.getByLabel(/PDF or image file/).setInputFiles({ name: `agreement-v${version}.png`, mimeType: "image/png", buffer: png });
+    await attach.getByRole("button", { name: "Attach document" }).click();
     const response = await uploaded;
     expect(response.status()).toBe(201);
-    const record = await response.json() as { data: { sha256: string; byteSize: number } };
-    expect(record.data.sha256).toBe(createHash("sha256").update(png).digest("hex"));
+    const record = await response.json() as { data: { byteSize: number; scanStatus: string; storageId?: string } };
     expect(Number(record.data.byteSize)).toBe(png.byteLength);
-    await expect(holder.getByRole("link", { name: "Download document", exact: true })).toHaveCount(version);
+    expect(record.data.storageId).toBeUndefined();
+    expect(["CLEAN", "PENDING", "SCAN_FAILED"]).toContain(record.data.scanStatus);
   }
-  const downloadUrl = await holder.getByRole("link", { name: "Download document", exact: true }).first().getAttribute("href");
-  expect(downloadUrl).toBeTruthy();
-  const downloaded = await page.request.get(downloadUrl!);
-  expect(downloaded.status()).toBe(200);
-  expect(await downloaded.body()).toEqual(png);
+  await expect(panel.getByRole("listitem")).toHaveCount(2);
+  const viewUrl = await panel.getByRole("link", { name: "View", exact: true }).first().getAttribute("href").catch(() => null);
+  if (viewUrl) {
+    const downloaded = await page.request.get(viewUrl);
+    expect(downloaded.status()).toBe(200);
+    expect(await downloaded.body()).toEqual(png);
+  }
   const anonymous = await page.context().browser()!.newContext();
   try {
-    const denied = await anonymous.request.get(`${fixture.url}${downloadUrl}`);
+    const denied = await anonymous.request.get(`${fixture.url}/api/v1/documents?subjectType=COMPANY`);
     expect(denied.status()).toBe(401);
   } finally { await anonymous.close(); }
-  const workspace = await (await page.request.get("/api/v1/shareholder/capital")).json() as { data: { shareholders: { id: string; name: string }[] } };
-  const shareholder = workspace.data.shareholders.find(row => row.name === "Demo Shareholder");
-  expect(shareholder).toBeTruthy();
-  const invalid = await page.request.post("/api/v1/shareholder/capital/documents", {
-    headers: { Origin: fixture.url }, multipart: { shareholderProfileId: shareholder!.id,
-      documentReference: "invalid.pdf", documentDate: today, idempotencyKey: randomUUID(),
-      file: { name: "invalid.pdf", mimeType: "application/pdf", buffer: Buffer.from("not a PDF") } }
-  });
-  expect(invalid.status()).toBe(422);
+  const retired = await page.request.post("/api/v1/shareholder/capital/documents", { headers: { Origin: fixture.url },
+    multipart: { shareholderProfileId: randomUUID(), documentReference: "old.png", documentDate: today, idempotencyKey: randomUUID(),
+      file: { name: "old.png", mimeType: "image/png", buffer: png } } });
+  expect(retired.status()).toBe(410);
   const afterAttachment = await (await page.request.get(`/api/v1/finance/general-ledger?from=${today}&to=${today}`)).json();
   expect(afterAttachment.data.lines).toEqual(gl.data.lines);
   await page.getByRole("main").getByRole("link", { name: "General Ledger", exact: true }).click();
