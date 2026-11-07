@@ -141,6 +141,12 @@ export class PrivateDocumentStorage {
     return ids.sort();
   }
 
+  /** Where a stored object is, for the malware scanner only. It never leaves the server. */
+  scanPath(storageId: string): string {
+    assertStorageId(storageId);
+    return this.objectPath(storageId);
+  }
+
   private objectPath(storageId: string): string {
     const target = path.resolve(this.root, "objects", storageId.slice(0, 2), `${storageId}.bin`);
     const objectRoot = path.resolve(this.root, "objects");

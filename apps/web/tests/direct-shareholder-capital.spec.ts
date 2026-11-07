@@ -327,3 +327,24 @@ test("each reason capital is unavailable names what to fix and links to the page
   await expect(page.getByRole("main").getByRole("link", { name: "Chart of Accounts" })).toHaveAttribute("href", "/finance/accounts");
   expect(mocked.commands).toHaveLength(0);
 });
+
+test("a shareholder's card carries that shareholder's documents, and says nothing to someone without access", async ({ page }) => {
+  test.setTimeout(90_000); // three page loads, as in the linked-shareholder test above
+  await mockWorkspace(page);
+  await page.goto("/shareholders");
+  await addShareholder(page);
+  const asked: string[] = [];
+  let allowed = true;
+  await page.route(/\/api\/v1\/documents\?/, async (route) => {
+    asked.push(new URL(route.request().url()).search.slice(1));
+    await route.fulfill(allowed ? { json: { ok: true, data: { canRead: true, canAttach: true, documents: [] } } } : { status: 404, json: { ok: false, error: { code: "NOT_FOUND", message: "x" } } });
+  });
+  await page.goto(`/shareholders?shareholder=${shareholderId}`);
+  await expect(page.getByRole("region", { name: "Documents" })).toContainText("No documents attached.");
+  expect(asked).toContain(`subjectType=SHAREHOLDER&subjectId=${shareholderId}`);
+  allowed = false;
+  await page.reload();
+  await expect(page.getByRole("heading", { level: 3, name: "History" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Documents" })).toHaveCount(0);
+});
+

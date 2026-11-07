@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 
-import { DOCUMENT_SUBJECT_TYPES, type DocumentSubject, type DocumentSubjectType } from "@abos/contracts";
-import { AGREEMENT_DOCUMENT_MAX_BYTES, PrivateDocumentStorageError } from "@abos/persistence";
+import { DOCUMENT_SUBJECT_TYPES, type DocumentScanStatus, type DocumentSubject, type DocumentSubjectType } from "@abos/contracts";
+import { AGREEMENT_DOCUMENT_MAX_BYTES, malwareScannerFor, PrivateDocumentStorageError } from "@abos/persistence";
 
 import { boundedMultipartForm, cleanupCandidate, documentError, MULTIPART_OVERHEAD_BYTES, privateDocumentResponse, privateStorage } from "@/server/agreement-documents";
 import { financeHandoffRuntime } from "@/server/finance-handoff";
@@ -11,7 +11,8 @@ import { assertSameOrigin, json } from "@/server/treasury";
 
 /**
  * The Document Vault (migration 0065) through the restricted runtime only. PostgreSQL decides who may read or attach, on every request, from
- * the record a document belongs to. The storage ID is used here and is never sent to the browser.
+ * the record a document belongs to. The storage ID is used here and is never sent to the browser. A stored document cannot be opened until a
+ * malware scan passes (migration 0066), and a scan that fails or cannot run leaves it locked.
  */
 
 const NOT_FOUND = "That document is not available.";
@@ -21,6 +22,30 @@ function subject(type: string | null, id: string | null): DocumentSubject | null
   const subjectType = type as DocumentSubjectType;
   if (subjectType === "COMPANY") return { subjectType, subjectId: null };
   return id ? { subjectType, subjectId: id } : null;
+}
+
+/**
+ * Scans one stored document and records the verdict. The bytes are checked against the record first, so a verdict always belongs to the file on
+ * record. Any failure here leaves the document PENDING, which is locked.
+ */
+async function scanDocument(token: string, linkId: string): Promise<DocumentScanStatus> {
+  const finance = financeHandoffRuntime();
+  const authenticator = restrictedFinanceAuthenticator();
+  const target = await authenticator.documentScanTarget(finance.executor, token, linkId);
+  if (target.scanStatus !== "PENDING") return target.scanStatus;
+  const scanner = malwareScannerFor(process.env.ABOS_MALWARE_SCANNER);
+  const record = (outcome: "CLEAN" | "INFECTED" | "UNAVAILABLE", detail: string | null) => authenticator.documentScanRecord(finance.executor, token,
+    { linkId, outcome, engine: scanner.engine, detail, correlationId: randomUUID() });
+  try {
+    const bytes = await privateStorage().read(target.storageId);
+    if (bytes.byteLength !== Number(target.byteSize) || createHash("sha256").update(bytes).digest("hex") !== target.sha256) {
+      return (await record("UNAVAILABLE", "The stored file does not match its record.")).scanStatus;
+    }
+  } catch {
+    return (await record("UNAVAILABLE", "The stored file could not be read.")).scanStatus;
+  }
+  const verdict = await scanner.scan(privateStorage().scanPath(target.storageId));
+  return (await record(verdict.outcome, verdict.detail)).scanStatus;
 }
 
 /** A record the person cannot see and one that does not exist get the same answer. */
@@ -34,6 +59,7 @@ function documentFailure(error: unknown): Response {
   const sqlState = error !== null && typeof error === "object" && "code" in error ? String((error as { readonly code: unknown }).code) : "";
   const text = error instanceof Error ? error.message : "";
   if (sqlState === "P0002" || /document (subject )?not found/i.test(text)) return documentError("NOT_FOUND", NOT_FOUND, 404);
+  if (sqlState === "55000" || /not cleared for opening/i.test(text)) return documentError("DOCUMENT_NOT_CLEARED", "This document has not passed its security check.", 409);
   if (/future/i.test(text)) return documentError("VALIDATION_FAILED", "The document date cannot be in the future.", 422);
   if (sqlState === "22023" || sqlState === "22P02" || sqlState === "22007" || sqlState === "22008") return documentError("VALIDATION_FAILED", "Some details are not valid.", 422);
   return operationalFinanceErrorResponse(error);
@@ -83,9 +109,22 @@ export async function documentsPost(request: Request): Promise<Response> {
     // A replay keeps the object the first request stored, so this one has no reason to stay.
     if (record.storageId !== candidate) await cleanupCandidate(candidate);
     candidate = null;
-    return json({ ok: true, data: { ...record, storageId: undefined } }, record.replayed ? 200 : 201);
+    // The document is attached and locked. A scan that cannot finish here leaves it that way, and it can be scanned again.
+    const scanStatus = await scanDocument(token, record.id).catch((): DocumentScanStatus => "PENDING");
+    return json({ ok: true, data: { ...record, storageId: undefined, scanStatus } }, record.replayed ? 200 : 201);
   } catch (error) {
     if (candidate !== null) await cleanupCandidate(candidate);
+    return documentFailure(error);
+  }
+}
+
+/** Scans a locked document again. The answer comes from the scanner: this request carries no outcome. */
+export async function documentScanPost(request: Request, linkId: string): Promise<Response> {
+  try {
+    assertSameOrigin(request);
+    const token = await sessionToken();
+    return json({ ok: true, data: { id: linkId, scanStatus: await scanDocument(token, linkId) } });
+  } catch (error) {
     return documentFailure(error);
   }
 }

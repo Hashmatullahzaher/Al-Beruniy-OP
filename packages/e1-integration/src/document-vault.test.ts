@@ -11,12 +11,15 @@ import { assertAbsent, keys, ReportDatabase, type ReportCompany, type Session } 
  */
 
 type Attached = { id: string; title: string; storageId: string; replayed: boolean };
-type Listed = { canRead: boolean; canAttach: boolean; documents: { id: string; title: string; fileName: string }[] };
+type Listed = { canRead: boolean; canAttach: boolean; documents: { id: string; title: string; fileName: string; scanStatus: string }[] };
+type Target = { id: string; storageId: string; byteSize: number; sha256: string; scanStatus: string };
+type Scanned = { id: string; scanStatus: string };
 type Opened = { id: string; storageId: string; fileName: string; mediaType: string; byteSize: number; sha256: string };
 
 const DAY = "2026-09-15";
 const HASH = "a".repeat(64);
 const NOT_FOUND = /document (subject )?not found/;
+const NOT_CLEARED = /not cleared for opening/;
 
 if (databaseUrl() === undefined) {
   test("0065 Document Vault", () => assert.fail(MISSING_DATABASE_MESSAGE));
@@ -30,6 +33,10 @@ if (databaseUrl() === undefined) {
     const attach = (s: Session, subjectType: string, subjectId: string | null, extra: object = {}) => db.call<Attached>("document_attach", s, file(subjectType, subjectId, extra));
     const list = (s: Session, subjectType: string, subjectId: string | null) => db.call<Listed>("document_list", s, { subjectType, subjectId });
     const open = (s: Session, id: string) => db.call<Opened>("document_open", s, id, randomUUID());
+    const target = (s: Session, id: string) => db.call<Target>("document_scan_target", s, id);
+    const scan = (s: Session, linkId: string, outcome: string, extra: object = {}) => db.call<Scanned>("document_scan_record", s, { linkId, outcome, engine: "windows-defender", detail: null, correlationId: randomUUID(), ...extra });
+    const cleared = async (s: Session, subjectType: string, subjectId: string | null, extra: object = {}) => { const a = await attach(s, subjectType, subjectId, extra); await scan(s, a.id, "CLEAN"); return a; };
+    const status = async (s: Session, subjectType: string, subjectId: string | null, id: string) => (await list(s, subjectType, subjectId)).documents.find((d) => d.id === id)?.scanStatus;
     const audits = async (action: string, id: string) => Number((await db.h.pool.query<{ n: string }>("SELECT count(*) AS n FROM abos.audit_records WHERE action = $1 AND entity_id = $2", [action, id])).rows[0]?.n);
     const journals = async () => Number((await db.h.pool.query<{ n: string }>("SELECT count(*) AS n FROM abos.journals")).rows[0]?.n);
     const spend = async (extra: object = {}) => (await db.call<{ expense: { id: string } }>("operational_expense_create", f.creator, { treasuryAccountId: f.usdSafe, expenseCategoryId: f.category,
@@ -50,7 +57,7 @@ if (databaseUrl() === undefined) {
 
     test("a document attaches to a record, and the list carries no storage ID", async () => {
       const before = await journals();
-      const attached = await attach(officer, "LOAN", loanId, { title: "Signed loan note" });
+      const attached = await cleared(officer, "LOAN", loanId, { title: "Signed loan note" });
       assert.equal(attached.title, "Signed loan note");
       const view = await list(officer, "LOAN", loanId);
       assert.deepEqual([view.canRead, view.canAttach, view.documents.map((d) => [d.id, d.title, d.fileName])], [true, true, [[attached.id, "Signed loan note", "synthetic.pdf"]]]);
@@ -61,7 +68,7 @@ if (databaseUrl() === undefined) {
     });
 
     test("each subject has its own permission, and report readers gain nothing", async () => {
-      const loan = await attach(officer, "LOAN", loanId);
+      const loan = await cleared(officer, "LOAN", loanId);
       const reportReader = await db.person(f.world, "Report Reader", ["finance.report.operational.read"]);
       const expenseReader = await db.person(f.world, "Expense Reader", ["finance.expense.read"]);
       const loanReader = await db.person(f.world, "Loan Reader", ["finance.loan.read"]);
@@ -80,7 +87,7 @@ if (databaseUrl() === undefined) {
     });
 
     test("knowing an ID gives nothing: a refused read and an unknown one are the same answer, and neither is audited", async () => {
-      const attached = await attach(officer, "LOAN", loanId);
+      const attached = await cleared(officer, "LOAN", loanId);
       const stranger = await db.person(f.world, "Stranger", ["company.dashboard.read"]);
       const refused = await open(stranger, attached.id).catch((error: Error) => error.message);
       const unknown = await open(stranger, randomUUID()).catch((error: Error) => error.message);
@@ -91,7 +98,7 @@ if (databaseUrl() === undefined) {
     });
 
     test("attaching and opening are audited, with the file's details and no storage ID", async () => {
-      const attached = await attach(officer, "LOAN", loanId);
+      const attached = await cleared(officer, "LOAN", loanId);
       await open(officer, attached.id); await open(officer, attached.id);
       assert.equal(await audits("DOCUMENT_ATTACHED", attached.id), 1);
       assert.equal(await audits("DOCUMENT_OPENED", attached.id), 2);
@@ -103,7 +110,7 @@ if (databaseUrl() === undefined) {
     test("an expense's document follows the expense's scope, not only the permission", async () => {
       const scoped = await spend({ projectId: f.project });
       const open_ = await spend();
-      const attached = await attach(f.creator, "EXPENSE", scoped);
+      const attached = await cleared(f.creator, "EXPENSE", scoped);
       const outside = await db.person(f.world, "Expense Reader Outside Project", ["finance.expense.read", "finance.expense.create"]);
       await assert.rejects(() => list(outside, "EXPENSE", scoped), NOT_FOUND);
       await assert.rejects(() => open(outside, attached.id), NOT_FOUND);
@@ -120,7 +127,7 @@ if (databaseUrl() === undefined) {
       const holder = await db.call<{ shareholderProfileId: string }>("direct_shareholder_add", f.creator, { displayName: "Synthetic Document Holder", agreedTotal: null, currencyCode: "USD",
         externalReference: null, note: null, businessDate: DAY, firstContribution: null, ...keys() });
       const reader = await db.person(f.world, "Shareholder Reader", ["shareholder.read"]);
-      const attachedToHolder = await attach(f.creator, "SHAREHOLDER", holder.shareholderProfileId);
+      const attachedToHolder = await cleared(f.creator, "SHAREHOLDER", holder.shareholderProfileId);
       assert.equal((await open(reader, attachedToHolder.id)).id, attachedToHolder.id);
       const receipt = await db.call<{ movementId: string }>("treasury_receipt_record", f.creator, { treasuryAccountId: f.usdSafe, amount: "20.00", currencyCode: "USD", businessDate: DAY, payerBusinessPartyId: null,
         payerName: "Synthetic payer", revenueLedgerAccountId: f.revenue, reference: null, note: null, ...keys() });
@@ -175,6 +182,119 @@ if (databaseUrl() === undefined) {
       const open_ = await db.h.pool.query<{ name: string }>(`SELECT p.proname AS name FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
         WHERE n.nspname = 'abos' AND p.proname LIKE 'document%' AND has_function_privilege('public', p.oid, 'EXECUTE')`);
       assert.deepEqual(open_.rows, []);
+    });
+
+    test("a new document is locked: it lists as pending, and cannot be opened by anyone", async () => {
+      const attached = await attach(officer, "LOAN", loanId);
+      assert.equal(await status(officer, "LOAN", loanId, attached.id), "PENDING");
+      await assert.rejects(() => open(officer, attached.id), NOT_CLEARED);
+      assert.equal(await audits("DOCUMENT_OPENED", attached.id), 0, "a refused opening is not an opening");
+    });
+
+    test("only a scan that passed unlocks a document", async () => {
+      const attached = await attach(officer, "LOAN", loanId);
+      assert.equal((await scan(officer, attached.id, "CLEAN")).scanStatus, "CLEAN");
+      assert.equal((await open(officer, attached.id)).storageId, attached.storageId);
+      assert.equal(await audits("DOCUMENT_SCANNED", attached.id), 1);
+    });
+
+    test("a scanner that is down decides nothing: the document stays locked, and can be scanned again", async () => {
+      const attached = await attach(officer, "LOAN", loanId);
+      for (let attempt = 0; attempt < 3; attempt += 1) assert.equal((await scan(officer, attached.id, "UNAVAILABLE", { detail: "The scanner timed out." })).scanStatus, "PENDING");
+      await assert.rejects(() => open(officer, attached.id), NOT_CLEARED);
+      assert.equal((await target(officer, attached.id)).scanStatus, "PENDING");
+      assert.equal((await scan(officer, attached.id, "CLEAN")).scanStatus, "CLEAN");
+      assert.equal(await audits("DOCUMENT_SCANNED", attached.id), 4, "every attempt is on record");
+    });
+
+    test("an infected document is blocked for good: it cannot be opened, cleared or replaced", async () => {
+      const attached = await attach(officer, "LOAN", loanId);
+      assert.equal((await scan(officer, attached.id, "INFECTED", { detail: "Virus:DOS/EICAR_Test_File" })).scanStatus, "INFECTED");
+      await assert.rejects(() => open(officer, attached.id), NOT_CLEARED);
+      assert.equal((await scan(officer, attached.id, "CLEAN")).scanStatus, "INFECTED", "a later clean scan changes nothing");
+      assert.equal((await scan(officer, attached.id, "UNAVAILABLE")).scanStatus, "INFECTED");
+      await assert.rejects(() => open(officer, attached.id), NOT_CLEARED);
+      assert.equal(await status(officer, "LOAN", loanId, attached.id), "INFECTED");
+      assert.equal(await audits("DOCUMENT_SCANNED", attached.id), 1, "only the verdict is recorded");
+      const row = (await db.h.pool.query<{ after_state: Record<string, unknown> }>("SELECT after_state FROM abos.audit_records WHERE action = 'DOCUMENT_SCANNED' AND entity_id = $1", [attached.id])).rows[0];
+      assert.deepEqual([row?.after_state.outcome, row?.after_state.detail], ["INFECTED", "Virus:DOS/EICAR_Test_File"]);
+    });
+
+    test("a clean verdict is final too: a later scan cannot lock or block it", async () => {
+      const attached = await cleared(officer, "LOAN", loanId);
+      assert.equal((await scan(officer, attached.id, "INFECTED")).scanStatus, "CLEAN");
+      assert.equal((await scan(officer, attached.id, "UNAVAILABLE")).scanStatus, "CLEAN");
+      assert.equal(await audits("DOCUMENT_SCANNED", attached.id), 1);
+    });
+
+    test("two scans finishing together leave one verdict", async () => {
+      const attached = await attach(officer, "LOAN", loanId);
+      const results = await Promise.all([scan(officer, attached.id, "CLEAN"), scan(officer, attached.id, "INFECTED"), scan(officer, attached.id, "CLEAN"), scan(officer, attached.id, "INFECTED")]);
+      assert.equal(new Set(results.map((r) => r.scanStatus)).size, 1, `every caller sees one answer: ${JSON.stringify(results)}`);
+      const rows = await db.h.pool.query<{ n: string }>("SELECT count(*) AS n FROM abos.document_scan_results r JOIN abos.document_links l ON l.document_id = r.document_id WHERE l.id = $1", [attached.id]);
+      assert.equal(rows.rows[0]?.n, "1");
+    });
+
+    test("a stranger learns nothing, not even that a scan is pending", async () => {
+      const pending = await attach(officer, "LOAN", loanId);
+      const infected = await attach(officer, "LOAN", loanId);
+      await scan(officer, infected.id, "INFECTED");
+      const stranger = await db.person(f.world, "Scan Stranger", ["company.dashboard.read"]);
+      const answers = await Promise.all([pending.id, infected.id, randomUUID()].map((id) => open(stranger, id).catch((error: Error) => error.message)));
+      assert.equal(new Set(answers).size, 1, JSON.stringify(answers));
+      assert.match(String(answers[0]), NOT_FOUND);
+    });
+
+    test("only someone who may attach can scan: a reader cannot, and a request naming the wrong record gets nothing", async () => {
+      const attached = await attach(officer, "LOAN", loanId);
+      const reader = await db.person(f.world, "Loan Reader", ["finance.loan.read"]);
+      await assert.rejects(() => target(reader, attached.id), NOT_FOUND);
+      await assert.rejects(() => scan(reader, attached.id, "CLEAN"), NOT_FOUND);
+      assert.equal(await status(officer, "LOAN", loanId, attached.id), "PENDING");
+      await assert.rejects(() => target(officer, randomUUID()), NOT_FOUND);
+      await assert.rejects(() => scan(officer, randomUUID(), "CLEAN"), NOT_FOUND);
+    });
+
+    test("another company reaches no document and no scan, whatever it knows", async () => {
+      const attached = await cleared(officer, "LOAN", loanId);
+      const other = randomUUID();
+      await db.h.pool.query(`INSERT INTO abos.legal_entities (id, company_id, code, name, base_currency_code, currency_policy_status) VALUES ($1,$2,$3,'Synthetic Document Other','USD','APPROVED')`, [other, f.world.companyId, `DOC-${other.slice(0, 8)}`]);
+      const outsider = await db.person({ ...f.world, legalEntityId: other }, "Outside Officer", ["finance.loan.read", "finance.loan.record", "finance.loan.repay", "admin.company.manage"]);
+      await assert.rejects(() => open(outsider, attached.id), NOT_FOUND);
+      await assert.rejects(() => target(outsider, attached.id), NOT_FOUND);
+      await assert.rejects(() => scan(outsider, attached.id, "INFECTED"), NOT_FOUND);
+      await assert.rejects(() => list(outsider, "LOAN", loanId), NOT_FOUND);
+      assert.equal(await status(officer, "LOAN", loanId, attached.id), "CLEAN");
+    });
+
+    test("scan details are checked in the database, and a request cannot add its own fields", async () => {
+      const attached = await attach(officer, "LOAN", loanId);
+      await assert.rejects(() => scan(officer, attached.id, "SAFE"), /valid scan details/);
+      await assert.rejects(() => scan(officer, attached.id, "CLEAN", { engine: " " }), /valid scan details/);
+      await assert.rejects(() => scan(officer, attached.id, "CLEAN", { detail: "x".repeat(201) }), /valid scan details/);
+      await assert.rejects(() => scan(officer, attached.id, "CLEAN", { scannedAt: "2020-01-01" }), /unknown document fields/);
+      assert.equal(await status(officer, "LOAN", loanId, attached.id), "PENDING");
+    });
+
+    test("scan results are append-only, and the runtime has no way around the entry points", async () => {
+      const attached = await cleared(officer, "LOAN", loanId);
+      const id = (await db.h.pool.query<{ id: string }>("SELECT r.id FROM abos.document_scan_results r JOIN abos.document_links l ON l.document_id = r.document_id WHERE l.id = $1", [attached.id])).rows[0]?.id;
+      await assert.rejects(() => db.h.pool.query("UPDATE abos.document_scan_results SET outcome = 'INFECTED' WHERE id = $1", [id]));
+      await assert.rejects(() => db.h.pool.query("DELETE FROM abos.document_scan_results WHERE id = $1", [id]));
+      await assert.rejects(() => db.runtime.query("SELECT id FROM abos.document_scan_results"), /permission denied/);
+      await assert.rejects(() => db.runtime.query("SELECT abos.document_scan_status(gen_random_uuid())"), /permission denied/);
+      await assert.rejects(() => db.runtime.query("SELECT * FROM abos.document_vault_manifest()"), /permission denied/);
+    });
+
+    test("the vault manifest names every stored object, with its scan state", async () => {
+      const pending = await attach(officer, "LOAN", loanId);
+      const clean = await cleared(officer, "LOAN", loanId);
+      const rows = (await db.h.pool.query<{ storage_id: string; byte_size: string; sha256: string; source: string; scan_status: string | null }>("SELECT * FROM abos.document_vault_manifest()")).rows;
+      assert.deepEqual(rows.find((r) => r.storage_id === pending.storageId)?.scan_status, "PENDING");
+      const row = rows.find((r) => r.storage_id === clean.storageId);
+      assert.deepEqual([row?.source, row?.scan_status, row?.sha256, Number(row?.byte_size)], ["DOCUMENT", "CLEAN", HASH, 1200]);
+      const stored = await db.h.pool.query<{ n: string }>("SELECT (SELECT count(*) FROM abos.documents) + (SELECT count(*) FROM abos.capital_agreement_document_files) AS n");
+      assert.equal(rows.length, Number(stored.rows[0]?.n));
     });
   });
 }

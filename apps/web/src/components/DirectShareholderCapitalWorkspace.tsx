@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 
 import { AccessGate, api, errorText } from "@/components/AdminUsersWorkspace";
+import { DocumentsPanel } from "@/components/DocumentsPanel";
 import { exactDecimal } from "@/components/ExchangeRatesWorkspace";
 import { useLocale } from "@/components/LocaleProvider";
 import { kabulToday } from "@/components/OperationalFinanceShared";
@@ -310,6 +311,7 @@ export function DirectShareholderCapitalWorkspace() {
             {capital.agreedTotal !== null && capital.remaining !== null ? <div><dt>{copy("Still to come", "باقی‌مانده")}</dt><dd dir="ltr">{money(capital.remaining, capital.currency)}</dd></div> : null}
           </dl></section>)}
         <HolderLoans profileId={holder.id} fa={locale === "fa"} />
+        <DocumentsPanel key={`documents-${holder.id}`} subjectType="SHAREHOLDER" subjectId={holder.id} fa={locale === "fa"} />
         <h3>{copy("History", "تاریخچه")}</h3>
         {holder.transactions.length === 0 ? <p className="admin-hint">{copy("No capital has been recorded yet.", "هنوز سرمایه‌ای ثبت نشده است.")}</p> : <div style={{ overflowX: "auto" }}><table className="shareholder-installments contribution-table"><caption className="sr-only">{copy("Capital put in", "سرمایهٔ گذاشته‌شده")}</caption><thead><tr>{[copy("Date", "تاریخ"), copy("Amount", "مبلغ"), copy("What", "چه"), copy("Where it went", "به کجا رفت"), copy("Reference", "مرجع"), copy("Note", "یادداشت"), copy("General Ledger", "دفتر کل")].map(label => <th scope="col" key={label}>{label}</th>)}</tr></thead><tbody>{holder.transactions.map(entry => <tr key={entry.id}>
           <td><time dateTime={entry.date}>{entry.date}</time></td>
