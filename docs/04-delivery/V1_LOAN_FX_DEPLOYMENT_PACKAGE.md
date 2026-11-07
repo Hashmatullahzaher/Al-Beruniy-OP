@@ -1,5 +1,7 @@
 # V1 loan and FX deployment package: 0061 to 0064
 
+**Deployed 2026-11-07.** See `V1_LOAN_FX_DEPLOYMENT_2026-11-07.md`. The text below is the package as sealed before deployment.
+
 Prepared 2026-11-07. Not deployed. Production stays at 0060 until the owner authorizes this.
 
 | Item | Value |

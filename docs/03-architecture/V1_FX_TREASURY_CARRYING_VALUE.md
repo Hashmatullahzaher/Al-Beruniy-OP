@@ -144,6 +144,17 @@ The check applies to foreign-currency accounts only. A position that already dis
 
 A movement dated behind others uses the position held on its own date. It does not recalculate any later movement, and later journals stay exactly as posted. Later movements take the position as it now stands, and the next full disposal realizes any difference.
 
+## Late-dated movements
+
+**V1 rule: posted carrying allocations are immutable. They are not recalculated when a later posting uses an earlier business date.**
+
+- A late-dated movement uses the position held on its own date.
+- Movements already posted keep the carrying value they posted, including any realized FX.
+- The difference this leaves is realized by the next full disposal.
+- A late movement that would leave native zero with a value on a later day is refused, `TREASURY_FX_OUT_OF_ORDER`.
+
+There is no warning on the form for a late-dated foreign-currency posting. If the product needs one, it will be proposed separately.
+
 ## Accounts below zero
 
 A Saraf may go below zero, and a bank or other account is unlimited. A negative position is an amount owed in that currency, and it has a carrying value too.
