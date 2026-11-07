@@ -73,6 +73,9 @@ import type {
   ShareholderContributionsWorkspace,
   DocumentAttachInput,
   DocumentListView,
+  DocumentScanRecordInput,
+  DocumentScanResult,
+  DocumentScanTarget,
   DocumentSubject,
   LoanCommand,
   LoanCommandResult,
@@ -815,6 +818,15 @@ export class SandboxAuthenticator {
 
   async documentOpen(executor: SqlExecutor, token: string, linkId: string, correlationId: string): Promise<OpenedDocumentRecord> {
     return this.operationalFinanceFunction<OpenedDocumentRecord>(executor, "SELECT abos.document_open($1,$2,$3,$4::uuid,$5::uuid) AS value", token, [linkId, correlationId], "Documents are unavailable");
+  }
+
+  /** Document scanning (0066). The person must be able to attach to the record. */
+  async documentScanTarget(executor: SqlExecutor, token: string, linkId: string): Promise<DocumentScanTarget> {
+    return this.operationalFinanceFunction<DocumentScanTarget>(executor, "SELECT abos.document_scan_target($1,$2,$3,$4::uuid) AS value", token, [linkId], "Documents are unavailable");
+  }
+
+  async documentScanRecord(executor: SqlExecutor, token: string, input: DocumentScanRecordInput): Promise<DocumentScanResult> {
+    return this.operationalFinanceFunction<DocumentScanResult>(executor, "SELECT abos.document_scan_record($1,$2,$3,$4::jsonb) AS value", token, [JSON.stringify(input)], "Documents are unavailable");
   }
 
   async agreementDocuments(executor: SqlExecutor, token: string): Promise<readonly AgreementDocumentRecord[]> {

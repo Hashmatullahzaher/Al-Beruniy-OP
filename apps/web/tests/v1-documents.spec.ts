@@ -6,7 +6,7 @@ const companyProfile = { legalEntity: { id: "e", code: "SYN", name: "Synthetic C
   profile: { legalName: null, registrationNumber: null, goLiveDate: null, version: 1, updatedAt: null, updatedBy: null }, currencies: [], calendar: null, canManage: true };
 const auth = { userAccountId: "u", displayName: "Synthetic Administrator", loginIdentifier: "admin", legalEntityId: "e", jobTitle: "Administrator", legalEntityName: "Synthetic Company",
   permissions: ["admin.company.manage"], sessionExpiresAt: "2099-01-01T00:00:00Z" };
-const attached = { id: "11111111-1111-4111-8111-111111111111", title: "Certificate", documentDate: "2026-09-01", fileName: "certificate.pdf", mediaType: "application/pdf", byteSize: 2048, attachedAt: "2026-09-01T08:00:00Z" };
+const attached = { id: "11111111-1111-4111-8111-111111111111", title: "Certificate", documentDate: "2026-09-01", fileName: "certificate.pdf", scanStatus: "CLEAN", mediaType: "application/pdf", byteSize: 2048, attachedAt: "2026-09-01T08:00:00Z" };
 
 async function mock(page: Page, list: { canRead: boolean; canAttach: boolean; documents: unknown[] } | null, upload?: { status: number; body: unknown }) {
   const posts: string[] = [];
@@ -24,6 +24,29 @@ async function mock(page: Page, list: { canRead: boolean; canAttach: boolean; do
 }
 
 const PDF = { name: "certificate.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4\n%%EOF\n") };
+
+const journalId = "78000000-0000-4000-8000-000000000020";
+const sourceId = "78000000-0000-4000-8000-000000000021";
+
+/** A journal drill-down from mocked APIs. Returns what the documents panel asked for. */
+async function journalPage(page: Page, type: string, id: string | null = sourceId): Promise<string[]> {
+  const asked: string[] = [];
+  await page.route("**/api/v1/auth/me", (route) => route.fulfill({ json: { ok: true, data: { ...auth, permissions: ["finance.report.operational.read"] } } }));
+  await page.route(`**/api/v1/finance/journals/${journalId}`, (route) => route.fulfill({ json: { ok: true, data: { journalId, reference: "SYN-1", restricted: false, date: "2026-09-12", postedAt: "x",
+    baseCurrency: "USD", postedBy: "Synthetic Cashier", period: null, source: { type, id, label: { en: "Source", fa: "منبع" }, route: null, counterparty: null },
+    lines: [{ lineNumber: 1, accountId: "x", accountCode: "L-1", accountName: "Line", accountType: "ASSET", debit: "1.00", credit: "0", originalAmount: "1.00", originalCurrency: "USD" }],
+    fx: null, reversedBy: null, reverses: null } } }));
+  await page.route(/\/api\/v1\/finance\/general-ledger(\/activity)?\?/, (route) => route.fulfill({ json: { ok: true, data: { syntheticOnly: false, legalEntityId: "e", from: "2026-01-01",
+    to: "2026-12-31", accountId: null, accounts: [], currencyTotals: [], lines: [], totals: [], returnedLineCount: 0, hasMore: false, nextCursor: null, pageLimit: 100,
+    order: "", basis: "POSTED_ACTIVITY_IN_RANGE", isBalance: false, openingBalancesIncluded: false } } }));
+  await page.route("**/api/v1/finance/accounts*", (route) => route.fulfill({ json: { ok: true, data: { accounts: [] } } }));
+  await page.route(/\/api\/v1\/documents\?/, async (route) => {
+    asked.push(new URL(route.request().url()).search.slice(1));
+    await route.fulfill({ json: { ok: true, data: { canRead: true, canAttach: false, documents: [attached] } } });
+  });
+  await page.goto(`/finance/general-ledger?journalId=${journalId}`);
+  return asked;
+}
 
 test("a person who can read and attach sees the file, how to open it, and that nothing is ever replaced", async ({ page }) => {
   await mock(page, { canRead: true, canAttach: true, documents: [attached] });
@@ -83,6 +106,75 @@ test("Dari, right to left", async ({ page }) => {
   const panel = page.getByRole("region", { name: "اسناد" });
   await expect(panel.getByRole("link", { name: "دیدن" })).toBeVisible();
   await expect(panel.getByRole("form", { name: "پیوست سند" })).toBeVisible();
+});
+
+test("a locked document offers no way to open it, and can be checked again", async ({ page }) => {
+  const list = { canRead: true, canAttach: true, documents: [{ ...attached, scanStatus: "PENDING" }] };
+  await mock(page, list);
+  const scans: string[] = [];
+  await page.route(`**/api/v1/documents/${attached.id}/scan`, async (route) => {
+    scans.push(route.request().postData() ?? "");
+    list.documents = [{ ...attached, scanStatus: "CLEAN" }];
+    await route.fulfill({ json: { ok: true, data: { id: attached.id, scanStatus: "CLEAN" } } });
+  });
+  await page.goto("/admin/company");
+  const row = page.getByRole("region", { name: "Documents" }).getByRole("listitem").filter({ hasText: "Certificate" });
+  await expect(row).toContainText("Locked until its security check passes");
+  await expect(row.getByRole("link")).toHaveCount(0);
+  await row.getByRole("button", { name: "Check again" }).click();
+  await expect(row.getByRole("link", { name: "View" })).toBeVisible();
+  // The browser asks for a scan. It never says how the scan came out.
+  expect(scans).toEqual([""]);
+});
+
+test("a reader of a locked document cannot start a check", async ({ page }) => {
+  await mock(page, { canRead: true, canAttach: false, documents: [{ ...attached, scanStatus: "PENDING" }] });
+  await page.goto("/admin/company");
+  const row = page.getByRole("region", { name: "Documents" }).getByRole("listitem").filter({ hasText: "Certificate" });
+  await expect(row).toContainText("Locked until its security check passes");
+  await expect(row.getByRole("button")).toHaveCount(0);
+});
+
+test("a blocked document says so, and offers nothing", async ({ page }) => {
+  await mock(page, { canRead: true, canAttach: true, documents: [{ ...attached, scanStatus: "INFECTED" }] });
+  await page.goto("/admin/company");
+  const row = page.getByRole("region", { name: "Documents" }).getByRole("listitem").filter({ hasText: "Certificate" });
+  await expect(row).toContainText("Blocked: failed its security check and cannot be opened");
+  await expect(row.getByRole("link")).toHaveCount(0);
+  await expect(row.getByRole("button")).toHaveCount(0);
+});
+
+for (const [scanStatus, role, message] of [["CLEAN", "status", "Document attached."], ["PENDING", "status", "It stays locked until its security check passes."],
+  ["INFECTED", "alert", "This file failed its security check."]] as const) {
+  test(`attaching says where the file stands: ${scanStatus}`, async ({ page }) => {
+    await mock(page, { canRead: true, canAttach: true, documents: [] }, { status: 201, body: { ok: true, data: { ...attached, scanStatus } } });
+    await page.goto("/admin/company");
+    const form = page.getByRole("form", { name: "Attach a document" });
+    await form.getByLabel("Title").fill("Certificate");
+    await form.getByLabel(/^PDF or image file/).setInputFiles(PDF);
+    await form.getByRole("button", { name: "Attach document" }).click();
+    await expect(form.getByRole(role)).toContainText(message);
+  });
+}
+
+for (const [source, subject] of [["CASH_RECEIPT", "RECEIPT"], ["PAYMENT", "PAYMENT"]] as const) {
+  test(`a ${source} journal carries its documents`, async ({ page }) => {
+    const asked = await journalPage(page, source);
+    await expect(page.getByRole("region", { name: "Journal", exact: true }).getByRole("region", { name: "Documents" })).toContainText("Certificate");
+    expect(asked).toContain(`subjectType=${subject}&subjectId=${sourceId}`);
+  });
+}
+
+test("a journal of any other kind asks for no documents", async ({ page }) => {
+  const asked = await journalPage(page, "TREASURY_TRANSFER");
+  await expect(page.getByRole("region", { name: "Journal", exact: true })).toContainText("L-1");
+  expect(asked).toEqual([]);
+});
+
+test("a journal whose source is withheld asks for no documents", async ({ page }) => {
+  const asked = await journalPage(page, "PAYMENT", null);
+  await expect(page.getByRole("region", { name: "Journal", exact: true })).toContainText("L-1");
+  expect(asked).toEqual([]);
 });
 
 test("the not-found page follows the person's language", async ({ page }) => {

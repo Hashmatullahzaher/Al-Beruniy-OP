@@ -8,6 +8,7 @@ import { useEffect, useState } from "react";
 
 import { AccessGate, api, errorText } from "@/components/AdminUsersWorkspace";
 import { AppIcon } from "@/components/AppIcon";
+import { DocumentsPanel } from "@/components/DocumentsPanel";
 import { useLocale } from "@/components/LocaleProvider";
 import { kabulToday } from "@/components/OperationalFinanceShared";
 import { StageZeroPageHeader } from "@/components/StageZeroWorkspace";
@@ -144,6 +145,8 @@ export function JournalDetailPanel({ journalId, fa }: Readonly<{ journalId: stri
   }, [journalId, fa]);
   if (error) return <div className="treasury-message error" role="alert"><AppIcon name="alert" size={16} /><span>{error}</span></div>;
   if (view === null) return <p className="treasury-placeholder">{fa ? "در حال بارگذاری…" : "Loading…"}</p>;
+  // A receipt and a payment have no screen of their own, so their documents live with the journal. The panel shows nothing to someone without access.
+  const documentSubject = view.source?.type === "CASH_RECEIPT" ? "RECEIPT" : view.source?.type === "PAYMENT" ? "PAYMENT" : null;
   return (
     <section className="module-content-card journal-detail" aria-label={fa ? "سند ژورنال" : "Journal"}>
       <h2 dir="ltr">{view.restricted ? (fa ? "حرکت محدود" : "Restricted movement") : view.reference}</h2>
@@ -161,6 +164,7 @@ export function JournalDetailPanel({ journalId, fa }: Readonly<{ journalId: stri
       </table></div>
       {view.fx ? <p className="admin-hint" dir="auto">{fa ? "نرخ ثابت‌شده: " : "Frozen rate: "}<span dir="ltr">1 {view.fx.unitCurrency} = {view.fx.rate} {view.fx.quoteCurrency}</span>
         {` (${view.fx.rateDate}, ${view.fx.source})`}{view.fx.roundingMode ? ` · ${view.fx.roundingMode} / ${view.fx.baseScale}` : ""}</p> : null}
+      {documentSubject && view.source?.id ? <DocumentsPanel subjectType={documentSubject} subjectId={view.source.id} fa={fa} /> : null}
     </section>
   );
 }

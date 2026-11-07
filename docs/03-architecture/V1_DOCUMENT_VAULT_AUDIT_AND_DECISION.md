@@ -108,14 +108,41 @@ Temporary Funding stays compatibility only and is not extended.
 
 `evidence_references` stays the accounting evidence register. It answers "was this evidence provided", with a hash, for the capital workflow. A document is a stored file. A later slice can connect the two, but no accounting rule depends on a stored file today, and none is added here.
 
+### Malware scanning (0066)
+
+A new document is locked until it passes a scan. The safe state is the default: a document with no verdict is `PENDING`, and nothing has to be set for that to apply.
+
+| State | Meaning | Can be opened |
+|---|---|---|
+| `PENDING` | No verdict yet, or every attempt so far failed | No |
+| `CLEAN` | The scanner said so, for this file | Yes |
+| `INFECTED` | The scanner found a threat. Final | No, and the file is kept |
+
+- **A verdict is final.** `document_scan_results` is append-only, and a unique index allows one `CLEAN` or `INFECTED` per document. Two scans finishing together leave one verdict. A later scan cannot clear a blocked file or block a cleared one.
+- **A failed scan decides nothing.** `UNAVAILABLE` records the attempt and leaves the document locked. Someone who may attach can press Check again.
+- **The browser never states an outcome.** The scan route takes only the document's address. The server runs the scanner and records its answer.
+- **Authorization comes first.** `document_open` checks access before scan state, so a stranger gets the plain not-found answer and cannot tell that a scan is pending.
+- **The bytes are checked first.** The stored file must match its size and hash, so a verdict always belongs to the file on record.
+
+The scanner is Windows Defender through `MpCmdRun.exe`, already on the production machine, so nothing is installed or downloaded. It is chosen by the server setting `ABOS_MALWARE_SCANNER=windows-defender`.
+
+- There is no setting that turns scanning off, and no scanner that passes everything. A missing or unknown setting locks every new document.
+- `MpCmdRun` exits with 2 both for a threat and for a file it could not scan, so the exit code alone is never trusted. `CLEAN` needs exit 0 and the sentence naming this file. `INFECTED` needs exit 2 and a threat count. Anything else is `UNAVAILABLE`.
+- `-DisableRemediation` means the scan itself removes nothing. Real-time protection may still remove an infected object. Reconciliation reports that separately, so it cannot hide a genuinely missing file.
+
 ## Decision for the owner
 
-**Retention.** How long documents must be kept, and whether any may ever be destroyed, is an open legal question (`OPEN_ITEMS.md`). The design does not need it answered: nothing is deleted, so every choice stays available. Destruction, when wanted, would be its own reviewed feature.
+**Decided 2026-11-07.**
+
+- **Retention:** append-only and indefinite for V1. There is no automatic expiry and no destructive deletion. A document attached to a posted financial source is never silently replaced.
+- **Malware scanning:** required before the vault enters production. See below.
+- **Public links:** none, ever. A file is reached only through an authorized route.
+- **Company documents:** stay restricted. `admin.company.manage` is not granted automatically. Super Administrator or another configured role may receive it through the normal audited permission workflow.
 
 ## Outside this slice
 
 - Moving existing agreement files into the new tables.
 - Connecting documents to `evidence_references`.
 - Replacing the illustrative `/documents` page with a company-wide register. It needs a rule for what one person may list across subjects.
-- Virus scanning. No scanner exists on this installation. The type check and sandboxed delivery remain the defence.
+- Scanning agreement documents. That older upload lane is live and is not scanned. See `OPEN_ITEMS.md`.
 - File types beyond PDF, JPEG and PNG.
