@@ -196,7 +196,11 @@ async function repay(page: Page, repayment: { safe: string; amount: string; curr
   await form.getByLabel("From which Safe?").selectOption({ label: repayment.safe });
   await form.getByLabel(`Amount (${repayment.currency})`).fill(repayment.amount);
   if (repayment.date !== undefined) await form.getByLabel("Date").fill(repayment.date);
+  // The previous repayment's message is still on screen, so it proves nothing about this one. Wait for this request's own answer.
+  const answered = page.waitForResponse((response) => response.request().method() === "POST" && new URL(response.url()).pathname === "/api/v1/finance/loans");
   await form.getByRole("button", { name: "Record repayment" }).click();
+  expect((await answered).status()).toBe(201);
+  await expect(form).toHaveCount(0);
   await expect(repaid(page)).toBeVisible();
 }
 
