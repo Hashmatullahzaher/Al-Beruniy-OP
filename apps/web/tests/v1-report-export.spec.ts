@@ -74,11 +74,11 @@ test("a refused export says why on the screen, in English and Dari, and saves no
     error: { code: "TOO_MANY_LINES", message: "This statement is too long. Choose a shorter period." } } }));
   await page.goto(`/finance/account-statement?accountId=${cashId}&periodId=${periodId}`);
   await page.getByRole("button", { name: "CSV (Excel-compatible)" }).click();
-  await expect(page.getByRole("alert")).toHaveText("This statement is too long. Choose a shorter period.");
+  await expect(page.getByRole("main").getByRole("alert")).toHaveText("This statement is too long. Choose a shorter period.");
   await page.getByRole("button", { name: "Switch to Dari" }).click();
-  await expect(page.getByRole("alert")).toHaveText("این صورت‌حساب خیلی طولانی است. دورهٔ کوتاه‌تری انتخاب کنید.");
+  await expect(page.getByRole("main").getByRole("alert")).toHaveText("این صورت‌حساب خیلی طولانی است. دورهٔ کوتاه‌تری انتخاب کنید.");
   await page.getByRole("button", { name: "CSV (سازگار با Excel)" }).click();
-  await expect(page.getByRole("alert")).toHaveText("این صورت‌حساب خیلی طولانی است. دورهٔ کوتاه‌تری انتخاب کنید.");
+  await expect(page.getByRole("main").getByRole("alert")).toHaveText("این صورت‌حساب خیلی طولانی است. دورهٔ کوتاه‌تری انتخاب کنید.");
   expect(downloads).toBe(0);
 });
 
