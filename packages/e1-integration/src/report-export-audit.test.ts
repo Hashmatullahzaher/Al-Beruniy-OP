@@ -84,6 +84,17 @@ if (databaseUrl() === undefined) {
       assert.equal(await exports(), before);
       const safe = await record(f.safeReader, exportOf({ kind: "SAFE_STATEMENT", accountId: f.usdSafe, rowCount: 1 }));
       assert.equal((await audit(safe.auditId)).entityId, f.usdSafe);
+      // The person responsible for a Safe reads that Safe's statement without any report permission (0057), so may export it, and only it.
+      const keeper = await db.person(f.world, "Safe Keeper", ["treasury.receipt.record"]);
+      const keeperId = (await db.h.pool.query<{ id: string }>("SELECT id FROM abos.user_accounts WHERE display_name = 'Synthetic Safe Keeper'")).rows[0]?.id;
+      await db.h.pool.query(`INSERT INTO abos.operational_treasury_account_responsibles (legal_entity_id, operational_treasury_account_id, user_account_id, assigned_by_user_account_id)
+        VALUES ($1,$2,$3,$4)`, [f.e, f.secondSafe, keeperId, f.u]);
+      await db.call("treasury_account_statement", keeper, { accountId: f.secondSafe, ...SEPT });
+      const kept = await record(keeper, exportOf({ kind: "SAFE_STATEMENT", accountId: f.secondSafe, rowCount: 1 }));
+      assert.equal((await audit(kept.auditId)).actor, keeperId);
+      await assert.rejects(() => db.call("treasury_account_statement", keeper, { accountId: f.usdSafe, ...SEPT }));
+      await assert.rejects(() => record(keeper, exportOf({ kind: "SAFE_STATEMENT", accountId: f.usdSafe })), DENIED, "another Safe is not theirs");
+      await assert.rejects(() => record(keeper, exportOf()), DENIED, "nor is the trial balance");
     });
 
     test("an export can only name the session's own company's accounts and periods", async () => {

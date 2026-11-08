@@ -85,6 +85,10 @@ export async function reportExportGet(request: Request): Promise<Response> {
     if (error instanceof ExportRefusal) return refusal(error.status, error.code, error.message);
     return kind === "GENERAL_LEDGER" ? ledgerErrorResponse(error) : reportingErrorResponse(error);
   }
+  if (exportLineCount(built.table) > REPORT_EXPORT_LINE_LIMIT) {
+    const tooLong = TOO_LONG();
+    return refusal(tooLong.status, tooLong.code, tooLong.message);
+  }
   try {
     await restrictedFinanceAuthenticator().reportExportRecord(financeHandoffRuntime().executor, await sessionToken(),
       { kind, format: "CSV", language, ...built.audit, rowCount: exportLineCount(built.table) });

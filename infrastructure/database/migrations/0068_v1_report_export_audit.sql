@@ -21,12 +21,10 @@ BEGIN
   IF kind IS NULL OR kind NOT IN ('TRIAL_BALANCE', 'GENERAL_LEDGER', 'ACCOUNT_STATEMENT', 'SAFE_STATEMENT') THEN
     RAISE EXCEPTION 'unknown report kind' USING ERRCODE = 'invalid_parameter_value';
   END IF;
-  -- The same authority the report itself requires: a Safe statement is open to its readers, the others to Finance report readers.
+  -- The same authority the report itself requires (0053, 0057): Finance report readers, and for a Safe statement also Safe readers and
+  -- the people responsible for that Safe (checked below, once the account is known).
   IF kind = 'SAFE_STATEMENT' THEN
     c := abos.treasury_safe_actor(p_proof, p_runtime, p_token, NULL);
-    IF NOT COALESCE(c->'permissions', '[]'::jsonb) ?| ARRAY['treasury.safe.read', 'finance.report.operational.read'] THEN
-      RAISE EXCEPTION 'current authority is missing treasury.safe.read' USING ERRCODE = 'insufficient_privilege';
-    END IF;
   ELSE
     c := abos.operational_finance_actor(p_proof, p_runtime, p_token, 'finance.report.operational.read');
   END IF;
@@ -60,6 +58,11 @@ BEGIN
        (kind IN ('ACCOUNT_STATEMENT', 'GENERAL_LEDGER') AND NOT EXISTS (SELECT 1 FROM abos.ledger_accounts a WHERE a.id = v_account AND a.legal_entity_id = entity))
     OR (kind = 'SAFE_STATEMENT' AND NOT EXISTS (SELECT 1 FROM abos.operational_treasury_accounts t WHERE t.id = v_account AND t.legal_entity_id = entity))) THEN
     RAISE EXCEPTION 'the account was not found in this legal entity' USING ERRCODE = 'invalid_parameter_value';
+  END IF;
+  IF kind = 'SAFE_STATEMENT' AND NOT COALESCE(c->'permissions', '[]'::jsonb) ?| ARRAY['treasury.safe.read', 'finance.report.operational.read']
+     AND NOT EXISTS (SELECT 1 FROM abos.operational_treasury_account_responsibles r WHERE r.operational_treasury_account_id = v_account
+       AND r.legal_entity_id = entity AND r.user_account_id = actor AND r.revoked_at IS NULL) THEN
+    RAISE EXCEPTION 'current authority is missing treasury.safe.read' USING ERRCODE = 'insufficient_privilege';
   END IF;
   IF (v_period IS NOT NULL AND NOT EXISTS (SELECT 1 FROM abos.accounting_periods p WHERE p.id = v_period AND p.legal_entity_id = entity))
      OR (v_year IS NOT NULL AND NOT EXISTS (SELECT 1 FROM abos.fiscal_years y WHERE y.id = v_year AND y.legal_entity_id = entity)) THEN
