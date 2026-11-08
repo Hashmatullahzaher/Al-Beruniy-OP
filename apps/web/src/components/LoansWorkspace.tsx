@@ -53,6 +53,9 @@ const SETUP_LINK: Readonly<Record<string, string>> = {
 };
 
 /** What a posted repayment realized, in words. Nothing is said when there was no difference. */
+/** A message in both languages, so it reads correctly if the person switches language while it is shown. */
+type Message = { readonly en: string; readonly fa: string };
+
 function realizedText(value: string | undefined, currency: string, fa: boolean): string {
   const amount = Number(value ?? 0);
   if (amount === 0) return "";
@@ -60,7 +63,7 @@ function realizedText(value: string | undefined, currency: string, fa: boolean):
   return amount > 0 ? (fa ? ` مفاد تبادله اسعار: ${figure}.` : ` Realized FX gain: ${figure}.`) : (fa ? ` ضرر تبادله اسعار: ${figure}.` : ` Realized FX loss: ${figure}.`);
 }
 
-function RepayForm({ loan, view, fa, onDone }: Readonly<{ loan: LoanView; view: LoanWorkspace; fa: boolean; onDone: (message: string) => void }>) {
+function RepayForm({ loan, view, fa, onDone }: Readonly<{ loan: LoanView; view: LoanWorkspace; fa: boolean; onDone: (message: Message) => void }>) {
   const safes = view.options?.treasuryAccounts.filter((account) => account.currencyCode === loan.currency) ?? [];
   const [form, setForm] = useState({ treasuryAccountId: safes.length === 1 ? safes[0]?.id ?? "" : "", amount: "", businessDate: kabulToday(), reference: "", note: "" });
   const [error, setError] = useState<string | null>(null);
@@ -72,7 +75,9 @@ function RepayForm({ loan, view, fa, onDone }: Readonly<{ loan: LoanView; view: 
     const result = await api<LoanCommandResult>(ENDPOINT, "POST", { action: "repay", loanId: loan.id, ...form, ...request.current });
     setBusy(false);
     if (!result.ok) { setError(loanErrorText(result.error, fa)); setSetup(SETUP_LINK[result.error.code] ?? null); return; }
-    onDone(result.data.status === "POSTED" ? `${fa ? "بازپرداخت ثبت شد." : "Repayment recorded."}${realizedText(result.data.realizedFx, view.baseCurrency, fa)}` : (fa ? "بازپرداخت برای تأیید فرستاده شد." : "Repayment sent for approval."));
+    onDone(result.data.status === "POSTED"
+      ? { en: `Repayment recorded.${realizedText(result.data.realizedFx, view.baseCurrency, false)}`, fa: `بازپرداخت ثبت شد.${realizedText(result.data.realizedFx, view.baseCurrency, true)}` }
+      : { en: "Repayment sent for approval.", fa: "بازپرداخت برای تأیید فرستاده شد." });
   };
   return (
     <form className="admin-form" aria-label={fa ? "بازپرداخت قرض" : "Repay loan"} onSubmit={(event) => { event.preventDefault(); void submit(); }}>
@@ -141,7 +146,10 @@ export function LoansWorkspace() {
   const [view, setView] = useState<LoanWorkspace | null>(null);
   const [gate, setGate] = useState<"signed-out" | "denied" | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
+  // A message belongs to the loan that was open when it was produced: opening another loan hides it.
+  const [shown, setShown] = useState<{ readonly text: Message; readonly loanId: string | null } | null>(null);
+  const message = shown !== null && shown.loanId === selected ? shown.text : null;
+  const setMessage = (text: Message | null) => setShown(text === null ? null : { text, loanId: selected });
   const [repaying, setRepaying] = useState<string | null>(null);
 
   const [revision, setRevision] = useState(0);
@@ -162,7 +170,7 @@ export function LoansWorkspace() {
     if (decision === "REJECTED" && !reason) return;
     const result = await api<LoanCommandResult>(ENDPOINT, "POST", { action: "decide", kind, id, decision, reason, ...identity() });
     if (!result.ok) { setError(loanErrorText(result.error, fa)); return; }
-    setMessage(decision === "APPROVED" ? (fa ? "تأیید و ثبت شد." : "Approved and recorded.") : (fa ? "رد شد." : "Rejected."));
+    setMessage(decision === "APPROVED" ? { en: "Approved and recorded.", fa: "تأیید و ثبت شد." } : { en: "Rejected.", fa: "رد شد." });
     load();
   };
 
@@ -176,7 +184,7 @@ export function LoansWorkspace() {
         description={{ en: "Money lent to the company, what has been repaid and what is still owed. A loan is debt, never capital.", fa: "پولی که به شرکت قرض داده شده، آنچه بازپرداخت شده و آنچه هنوز باقی است. قرض بدهی است، نه سرمایه." }} />
       {view ? <LoanReadinessPanel fa={fa} /> : null}
       {view?.permissions.canRecord ? <p><Link className="treasury-button gold" href="/finance/add-money">{fa ? "افزودن پول" : "Add money"}</Link></p> : null}
-      {message ? <p className="treasury-message success" role="status">{message}</p> : null}
+      {message ? <p className="treasury-message success" role="status">{fa ? message.fa : message.en}</p> : null}
       {error ? <div className="treasury-message error" role="alert"><AppIcon name="alert" size={16} /><span>{error}</span></div> : null}
       {view === null && !error ? <p className="treasury-placeholder">{fa ? "در حال بارگذاری…" : "Loading…"}</p> : null}
       {view && view.permissions.canApprove && (pending.length > 0 || (view.pendingRepayments?.length ?? 0) > 0) ? (
@@ -210,7 +218,7 @@ export function LoansWorkspace() {
         <h2>{open.lender.name}</h2>
         {view.permissions.canRepay && open.status === "POSTED" && Number(open.outstanding) > 0 ? (repaying === open.id
           ? <RepayForm key={open.id} loan={open} view={view} fa={fa} onDone={(text) => { setRepaying(null); setMessage(text); load(); router.refresh(); }} />
-          : <button className="treasury-button gold" type="button" onClick={() => setRepaying(open.id)}>{fa ? "بازپرداخت" : "Repay"}</button>) : null}
+          : <button className="treasury-button gold" type="button" onClick={() => { setMessage(null); setRepaying(open.id); }}>{fa ? "بازپرداخت" : "Repay"}</button>) : null}
         {open.status === "POSTED" && view.permissions.canRead ? <Statement key={`${open.id}-${open.outstanding}`} loanId={open.id} fa={fa} base={view.baseCurrency} /> : null}
         <DocumentsPanel key={`documents-${open.id}`} subjectType="LOAN" subjectId={open.id} fa={fa} />
       </> : null}

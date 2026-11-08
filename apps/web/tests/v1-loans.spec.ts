@@ -271,3 +271,22 @@ test("a statement with no difference has no FX column", async ({ page }) => {
   await expect(report.getByRole("status")).toBeVisible();
   await expect(report.getByRole("columnheader", { name: "Realized FX" })).toHaveCount(0);
 });
+
+test("a repayment message belongs to its loan: it follows the language, and opening another loan clears it", async ({ page }) => {
+  const other = "9a000000-0000-4000-8000-000000000099";
+  await mock(page, workspace({ loans: [loan(), loan({ id: other })] }));
+  await page.goto(`/finance/loans?loanId=${loanId}`);
+  await page.getByRole("button", { name: "Repay" }).click();
+  const form = page.getByRole("form", { name: "Repay loan" });
+  await form.getByLabel("From which Safe?").selectOption({ label: "Main Safe" });
+  await form.getByLabel("Amount (USD)").fill("5000");
+  await form.getByRole("button", { name: "Record repayment" }).click();
+  const status = page.getByRole("main").getByRole("status").filter({ hasText: /Repayment recorded|بازپرداخت ثبت شد/ });
+  await expect(status).toHaveText("Repayment recorded.");
+  await page.getByRole("button", { name: "Switch to Dari" }).click();
+  await expect(status).toHaveText("بازپرداخت ثبت شد.");
+  await page.getByRole("button", { name: "Switch to English" }).click();
+  await page.locator(`a[href="/finance/loans?loanId=${other}"]`).click();
+  await expect(page).toHaveURL(new RegExp(`loanId=${other}`));
+  await expect(page.getByText("Repayment recorded.")).toHaveCount(0);
+});

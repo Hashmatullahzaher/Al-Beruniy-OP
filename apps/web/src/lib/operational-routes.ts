@@ -58,6 +58,8 @@ export const operationalRoutes: ReadonlyArray<{ readonly path: string; readonly 
   { path: "/finance/setup", icon: "settings", en: "Finance setup", fa: "تنظیمات مالی", section: "setup", visible: (can) => can("treasury.operational-account.manage") || can("finance.expense-category.manage") || can("finance.period.manage") },
   // Company and administration. Company details are visible to every signed-in employee.
   { path: "/admin/company", icon: "building", en: "Company", fa: "شرکت", section: "company", visible: () => true },
+  // The Document Vault has no list of its own: each document is reached through its record. This page says where, and opens nothing itself.
+  { path: "/documents", icon: "documents", en: "Documents", fa: "اسناد", section: "company", visible: () => true },
   { path: "/admin/finance-workflows", icon: "shield", en: "Workflow approvals", fa: "تأیید جریان‌ها", section: "company", visible: (can) => can("admin.finance-workflow.manage") },
   { path: "/admin/users", icon: "human-resources", en: "Users", fa: "کاربران", section: "company", visible: (can) => can("admin.users.manage") },
   { path: "/admin/roles", icon: "shield", en: "Roles & permissions", fa: "نقش‌ها و صلاحیت‌ها", section: "company", visible: (can) => can("admin.roles.manage") || can("admin.users.manage") }

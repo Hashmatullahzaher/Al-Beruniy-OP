@@ -65,8 +65,8 @@ export function AppShell({ children }: AppShellProps) {
   return (
     <div className="app-frame">
       <a className="skip-link" href="#main-content">{locale === "fa" ? "رفتن به محتوای اصلی" : "Skip to main content"}</a>
-      <aside id="primary-sidebar" className="sidebar" data-open={menuOpen} aria-label="Primary navigation">
-        <Link href="/" className="brand-lockup" aria-label="AL-BERUNIY Operating System home">
+      <aside id="primary-sidebar" className="sidebar" data-open={menuOpen} aria-label={fa ? "ناوبری اصلی" : "Primary navigation"}>
+        <Link href="/" className="brand-lockup" aria-label={fa ? "صفحهٔ اصلی سیستم عامل البیرونی" : "AL-BERUNIY Operating System home"}>
           <span className="brand-mark" aria-hidden="true">
             <svg viewBox="0 0 48 58" fill="none"><path d="M24 3v49M18 11v41M30 11v41M12 23v29M36 23v29M7 52h34M13 39l11-9 11 9M18 25l6-8 6 8"/><path d="M5 55h38"/></svg>
           </span>
@@ -91,7 +91,7 @@ export function AppShell({ children }: AppShellProps) {
             })}
           </nav>
         ) : (
-          <nav className="navigation" aria-label="Primary navigation">
+          <nav className="navigation" aria-label={fa ? "ناوبری اصلی" : "Primary navigation"}>
             {workspaceRoutes.map((route) => {
               const active = pathname === route.path || (route.path !== "/" && pathname.startsWith(`${route.path}/`));
               return (
@@ -112,15 +112,15 @@ export function AppShell({ children }: AppShellProps) {
           <span className="boundary-dot" aria-hidden="true" />
           {signedIn
             ? <span><strong>{fa ? "عملیات" : "Operations"}</strong><small>{fa ? "دسترسی کنترل‌شده" : "Controlled access"}</small></span>
-            : <span><strong>{fa ? "مرحله صفر" : "Stage 0"}</strong><small>{fa ? "بازبینی رابط کاربری" : "Interface review"}</small></span>}
-          <span className="shell-badge">{signedIn ? "V1" : "DEMO"}</span>
+            : <span><strong>{fa ? "پیش‌نمایش عمومی" : "Public preview"}</strong><small>{fa ? "برای دیدن داده‌های شرکت وارد شوید" : "Sign in to see company data"}</small></span>}
+          <span className="shell-badge">{signedIn ? "V1" : (fa ? "پیش‌نمایش" : "PREVIEW")}</span>
         </div>
       </aside>
 
       <div className="workspace">
         <header className="topbar">
           <button className="menu-button" type="button" aria-controls="primary-sidebar" aria-expanded={menuOpen} onClick={() => setMenuOpen((value) => !value)}>
-            <AppIcon name="menu" size={21} /><span className="sr-only">Toggle navigation</span>
+            <AppIcon name="menu" size={21} /><span className="sr-only">{fa ? "باز و بسته کردن ناوبری" : "Toggle navigation"}</span>
           </button>
 
           <div className="system-heading">
@@ -133,7 +133,7 @@ export function AppShell({ children }: AppShellProps) {
             <AppIcon name="search" size={18} />
             <input id="workspace-search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={locale === "fa" ? "جستجوی پروژه‌ها، واحدها، گزارش‌ها..." : "Search projects, units, clients, reports..."} autoComplete="off" />
             {operationalSearchResults.length > 0 || demoSearchResults.length > 0 ? (
-              <div className="search-results" role="navigation" aria-label="Workspace search results">
+              <div className="search-results" role="navigation" aria-label={fa ? "نتایج جستجو" : "Workspace search results"}>
                 {signedIn
                   ? operationalSearchResults.map((route) => <Link href={route.path} key={route.path} onClick={() => setQuery("")}><AppIcon name={route.icon} size={16} /><span>{fa ? route.fa : route.en}</span></Link>)
                   : demoSearchResults.map((route) => <Link href={route.path} key={route.id} onClick={() => setQuery("")}><AppIcon name={route.id} size={16} /><span>{fa ? faLabels[route.id] : route.label}</span></Link>)}
@@ -143,7 +143,7 @@ export function AppShell({ children }: AppShellProps) {
 
           <div className="topbar-actions">
             <div className="notifications-control">
-              <button type="button" className="notification-button" aria-label="Notifications" aria-expanded={notificationsOpen} onClick={() => setNotificationsOpen((value) => !value)}><AppIcon name="bell" size={19} /><span aria-hidden="true" /></button>
+              <button type="button" className="notification-button" aria-label={fa ? "اطلاعیه‌ها" : "Notifications"} aria-expanded={notificationsOpen} onClick={() => setNotificationsOpen((value) => !value)}><AppIcon name="bell" size={19} /><span aria-hidden="true" /></button>
               {notificationsOpen ? <div className="notification-popover" role="status"><strong>{locale === "fa" ? "اعلان‌ها متصل نیست" : "Notifications are not connected"}</strong><p>{locale === "fa" ? "پس از اتصال خدمات، هشدارهای معتبر اینجا نمایش داده می‌شود." : "Verified operational alerts will appear here after services are connected."}</p></div> : null}
             </div>
             <button type="button" className="language-toggle" onClick={toggleLocale} aria-label={locale === "en" ? "Switch to Dari" : "Switch to English"}>
@@ -189,7 +189,7 @@ export function AppShell({ children }: AppShellProps) {
             : signedOutFooter(publicEnvironment.environment)[fa ? "fa" : "en"]}</span>
         </footer>
       </div>
-      {menuOpen ? <button className="mobile-scrim" type="button" aria-label="Close navigation" onClick={() => setMenuOpen(false)} /> : null}
+      {menuOpen ? <button className="mobile-scrim" type="button" aria-label={fa ? "بستن ناوبری" : "Close navigation"} onClick={() => setMenuOpen(false)} /> : null}
     </div>
   );
 }

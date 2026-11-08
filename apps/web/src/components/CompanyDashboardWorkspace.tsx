@@ -100,7 +100,7 @@ export function CompanyDashboardWorkspace() {
       <h1 className="sr-only">{fa ? "داشبورد عمومی شرکت" : "Company dashboard"}</h1>
 
       <section className="reference-hero" aria-labelledby="reference-hero-title">
-        <Image src="/assets/al-beruniy-background.jpg" alt="Architectural rendering of Mazar Mall and the Al-Beruniy district" fill loading="eager" sizes="(max-width: 760px) 100vw, 90vw" />
+        <Image src="/assets/al-beruniy-background.jpg" alt={fa ? "تصویر معماری مزار مال و ناحیهٔ البیرونی" : "Architectural rendering of Mazar Mall and the Al-Beruniy district"} fill loading="eager" sizes="(max-width: 760px) 100vw, 90vw" />
         <div className="reference-hero-shade" />
         <div className="reference-hero-copy">
           <div className="hero-label-row"><span>{fa ? "داشبورد عمومی شرکت" : "Company dashboard"}</span><em>{summary?.legalEntityName ?? (fa ? "شرکت" : "Company")}</em></div>
@@ -212,7 +212,7 @@ export function CompanyDashboardWorkspace() {
         </section>
 
         <aside className="vision-card">
-          <Image src="/assets/al-beruniy-background.jpg" alt="Al-Beruniy development skyline" fill sizes="320px" />
+          <Image src="/assets/al-beruniy-background.jpg" alt={fa ? "نمای افق پروژه‌های البیرونی" : "Al-Beruniy development skyline"} fill sizes="320px" />
           <div><strong>Discipline today.<br />Extraordinary tomorrow.</strong><span /><small>AL-BERUNIY DEVELOPMENTS</small></div>
         </aside>
       </div>
