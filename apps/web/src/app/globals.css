@@ -2055,7 +2055,21 @@ button.review-context { border: 0; border-inline-start: 1px solid rgba(102, 142,
   .rates-table td[data-label]::before { content: none; }
   .table-scroll { overflow: visible; }
   a { color: inherit; text-decoration: none; }
+  /* Exported and printed material is confidential (owner decision, 2026-11-08). */
+  @page { margin: 14mm 12mm 18mm; }
+  .print-only { display: block !important; }
+  .no-print, .report-export { display: none !important; }
+  .report-print-header { border-bottom: 2px solid #000; margin: 0 0 12px; padding: 0 0 8px; color: #000; }
+  .report-print-header h2 { margin: 2px 0 6px; font-size: 16pt; }
+  .report-print-header dl { display: flex; flex-wrap: wrap; gap: 4px 20px; margin: 0; }
+  .report-print-header dl div { display: flex; gap: 6px; }
+  .report-print-header dt { font-weight: 700; }
+  .report-print-header dd { margin: 0; }
+  .report-print-confidential, .print-confidential { font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: #000; margin: 0; }
+  .print-confidential { position: fixed; bottom: 0; inset-inline: 0; text-align: center; font-size: 9pt; }
 }
+.print-only { display: none; }
+.report-export { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 
 /* Add money: one question, four answers. */
 .add-money-choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }

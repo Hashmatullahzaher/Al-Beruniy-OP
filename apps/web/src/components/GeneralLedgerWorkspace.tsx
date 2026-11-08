@@ -8,6 +8,8 @@ import { JournalDetailPanel, SourceCell } from "@/components/AccountStatementWor
 import { AccessGate, api, errorText } from "@/components/AdminUsersWorkspace";
 import { StageZeroPageHeader } from "@/components/StageZeroWorkspace";
 import { useLocale } from "@/components/LocaleProvider";
+import { ReportExportButton } from "@/components/ReportExportButton";
+import { ReportPrintHeader } from "@/components/ReportPrintHeader";
 import { kabulToday } from "@/components/OperationalFinanceShared";
 import type { ChartOfAccountsView } from "@/server/chart-of-accounts";
 import type { AccountActivityRow, GeneralLedgerActivityView, GeneralLedgerLine, GeneralLedgerView } from "@/server/general-ledger";
@@ -174,8 +176,14 @@ export function GeneralLedgerWorkspace() {
       </section>
 
       {problem ? <p className="treasury-message error" role="alert">{errorText(problem, locale)}</p> : null}
+      {view ? <div className="admin-form-actions report-filters">
+        <button className="treasury-button" type="button" onClick={() => window.print()}>{fa ? "چاپ" : "Print"}</button>
+        <ReportExportButton report="general-ledger" fa={fa} query={ledgerParams(view.from, view.to, view.accountId).toString()} />
+      </div> : null}
 
       {view ? <>
+        <ReportPrintHeader fa={fa} title={{ en: "General Ledger activity", fa: "فعالیت دفتر کل" }} period={`${dual(view.from)} – ${dual(view.to)}`}
+          currency={view.totals && view.totals.length === 1 ? (view.totals[0]?.currency ?? null) : null} />
         <section className="module-content-card" aria-label={fa ? "مجموع ردیف‌ها" : "Line totals"}>
           <div className="module-card-heading"><div><p>{fa ? "مجموع دورهٔ انتخاب‌شده" : "FULL FILTERED PERIOD"}</p><h2>{fa ? "جمع بدهکار و بستانکار" : "Debit and credit totals"}</h2></div>
             <span>{dual(view.from)} → {dual(view.to)}</span></div>

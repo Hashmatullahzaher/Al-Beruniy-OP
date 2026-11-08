@@ -8,6 +8,7 @@ import { Fragment, useState, type ReactNode } from "react";
 import { AppIcon } from "@/components/AppIcon";
 import { KabulClock } from "@/components/KabulClock";
 import { useLocale } from "@/components/LocaleProvider";
+import { PrintConfidentialFooter } from "@/components/ReportPrintHeader";
 import { useSession } from "@/components/SessionProvider";
 import { publicEnvironment } from "@/lib/env";
 import { signedOutFooter } from "@/lib/environment-copy";
@@ -181,6 +182,7 @@ export function AppShell({ children }: AppShellProps) {
         </header>
 
         <main id="main-content" className="main-content" tabIndex={-1}>{children}</main>
+        {signedIn ? <PrintConfidentialFooter /> : null}
         <footer className="app-footer">
           <span>{publicEnvironment.environment}</span>
           <span>Build {shortSha}</span>

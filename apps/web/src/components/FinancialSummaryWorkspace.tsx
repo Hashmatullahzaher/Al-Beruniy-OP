@@ -9,6 +9,7 @@ import { AccessGate, api, errorText } from "@/components/AdminUsersWorkspace";
 import { AppIcon } from "@/components/AppIcon";
 import { useLocale } from "@/components/LocaleProvider";
 import { money } from "@/components/OperationalFinanceShared";
+import { ReportPrintHeader } from "@/components/ReportPrintHeader";
 import { defaultReportSearch, ReportFilters, YearStatus } from "@/components/ReportFilters";
 import { StageZeroPageHeader } from "@/components/StageZeroWorkspace";
 import { rangeLabel, rangeQuery } from "@/components/TrialBalanceWorkspace";
@@ -73,6 +74,7 @@ export function FinancialSummaryWorkspace() {
         description={{ en: "Where the company's money came from and went, and the result of the period. Transfers between the company's own accounts are shown apart and never count as money received or paid.",
           fa: "پول شرکت از کجا آمد و به کجا رفت، و نتیجهٔ دوره. انتقال میان حساب‌های خود شرکت جدا نشان داده می‌شود و پول دریافتی یا پرداختی شمرده نمی‌شود." }} />
       <ReportFilters path="/finance/financial-summary" fa={fa} years={view?.range.fiscalYears ?? []} canPrint={view !== null} />
+      {view ? <ReportPrintHeader fa={fa} title={{ en: "Financial summary", fa: "خلاصهٔ مالی" }} period={rangeLabel(view.range, fa)} currency={base || null} /> : null}
       {error ? <div className="treasury-message error" role="alert"><AppIcon name="alert" size={16} /><span>{error}</span></div> : null}
       {view === null && !error ? <p className="treasury-placeholder">{fa ? "در حال بارگذاری…" : "Loading…"}</p> : null}
       {view && view.base && profit ? <>

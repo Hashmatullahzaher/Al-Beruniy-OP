@@ -8,6 +8,8 @@ import { Fragment, useCallback, useEffect, useState } from "react";
 import { AccessGate, api, errorText } from "@/components/AdminUsersWorkspace";
 import { AppIcon } from "@/components/AppIcon";
 import { useLocale } from "@/components/LocaleProvider";
+import { ReportExportButton } from "@/components/ReportExportButton";
+import { ReportPrintHeader } from "@/components/ReportPrintHeader";
 import { kabulToday } from "@/components/OperationalFinanceShared";
 import { StageZeroPageHeader } from "@/components/StageZeroWorkspace";
 import type { Copy } from "@/lib/access-copy";
@@ -124,12 +126,14 @@ export function TrialBalanceWorkspace() {
         <div className="admin-form-actions">
           <button className="treasury-button gold" type="submit" disabled={busy || !valid}>{busy ? (fa ? "در حال بارگذاری…" : "Loading…") : (fa ? "نمایش" : "Show")}</button>
           <button className="treasury-button" type="button" onClick={() => window.print()} disabled={view === null}>{fa ? "چاپ" : "Print"}</button>
+          {view ? <ReportExportButton report="trial-balance" fa={fa} query={`${rangeQuery(view.range)}${view.includeZero ? "&includeZero=true" : ""}`} /> : null}
         </div>
       </form>
 
       {error ? <div className="treasury-message error" role="alert"><AppIcon name="alert" size={16} /><span>{error}</span></div> : null}
       {view === null ? <p className="treasury-placeholder">{fa ? "در حال بارگذاری…" : "Loading…"}</p> : (
         <section className="module-content-card" aria-label={fa ? "بیلانس آزمایشی" : "Trial balance"}>
+          <ReportPrintHeader fa={fa} title={{ en: "Trial balance", fa: "بیلانس آزمایشی" }} period={rangeLabel(view.range, fa)} currency={view.baseCurrency} />
           <h2>{rangeLabel(view.range, fa)}</h2>
           <p className={view.balanced ? "treasury-message success" : "treasury-message error"} role="status">
             {view.balanced

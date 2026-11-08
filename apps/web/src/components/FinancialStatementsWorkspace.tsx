@@ -9,6 +9,7 @@ import { AccessGate, api, errorText } from "@/components/AdminUsersWorkspace";
 import { AppIcon } from "@/components/AppIcon";
 import { useLocale } from "@/components/LocaleProvider";
 import { money } from "@/components/OperationalFinanceShared";
+import { ReportPrintHeader } from "@/components/ReportPrintHeader";
 import { defaultReportSearch, ReportFilters, YearStatus } from "@/components/ReportFilters";
 import { StageZeroPageHeader } from "@/components/StageZeroWorkspace";
 import { rangeLabel, rangeQuery } from "@/components/TrialBalanceWorkspace";
@@ -63,6 +64,7 @@ export function IncomeStatementWorkspace() {
         description={{ en: "Income less expenses, from every posting to an income or expense account, in the accounting currency at each transaction's posted rate.",
           fa: "عاید منهای مصارف، از همهٔ ثبت‌های حساب‌های عاید و مصرف، به واحد پول حسابداری و نرخ ثبت هر معامله." }} />
       <ReportFilters path="/finance/income-statement" fa={fa} years={view?.range.fiscalYears ?? []} canPrint={view !== null} />
+      {view ? <ReportPrintHeader fa={fa} title={{ en: "Income statement", fa: "صورت عاید و مصرف" }} period={rangeLabel(view.range, fa)} currency={base} /> : null}
       {error ? <div className="treasury-message error" role="alert"><AppIcon name="alert" size={16} /><span>{error}</span></div> : null}
       {view === null && !error ? <p className="treasury-placeholder">{fa ? "در حال بارگذاری…" : "Loading…"}</p> : null}
       {view ? (
@@ -104,6 +106,7 @@ export function BalanceSheetWorkspace() {
         description={{ en: "What the company owns, what it owes and what belongs to its owners at a date, in the accounting currency at each transaction's posted rate.",
           fa: "آنچه شرکت دارد، آنچه بدهکار است و آنچه از مالکان است در یک تاریخ، به واحد پول حسابداری و نرخ ثبت هر معامله." }} />
       <ReportFilters path="/finance/balance-sheet" fa={fa} years={view?.range.fiscalYears ?? []} canPrint={view !== null} datesOnly />
+      {view ? <ReportPrintHeader fa={fa} title={{ en: "Balance sheet", fa: "بیلانس" }} period={`${fa ? "به تاریخ" : "As of"} ${view.asOf}`} currency={base} /> : null}
       {error ? <div className="treasury-message error" role="alert"><AppIcon name="alert" size={16} /><span>{error}</span></div> : null}
       {view === null && !error ? <p className="treasury-placeholder">{fa ? "در حال بارگذاری…" : "Loading…"}</p> : null}
       {view ? (
