@@ -1,6 +1,6 @@
 # V1 report export (PDF and Excel): design record
 
-**Status:** design only (2026-11-08). Nothing in this record is built. Two steps need owner decisions first, listed at the end.
+**Status:** owner decisions recorded and CSV built (2026-11-08); see *Owner decisions* and *Built* at the end. Native `.xlsx` waits for the dependency review below; PDF stays browser Print to PDF.
 
 ## What exists today
 
@@ -35,7 +35,39 @@ Concretely, a shared module, for example `server/report-export.ts`, takes `(repo
 3. **Step 2 (needs a dependency review):** native `.xlsx` with number formats and a header block (company, report, period, generated-at, "Confidential").
 4. **Step 3 (needs a rendering decision):** a server-side PDF with the same header block, rendered from the print view by a shaping-capable engine.
 
-## Owner decisions required before building
+## Owner decisions that were required before building (answered 2026-11-08, below)
 
 1. Is CSV acceptable as the first Excel-compatible export, or is native `.xlsx` required from the start?
 2. Should each export be recorded as an audit event, and should exported files carry a "Confidential" footer or watermark?
+
+## Owner decisions (2026-11-08)
+
+1. CSV is accepted as the first Excel-compatible export, for the Trial Balance, General Ledger, Account Statement and Safe / Saraf Statement. It is UTF-8 with a byte-order mark, and the screen calls it "CSV (Excel-compatible)", never native Excel. Native `.xlsx` comes later, after a dependency review.
+2. Every export is an audit event, with metadata only: report kind, company, validated range and filter, format, row count, person and session, and time. Report contents never enter the audit.
+3. Exported material is Confidential. Printed and PDF copies carry "Confidential / محرمانه". CSV file names carry only the report kind and dates. A future `.xlsx` carries a header block: Company, Report, Period, Generated at, Confidential.
+4. PDF for V1 remains browser Print to PDF, from the existing report pages and print CSS. There is no PDF library and no second reporting engine.
+
+## Built
+
+- `apps/web/src/server/report-export.ts` and `GET /api/v1/finance/report-export?report=…&format=csv&lang=en|fa&…`. The export reads through the same server functions as the screens (`trialBalanceData`, `accountStatementData`, `safeStatementData`, `generalLedgerView`), under the same session and database role. It issues no SQL of its own. The General Ledger is read page by page through the screen's page function, and the export refuses a range over 5,000 lines, the same limit the statements enforce in PostgreSQL. Responses are `no-store`, and files are made per request and never stored, including in the Document Vault.
+- `packages/contracts/src/report-export.ts`: pure formatters. Amounts are the payload's decimal strings, written unchanged. A text cell that could start a formula (`=`, `+`, `-`, `@`, also after spaces, their full-width forms, and leading tab or CR) is written as text with a leading apostrophe. The header block holds the report, period, currency, generation time and the Confidential marking. It holds no company name: that would need a second lookup, and the export reads only the report.
+- Migration `0068_v1_report_export_audit`: `finance_report_export_record` accepts only metadata fields, each from a closed list and checked for shape, and has no free-text field. The company, person and session come from the session. A filter must name the session's own company's account or period, and the same report permission is required. If the audit fails, nothing is exported.
+- Printing: `ReportPrintHeader` on every printable report (company, report, period, currency, print time, Confidential; English, and Dari right to left), plus a running "Confidential / محرمانه" footer on every printed page.
+
+## Native `.xlsx`: dependency review (2026-11-08)
+
+| Candidate | Licence | Maintenance | Dependencies | Notes |
+| --- | --- | --- | --- | --- |
+| `write-excel-file` 4.1.1 | MIT | Releases through June 2026 | One: `fflate` (MIT, no dependencies) | Writer only. Has a Node entry point (`write-excel-file/node`, Node ≥ 18) and needs no network. Typed `String`, `Number` and `Date` cells, the `@` text format, and a `rightToLeft` sheet option. |
+| `exceljs` 4.4.0 | MIT | Last release October 2023 | Nine direct dependencies (`archiver`, `unzipper`, `tmp`, `uuid`, `jszip`, …) | Reads and writes, a much larger surface than an export needs. |
+| `xlsx` (SheetJS) 0.18.5 on npm | Apache-2.0 | npm build from March 2022 | Seven | Newer fixed builds are published outside the npm registry, so it is not acceptable for this public, pinned repository. |
+
+**Recommendation:** `write-excel-file`, on its own slice, after the CSV release gate is green. Before adoption:
+
+- pin the exact version in the lockfile;
+- scan the package and `fflate` for `eval`, `new Function` and network calls;
+- write text only as `String` cells, never `Formula`;
+- write amounts as `Number` only when the decimal string has 15 or fewer significant digits, otherwise as text with the `@` format, so no amount is rounded by floating point;
+- add the owner's header block (Company, Report, Period, Generated at, Confidential);
+- set `rightToLeft` for Dari.
+
