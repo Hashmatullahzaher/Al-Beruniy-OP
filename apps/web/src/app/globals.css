@@ -2058,7 +2058,7 @@ button.review-context { border: 0; border-inline-start: 1px solid rgba(102, 142,
   /* Exported and printed material is confidential (owner decision, 2026-11-08). */
   @page { margin: 14mm 12mm 18mm; }
   .print-only { display: block !important; }
-  .no-print, .report-export { display: none !important; }
+  .no-print, .report-export, .main-content .treasury-button { display: none !important; }
   .report-print-header { border-bottom: 2px solid #000; margin: 0 0 12px; padding: 0 0 8px; color: #000; }
   .report-print-header h2 { margin: 2px 0 6px; font-size: 16pt; }
   .report-print-header dl { display: flex; flex-wrap: wrap; gap: 4px 20px; margin: 0; }

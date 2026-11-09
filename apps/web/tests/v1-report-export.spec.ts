@@ -26,7 +26,7 @@ const safe = { legalEntityId: "e", baseCurrency: "USD", accounts: [{ id: safeId,
     reconciliation: { treasuryBase: "0", ledgerBase: "0", difference: "0", matches: true } } };
 const ledger = { syntheticOnly: false, legalEntityId: "e", from: "2026-01-01", to: "2026-09-30", accountId: null, accounts: [], currencyTotals: [], lines: [], totals: [],
   returnedLineCount: 0, hasMore: false, nextCursor: null, pageLimit: 100, order: "", basis: "POSTED_ACTIVITY_IN_RANGE", isBalance: false, openingBalancesIncluded: false };
-const FILE = "﻿\"Report\",\"Trial balance\"\r\n\"Confidential / محرمانه\"\r\n\r\n\"Code\",\"Account\"\r\n\"C-01\",\"Cash\"\r\n";
+const FILE = "\uFEFF\"Report\",\"Trial balance\"\r\n\"Confidential / محرمانه\"\r\n\r\n\"Code\",\"Account\"\r\n\"C-01\",\"Cash\"\r\n";
 
 /** Mocks the reports and records every export request. */
 async function mock(page: Page) {

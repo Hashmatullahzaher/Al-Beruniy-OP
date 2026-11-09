@@ -1,11 +1,12 @@
 import {
-  accountStatementTable, exportLineCount, generalLedgerTable, ledgerExportFits, REPORT_EXPORT_LINE_LIMIT, reportCsv, reportExportFileName, reportExportKind,
+  accountStatementTable, exportLineCount, generalLedgerTable, ledgerExportFits, ledgerLineCount, REPORT_EXPORT_LINE_LIMIT, reportCsv, reportExportFileName,
+  reportExportKind,
   safeStatementTable, trialBalanceTable, type ExportTable, type ReportExportKind, type ReportExportLanguage, type ReportRange
 } from "@abos/contracts";
 
 import { financeHandoffRuntime } from "@/server/finance-handoff";
 import { generalLedgerView, ledgerErrorResponse, parseLedgerQuery, type GeneralLedgerLine } from "@/server/general-ledger";
-import { sessionToken } from "@/server/identity";
+import { identityRuntime, sessionToken } from "@/server/identity";
 import { restrictedFinanceAuthenticator } from "@/server/operational-finance";
 import { accountStatementData, reportingErrorResponse, safeStatementData, trialBalanceData } from "@/server/reporting";
 
@@ -13,8 +14,9 @@ import { accountStatementData, reportingErrorResponse, safeStatementData, trialB
  * Report export (owner decisions, 2026-11-08). One rule: an export is the payload the screen receives for the same query, rendered as CSV.
  * It reads through the same server functions as the screens (trialBalanceData, accountStatementData, safeStatementData, generalLedgerView),
  * under the same session and database role, so masking, legal-entity scope and the statement limits apply unchanged. It issues no SQL of its
- * own. Before answering, it records the export as an audit event (0068, metadata only); if that fails, nothing is exported. The file is made
- * for this request and never stored.
+ * own. Before answering, it records the export as an audit event (0068, metadata only); if that fails, nothing is exported. A refused,
+ * oversized or failed export records nothing. The file is one in-memory string made for this request: nothing is written to disk or to the
+ * Document Vault, and an aborted download leaves nothing behind.
  */
 
 class ExportRefusal extends Error {
@@ -47,6 +49,10 @@ async function generalLedger(query: URLSearchParams, language: ReportExportLangu
     lines.push(...page.lines);
     if (lines.length > REPORT_EXPORT_LINE_LIMIT) throw TOO_LONG();
     cursor = page.nextCursor;
+  }
+  // The totals and the pages are separate reads. If something was posted in between, the file would not agree with itself: refuse, do not guess.
+  if (lines.length !== ledgerLineCount(first.totals)) {
+    throw new ExportRefusal(409, "CHANGED_DURING_EXPORT", "The General Ledger changed while the export was being prepared. Try again.");
   }
   return { table: generalLedgerTable({ from: ledger.from, to: ledger.to }, lines, first.totals ?? [], language),
     audit: { mode: "RANGE", from: ledger.from, to: ledger.to, ...(ledger.accountId ? { accountId: ledger.accountId } : {}) } };
@@ -89,14 +95,17 @@ export async function reportExportGet(request: Request): Promise<Response> {
     const tooLong = TOO_LONG();
     return refusal(tooLong.status, tooLong.code, tooLong.message);
   }
+  let company: string;
   try {
+    // The company name for the file header comes from the session's own identity (the read /api/v1/auth/me makes), never from the request.
+    company = (await identityRuntime().service.currentUser(await sessionToken())).legalEntityName;
+    // The export is recorded last, once the report was authorised, built and found within its limits. No audit, no export.
     await restrictedFinanceAuthenticator().reportExportRecord(financeHandoffRuntime().executor, await sessionToken(),
       { kind, format: "CSV", language, ...built.audit, rowCount: exportLineCount(built.table) });
   } catch (error) {
-    // No audit, no export.
     return reportingErrorResponse(error);
   }
-  return new Response(reportCsv(built.table, language, new Date().toISOString()), { status: 200, headers: {
+  return new Response(reportCsv(built.table, language, new Date().toISOString(), company), { status: 200, headers: {
     "Content-Type": "text/csv; charset=utf-8",
     "Content-Disposition": `attachment; filename="${reportExportFileName(built.table)}"`,
     "Cache-Control": "no-store",

@@ -7,7 +7,10 @@ import type { Copy } from "@/lib/access-copy";
 
 const REFUSALS: Readonly<Record<string, Copy>> = {
   TOO_MANY_LINES: { en: "This statement is too long. Choose a shorter period.", fa: "این صورت‌حساب خیلی طولانی است. دورهٔ کوتاه‌تری انتخاب کنید." },
-  NOT_FOUND: { en: "That is not available for your company.", fa: "این برای شرکت شما در دسترس نیست." }
+  NOT_FOUND: { en: "That is not available for your company.", fa: "این برای شرکت شما در دسترس نیست." },
+  CHANGED_DURING_EXPORT: { en: "The General Ledger changed while the export was being prepared. Try again.", fa: "دفتر کل هنگام آماده‌سازی فایل تغییر کرد. دوباره امتحان کنید." },
+  UNAVAILABLE: { en: "The export could not be prepared. Try again.", fa: "فایل آماده نشد. دوباره امتحان کنید." },
+  UNREACHABLE: { en: "The server could not be reached.", fa: "ارتباط با سرور برقرار نشد." }
 };
 
 /**
@@ -37,7 +40,7 @@ export function ReportExportButton({ report, query, fa, disabled = false }: Read
       anchor.href = link.current; anchor.download = name; anchor.hidden = true;
       document.body.append(anchor); anchor.click(); anchor.remove();
     } catch {
-      setRefusal({ code: "UNAVAILABLE", message: "The server could not be reached." });
+      setRefusal({ code: "UNREACHABLE", message: "The server could not be reached." });
     } finally {
       setBusy(false);
     }

@@ -28,6 +28,8 @@ export interface ExportRow { readonly role: "LINE" | "OPENING" | "CLOSING" | "TO
 export interface ExportTable {
   readonly kind: ReportExportKind;
   readonly title: { readonly en: string; readonly fa: string };
+  /** The account or Safe a statement is about, as the screen's heading names it; null for a whole-company report. Never part of the file name. */
+  readonly subject: { readonly en: string; readonly fa: string } | null;
   readonly from: string;
   readonly to: string;
   readonly currency: string | null;
@@ -37,8 +39,12 @@ export interface ExportTable {
 
 const DECIMAL = /^-?\d+(?:\.\d+)?$/;
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
-/** Characters a spreadsheet treats as the start of a formula, also after leading spaces, and the control characters that hide one. */
-const FORMULA = /^[\s ]*[=+\-@＝＋－＠]|^[\t\r\n]/;
+/**
+ * Text a spreadsheet could run as a formula: it starts with = + - or @ (also the full-width forms and the Unicode minus), possibly after
+ * spaces, tabs, line breaks or the invisible direction and zero-width marks that right-to-left text carries. A cell that starts with a tab or
+ * a line break is defused too. Only text cells are checked: an amount that is an exact decimal is written as a number, sign included.
+ */
+const FORMULA = /^[\s\u00a0\u200b-\u200f\u202a-\u202e\u2060\u2066-\u2069\ufeff]*[=+\-@\u2212\uff1d\uff0b\uff0d\uff20]|^[\t\r\n]/;
 
 const text = (value: string | null | undefined): ExportCell => ({ text: value ?? "" });
 const amount = (value: string | null | undefined): ExportCell => (value === null || value === undefined || value === "" ? { text: "" } : { amount: value });
@@ -52,7 +58,8 @@ export function csvField(cell: ExportCell): string {
 }
 
 const LABELS = {
-  report: { en: "Report", fa: "گزارش" }, period: { en: "Period", fa: "دوره" }, currency: { en: "Currency", fa: "واحد پول" },
+  company: { en: "Company", fa: "شرکت" }, report: { en: "Report", fa: "گزارش" }, account: { en: "Account", fa: "حساب" },
+  period: { en: "Period", fa: "دوره" }, currency: { en: "Currency", fa: "واحد پول" },
   generated: { en: "Generated at", fa: "زمان تهیه" }, confidential: { en: "Confidential / محرمانه", fa: "محرمانه / Confidential" },
   restricted: { en: "Restricted movement", fa: "حرکت محدود" }, detailsRestricted: { en: "(details restricted)", fa: "(جزئیات محدود)" },
   reversed: { en: "reversed", fa: "برگشت شد" }, reverses: { en: "reverses", fa: "برگشتِ" }, total: { en: "Total", fa: "مجموع" },
@@ -60,12 +67,15 @@ const LABELS = {
 } as const;
 
 /**
- * The whole file: a UTF-8 byte-order mark so Excel reads Dari correctly, a short header block (report, period, currency, generation time and
- * the Confidential marking), one empty line, then the table. Lines end in CRLF.
+ * The whole file: a UTF-8 byte-order mark so Excel reads Dari correctly, a short header block (company, report, account, period, currency,
+ * generation time and the Confidential marking), one empty line, then the table. Lines end in CRLF. Dates are ISO Gregorian days and amounts
+ * are plain decimals in both languages; only headings and labels follow the reader's language, and the columns are the same in both.
  */
-export function reportCsv(table: ExportTable, language: ReportExportLanguage, generatedAt: string): string {
+export function reportCsv(table: ExportTable, language: ReportExportLanguage, generatedAt: string, company: string | null = null): string {
   const head: ExportCell[][] = [
+    ...(company ? [[text(LABELS.company[language]), text(company)]] : []),
     [text(LABELS.report[language]), text(table.title[language])],
+    ...(table.subject ? [[text(LABELS.account[language]), text(table.subject[language])]] : []),
     [text(LABELS.period[language]), text(`${table.from} – ${table.to}`)],
     ...(table.currency ? [[text(LABELS.currency[language]), text(table.currency)]] : []),
     [text(LABELS.generated[language]), text(generatedAt)],
@@ -73,7 +83,7 @@ export function reportCsv(table: ExportTable, language: ReportExportLanguage, ge
   ];
   const lines = [...head.map((row) => row.map(csvField).join(",")), "", table.headers.map((header) => csvField(text(header))).join(","),
     ...table.rows.map((row) => row.cells.map(csvField).join(","))];
-  return `﻿${lines.join("\r\n")}\r\n`;
+  return `\uFEFF${lines.join("\r\n")}\r\n`;
 }
 
 /** The file name carries only the report and its dates, never a person, account or counterparty name. */
@@ -122,7 +132,7 @@ export function trialBalanceTable(view: TrialBalanceView, language: ReportExport
   const t = view.totals;
   rows.push({ role: "TOTAL", cells: [text(""), text(LABELS.total[language]), text(""), text(view.baseCurrency), amount(t.openingDebit), amount(t.openingCredit),
     amount(t.periodDebit), amount(t.periodCredit), amount(t.endingDebit), amount(t.endingCredit), text(""), text("")] });
-  return { kind: "TRIAL_BALANCE", title: { en: "Trial balance", fa: "بیلانس آزمایشی" }, from: view.range.from, to: view.range.to, currency: view.baseCurrency,
+  return { kind: "TRIAL_BALANCE", title: { en: "Trial balance", fa: "بیلانس آزمایشی" }, subject: null, from: view.range.from, to: view.range.to, currency: view.baseCurrency,
     headers: [l("Code", "کد"), l("Account", "حساب"), l("Type", "نوع"), l("Currency", "واحد پول"), l("Opening debit", "بدهکار افتتاحیه"), l("Opening credit", "بستانکار افتتاحیه"),
       l("Period debit", "بدهکار دوره"), l("Period credit", "بستانکار دوره"), l("Ending debit", "بدهکار پایانی"), l("Ending credit", "بستانکار پایانی"),
       l("Native opening (net)", "افتتاحیهٔ اصلی (خالص)"), l("Native ending (net)", "پایانی اصلی (خالص)")], rows };
@@ -141,7 +151,8 @@ export function accountStatementTable(view: AccountStatementView, language: Repo
     amount(view.closing.net), text(""), text(""), text("")] });
   rows.push({ role: "TOTAL", cells: [text(""), text(l("Period total", "مجموع دوره")), text(""), text(""), amount(view.periodDebit), amount(view.periodCredit), text(""),
     text(""), text(""), text("")] });
-  return { kind: "ACCOUNT_STATEMENT", title: { en: `Account statement · ${view.account.code}`, fa: `صورت‌حساب · ${view.account.code}` }, from: view.range.from,
+  const account = `${view.account.code} · ${view.account.name}`;
+  return { kind: "ACCOUNT_STATEMENT", title: { en: "Account statement", fa: "صورت‌حساب" }, subject: { en: account, fa: account }, from: view.range.from,
     to: view.range.to, currency: view.account.currency,
     headers: [l("Date", "تاریخ"), l("Reference", "مرجع"), l("Reversal", "برگشت"), l("Source", "منبع"), l("Debit", "بدهکار"), l("Credit", "بستانکار"),
       l("Balance (debit positive)", "موجودی (بدهکار مثبت)"), l("Original currency", "واحد پول اصلی"), l("Original amount", "مبلغ اصلی"), l("Rate", "نرخ")], rows };
@@ -168,7 +179,8 @@ export function safeStatementTable(view: TreasuryStatementView, language: Report
   }
   rows.push({ role: "CLOSING", cells: [text(statement.range.to), text(LABELS.closing[language]), text(""), text(""), amount(statement.totals.moneyIn),
     amount(statement.totals.moneyOut), amount(statement.closing.native), ...carrying(text(""), amount(statement.closing.base))] });
-  return { kind: "SAFE_STATEMENT", title: { en: `Safe / Saraf statement · ${currency}`, fa: `صورت‌حساب صندوق / صراف · ${currency}` }, from: statement.range.from,
+  return { kind: "SAFE_STATEMENT", title: { en: "Safe / Saraf statement", fa: "صورت‌حساب صندوق / صراف" },
+    subject: { en: statement.account.nameEn, fa: statement.account.nameFa ?? statement.account.nameEn }, from: statement.range.from,
     to: statement.range.to, currency,
     headers: [l("Date", "تاریخ"), l("Reference", "مرجع"), l("Reversal", "برگشت"), l("Details", "شرح"), l(`Money in (${currency})`, `ورودی (${currency})`),
       l(`Money out (${currency})`, `خروجی (${currency})`), l(`Balance (${currency})`, `موجودی (${currency})`),
@@ -194,9 +206,14 @@ export interface ExportLedgerLine {
 }
 export interface ExportLedgerTotal { readonly currency: string; readonly debits: string; readonly credits: string; readonly lineCount: string }
 
-/** Whether the whole filtered range fits in one export, from the totals of its first page. */
+/** The number of posted lines in the whole filtered range, from the totals of its first page (a count, never an amount). */
+export function ledgerLineCount(totals: readonly ExportLedgerTotal[] | null): number {
+  return (totals ?? []).reduce((sum, total) => sum + Number.parseInt(total.lineCount, 10), 0);
+}
+
+/** Whether the whole filtered range fits in one export. */
 export function ledgerExportFits(totals: readonly ExportLedgerTotal[] | null): boolean {
-  const lines = (totals ?? []).reduce((sum, total) => sum + Number.parseInt(total.lineCount, 10), 0);
+  const lines = ledgerLineCount(totals);
   return Number.isSafeInteger(lines) && lines <= REPORT_EXPORT_LINE_LIMIT;
 }
 
@@ -212,7 +229,7 @@ export function generalLedgerTable(range: { readonly from: string; readonly to: 
     rows.push({ role: "TOTAL", cells: [text(""), text(LABELS.total[language]), text(""), text(""), text(l(`${total.lineCount} lines`, `${total.lineCount} ردیف`)),
       amount(total.debits), amount(total.credits), text(total.currency), text(""), text(""), text("")] });
   }
-  return { kind: "GENERAL_LEDGER", title: { en: "General Ledger", fa: "دفتر کل" }, from: range.from, to: range.to,
+  return { kind: "GENERAL_LEDGER", title: { en: "General Ledger", fa: "دفتر کل" }, subject: null, from: range.from, to: range.to,
     currency: totals.length === 1 ? (totals[0]?.currency ?? null) : null,
     headers: [l("Date", "تاریخ"), l("Reference", "مرجع"), l("Line", "ردیف"), l("Account code", "کد حساب"), l("Account", "حساب"), l("Debit", "بدهکار"), l("Credit", "بستانکار"),
       l("Currency", "واحد پول"), l("Original currency", "واحد پول اصلی"), l("Original amount", "مبلغ اصلی"), l("Source", "منبع")], rows };

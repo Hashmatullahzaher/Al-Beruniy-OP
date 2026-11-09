@@ -53,16 +53,17 @@ BEGIN
      OR (v_include_zero AND kind <> 'TRIAL_BALANCE') THEN
     RAISE EXCEPTION 'valid export details are required' USING ERRCODE = 'invalid_parameter_value';
   END IF;
+  -- Authority first: someone who may not read this Safe is refused the same way whether or not the id names a Safe at all.
+  IF kind = 'SAFE_STATEMENT' AND NOT COALESCE(c->'permissions', '[]'::jsonb) ?| ARRAY['treasury.safe.read', 'finance.report.operational.read']
+     AND NOT EXISTS (SELECT 1 FROM abos.operational_treasury_account_responsibles r WHERE r.operational_treasury_account_id = v_account
+       AND r.legal_entity_id = entity AND r.user_account_id = actor AND r.revoked_at IS NULL) THEN
+    RAISE EXCEPTION 'current authority is missing treasury.safe.read' USING ERRCODE = 'insufficient_privilege';
+  END IF;
   -- A filter can only name something of the session's own company.
   IF v_account IS NOT NULL AND (
        (kind IN ('ACCOUNT_STATEMENT', 'GENERAL_LEDGER') AND NOT EXISTS (SELECT 1 FROM abos.ledger_accounts a WHERE a.id = v_account AND a.legal_entity_id = entity))
     OR (kind = 'SAFE_STATEMENT' AND NOT EXISTS (SELECT 1 FROM abos.operational_treasury_accounts t WHERE t.id = v_account AND t.legal_entity_id = entity))) THEN
     RAISE EXCEPTION 'the account was not found in this legal entity' USING ERRCODE = 'invalid_parameter_value';
-  END IF;
-  IF kind = 'SAFE_STATEMENT' AND NOT COALESCE(c->'permissions', '[]'::jsonb) ?| ARRAY['treasury.safe.read', 'finance.report.operational.read']
-     AND NOT EXISTS (SELECT 1 FROM abos.operational_treasury_account_responsibles r WHERE r.operational_treasury_account_id = v_account
-       AND r.legal_entity_id = entity AND r.user_account_id = actor AND r.revoked_at IS NULL) THEN
-    RAISE EXCEPTION 'current authority is missing treasury.safe.read' USING ERRCODE = 'insufficient_privilege';
   END IF;
   IF (v_period IS NOT NULL AND NOT EXISTS (SELECT 1 FROM abos.accounting_periods p WHERE p.id = v_period AND p.legal_entity_id = entity))
      OR (v_year IS NOT NULL AND NOT EXISTS (SELECT 1 FROM abos.fiscal_years y WHERE y.id = v_year AND y.legal_entity_id = entity)) THEN

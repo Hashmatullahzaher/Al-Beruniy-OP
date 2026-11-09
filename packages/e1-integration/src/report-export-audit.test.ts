@@ -3,8 +3,8 @@ import { randomUUID } from "node:crypto";
 import test, { after, before, describe } from "node:test";
 
 import {
-  accountStatementTable, exportLineCount, ledgerExportFits, reportCsv, safeStatementTable, trialBalanceTable, type AccountStatementView, type TreasuryStatementView,
-  type TrialBalanceView
+  accountStatementTable, exportLineCount, ledgerExportFits, ledgerLineCount, reportCsv, safeStatementTable, trialBalanceTable, type AccountStatementView,
+  type TreasuryStatementView, type TrialBalanceView
 } from "@abos/contracts";
 
 import { databaseUrl, MISSING_DATABASE_MESSAGE } from "./harness.ts";
@@ -94,6 +94,8 @@ if (databaseUrl() === undefined) {
       assert.equal((await audit(kept.auditId)).actor, keeperId);
       await assert.rejects(() => db.call("treasury_account_statement", keeper, { accountId: f.usdSafe, ...SEPT }));
       await assert.rejects(() => record(keeper, exportOf({ kind: "SAFE_STATEMENT", accountId: f.usdSafe })), DENIED, "another Safe is not theirs");
+      await assert.rejects(() => record(keeper, exportOf({ kind: "SAFE_STATEMENT", accountId: randomUUID() })), DENIED, "an unknown id is refused the same way");
+      await assert.rejects(() => record(f.nobody, exportOf({ kind: "SAFE_STATEMENT", accountId: randomUUID() })), DENIED);
       await assert.rejects(() => record(keeper, exportOf()), DENIED, "nor is the trial balance");
     });
 
@@ -134,22 +136,54 @@ if (databaseUrl() === undefined) {
       for (const word of ["RW-SECRET", "Synthetic restricted works"]) assert.equal(safeCsv.includes(word), false, `the Safe reader's export must not carry ${word}`);
     });
 
-    test("a statement over 5,000 lines is refused, so it has no export; the General Ledger export stops at the same limit", async () => {
-      // 5,001 real receipts into the petty cash, through the product's own function on the restricted login, in October (the other tests read September).
-      const OCT = { from: "2026-10-01", to: "2026-10-31" };
+    test("a statement of exactly 5,000 lines is exported whole; one line more is refused, and nothing is recorded for it", async () => {
+      // The petty cash has one September movement (the 300.00 transfer on the 13th). 4,999 real receipts on the 25th make exactly 5,000 lines,
+      // and one more on the 26th makes 5,001. Each goes through the product's own function on the restricted login.
       const c = f.creator;
-      await db.runtime.query(`SELECT count(abos.treasury_receipt_record($1, $2, $3, jsonb_build_object('treasuryAccountId', $4::uuid, 'amount', '1.00', 'currencyCode', 'USD',
-        'businessDate', '2026-10-05', 'payerBusinessPartyId', NULL, 'payerName', 'Synthetic limit payer', 'revenueLedgerAccountId', $5::uuid, 'reference', NULL, 'note', NULL,
-        'idempotencyKey', 'limit-' || g, 'correlationId', gen_random_uuid()))) FROM generate_series(1, 5001) g`, [c.proof, c.runtimeDigest, c.tokenDigest, f.secondSafe, f.revenue]);
-      await assert.rejects(() => db.call("finance_account_statement", f.reportReader, { accountId: f.secondLedger, ...OCT }), /5001 lines; choose a shorter period/);
-      await assert.rejects(() => db.call("treasury_account_statement", f.safeReader, { accountId: f.secondSafe, ...OCT }), /5001 lines; choose a shorter period/);
-      const first = (await db.runtime.query<{ value: { totals: { currency: string; debits: string; credits: string; lineCount: string }[] | null } }>(
-        "SELECT abos.finance_general_ledger_page($1, $2::date, $3::date, NULL, NULL, 100) AS value", [f.reportReader.token, OCT.from, OCT.to])).rows[0]?.value;
-      assert.equal(first?.totals?.[0]?.lineCount, "10002", "every receipt is two posted lines");
-      assert.equal(ledgerExportFits(first?.totals ?? null), false, "the web export refuses this range before reading a second page");
-      assert.equal(ledgerExportFits((await db.runtime.query<{ value: { totals: { currency: string; debits: string; credits: string; lineCount: string }[] | null } }>(
-        "SELECT abos.finance_general_ledger_page($1, $2::date, $3::date, NULL, NULL, 100) AS value", [f.reportReader.token, SEPT.from, SEPT.to])).rows[0]?.value.totals ?? null), true);
-      await assert.rejects(() => record(f.reportReader, exportOf({ kind: "GENERAL_LEDGER", ...OCT, rowCount: 5001 })), REFUSED, "nor can an export over the limit be recorded");
+      const receive = (count: number, day: string, tag: string) => db.runtime.query(`SELECT count(abos.treasury_receipt_record($1, $2, $3, jsonb_build_object(
+        'treasuryAccountId', $4::uuid, 'amount', '1.00', 'currencyCode', 'USD', 'businessDate', $6::text, 'payerBusinessPartyId', NULL, 'payerName', 'Synthetic limit payer',
+        'revenueLedgerAccountId', $5::uuid, 'reference', NULL, 'note', NULL, 'idempotencyKey', $7::text || g, 'correlationId', gen_random_uuid())))
+        FROM generate_series(1, $8::integer) g`, [c.proof, c.runtimeDigest, c.tokenDigest, f.secondSafe, f.revenue, day, `limit-${tag}-`, count]);
+      type Lines = { lines: unknown[] };
+      const TO_25 = { from: SEPT.from, to: "2026-09-25" };
+      assert.equal((await db.call<Lines>("finance_account_statement", f.reportReader, { accountId: f.secondLedger, ...SEPT })).lines.length, 1);
+      await receive(4999, "2026-09-25", "a");
+
+      // Just below the limit: the 25th alone is 4,999 lines.
+      const below = await db.call<AccountStatementView>("finance_account_statement", f.reportReader, { accountId: f.secondLedger, from: "2026-09-25", to: "2026-09-25" });
+      assert.equal(below.lines.length, 4999);
+      // At the limit: the statement answers, the export carries every line, and its audit says 5,000.
+      const atLimit = await db.call<AccountStatementView>("finance_account_statement", f.reportReader, { accountId: f.secondLedger, ...SEPT });
+      assert.equal(atLimit.lines.length, 5000);
+      const table = accountStatementTable(atLimit, "en");
+      assert.equal(exportLineCount(table), 5000);
+      assert.equal(reportCsv(table, "en", "x").split("\r\n").filter((line) => line.startsWith("\"2026-09-25\"")).length, 4999);
+      const recorded = await record(f.reportReader, exportOf({ kind: "ACCOUNT_STATEMENT", accountId: f.secondLedger, rowCount: exportLineCount(table) }));
+      assert.equal((await audit(recorded.auditId)).after.rowCount, 5000);
+      const safeAtLimit = await db.call<TreasuryStatementView>("treasury_account_statement", f.safeReader, { accountId: f.secondSafe, ...SEPT });
+      assert.equal(safeAtLimit.statement?.lines.length, 5000);
+
+      // One line above: the reports themselves refuse, so the export has nothing to render and records nothing.
+      await receive(1, "2026-09-26", "b");
+      const before = await exports();
+      await assert.rejects(() => db.call("finance_account_statement", f.reportReader, { accountId: f.secondLedger, ...SEPT }), /5001 lines; choose a shorter period/);
+      await assert.rejects(() => db.call("treasury_account_statement", f.safeReader, { accountId: f.secondSafe, ...SEPT }), /5001 lines; choose a shorter period/);
+      await assert.rejects(() => record(f.reportReader, exportOf({ kind: "ACCOUNT_STATEMENT", accountId: f.secondLedger, rowCount: 5001 })), REFUSED,
+        "nor can an export over the limit be recorded");
+      assert.equal(await exports(), before);
+      // A shorter period is still served, as the refusal tells the reader.
+      assert.equal((await db.call<Lines>("finance_account_statement", f.reportReader, { accountId: f.secondLedger, ...TO_25 })).lines.length, 5000);
+
+      // The General Ledger has no limit of its own (it pages), so the export applies the statements' limit to the whole range, from the first page's totals.
+      type Page = { value: { totals: { currency: string; debits: string; credits: string; lineCount: string }[] | null } };
+      const totalsOf = async (range: { from: string; to: string }, accountId: string | null) => (await db.runtime.query<Page>(
+        "SELECT abos.finance_general_ledger_page($1, $2::date, $3::date, $4::uuid, NULL, 100) AS value", [f.reportReader.token, range.from, range.to, accountId])).rows[0]?.value.totals ?? null;
+      assert.equal(ledgerLineCount(await totalsOf(SEPT, f.secondLedger)), 5001, "the ledger account has the same 5,001 lines the statement counted");
+      assert.equal(ledgerExportFits(await totalsOf(SEPT, f.secondLedger)), false);
+      assert.equal(ledgerLineCount(await totalsOf(TO_25, f.secondLedger)), 5000);
+      assert.equal(ledgerExportFits(await totalsOf(TO_25, f.secondLedger)), true);
+      assert.equal(ledgerExportFits(await totalsOf(SEPT, null)), false, "the whole September ledger is now far over the limit");
+      assert.equal(ledgerExportFits(await totalsOf({ from: SEPT.from, to: "2026-09-24" }, null)), true);
     });
 
     test("the runtime cannot write, change or remove an audit row itself", async () => {

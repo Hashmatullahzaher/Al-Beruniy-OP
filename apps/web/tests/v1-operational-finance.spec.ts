@@ -512,6 +512,9 @@ test.describe("V1 operational finance from a new company", () => {
     const exportAudits = () => readOnly<{ actor: string; after: Record<string, unknown>; metadata: Record<string, unknown> }>(
       "SELECT actor_user_account_id::text AS actor, after_state AS after, metadata FROM abos.audit_records WHERE action = 'FINANCE_REPORT_EXPORTED' ORDER BY occurred_at, id");
     const auditsBefore = (await exportAudits()).length;
+    // The file header names the company exactly as the session does (the same read the page shell makes).
+    const company = (JSON.parse((await browserGet(page, "/api/v1/auth/me")).text) as { data: { legalEntityName: string } }).data.legalEntityName;
+    expect(company).not.toBe("");
     const screenPayload = async <T,>(target: Page, path: string, action: () => Promise<unknown>): Promise<T> => {
       const response = target.waitForResponse((r) => r.url().includes(path) && r.request().method() === "GET" && r.ok());
       await action();
@@ -529,9 +532,10 @@ test.describe("V1 operational finance from a new company", () => {
     const balanceFile = await downloadCsv(page, "CSV (Excel-compatible)");
     expect(balanceFile.name).toMatch(/^trial-balance_\d{4}-\d{2}-\d{2}_\d{4}-\d{2}-\d{2}\.csv$/);
     expect([...balanceFile.bytes.subarray(0, 3)]).toEqual([0xef, 0xbb, 0xbf]);
-    expect(balanceFile.text).toBe(reportCsv(trialBalanceTable(balanceView, "en"), "en", generatedAt(balanceFile.text)));
+    expect(balanceFile.text).toBe(reportCsv(trialBalanceTable(balanceView, "en"), "en", generatedAt(balanceFile.text), company));
     expect(tableRows(balanceFile.text)).toHaveLength(await balanceReport.locator("tbody tr").count() + 1);
     expect(balanceFile.text).toContain("\"Confidential / محرمانه\"");
+    expect(balanceFile.text.split("\r\n")[0]).toBe(`\uFEFF"Company","${company}"`);
     // The formula is text in the file, and the amounts are the database's decimal strings.
     expect(balanceFile.text).toContain("\"'=1+1 Formula check\"");
     expect(balanceFile.text).not.toMatch(/(^|,)"?=1\+1/m);
@@ -541,7 +545,7 @@ test.describe("V1 operational finance from a new company", () => {
     // Dari: the same payload, Dari headings, still UTF-8 with a byte-order mark; the printed copy is right to left and Confidential.
     await page.getByRole("button", { name: "Switch to Dari" }).click();
     const dariFile = await downloadCsv(page, "CSV (سازگار با Excel)");
-    expect(dariFile.text).toBe(reportCsv(trialBalanceTable(balanceView, "fa"), "fa", generatedAt(dariFile.text)));
+    expect(dariFile.text).toBe(reportCsv(trialBalanceTable(balanceView, "fa"), "fa", generatedAt(dariFile.text), company));
     expect(dariFile.text).toContain("\"کد\",\"حساب\"");
     await page.emulateMedia({ media: "print" });
     const printed = page.getByTestId("report-print-header");
@@ -554,7 +558,9 @@ test.describe("V1 operational finance from a new company", () => {
     const statementView = await screenPayload<AccountStatementView>(page, "/api/v1/finance/account-statement?",
       () => balanceReport.getByRole("link", { name: "1100", exact: true }).click());
     const statementFile = await downloadCsv(page, "CSV (Excel-compatible)");
-    expect(statementFile.text).toBe(reportCsv(accountStatementTable(statementView, "en"), "en", generatedAt(statementFile.text)));
+    expect(statementFile.text).toBe(reportCsv(accountStatementTable(statementView, "en"), "en", generatedAt(statementFile.text), company));
+    expect(statementFile.text).toContain("\"Account\",\"1100 · Main Cash Safe - USD\"");
+    expect(statementFile.name).toMatch(/^account-statement_\d{4}-\d{2}-\d{2}_\d{4}-\d{2}-\d{2}\.csv$/);
     expect(tableRows(statementFile.text)).toHaveLength(await page.getByRole("region", { name: "Account statement" }).locator("tbody tr").count() + 3);
 
     await nav.getByRole("link", { name: "Safe / Saraf statement" }).click();
@@ -565,18 +571,19 @@ test.describe("V1 operational finance from a new company", () => {
     expect(safeFile.name, "the file name never names the Safe").toMatch(/^safe-statement_\d{4}-\d{2}-\d{2}_\d{4}-\d{2}-\d{2}\.csv$/);
     const safeTable = safeStatementTable(safeView, "en");
     expect(safeTable).not.toBeNull();
-    if (safeTable !== null) expect(safeFile.text).toBe(reportCsv(safeTable, "en", generatedAt(safeFile.text)));
+    if (safeTable !== null) expect(safeFile.text).toBe(reportCsv(safeTable, "en", generatedAt(safeFile.text), company));
+    expect(safeFile.text).toContain("\"Account\",\"Main USD Safe\"");
     expect(tableRows(safeFile.text)).toHaveLength(await page.getByRole("region", { name: "Statement" }).locator("tbody tr").count() + 2);
 
     const ledgerView = await screenPayload<LedgerPage>(page, "/api/v1/finance/general-ledger?", () => nav.getByRole("link", { name: "General Ledger" }).click());
     expect(ledgerView.hasMore).toBe(false);
     const ledgerFile = await downloadCsv(page, "CSV (Excel-compatible)");
-    expect(ledgerFile.text).toBe(reportCsv(generalLedgerTable(ledgerView, ledgerView.lines, ledgerView.totals ?? [], "en"), "en", generatedAt(ledgerFile.text)));
+    expect(ledgerFile.text).toBe(reportCsv(generalLedgerTable(ledgerView, ledgerView.lines, ledgerView.totals ?? [], "en"), "en", generatedAt(ledgerFile.text), company));
 
     // The report-only reader exports exactly the masked General Ledger they see: same payload, nothing about the lender.
     const maskedView = await screenPayload<LedgerPage>(lawReader, "/api/v1/finance/general-ledger?", () => lawReader.goto("/finance/general-ledger"));
     const maskedFile = await downloadCsv(lawReader, "CSV (Excel-compatible)");
-    expect(maskedFile.text).toBe(reportCsv(generalLedgerTable(maskedView, maskedView.lines, maskedView.totals ?? [], "en"), "en", generatedAt(maskedFile.text)));
+    expect(maskedFile.text).toBe(reportCsv(generalLedgerTable(maskedView, maskedView.lines, maskedView.totals ?? [], "en"), "en", generatedAt(maskedFile.text), company));
     expect(maskedView.lines.length, "a restricted line keeps its place and its amounts").toBe(ledgerView.lines.length);
     const withoutTime = (csv: string) => csv.replace(generatedAt(csv), "");
     expect(withoutTime(maskedFile.text), "the reader's file withholds what the reader's screen withholds").not.toBe(withoutTime(ledgerFile.text));
