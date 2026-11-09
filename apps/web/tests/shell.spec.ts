@@ -78,6 +78,10 @@ test("keyboard skip link and English/Dari switching work", async ({ page }) => {
   await expect(page.getByRole("navigation", { name: "ناوبری اصلی" }).getByRole("link", { name: "مالی" })).toBeVisible();
   // The menu toggle is hidden at desktop width; its screen-reader name still follows the language.
   await expect(page.getByRole("button", { name: "باز و بسته کردن ناوبری", includeHidden: true })).toBeAttached();
+  // The search box and the clock are named in Dari for a screen reader, not only shown in Dari.
+  await expect(page.getByRole("textbox", { name: "جستجوی بخش‌ها" })).toBeVisible();
+  await expect(page.getByLabel("وقت فعلی کابل")).toContainText("کابل، افغانستان");
+  await expect(page.getByLabel("Current time in Kabul")).toHaveCount(0);
   await expect(page.getByText("Stage 0", { exact: true })).toHaveCount(0);
   await expect(page.getByText("DEMO", { exact: true })).toHaveCount(0);
 });
