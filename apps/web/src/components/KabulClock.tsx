@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 
+import { useLocale } from "@/components/LocaleProvider";
+
 interface ClockValue {
   readonly date: string;
   readonly time: string;
@@ -16,6 +18,8 @@ function readKabulTime(): ClockValue {
 }
 
 export function KabulClock() {
+  const { locale } = useLocale();
+  const fa = locale === "fa";
   const [value, setValue] = useState<ClockValue | null>(null);
 
   useEffect(() => {
@@ -26,10 +30,10 @@ export function KabulClock() {
   }, []);
 
   return (
-    <div className="kabul-clock" aria-label="Current time in Kabul">
-      <small>{value?.date ?? "Kabul time"}</small>
-      <strong>{value?.time ?? "--:--"}</strong>
-      <span>Kabul, Afghanistan</span>
+    <div className="kabul-clock" aria-label={fa ? "وقت فعلی کابل" : "Current time in Kabul"}>
+      <small dir="ltr">{value?.date ?? (fa ? "وقت کابل" : "Kabul time")}</small>
+      <strong dir="ltr">{value?.time ?? "--:--"}</strong>
+      <span>{fa ? "کابل، افغانستان" : "Kabul, Afghanistan"}</span>
     </div>
   );
 }

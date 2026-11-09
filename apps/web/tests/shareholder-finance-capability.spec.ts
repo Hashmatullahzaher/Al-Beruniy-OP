@@ -1,5 +1,10 @@
 import { expect, test } from "@playwright/test";
 
+/**
+ * DEV-ONLY SPEC. Review mode is refused when NODE_ENV is production (src/server/shareholder-finance-bridge.ts), so this file passes only on
+ * `next dev`, which the default Playwright config starts. On a production build (`next start`) every test here fails by design. A release
+ * gate runs the rest of the suite on the production build and this file separately on next dev.
+ */
 test("@smoke coordinated bridge capability is explicit and non-operational", async ({ request }) => {
   const response = await request.get("/api/v1/shareholder/capital-bridge/capability");
   expect(response.status()).toBe(200);
