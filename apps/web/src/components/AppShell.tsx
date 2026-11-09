@@ -130,7 +130,7 @@ export function AppShell({ children }: AppShellProps) {
           </div>
 
           <div className="workspace-search">
-            <label className="sr-only" htmlFor="workspace-search">Search workspaces</label>
+            <label className="sr-only" htmlFor="workspace-search">{fa ? "جستجوی بخش‌ها" : "Search workspaces"}</label>
             <AppIcon name="search" size={18} />
             <input id="workspace-search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={locale === "fa" ? "جستجوی پروژه‌ها، واحدها، گزارش‌ها..." : "Search projects, units, clients, reports..."} autoComplete="off" />
             {operationalSearchResults.length > 0 || demoSearchResults.length > 0 ? (
