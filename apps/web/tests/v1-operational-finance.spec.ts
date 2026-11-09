@@ -617,7 +617,7 @@ test.describe("V1 operational finance from a new company", () => {
         .includes(key))).toBe(true);
       expect(row.metadata.source).toBe("v1-report-export");
       expect(typeof row.metadata.sessionId).toBe("string");
-      for (const word of ["Formula check", "Main Cash Safe", "Main USD Safe", "Ahmad", "Lender", "EXP-001", "Office supplies", "50000"]) expect(JSON.stringify(row)).not.toContain(word);
+      for (const word of ["Formula check", "Main Cash Safe", "Main USD Safe", "Ahmad", "Lender", "EXP-001", "Office supplies", "50000.00", "1000.00"]) expect(JSON.stringify(row)).not.toContain(word);
     }
     expect(recorded[1]?.after).toMatchObject({ language: "fa", includeZero: true, rowCount: tableRows(dariFile.text).length - 1 });
     expect(recorded[3]?.after).toMatchObject({ kind: "SAFE_STATEMENT", accountId: safeView.statement?.account.id, rowCount: safeView.statement?.lines.length });

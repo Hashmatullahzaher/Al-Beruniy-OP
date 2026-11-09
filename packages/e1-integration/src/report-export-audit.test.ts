@@ -60,7 +60,8 @@ if (databaseUrl() === undefined) {
       // Nothing of the report itself: no account, amount, name or reference reaches the audit row.
       const csv = reportCsv(table, "fa", "2026-11-08T00:00:00.000Z");
       assert.ok(csv.includes("SYN-RW-INC"), "the export itself carries the report");
-      assertAbsent(row, ["SYN-RW", "Synthetic", "2500", "1000.00", "RW-", view.accounts[0]?.accountName ?? "-", view.totals.periodDebit], "the export audit row");
+      // Amounts are checked in their decimal form: bare digits could match a random id by chance.
+      assertAbsent(row, ["SYN-RW", "Synthetic", "2500.00", "1000.00", "RW-", view.accounts[0]?.accountName ?? "-", view.totals.periodDebit], "the export audit row");
     });
 
     test("the audit accepts no free text and no shape it does not know", async () => {
