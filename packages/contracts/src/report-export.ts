@@ -22,7 +22,8 @@ export function reportExportKind(slug: string | null): ReportExportKind | null {
 /** The same limit the account and Safe statements enforce in PostgreSQL (0053, 0057): an export is never a way around it. */
 export const REPORT_EXPORT_LINE_LIMIT = 5000;
 
-export type ExportCell = { readonly text: string } | { readonly amount: string };
+/** `code` is an identifier (account code, journal or Safe reference): always text, even when it is only digits. */
+export type ExportCell = { readonly text: string } | { readonly amount: string } | { readonly code: string };
 /** LINE rows are the rows the screen lists; OPENING, CLOSING and TOTAL rows are the figures the screen shows around them. */
 export interface ExportRow { readonly role: "LINE" | "OPENING" | "CLOSING" | "TOTAL"; readonly cells: readonly ExportCell[] }
 export interface ExportTable {
@@ -48,13 +49,27 @@ const FORMULA = /^[\s\u00a0\u200b-\u200f\u202a-\u202e\u2060\u2066-\u2069\ufeff]*
 
 const text = (value: string | null | undefined): ExportCell => ({ text: value ?? "" });
 const amount = (value: string | null | undefined): ExportCell => (value === null || value === undefined || value === "" ? { text: "" } : { amount: value });
+const code = (value: string | null | undefined): ExportCell => ({ code: value ?? "" });
 
-/** One CSV field. An amount that is an exact decimal stays a bare number; anything else is quoted text, defused if it could start a formula. */
+/** An identifier a spreadsheet would read as a number or a date: digits and separators only, no letter. */
+const NUMBER_LIKE_CODE = /^[0-9][0-9 ./:_-]{0,63}$/;
+
+/** A quoted CSV text field: every double quote doubled. */
+const quoted = (value: string) => `"${value.replaceAll("\"", "\"\"")}"`;
+
+/**
+ * One CSV field.
+ * - An amount that is an exact decimal stays a bare number, sign included.
+ * - An identifier made only of digits and separators (`0012`, `1100`, `1-2`) is written as the constant text formula `="0012"`, so Excel keeps
+ *   its leading zeros and never turns it into a number or a date. Only digits and separators can ever sit inside that string literal, so no
+ *   text a person typed is evaluated. Any other identifier is ordinary text.
+ * - Anything else is quoted text, defused with a leading apostrophe if it could start a formula.
+ */
 export function csvField(cell: ExportCell): string {
   if ("amount" in cell && DECIMAL.test(cell.amount)) return cell.amount;
-  const value = "amount" in cell ? cell.amount : cell.text;
-  const safe = FORMULA.test(value) ? `'${value}` : value;
-  return `"${safe.replaceAll("\"", "\"\"")}"`;
+  if ("code" in cell && NUMBER_LIKE_CODE.test(cell.code)) return quoted(`="${cell.code}"`);
+  const value = "amount" in cell ? cell.amount : "code" in cell ? cell.code : cell.text;
+  return quoted(FORMULA.test(value) ? `'${value}` : value);
 }
 
 const LABELS = {
@@ -122,10 +137,10 @@ export function trialBalanceTable(view: TrialBalanceView, language: ReportExport
   const l = (en: string, fa: string) => pick(language, en, fa);
   const rows: ExportRow[] = [];
   for (const row of view.accounts) {
-    rows.push({ role: "LINE", cells: [text(row.accountCode), text(row.accountName), text(TYPE_COPY[row.accountType]?.[language] ?? row.accountType), text(view.baseCurrency),
+    rows.push({ role: "LINE", cells: [code(row.accountCode), text(row.accountName), text(TYPE_COPY[row.accountType]?.[language] ?? row.accountType), text(view.baseCurrency),
       amount(row.openingDebit), amount(row.openingCredit), amount(row.periodDebit), amount(row.periodCredit), amount(row.endingDebit), amount(row.endingCredit), text(""), text("")] });
     for (const n of row.native) {
-      rows.push({ role: "LINE", cells: [text(row.accountCode), text(l(`Native ${n.currency}`, `مبلغ اصلی به ${n.currency}`)), text(""), text(n.currency),
+      rows.push({ role: "LINE", cells: [code(row.accountCode), text(l(`Native ${n.currency}`, `مبلغ اصلی به ${n.currency}`)), text(""), text(n.currency),
         text(""), text(""), amount(n.periodDebit), amount(n.periodCredit), text(""), text(""), amount(n.openingNet), amount(n.endingNet)] });
     }
   }
@@ -143,7 +158,7 @@ export function accountStatementTable(view: AccountStatementView, language: Repo
   const rows: ExportRow[] = [{ role: "OPENING", cells: [text(view.range.from), text(LABELS.opening[language]), text(""), text(""),
     amount(view.opening.debit), amount(view.opening.credit), amount(view.opening.net), text(""), text(""), text("")] }];
   for (const line of view.lines) {
-    rows.push({ role: "LINE", cells: [text(line.date), text(line.restricted ? LABELS.restricted[language] : line.journalReference), text(reversalText(line, language)),
+    rows.push({ role: "LINE", cells: [text(line.date), code(line.restricted ? LABELS.restricted[language] : line.journalReference), text(reversalText(line, language)),
       text(reportSourceText(line.source, language)), amount(line.debit), amount(line.credit), amount(line.balance), text(line.originalCurrency), amount(line.originalAmount),
       text(line.rate ? `1 ${line.rate.unitCurrency} = ${line.rate.rate} ${line.rate.quoteCurrency}` : "")] });
   }
@@ -174,7 +189,7 @@ export function safeStatementTable(view: TreasuryStatementView, language: Report
     const out = line.moneyOut !== "0";
     const movement = peer !== null ? l(`Transfer ${out ? "to" : "from"} ${peer}`, `انتقال ${out ? "به" : "از"} ${peer}`) : reportSourceText(line.source, language);
     const details = [movement, line.source?.reference ?? null, line.source?.description ?? null].filter((part): part is string => part !== null && part !== "").join(" · ");
-    rows.push({ role: "LINE", cells: [text(line.date), text(line.restricted ? LABELS.restricted[language] : line.journalReference), text(reversalText(line, language)),
+    rows.push({ role: "LINE", cells: [text(line.date), code(line.restricted ? LABELS.restricted[language] : line.journalReference), text(reversalText(line, language)),
       text(details), amount(line.moneyIn), amount(line.moneyOut), amount(line.balance), ...carrying(amount(line.baseAmount), amount(line.runningBase))] });
   }
   rows.push({ role: "CLOSING", cells: [text(statement.range.to), text(LABELS.closing[language]), text(""), text(""), amount(statement.totals.moneyIn),
@@ -222,7 +237,7 @@ export function generalLedgerTable(range: { readonly from: string; readonly to: 
   const l = (en: string, fa: string) => pick(language, en, fa);
   const restrictedSource: ReportSource = { type: "RESTRICTED", id: null, label: { en: "Restricted movement", fa: "حرکت محدود" }, route: null, counterparty: null };
   const rows: ExportRow[] = lines.map((line) => ({ role: "LINE", cells: [text(line.accountingEffectiveDate),
-    text(line.restricted ? LABELS.restricted[language] : line.journalReference), text(String(line.lineNumber)), text(line.accountCode), text(line.accountName),
+    code(line.restricted ? LABELS.restricted[language] : line.journalReference), text(String(line.lineNumber)), code(line.accountCode), text(line.accountName),
     amount(line.baseDebit), amount(line.baseCredit), text(line.baseCurrency), text(line.originalCurrency), amount(line.originalAmount),
     text(line.source ? reportSourceText(line.source, language) : line.restricted ? reportSourceText(restrictedSource, language) : `${line.sourceType} · ${line.sourceId ?? ""}`)] }));
   for (const total of totals) {

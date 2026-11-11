@@ -342,6 +342,8 @@ test.describe("V1 operational finance from a new company", () => {
 
     // 13. Loans: one person is both shareholder and lender, and the two positions never merge.
     const lawReader = await employeeHolding(page, browser, "loan.report.reader", ["View Finance reports and journals"]);
+    // Holds no report and no Safe permission; becomes responsible for one Safe in step 15.
+    const keeper = await employeeHolding(page, browser, "safe.keeper", ["Request journal reversals"]);
     await signOut(page);
     await signIn(page, "demo.finance.manager", accounts["demo.finance.manager"]);
     await nav.getByRole("link", { name: "Chart of Accounts" }).click();
@@ -541,7 +543,7 @@ test.describe("V1 operational finance from a new company", () => {
     expect(balanceFile.text).not.toMatch(/(^|,)"?=1\+1/m);
     const cashRow = balanceView.accounts.find((row) => row.accountCode === "1100");
     expect(cashRow).toBeDefined();
-    expect(balanceFile.text).toContain(`"1100","Main Cash Safe - USD","Asset","USD",${cashRow?.openingDebit},${cashRow?.openingCredit},${cashRow?.periodDebit},`);
+    expect(balanceFile.text).toContain(`"=""1100""","Main Cash Safe - USD","Asset","USD",${cashRow?.openingDebit},${cashRow?.openingCredit},${cashRow?.periodDebit},`);
     // Dari: the same payload, Dari headings, still UTF-8 with a byte-order mark; the printed copy is right to left and Confidential.
     await page.getByRole("button", { name: "Switch to Dari" }).click();
     const dariFile = await downloadCsv(page, "CSV (سازگار با Excel)");
@@ -592,6 +594,37 @@ test.describe("V1 operational finance from a new company", () => {
     }
     await lawReader.context().close();
 
+    // The person responsible for a Safe reads that Safe's statement without any report permission (0057), and exports exactly that.
+    await nav.getByRole("link", { name: "Safes" }).click();
+    const usdSafeCard = page.locator(".safe-card").filter({ has: page.getByRole("heading", { name: "Main USD Safe" }) });
+    await usdSafeCard.locator(".safe-responsibles").getByRole("button", { name: "Change" }).click();
+    await usdSafeCard.locator(".safe-responsibles").locator("label", { hasText: "Synthetic safe.keeper" }).locator("input").check();
+    await usdSafeCard.locator(".safe-responsibles").getByRole("button", { name: "Save" }).click();
+    await expect(page.locator(".treasury-message.success")).toContainText("Responsible people saved.");
+    await keeper.goto("/finance/safe-statement");
+    await expect(keeper.getByLabel("Safe or Saraf").locator("option").filter({ hasText: "Main USD Safe" })).toHaveCount(1);
+    await expect(keeper.getByLabel("Safe or Saraf").locator("option").filter({ hasText: "Main AFN Safe" })).toHaveCount(0);
+    const keeperView = await screenPayload<TreasuryStatementView>(keeper, "/api/v1/finance/safe-statement?accountId=",
+      () => keeper.getByLabel("Safe or Saraf").selectOption({ label: "Main USD Safe · USD" }));
+    const keeperFile = await downloadCsv(keeper, "CSV (Excel-compatible)");
+    const keeperTable = safeStatementTable(keeperView, "en");
+    expect(keeperTable).not.toBeNull();
+    if (keeperTable !== null) expect(keeperFile.text).toBe(reportCsv(keeperTable, "en", generatedAt(keeperFile.text), company));
+    expect(tableRows(keeperFile.text)).toHaveLength(await keeper.getByRole("region", { name: "Statement" }).locator("tbody tr").count() + 2);
+    // The keeper's statement has the same lines as the manager's, with only the detail the keeper may see.
+    expect(keeperView.statement?.lines.length).toBe(safeView.statement?.lines.length);
+    for (const word of ["EXP-001", "Office supplies", "Ahmad Test Shareholder"]) expect(keeperFile.text, `the keeper's file must not carry ${word}`).not.toContain(word);
+    // Nothing broader: no other Safe, no Trial balance, no General Ledger, no Account statement.
+    const otherSafe = safeView.accounts.find((account) => account.nameEn === "Main AFN Safe");
+    expect(otherSafe).toBeDefined();
+    for (const query of [`report=safe-statement&format=csv&lang=en&asOf=${today}&accountId=${otherSafe?.id ?? ""}`, `report=trial-balance&format=csv&lang=en&asOf=${today}`,
+      `report=general-ledger&format=csv&lang=en&from=2026-01-01&to=${today}`, `report=account-statement&format=csv&lang=en&asOf=${today}&accountId=${statementView.account.id}`]) {
+      const refused = await exportGet(keeper, query);
+      expect([403, 404], query).toContain(refused.status);
+      expect(refused.text.startsWith("\uFEFF"), query).toBe(false);
+    }
+    await keeper.context().close();
+
     // Responses: the file is never cached; a refused or foreign request carries no file and records nothing.
     const fileAnswer = await exportGet(page, `report=trial-balance&format=csv&lang=en&asOf=${today}`);
     expect(fileAnswer).toMatchObject({ status: 200, cache: "no-store", type: "text/csv; charset=utf-8" });
@@ -611,7 +644,7 @@ test.describe("V1 operational finance from a new company", () => {
     // The audit: one event per file and none for a refusal, with metadata only.
     const recorded = (await exportAudits()).slice(auditsBefore);
     expect(recorded.map((row) => row.after.kind)).toEqual(["TRIAL_BALANCE", "TRIAL_BALANCE", "ACCOUNT_STATEMENT", "SAFE_STATEMENT", "GENERAL_LEDGER", "GENERAL_LEDGER",
-      "TRIAL_BALANCE"]);
+      "SAFE_STATEMENT", "TRIAL_BALANCE"]);
     for (const row of recorded) {
       expect(Object.keys(row.after).every((key) => ["kind", "format", "language", "mode", "from", "to", "periodId", "fiscalYearId", "accountId", "includeZero", "rowCount"]
         .includes(key))).toBe(true);
@@ -621,8 +654,9 @@ test.describe("V1 operational finance from a new company", () => {
     }
     expect(recorded[1]?.after).toMatchObject({ language: "fa", includeZero: true, rowCount: tableRows(dariFile.text).length - 1 });
     expect(recorded[3]?.after).toMatchObject({ kind: "SAFE_STATEMENT", accountId: safeView.statement?.account.id, rowCount: safeView.statement?.lines.length });
-    expect(new Set([0, 1, 2, 3, 4, 6].map((i) => recorded[i]?.actor)).size, "the manager's exports name the manager").toBe(1);
-    expect(recorded[5]?.actor, "the reader's export names the reader").not.toBe(recorded[0]?.actor);
+    expect(new Set([0, 1, 2, 3, 4, 7].map((i) => recorded[i]?.actor)).size, "the manager's exports name the manager").toBe(1);
+    expect(new Set([recorded[0]?.actor, recorded[5]?.actor, recorded[6]?.actor]).size, "the reader's and the keeper's exports name them").toBe(3);
+    expect(recorded[6]?.after).toMatchObject({ kind: "SAFE_STATEMENT", accountId: keeperView.statement?.account.id, rowCount: keeperView.statement?.lines.length });
   });
 });
 

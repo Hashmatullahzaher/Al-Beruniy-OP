@@ -37,9 +37,12 @@ function parseCsv(csv: string): string[][] {
   return rows;
 }
 
-/** The decoded table of a file: the heading row and the rows under it, after the header block and its empty line. */
+/** What a spreadsheet shows for a decoded cell: a constant text formula `="0012"` shows as 0012. */
+const shown = (cell: string) => (/^="[^"]*"$/.test(cell) ? cell.slice(2, -1) : cell);
+
+/** The decoded table of a file, as a spreadsheet shows it: the heading row and the rows under it, after the header block and its empty line. */
 function decodedTable(csv: string): { head: string[][]; headings: string[]; rows: string[][] } {
-  const all = parseCsv(csv);
+  const all = parseCsv(csv).map((row) => row.map(shown));
   const gap = all.findIndex((row) => row.length === 1 && row[0] === "");
   assert.notEqual(gap, -1, "an empty line separates the header block from the table");
   return { head: all.slice(0, gap), headings: all[gap + 1] ?? [], rows: all.slice(gap + 2) };
@@ -108,6 +111,32 @@ test("an amount is the payload's own decimal string, bare and unchanged; anythin
     ["12.", "\"12.\""], [".5", "\".5\""], [`${cp(0x2212)}5`, `"'${cp(0x2212)}5"`], ["NaN", "\"NaN\""], ["", "\"\""]] as const) {
     assert.equal(csvField({ amount: untrusted }), written, JSON.stringify(untrusted));
   }
+});
+
+test("identifiers keep their leading zeros as text; formula-like text is defused; negative money stays a number", () => {
+  // Leading zeros and number- or date-like codes: a constant text formula, so Excel shows exactly the code.
+  for (const [value, written] of [["0012", "\"=\"\"0012\"\"\""], ["1100", "\"=\"\"1100\"\"\""], ["0001-2026", "\"=\"\"0001-2026\"\"\""], ["1-2", "\"=\"\"1-2\"\"\""],
+    ["12.50", "\"=\"\"12.50\"\"\""], ["00000000000000012345", "\"=\"\"00000000000000012345\"\"\""]] as const) {
+    assert.equal(csvField({ code: value }), written, value);
+    assert.equal(shown(parseCsv(written)[0]?.[0] ?? ""), value, value);
+  }
+  // A code with a letter is ordinary text; one that could start a formula is defused like any text, never wrapped.
+  assert.equal(csvField({ code: "OPX-0001" }), "\"OPX-0001\"");
+  assert.equal(csvField({ code: "Restricted movement" }), "\"Restricted movement\"");
+  for (const attack of ["=1+1", "+SUM(A1:A2)", "-CMD", "@example", "0=1+1", "0\"&cmd", "1\n=2", "0012\""]) {
+    const field = csvField({ code: attack });
+    assert.equal(field.startsWith("\"=\"\""), false, `${JSON.stringify(attack)} must not become a formula`);
+  }
+  assert.equal(csvField({ code: "=1+1" }), "\"'=1+1\"");
+  assert.equal(csvField({ code: "" }), "\"\"");
+  // Money is never treated as an identifier: a negative amount is a bare number.
+  assert.equal(csvField({ amount: "-250.00" }), "-250.00");
+  assert.equal(csvField({ amount: "0012.00" }), "0012.00");
+  // In a real table: the account code keeps its zeros, its amounts stay numbers.
+  const table = trialBalanceTable({ ...trialBalance, accounts: [account({ accountCode: "0012", accountName: "=SUM(A1)", periodDebit: "-250.00", endingDebit: "-250.00" })] }, "en");
+  const csv = reportCsv(table, "en", "x");
+  assert.equal(csv.includes("\"=\"\"0012\"\"\",\"'=SUM(A1)\",\"Asset\",\"USD\",0,0,-250.00,0,-250.00,0"), true);
+  assert.deepEqual(decodedTable(csv).rows[0]?.slice(0, 2), ["0012", "'=SUM(A1)"]);
 });
 
 test("decoded from the file, every row is the payload's row, in the payload's order, with the payload's figures", () => {
