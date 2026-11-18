@@ -1,13 +1,17 @@
 # V1 report export (CSV, print and PDF): design record
 
-**Status (2026-11-10):** CSV export is built on branch `claude/report-export-csv` and is **not merged**: its database tests, database-backed browser tests and upgrade proof have not run yet, because the test database clusters were unavailable. Unit tests, typecheck, lint, the production build and the mocked browser suite pass. PDF stays browser Print to PDF. Native `.xlsx` is recommended for after V1; see `V1_XLSX_DEPENDENCY_REVIEW.md`.
+**Status (2026-11-18):** CSV export is built, with migration 0068 for its audit. Its database tests and database-backed browser tests have run on a real database, and the annual simulation exports a full year's reports through it (`docs/04-delivery/V1_ANNUAL_SIMULATION_2026.md`). PDF stays browser Print to PDF. Native `.xlsx` is after V1 (owner decision, 2026-11-11); see `V1_XLSX_DEPENDENCY_REVIEW.md`. Nothing is deployed: 0068 goes to production only in one chain with 0065-0067.
 
 ## Owner decisions (2026-11-08)
+
+Decisions 5 and 6 were added on 2026-11-11.
 
 1. CSV is the first Excel-compatible export, for the Trial Balance, General Ledger, Account Statement and Safe / Saraf Statement. It is UTF-8 with a byte-order mark. The screen calls it "CSV (Excel-compatible)", never native Excel.
 2. Every export is an audit event, with metadata only: report kind, company, validated range and filter, format, row count, person and session, and time. Report contents never enter the audit.
 3. Exported material is Confidential. Printed and PDF copies carry "Confidential / محرمانه". CSV file names carry only the report kind and dates. A future `.xlsx` carries a header block: Company, Report, Period, Generated at, Confidential.
 4. PDF for V1 remains browser Print to PDF, from the existing report pages and print CSS. There is no PDF library and no second reporting engine.
+5. The file may name the company, the report, the account and the Safe inside it: they are part of the authorized report. The file name stays generic.
+6. Identifier and code columns are text, so Excel does not turn `0012` into `12`. Accounting amounts stay numbers. Native `.xlsx` is after V1.
 
 ## The one rule: screen read model = export read model
 
@@ -48,6 +52,10 @@ A refused, oversized or failed export never reaches step 5, so it records no suc
 - **Columns are fixed** and the same in English and Dari. Headings and labels follow the reader's language. Dates are ISO Gregorian days and amounts are plain decimals in both, so the file stays machine-readable.
 - **Rows:** every row the screen lists, in the screen's order, plus the opening, closing and total rows the screen shows around them. Totals are the payload's own figures.
 - **File name:** `<report>_<from>_<to>.csv`, for example `safe-statement_2026-01-01_2026-11-08.csv`. Nothing else.
+
+### Identifiers
+
+Account codes and journal references are identifiers, not numbers. An identifier made only of digits and separators (`0012`, `1100`, `1-2`) is written as the constant text formula `="0012"`, which Excel shows as `0012` and never converts to a number or a date. Only digits and separators can sit inside that literal, so nothing a person typed is evaluated: an identifier containing anything else is ordinary quoted text, defused like any text if it could start a formula. Amounts are never treated this way.
 
 ### Exact money
 
@@ -95,16 +103,17 @@ The export adds no permission and removes none.
 
 ## Known limits
 
-- Excel shows a defused cell with its apostrophe, and shows a quoted code such as `0100` without its leading zero. Native `.xlsx` text cells would fix both.
+- Excel shows a defused cell with its apostrophe. Native `.xlsx` text cells would remove it.
+- A program that does not evaluate formulas (a text editor, some importers) shows an all-digit identifier as `="0012"`.
 - The export audit function uses the operational Finance session check. The General Ledger screen uses an older check with the same permission. A session that passes one and not the other would be refused the export, never given more.
 - If the audit is recorded and the download is then interrupted, the audit shows an export that did not fully arrive.
 
 ## Tests
 
 - **Unit** (`packages/contracts/src/report-export.test.ts`): formula cases, exact money, a decode-and-compare round trip, Dari and English column parity, the byte-order mark, file names, masking, and the 4,999 / 5,000 / 5,001 boundary.
-- **Database** (`packages/e1-integration/src/report-export-audit.test.ts`): metadata-only audit, refused shapes, unauthorized readers, the Safe's responsible person, another company, a restricted reader's masked file, the 5,000-line boundary with real postings, and an audit row that cannot be changed. *Not yet run.*
+- **Database** (`packages/e1-integration/src/report-export-audit.test.ts`): metadata-only audit, refused shapes, unauthorized readers, the Safe's responsible person, another company, a restricted reader's masked file, the 5,000-line boundary with real postings, and an audit row that cannot be changed.
 - **Browser, mocked** (`apps/web/tests/v1-report-export.spec.ts`): the button and its wording, the query it sends, a refusal shown and not downloaded, and the print header in English and Dari.
-- **Browser, database-backed** (`apps/web/tests/v1-operational-finance.spec.ts`, section 15): each downloaded file is compared byte for byte with the screen's own response passed through the formatter, for a full reader and a restricted reader, with headers, refusals and audit rows checked. *Not yet run.*
+- **Browser, database-backed** (`apps/web/tests/v1-operational-finance.spec.ts`, section 15, and `v1-annual-simulation.spec.ts`): each downloaded file is compared byte for byte with the screen's own response passed through the formatter, for a full reader, a restricted reader and a Safe's responsible person, with headers, refusals and audit rows checked. `tests/support/csv.ts` decodes each file as a spreadsheet would and lists anything it could misread.
 
 ## Later
 
