@@ -56,7 +56,8 @@ export function TrialBalanceWorkspace() {
   const [view, setView] = useState<TrialBalanceView | null>(null);
   const [periods, setPeriods] = useState<ReportRange["periods"]>([]);
   const [gate, setGate] = useState<"signed-out" | "denied" | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  // Kept as the error itself: switching language re-renders its text and never reloads the report.
+  const [error, setError] = useState<{ readonly code: string; readonly message: string } | null>(null);
   const [busy, setBusy] = useState(false);
 
   const show = useCallback((result: Awaited<ReturnType<typeof api<TrialBalanceView>>>) => {
@@ -67,8 +68,8 @@ export function TrialBalanceWorkspace() {
       return;
     }
     setGate(result.status === 401 ? "signed-out" : result.status === 403 ? "denied" : null);
-    if (result.status !== 401 && result.status !== 403) setError(fa ? errorText(result.error, "fa") : result.error.message || errorText(result.error, "en"));
-  }, [fa]);
+    if (result.status !== 401 && result.status !== 403) setError(result.error);
+  }, []);
   const load = async (query: string) => {
     setBusy(true); setError(null);
     show(await api<TrialBalanceView>(`/api/v1/finance/trial-balance?${query}`));
@@ -130,7 +131,8 @@ export function TrialBalanceWorkspace() {
         </div>
       </form>
 
-      {error ? <div className="treasury-message error" role="alert"><AppIcon name="alert" size={16} /><span>{error}</span></div> : null}
+      {error ? <div className="treasury-message error" role="alert"><AppIcon name="alert" size={16} />
+        <span>{fa ? errorText(error, "fa") : error.message || errorText(error, "en")}</span></div> : null}
       {view === null ? <p className="treasury-placeholder">{fa ? "در حال بارگذاری…" : "Loading…"}</p> : (
         <section className="module-content-card" aria-label={fa ? "بیلانس آزمایشی" : "Trial balance"}>
           <ReportPrintHeader fa={fa} title={{ en: "Trial balance", fa: "بیلانس آزمایشی" }} period={rangeLabel(view.range, fa)} currency={view.baseCurrency} />

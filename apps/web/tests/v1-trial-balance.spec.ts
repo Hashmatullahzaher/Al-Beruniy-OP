@@ -78,6 +78,26 @@ test("@smoke the trial balance shows debit and credit columns, the balance proof
   await expect(report.getByRole("link", { name: "C-01" })).toHaveAttribute("href", `/finance/account-statement?accountId=${cashId}&periodId=${periodId}`);
 });
 
+test("switching language keeps the report on the screen: the same period and options, and no reload", async ({ page }) => {
+  const asked = await mock(page);
+  await page.goto("/finance/trial-balance");
+  const report = page.getByRole("region", { name: "Trial balance" });
+  await page.getByLabel("Report for").selectOption("period");
+  await page.getByRole("combobox", { name: /^Accounting month/ }).selectOption(periodId);
+  await page.getByLabel("Include accounts with no balance").check();
+  await page.getByRole("button", { name: "Show" }).click();
+  await expect(report.getByRole("heading", { level: 2 })).toContainText("September 2026");
+  const requests = asked.length;
+  expect(asked.at(-1)).toBe(`periodId=${periodId}&includeZero=true`);
+  await page.getByRole("button", { name: "Switch to Dari" }).click();
+  const dari = page.getByRole("region", { name: "بیلانس آزمایشی" });
+  await expect(dari.getByRole("heading", { level: 2 })).toContainText("سپتمبر ۲۰۲۶");
+  await expect(dari.getByRole("status")).toContainText("متوازن");
+  // The form and the report still agree, and nothing was fetched again with default filters.
+  await expect(page.getByRole("checkbox")).toBeChecked();
+  expect(asked.length).toBe(requests);
+});
+
 test("the account statement shows the running balance, masks a restricted movement, and links reversals and journals", async ({ page }) => {
   await mock(page);
   await page.goto(`/finance/account-statement?accountId=${cashId}&periodId=${periodId}`);
