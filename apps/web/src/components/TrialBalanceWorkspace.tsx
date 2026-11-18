@@ -8,6 +8,8 @@ import { Fragment, useCallback, useEffect, useState } from "react";
 import { AccessGate, api, errorText } from "@/components/AdminUsersWorkspace";
 import { AppIcon } from "@/components/AppIcon";
 import { useLocale } from "@/components/LocaleProvider";
+import { ReportExportButton } from "@/components/ReportExportButton";
+import { ReportPrintHeader } from "@/components/ReportPrintHeader";
 import { kabulToday } from "@/components/OperationalFinanceShared";
 import { StageZeroPageHeader } from "@/components/StageZeroWorkspace";
 import type { Copy } from "@/lib/access-copy";
@@ -54,7 +56,8 @@ export function TrialBalanceWorkspace() {
   const [view, setView] = useState<TrialBalanceView | null>(null);
   const [periods, setPeriods] = useState<ReportRange["periods"]>([]);
   const [gate, setGate] = useState<"signed-out" | "denied" | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  // Kept as the error itself: switching language re-renders its text and never reloads the report.
+  const [error, setError] = useState<{ readonly code: string; readonly message: string } | null>(null);
   const [busy, setBusy] = useState(false);
 
   const show = useCallback((result: Awaited<ReturnType<typeof api<TrialBalanceView>>>) => {
@@ -65,8 +68,8 @@ export function TrialBalanceWorkspace() {
       return;
     }
     setGate(result.status === 401 ? "signed-out" : result.status === 403 ? "denied" : null);
-    if (result.status !== 401 && result.status !== 403) setError(fa ? errorText(result.error, "fa") : result.error.message || errorText(result.error, "en"));
-  }, [fa]);
+    if (result.status !== 401 && result.status !== 403) setError(result.error);
+  }, []);
   const load = async (query: string) => {
     setBusy(true); setError(null);
     show(await api<TrialBalanceView>(`/api/v1/finance/trial-balance?${query}`));
@@ -124,12 +127,15 @@ export function TrialBalanceWorkspace() {
         <div className="admin-form-actions">
           <button className="treasury-button gold" type="submit" disabled={busy || !valid}>{busy ? (fa ? "در حال بارگذاری…" : "Loading…") : (fa ? "نمایش" : "Show")}</button>
           <button className="treasury-button" type="button" onClick={() => window.print()} disabled={view === null}>{fa ? "چاپ" : "Print"}</button>
+          {view ? <ReportExportButton report="trial-balance" fa={fa} query={`${rangeQuery(view.range)}${view.includeZero ? "&includeZero=true" : ""}`} /> : null}
         </div>
       </form>
 
-      {error ? <div className="treasury-message error" role="alert"><AppIcon name="alert" size={16} /><span>{error}</span></div> : null}
+      {error ? <div className="treasury-message error" role="alert"><AppIcon name="alert" size={16} />
+        <span>{fa ? errorText(error, "fa") : error.message || errorText(error, "en")}</span></div> : null}
       {view === null ? <p className="treasury-placeholder">{fa ? "در حال بارگذاری…" : "Loading…"}</p> : (
         <section className="module-content-card" aria-label={fa ? "بیلانس آزمایشی" : "Trial balance"}>
+          <ReportPrintHeader fa={fa} title={{ en: "Trial balance", fa: "بیلانس آزمایشی" }} period={rangeLabel(view.range, fa)} currency={view.baseCurrency} />
           <h2>{rangeLabel(view.range, fa)}</h2>
           <p className={view.balanced ? "treasury-message success" : "treasury-message error"} role="status">
             {view.balanced

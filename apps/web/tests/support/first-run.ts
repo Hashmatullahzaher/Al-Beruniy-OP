@@ -40,6 +40,18 @@ export async function readOnly<Row extends pg.QueryResultRow>(sql: string): Prom
   }
 }
 
+/**
+ * Test-environment setup for which the product has no path at all, for example a second legal entity in a single-company installation.
+ * Never for a business transaction of the company under test: those go through the product's own screens.
+ */
+export async function setupOnly(sql: string, parameters: readonly unknown[] = []): Promise<void> {
+  const environment = previewEnvironment();
+  assertDisposablePreviewDatabase(environment.ABOS_DATABASE_URL, environment.ABOS_IDENTITY_DATABASE_URL);
+  const client = new pg.Client({ connectionString: environment.ABOS_DATABASE_URL });
+  await client.connect();
+  try { await client.query(sql, [...parameters]); } finally { await client.end(); }
+}
+
 const COUNTS: Readonly<Record<string, string>> = {
   fiscal_years: "abos.fiscal_years", ledger_accounts: "abos.ledger_accounts", workflow_policies: "abos.finance_workflow_policy_versions",
   treasury_accounts: "abos.operational_treasury_accounts", shareholders: "abos.shareholder_profiles", journals: "abos.journals"

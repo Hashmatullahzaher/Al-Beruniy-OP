@@ -13,6 +13,7 @@ import { ReportsAnalyticsWorkspace } from "@/components/ReportsAnalyticsWorkspac
 import { ProjectsWorkspace } from "@/components/ProjectsWorkspace";
 import { SalesCrmWorkspace } from "@/components/SalesCrmWorkspace";
 import { SettingsWorkspace } from "@/components/SettingsWorkspace";
+import { stageZeroAvailable } from "@/lib/stage-zero";
 
 interface ModulePageProps {
   readonly params: Promise<{ segments: string[] }>;
@@ -30,7 +31,7 @@ export function generateStaticParams() {
 
 export async function generateMetadata({ params }: ModulePageProps): Promise<Metadata> {
   const { segments } = await params;
-  const route = findWorkspaceRoute(pathFromSegments(segments));
+  const route = stageZeroAvailable ? findWorkspaceRoute(pathFromSegments(segments)) : undefined;
   return route ? { title: route.label, description: route.description } : {};
 }
 
@@ -38,7 +39,8 @@ export default async function ModulePage({ params }: ModulePageProps) {
   const { segments } = await params;
   const route = findWorkspaceRoute(pathFromSegments(segments));
 
-  if (!route || route.path === "/") {
+  // Every screen below is a Stage 0 demo: a production build answers Not Found for all of them.
+  if (!stageZeroAvailable || !route || route.path === "/") {
     notFound();
   }
 

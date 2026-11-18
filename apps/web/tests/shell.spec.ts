@@ -5,11 +5,14 @@ import type { EnvironmentName } from "@abos/contracts";
 import { expect, test } from "@playwright/test";
 
 import { signedOutFooter } from "../src/lib/environment-copy";
+import { DEV_ONLY, productionBuild } from "./support/build-mode";
 
 /**
- * The company dashboard at "/" needs company.dashboard.read, so the public Stage 0 shell is exercised
- * on /projects. The old presentation figures once shown at "/" must never come back as company facts.
+ * The shell is exercised signed out on a real V1 page (/finance/trial-balance shows its sign-in gate inside the shell), so these tests hold
+ * on a production build, where the Stage 0 screens answer Not Found, and on next dev alike. The old presentation figures once shown at "/"
+ * must never come back as company facts.
  */
+const SHELL_PAGE = "/finance/trial-balance";
 const RETIRED_DEMO_FIGURES = [
   "1,284", "$243.1M", "$186.4M", "$60.2M", "$54.2M", "$6.8M", "$28.6M", "246 team members",
   "72% sell-through", "68% average progress", "DEMO DATA", "Units Sold Value", "Portfolio fixture"
@@ -35,9 +38,9 @@ test("@smoke signed-out visitors to the company dashboard are sent to sign-in an
   expect(api.status()).toBe(401);
 });
 
-test("@smoke renders the public Stage 0 shell", async ({ page }) => {
+test("@smoke renders the signed-out shell", async ({ page }) => {
   const { release } = await (await page.request.get("/api/health")).json() as { release: { environment: EnvironmentName } };
-  await page.goto("/projects");
+  await page.goto(SHELL_PAGE);
   await expect(page.getByText(signedOutFooter(release.environment).en)).toBeVisible();
   await expect(page.getByRole("navigation", { name: "Primary navigation" })).toBeVisible();
   const hasHorizontalOverflow = await page.locator("html").evaluate((element) => element.scrollWidth > element.clientWidth);
@@ -45,6 +48,7 @@ test("@smoke renders the public Stage 0 shell", async ({ page }) => {
 });
 
 test("@smoke routes to each approved Stage 0 workspace", async ({ page }) => {
+  test.skip(await productionBuild(page.request), DEV_ONLY);
   await page.goto("/projects");
   await page.getByRole("link", { name: /Finance/ }).click();
   await expect(page).toHaveURL(/\/finance$/);
@@ -58,6 +62,7 @@ test("health and readiness endpoints expose release metadata", async ({ request 
   expect(health.ok()).toBeTruthy();
   const healthBody = await health.json();
   expect(healthBody).toMatchObject({ status: "ok", service: "web" });
+  expect(["production", "development"]).toContain(healthBody.build);
   expect(healthBody.release.gitSha).toMatch(/^[0-9a-f]{40}$/);
 
   const ready = await request.get("/api/ready");
@@ -66,7 +71,7 @@ test("health and readiness endpoints expose release metadata", async ({ request 
 });
 
 test("keyboard skip link and English/Dari switching work", async ({ page }) => {
-  await page.goto("/projects");
+  await page.goto(SHELL_PAGE);
   await page.keyboard.press("Tab");
   await expect(page.getByRole("link", { name: "Skip to main content" })).toBeFocused();
   await page.keyboard.press("Enter");
@@ -75,7 +80,7 @@ test("keyboard skip link and English/Dari switching work", async ({ page }) => {
   await page.getByRole("button", { name: "Switch to Dari" }).click();
   await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
   await expect(page.locator("html")).toHaveAttribute("lang", "fa");
-  await expect(page.getByRole("navigation", { name: "ناوبری اصلی" }).getByRole("link", { name: "مالی" })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "ناوبری اصلی" }).getByRole("link", { name: "ورود کارمندان" })).toBeVisible();
   // The menu toggle is hidden at desktop width; its screen-reader name still follows the language.
   await expect(page.getByRole("button", { name: "باز و بسته کردن ناوبری", includeHidden: true })).toBeAttached();
   // The search box and the clock are named in Dari for a screen reader. Both are hidden at this width, so their names are read, not their visibility.
@@ -88,23 +93,22 @@ test("keyboard skip link and English/Dari switching work", async ({ page }) => {
 
 test("tablet navigation remains operable", async ({ page }) => {
   await page.setViewportSize({ width: 768, height: 1024 });
-  await page.goto("/finance");
+  await page.goto(SHELL_PAGE);
   const menu = page.getByRole("button", { name: "Toggle navigation" });
   const primaryNavigation = page.getByRole("navigation", { name: "Primary navigation" });
-  const projectsLink = primaryNavigation.getByRole("link", { name: "Projects", exact: true });
+  const signInLink = primaryNavigation.getByRole("link", { name: "Employee sign-in" });
   await expect(menu).toBeVisible();
-  await expect(projectsLink).toBeHidden();
+  await expect(signInLink).toBeHidden();
   await menu.click();
   await expect(primaryNavigation).toBeVisible();
-  await expect(projectsLink).toBeVisible();
-  await projectsLink.click();
-  await expect(page).toHaveURL(/\/projects$/);
-  await expect(page.getByRole("heading", { level: 1, name: "Projects" })).toBeVisible();
+  await expect(signInLink).toBeVisible();
+  await signInLink.click();
+  await expect(page).toHaveURL(/\/login$/);
 });
 
 test("desktop shell frame is complete and free of horizontal overflow", async ({ page }) => {
   await page.setViewportSize({ width: 1920, height: 1080 });
-  await page.goto("/projects");
+  await page.goto(SHELL_PAGE);
 
   await expect(page.getByRole("navigation", { name: "Primary navigation" })).toBeVisible();
 
@@ -116,8 +120,14 @@ test("desktop shell frame is complete and free of horizontal overflow", async ({
 });
 
 test("interactive shell controls expose accessible names and explicit states", async ({ page }) => {
+  // Signed in, so the search offers the pages this person may open (never a Stage 0 screen).
+  await page.route("**/api/v1/auth/me", (route) => route.fulfill({ json: { ok: true, data: { userAccountId: "7b000000-0000-4000-8000-000000000009",
+    loginIdentifier: "ui.shell", displayName: "UI test Accountant", jobTitle: "Accountant", legalEntityName: "UI test company",
+    permissions: ["finance.report.operational.read"], sessionExpiresAt: "2099-01-01T00:00:00Z" } } }));
+  await page.route("**/api/v1/finance/trial-balance*", (route) => route.fulfill({ status: 403, json: { ok: false, error: { code: "PERMISSION_DENIED", message: "Not available." } } }));
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto("/projects");
+  await page.goto(SHELL_PAGE);
+  await expect(page.getByRole("navigation", { name: "Operations" })).toBeVisible();
 
   const unnamedControls = await page.locator("a, button, input").evaluateAll((elements) => elements
     .filter((element) => {
@@ -131,9 +141,10 @@ test("interactive shell controls expose accessible names and explicit states", a
   await expect(page.locator("img:not([alt])")).toHaveCount(0);
 
   await page.getByRole("button", { name: "Notifications" }).click();
-  await expect(page.getByRole("status")).toContainText("Notifications are not connected");
+  await expect(page.getByRole("status").filter({ hasText: "Notifications are not connected" })).toBeVisible();
 
   const search = page.getByRole("textbox", { name: "Search workspaces" });
-  await search.fill("Finance");
-  await expect(page.getByRole("navigation", { name: "Workspace search results" }).getByRole("link", { name: "Finance" })).toBeVisible();
+  await expect(search).toHaveAttribute("placeholder", "Search pages…");
+  await search.fill("ledger");
+  await expect(page.getByRole("navigation", { name: "Workspace search results" }).getByRole("link", { name: "General Ledger" })).toBeVisible();
 });

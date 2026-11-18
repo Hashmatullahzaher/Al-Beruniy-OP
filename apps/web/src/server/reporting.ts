@@ -1,3 +1,4 @@
+import type { AccountStatementView, TreasuryStatementView, TrialBalanceView } from "@abos/contracts";
 import { IdentityError } from "@abos/identity";
 
 import { financeHandoffRuntime } from "@/server/finance-handoff";
@@ -54,33 +55,37 @@ export function reportingErrorResponse(error: unknown): Response {
   return operationalFinanceErrorResponse(error);
 }
 
+// The screens and the exports read through these same functions, so an export is always the payload the screen received for the same query.
+
+export async function trialBalanceData(query: URLSearchParams): Promise<TrialBalanceView> {
+  const payload: Record<string, unknown> = reportRange(query);
+  if (query.get("includeZero") === "true") payload.includeZero = true;
+  return restrictedFinanceAuthenticator().trialBalance(financeHandoffRuntime().executor, await sessionToken(), payload);
+}
+
+export async function accountStatementData(query: URLSearchParams): Promise<AccountStatementView> {
+  const accountId = query.get("accountId") ?? "";
+  if (!UUID.test(accountId)) throw new IdentityError("VALIDATION_FAILED", "Choose an account.");
+  return restrictedFinanceAuthenticator().accountStatement(financeHandoffRuntime().executor, await sessionToken(), { accountId, ...reportRange(query) });
+}
+
+export async function safeStatementData(query: URLSearchParams): Promise<TreasuryStatementView> {
+  const accountId = query.get("accountId");
+  if (accountId !== null && !UUID.test(accountId)) throw new IdentityError("VALIDATION_FAILED", "Choose an account.");
+  return restrictedFinanceAuthenticator().treasuryStatement(financeHandoffRuntime().executor, await sessionToken(),
+    accountId === null ? {} : { accountId, ...reportRange(query) });
+}
+
 export async function trialBalanceGet(request: Request): Promise<Response> {
-  try {
-    const query = new URL(request.url).searchParams;
-    const payload: Record<string, unknown> = reportRange(query);
-    if (query.get("includeZero") === "true") payload.includeZero = true;
-    return json({ ok: true, data: await restrictedFinanceAuthenticator().trialBalance(financeHandoffRuntime().executor, await sessionToken(), payload) });
-  } catch (error) { return reportingErrorResponse(error); }
+  try { return json({ ok: true, data: await trialBalanceData(new URL(request.url).searchParams) }); } catch (error) { return reportingErrorResponse(error); }
 }
 
 export async function accountStatementGet(request: Request): Promise<Response> {
-  try {
-    const query = new URL(request.url).searchParams;
-    const accountId = query.get("accountId") ?? "";
-    if (!UUID.test(accountId)) throw new IdentityError("VALIDATION_FAILED", "Choose an account.");
-    return json({ ok: true, data: await restrictedFinanceAuthenticator().accountStatement(financeHandoffRuntime().executor, await sessionToken(),
-      { accountId, ...reportRange(query) }) });
-  } catch (error) { return reportingErrorResponse(error); }
+  try { return json({ ok: true, data: await accountStatementData(new URL(request.url).searchParams) }); } catch (error) { return reportingErrorResponse(error); }
 }
 
 export async function safeStatementGet(request: Request): Promise<Response> {
-  try {
-    const query = new URL(request.url).searchParams;
-    const accountId = query.get("accountId");
-    if (accountId !== null && !UUID.test(accountId)) throw new IdentityError("VALIDATION_FAILED", "Choose an account.");
-    return json({ ok: true, data: await restrictedFinanceAuthenticator().treasuryStatement(financeHandoffRuntime().executor, await sessionToken(),
-      accountId === null ? {} : { accountId, ...reportRange(query) }) });
-  } catch (error) { return reportingErrorResponse(error); }
+  try { return json({ ok: true, data: await safeStatementData(new URL(request.url).searchParams) }); } catch (error) { return reportingErrorResponse(error); }
 }
 
 export async function financialSummaryGet(request: Request): Promise<Response> {

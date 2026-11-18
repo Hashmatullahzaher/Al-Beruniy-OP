@@ -1,5 +1,13 @@
 import { expect, test, type Page } from "@playwright/test";
 
+import { DEV_ONLY, productionBuild } from "./support/build-mode";
+
+/**
+ * DEV-ONLY SPEC. The Stage 0 screens are development and review material: a production build answers Not Found for each of them
+ * (v1-stage-zero-retired.spec.ts proves that). The two Documents tests live in v1-documents-guide.spec.ts: that page is real V1.
+ */
+test.beforeEach(async ({ request }) => { test.skip(await productionBuild(request), DEV_ONLY); });
+
 /** Streaming keeps a hidden copy of the page in #S:0 until it is swapped in; strict locators must not race it. */
 async function open(page: Page, path: string): Promise<void> {
   await page.goto(path);
@@ -219,20 +227,6 @@ test("Reports and AI Insights remain usable at tablet width and in Dari RTL", as
   await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
 });
 
-test("Documents says where each kind of document is kept, opens nothing itself, and shows no demo data", async ({ page }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
-  await open(page, "/documents");
-  await expect(page.getByRole("heading", { level: 1, name: "Documents" })).toBeVisible();
-  const places = page.getByRole("region", { name: "Where documents are kept" });
-  for (const [name, href] of [["Company", "/admin/company"], ["Shareholders", "/shareholders"], ["Capital agreements", "/shareholders/legacy"], ["Loans", "/finance/loans"],
-    ["Expenses", "/finance/transactions"], ["Receipts and payments", "/finance/safe-statement"]] as const) {
-    await expect(places.getByRole("link", { name, exact: true })).toHaveAttribute("href", href);
-  }
-  await expect(page.getByRole("region", { name: "Security check" })).toContainText("Until the check passes, the file stays locked.");
-  await expect(page.getByRole("main")).not.toContainText(/DEMO|Stage 0|synthetic/i);
-  await expect(page.getByRole("main").getByRole("link", { name: /download|view/i })).toHaveCount(0);
-});
-
 test("Settings changes local interface previews without operational mutation", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await open(page, "/settings");
@@ -257,19 +251,11 @@ test("Settings changes local interface previews without operational mutation", a
   await expect(page.getByRole("button", { name: "Configuration locked" }).first()).toBeDisabled();
 });
 
-test("Documents and Settings remain usable at tablet width and in Dari RTL", async ({ page }) => {
+test("Settings remains usable at tablet width and in Dari RTL", async ({ page }) => {
   await page.setViewportSize({ width: 768, height: 1024 });
-
-  await open(page, "/documents");
-  expect(await page.locator("html").evaluate((element) => element.scrollWidth > element.clientWidth)).toBeFalsy();
-  await page.getByRole("button", { name: "Switch to Dari" }).click();
-  await expect(page.getByRole("heading", { level: 1, name: "اسناد" })).toBeVisible();
-  await expect(page.getByRole("region", { name: "جای اسناد" }).getByRole("link", { name: "قرض‌ها", exact: true })).toBeVisible();
-  await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
-  await expect(page.locator("html")).toHaveAttribute("lang", "fa");
-
   await open(page, "/settings");
   expect(await page.locator("html").evaluate((element) => element.scrollWidth > element.clientWidth)).toBeFalsy();
+  await page.getByRole("button", { name: "Switch to Dari" }).click();
   await expect(page.getByRole("button", { name: "Switch to English" })).toBeVisible();
   await expect(page.getByRole("heading", { level: 1, name: "تنظیمات" })).toBeVisible();
   await expect(page.locator("html")).toHaveAttribute("dir", "rtl");

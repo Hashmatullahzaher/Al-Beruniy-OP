@@ -9,9 +9,11 @@ import { dualDate, SourceCell } from "@/components/AccountStatementWorkspace";
 import { AccessGate, api, errorText } from "@/components/AdminUsersWorkspace";
 import { AppIcon } from "@/components/AppIcon";
 import { useLocale } from "@/components/LocaleProvider";
+import { ReportExportButton } from "@/components/ReportExportButton";
+import { ReportPrintHeader } from "@/components/ReportPrintHeader";
 import { kabulToday, money } from "@/components/OperationalFinanceShared";
 import { StageZeroPageHeader } from "@/components/StageZeroWorkspace";
-import { rangeLabel, reportAmount } from "@/components/TrialBalanceWorkspace";
+import { rangeLabel, rangeQuery, reportAmount } from "@/components/TrialBalanceWorkspace";
 
 type Mode = "asOf" | "range";
 
@@ -108,6 +110,7 @@ export function SafeStatementWorkspace() {
         <div className="admin-form-actions">
           <button className="treasury-button gold" type="submit" disabled={!valid}>{fa ? "نمایش" : "Show"}</button>
           <button className="treasury-button" type="button" onClick={() => window.print()} disabled={statement === null}>{fa ? "چاپ" : "Print"}</button>
+          {statement ? <ReportExportButton report="safe-statement" fa={fa} query={`accountId=${statement.account.id}&${rangeQuery(statement.range)}`} /> : null}
         </div>
       </form>
 
@@ -119,6 +122,8 @@ export function SafeStatementWorkspace() {
 
       {statement ? (
         <section className="module-content-card safe-statement" aria-label={fa ? "صورت‌حساب" : "Statement"}>
+          <ReportPrintHeader fa={fa} period={rangeLabel(statement.range, fa)} currency={currency}
+            title={{ en: `Safe / Saraf statement · ${statement.account.nameEn}`, fa: `صورت‌حساب صندوق / صراف · ${statement.account.nameFa ?? statement.account.nameEn}` }} />
           <h2>{rangeLabel(statement.range, fa)}</h2>
           <p className="admin-hint">{TYPE_COPY[statement.account.accountType]?.[fa ? "fa" : "en"] ?? statement.account.accountType} · <span dir="ltr">{currency}</span></p>
           <dl className="safe-figures">

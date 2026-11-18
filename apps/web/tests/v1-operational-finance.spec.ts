@@ -1,3 +1,9 @@
+import { readFile } from "node:fs/promises";
+
+import {
+  accountStatementTable, generalLedgerTable, reportCsv, safeStatementTable, trialBalanceTable, type AccountStatementView, type ExportLedgerLine, type ExportLedgerTotal,
+  type TreasuryStatementView, type TrialBalanceView
+} from "@abos/contracts";
 import { expect, test, type Page } from "@playwright/test";
 
 import { createAccount, employeeHolding, expectBusinessCounts, policyCard, readOnly, seedFirstRun, signIn, signOut } from "./support/first-run";
@@ -336,6 +342,8 @@ test.describe("V1 operational finance from a new company", () => {
 
     // 13. Loans: one person is both shareholder and lender, and the two positions never merge.
     const lawReader = await employeeHolding(page, browser, "loan.report.reader", ["View Finance reports and journals"]);
+    // Holds no report and no Safe permission; becomes responsible for one Safe in step 15.
+    const keeper = await employeeHolding(page, browser, "safe.keeper", ["Request journal reversals"]);
     await signOut(page);
     await signIn(page, "demo.finance.manager", accounts["demo.finance.manager"]);
     await nav.getByRole("link", { name: "Chart of Accounts" }).click();
@@ -500,7 +508,155 @@ test.describe("V1 operational finance from a new company", () => {
       for (const word of ["Outside Lender Ltd", "FX Lender Ltd", "FX-PRIVATE-REF", "Ahmad Test Shareholder", "LOAN-PRIVATE-REF", "LN-2", "LR-2", "RV-2", "/finance/loans", "Repayment entered in error"]) expect(answer, `${path} must not carry ${word}`).not.toContain(word);
     }
     expect((await browserGet(lawReader, `/api/v1/finance/balance-sheet?asOf=${today}`)).text).toContain("51000");
+
+    // 15. Export (owner decisions, 2026-11-08). Each CSV is the payload the screen received for the same query, rendered: the screen's own
+    // response, passed through the shared formatter, gives the downloaded file byte for byte. Every export is an audit event; nothing is stored.
+    const exportAudits = () => readOnly<{ actor: string; after: Record<string, unknown>; metadata: Record<string, unknown> }>(
+      "SELECT actor_user_account_id::text AS actor, after_state AS after, metadata FROM abos.audit_records WHERE action = 'FINANCE_REPORT_EXPORTED' ORDER BY occurred_at, id");
+    const auditsBefore = (await exportAudits()).length;
+    // The file header names the company exactly as the session does (the same read the page shell makes).
+    const company = (JSON.parse((await browserGet(page, "/api/v1/auth/me")).text) as { data: { legalEntityName: string } }).data.legalEntityName;
+    expect(company).not.toBe("");
+    const screenPayload = async <T,>(target: Page, path: string, action: () => Promise<unknown>): Promise<T> => {
+      const response = target.waitForResponse((r) => r.url().includes(path) && r.request().method() === "GET" && r.ok());
+      await action();
+      return ((await (await response).json()) as { data: T }).data;
+    };
+    // Text a spreadsheet would run as a formula, entered as an account name through the Chart of Accounts.
+    await nav.getByRole("link", { name: "Chart of Accounts" }).click();
+    await createAccount(page, { code: "6990", name: "=1+1 Formula check", type: "EXPENSE" });
+    await nav.getByRole("link", { name: "Trial balance" }).click();
+    const balanceReport = page.getByRole("region", { name: "Trial balance" });
+    await expect(balanceReport.getByRole("status")).toContainText("Balanced");
+    await page.getByLabel("Include accounts with no balance").check();
+    const balanceView = await screenPayload<TrialBalanceView>(page, "/api/v1/finance/trial-balance?", () => page.getByRole("button", { name: "Show" }).click());
+    await expect(balanceReport.getByRole("row", { name: /6990/ })).toBeVisible();
+    const balanceFile = await downloadCsv(page, "CSV (Excel-compatible)");
+    expect(balanceFile.name).toMatch(/^trial-balance_\d{4}-\d{2}-\d{2}_\d{4}-\d{2}-\d{2}\.csv$/);
+    expect([...balanceFile.bytes.subarray(0, 3)]).toEqual([0xef, 0xbb, 0xbf]);
+    expect(balanceFile.text).toBe(reportCsv(trialBalanceTable(balanceView, "en"), "en", generatedAt(balanceFile.text), company));
+    expect(tableRows(balanceFile.text)).toHaveLength(await balanceReport.locator("tbody tr").count() + 1);
+    expect(balanceFile.text).toContain("\"Confidential / محرمانه\"");
+    expect(balanceFile.text.split("\r\n")[0]).toBe(`\uFEFF"Company","${company}"`);
+    // The formula is text in the file, and the amounts are the database's decimal strings.
+    expect(balanceFile.text).toContain("\"'=1+1 Formula check\"");
+    expect(balanceFile.text).not.toMatch(/(^|,)"?=1\+1/m);
+    const cashRow = balanceView.accounts.find((row) => row.accountCode === "1100");
+    expect(cashRow).toBeDefined();
+    expect(balanceFile.text).toContain(`"=""1100""","Main Cash Safe - USD","Asset","USD",${cashRow?.openingDebit},${cashRow?.openingCredit},${cashRow?.periodDebit},`);
+    // Dari: the same payload, Dari headings, still UTF-8 with a byte-order mark; the printed copy is right to left and Confidential.
+    await page.getByRole("button", { name: "Switch to Dari" }).click();
+    const dariFile = await downloadCsv(page, "CSV (سازگار با Excel)");
+    expect(dariFile.text).toBe(reportCsv(trialBalanceTable(balanceView, "fa"), "fa", generatedAt(dariFile.text), company));
+    expect(dariFile.text).toContain("\"کد\",\"حساب\"");
+    await page.emulateMedia({ media: "print" });
+    const printed = page.getByTestId("report-print-header");
+    await expect(printed).toHaveAttribute("dir", "rtl");
+    await expect(printed).toContainText("Confidential / محرمانه");
+    await expect(printed.getByRole("term").filter({ hasText: "شرکت" }).locator("xpath=following-sibling::dd")).not.toBeEmpty();
+    await page.emulateMedia({ media: "screen" });
+    await page.getByRole("button", { name: "Switch to English" }).click();
+
+    const statementView = await screenPayload<AccountStatementView>(page, "/api/v1/finance/account-statement?",
+      () => balanceReport.getByRole("link", { name: "1100", exact: true }).click());
+    const statementFile = await downloadCsv(page, "CSV (Excel-compatible)");
+    expect(statementFile.text).toBe(reportCsv(accountStatementTable(statementView, "en"), "en", generatedAt(statementFile.text), company));
+    expect(statementFile.text).toContain("\"Account\",\"1100 · Main Cash Safe - USD\"");
+    expect(statementFile.name).toMatch(/^account-statement_\d{4}-\d{2}-\d{2}_\d{4}-\d{2}-\d{2}\.csv$/);
+    expect(tableRows(statementFile.text)).toHaveLength(await page.getByRole("region", { name: "Account statement" }).locator("tbody tr").count() + 3);
+
+    await nav.getByRole("link", { name: "Safe / Saraf statement" }).click();
+    const safeView = await screenPayload<TreasuryStatementView>(page, "/api/v1/finance/safe-statement?accountId=",
+      () => page.getByLabel("Safe or Saraf").selectOption({ label: "Main USD Safe · USD" }));
+    await expect(page.getByRole("region", { name: "Statement" }).getByRole("status")).toContainText("Agrees with the General Ledger.");
+    const safeFile = await downloadCsv(page, "CSV (Excel-compatible)");
+    expect(safeFile.name, "the file name never names the Safe").toMatch(/^safe-statement_\d{4}-\d{2}-\d{2}_\d{4}-\d{2}-\d{2}\.csv$/);
+    const safeTable = safeStatementTable(safeView, "en");
+    expect(safeTable).not.toBeNull();
+    if (safeTable !== null) expect(safeFile.text).toBe(reportCsv(safeTable, "en", generatedAt(safeFile.text), company));
+    expect(safeFile.text).toContain("\"Account\",\"Main USD Safe\"");
+    expect(tableRows(safeFile.text)).toHaveLength(await page.getByRole("region", { name: "Statement" }).locator("tbody tr").count() + 2);
+
+    const ledgerView = await screenPayload<LedgerPage>(page, "/api/v1/finance/general-ledger?", () => nav.getByRole("link", { name: "General Ledger" }).click());
+    expect(ledgerView.hasMore).toBe(false);
+    const ledgerFile = await downloadCsv(page, "CSV (Excel-compatible)");
+    expect(ledgerFile.text).toBe(reportCsv(generalLedgerTable(ledgerView, ledgerView.lines, ledgerView.totals ?? [], "en"), "en", generatedAt(ledgerFile.text), company));
+
+    // The report-only reader exports exactly the masked General Ledger they see: same payload, nothing about the lender.
+    const maskedView = await screenPayload<LedgerPage>(lawReader, "/api/v1/finance/general-ledger?", () => lawReader.goto("/finance/general-ledger"));
+    const maskedFile = await downloadCsv(lawReader, "CSV (Excel-compatible)");
+    expect(maskedFile.text).toBe(reportCsv(generalLedgerTable(maskedView, maskedView.lines, maskedView.totals ?? [], "en"), "en", generatedAt(maskedFile.text), company));
+    expect(maskedView.lines.length, "a restricted line keeps its place and its amounts").toBe(ledgerView.lines.length);
+    const withoutTime = (csv: string) => csv.replace(generatedAt(csv), "");
+    expect(withoutTime(maskedFile.text), "the reader's file withholds what the reader's screen withholds").not.toBe(withoutTime(ledgerFile.text));
+    for (const word of ["Outside Lender Ltd", "FX Lender Ltd", "FX-PRIVATE-REF", "Ahmad Test Shareholder", "LOAN-PRIVATE-REF", "Repayment entered in error"]) {
+      expect(maskedFile.text, `the restricted export must not carry ${word}`).not.toContain(word);
+    }
     await lawReader.context().close();
+
+    // The person responsible for a Safe reads that Safe's statement without any report permission (0057), and exports exactly that.
+    await nav.getByRole("link", { name: "Safes" }).click();
+    const usdSafeCard = page.locator(".safe-card").filter({ has: page.getByRole("heading", { name: "Main USD Safe" }) });
+    await usdSafeCard.locator(".safe-responsibles").getByRole("button", { name: "Change" }).click();
+    await usdSafeCard.locator(".safe-responsibles").locator("label", { hasText: "Synthetic safe.keeper" }).locator("input").check();
+    await usdSafeCard.locator(".safe-responsibles").getByRole("button", { name: "Save" }).click();
+    await expect(page.locator(".treasury-message.success")).toContainText("Responsible people saved.");
+    await keeper.goto("/finance/safe-statement");
+    await expect(keeper.getByLabel("Safe or Saraf").locator("option").filter({ hasText: "Main USD Safe" })).toHaveCount(1);
+    await expect(keeper.getByLabel("Safe or Saraf").locator("option").filter({ hasText: "Main AFN Safe" })).toHaveCount(0);
+    const keeperView = await screenPayload<TreasuryStatementView>(keeper, "/api/v1/finance/safe-statement?accountId=",
+      () => keeper.getByLabel("Safe or Saraf").selectOption({ label: "Main USD Safe · USD" }));
+    const keeperFile = await downloadCsv(keeper, "CSV (Excel-compatible)");
+    const keeperTable = safeStatementTable(keeperView, "en");
+    expect(keeperTable).not.toBeNull();
+    if (keeperTable !== null) expect(keeperFile.text).toBe(reportCsv(keeperTable, "en", generatedAt(keeperFile.text), company));
+    expect(tableRows(keeperFile.text)).toHaveLength(await keeper.getByRole("region", { name: "Statement" }).locator("tbody tr").count() + 2);
+    // The keeper's statement has the same lines as the manager's, with only the detail the keeper may see.
+    expect(keeperView.statement?.lines.length).toBe(safeView.statement?.lines.length);
+    for (const word of ["EXP-001", "Office supplies", "Ahmad Test Shareholder"]) expect(keeperFile.text, `the keeper's file must not carry ${word}`).not.toContain(word);
+    // Nothing broader: no other Safe, no Trial balance, no General Ledger, no Account statement.
+    const otherSafe = safeView.accounts.find((account) => account.nameEn === "Main AFN Safe");
+    expect(otherSafe).toBeDefined();
+    for (const query of [`report=safe-statement&format=csv&lang=en&asOf=${today}&accountId=${otherSafe?.id ?? ""}`, `report=trial-balance&format=csv&lang=en&asOf=${today}`,
+      `report=general-ledger&format=csv&lang=en&from=2026-01-01&to=${today}`, `report=account-statement&format=csv&lang=en&asOf=${today}&accountId=${statementView.account.id}`]) {
+      const refused = await exportGet(keeper, query);
+      expect([403, 404], query).toContain(refused.status);
+      expect(refused.text.startsWith("\uFEFF"), query).toBe(false);
+    }
+    await keeper.context().close();
+
+    // Responses: the file is never cached; a refused or foreign request carries no file and records nothing.
+    const fileAnswer = await exportGet(page, `report=trial-balance&format=csv&lang=en&asOf=${today}`);
+    expect(fileAnswer).toMatchObject({ status: 200, cache: "no-store", type: "text/csv; charset=utf-8" });
+    expect(fileAnswer.disposition).toBe(`attachment; filename="trial-balance_${balanceView.range.from}_${today}.csv"`);
+    const foreign = await exportGet(page, `report=account-statement&format=csv&lang=en&asOf=${today}&accountId=${crypto.randomUUID()}`);
+    expect(foreign).toMatchObject({ status: 404, cache: "no-store" });
+    expect(foreign.text).not.toContain("\uFEFF");
+    expect((await exportGet(page, `report=balance-sheet&format=csv&lang=en&asOf=${today}`)).status).toBe(422);
+    expect((await exportGet(page, `report=trial-balance&format=xlsx&lang=en&asOf=${today}`)).status).toBe(422);
+    await signOut(page);
+    expect(await exportGet(page, `report=trial-balance&format=csv&lang=en&asOf=${today}`)).toMatchObject({ status: 401, cache: "no-store" });
+    await signIn(page, "super.admin", accounts["super.admin"]);
+    const denied = await exportGet(page, `report=trial-balance&format=csv&lang=en&asOf=${today}`);
+    expect(denied).toMatchObject({ status: 403, cache: "no-store" });
+    expect(denied.text).not.toContain("Main Cash Safe");
+
+    // The audit: one event per file and none for a refusal, with metadata only.
+    const recorded = (await exportAudits()).slice(auditsBefore);
+    expect(recorded.map((row) => row.after.kind)).toEqual(["TRIAL_BALANCE", "TRIAL_BALANCE", "ACCOUNT_STATEMENT", "SAFE_STATEMENT", "GENERAL_LEDGER", "GENERAL_LEDGER",
+      "SAFE_STATEMENT", "TRIAL_BALANCE"]);
+    for (const row of recorded) {
+      expect(Object.keys(row.after).every((key) => ["kind", "format", "language", "mode", "from", "to", "periodId", "fiscalYearId", "accountId", "includeZero", "rowCount"]
+        .includes(key))).toBe(true);
+      expect(row.metadata.source).toBe("v1-report-export");
+      expect(typeof row.metadata.sessionId).toBe("string");
+      for (const word of ["Formula check", "Main Cash Safe", "Main USD Safe", "Ahmad", "Lender", "EXP-001", "Office supplies", "50000.00", "1000.00"]) expect(JSON.stringify(row)).not.toContain(word);
+    }
+    expect(recorded[1]?.after).toMatchObject({ language: "fa", includeZero: true, rowCount: tableRows(dariFile.text).length - 1 });
+    expect(recorded[3]?.after).toMatchObject({ kind: "SAFE_STATEMENT", accountId: safeView.statement?.account.id, rowCount: safeView.statement?.lines.length });
+    expect(new Set([0, 1, 2, 3, 4, 7].map((i) => recorded[i]?.actor)).size, "the manager's exports name the manager").toBe(1);
+    expect(new Set([recorded[0]?.actor, recorded[5]?.actor, recorded[6]?.actor]).size, "the reader's and the keeper's exports name them").toBe(3);
+    expect(recorded[6]?.after).toMatchObject({ kind: "SAFE_STATEMENT", accountId: keeperView.statement?.account.id, rowCount: keeperView.statement?.lines.length });
   });
 });
 
@@ -724,6 +880,40 @@ test.describe("V1 Getting started from a new company", () => {
 });
 
 /** A request from the signed-in page, as the app makes it. Under next start the session cookie is Secure, which Playwright's own request client will not send over http. */
+/** One page of the General Ledger as the screen receives it: the fields the export renders. */
+type LedgerPage = { from: string; to: string; hasMore: boolean; lines: ExportLedgerLine[]; totals: ExportLedgerTotal[] | null };
+
+/** Clicks an export button and reads the saved file, byte-order mark included. */
+async function downloadCsv(target: Page, button: string): Promise<{ name: string; text: string; bytes: Buffer }> {
+  const download = target.waitForEvent("download");
+  await target.getByRole("button", { name: button }).click();
+  const file = await download;
+  const bytes = await readFile(await file.path());
+  return { name: file.suggestedFilename(), text: bytes.toString("utf8"), bytes };
+}
+
+/** The generation time written in a CSV's header block, so the rest of the file can be compared exactly. */
+function generatedAt(csv: string): string {
+  const match = /^"(?:Generated at|زمان تهیه)","([^"]+)"\r$/m.exec(csv);
+  expect(match, "the file says when it was made").not.toBeNull();
+  return match?.[1] ?? "";
+}
+
+/** The rows of a CSV's table, after its header block and heading row. */
+function tableRows(csv: string): string[] {
+  const lines = csv.split("\r\n");
+  return lines.slice(lines.indexOf("") + 2).filter((line) => line !== "");
+}
+
+/** An export request as the browser makes it, with the response headers that matter. */
+async function exportGet(page: Page, query: string): Promise<{ status: number; cache: string | null; type: string | null; disposition: string | null; text: string }> {
+  return page.evaluate(async (search) => {
+    const response = await fetch(`/api/v1/finance/report-export?${search}`, { cache: "no-store" });
+    return { status: response.status, cache: response.headers.get("Cache-Control"), type: response.headers.get("Content-Type"),
+      disposition: response.headers.get("Content-Disposition"), text: await response.text() };
+  }, query);
+}
+
 async function browserGet(page: Page, url: string): Promise<{ status: number; text: string }> {
   return page.evaluate(async (path) => { const response = await fetch(path); return { status: response.status, text: await response.text() }; }, url);
 }

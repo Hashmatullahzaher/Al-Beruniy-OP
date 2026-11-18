@@ -587,6 +587,12 @@ export class SandboxAuthenticator {
       "SELECT abos.finance_trial_balance($1,$2,$3,$4::jsonb) AS value", token, [JSON.stringify(request)], "Trial balance is unavailable");
   }
 
+  /** 0068: records that a report was exported (metadata only); refused unless the session may read that report. */
+  async reportExportRecord(executor: SqlExecutor, token: string, request: Record<string, unknown>): Promise<{ readonly auditId: string }> {
+    return this.operationalFinanceFunction<{ readonly auditId: string }>(executor,
+      "SELECT abos.finance_report_export_record($1,$2,$3,$4::jsonb) AS value", token, [JSON.stringify(request)], "Report export audit is unavailable");
+  }
+
   /** One account's statement: opening, lines with a running balance, closing (0053). */
   async accountStatement(executor: SqlExecutor, token: string, request: Record<string, unknown>): Promise<AccountStatementView> {
     return this.operationalFinanceFunction<AccountStatementView>(executor,

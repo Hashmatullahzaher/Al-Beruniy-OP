@@ -10,9 +10,11 @@ import { AccessGate, api, errorText } from "@/components/AdminUsersWorkspace";
 import { AppIcon } from "@/components/AppIcon";
 import { DocumentsPanel } from "@/components/DocumentsPanel";
 import { useLocale } from "@/components/LocaleProvider";
+import { ReportExportButton } from "@/components/ReportExportButton";
+import { ReportPrintHeader } from "@/components/ReportPrintHeader";
 import { kabulToday } from "@/components/OperationalFinanceShared";
 import { StageZeroPageHeader } from "@/components/StageZeroWorkspace";
-import { rangeLabel, reportAmount } from "@/components/TrialBalanceWorkspace";
+import { rangeLabel, rangeQuery, reportAmount } from "@/components/TrialBalanceWorkspace";
 
 export function dualDate(iso: string, fa: boolean): string {
   const d = formatDual(iso, fa ? "fa" : "en");
@@ -95,9 +97,14 @@ export function AccountStatementWorkspace() {
         </div>
       ) : missing ? <p className="admin-hint" role="note">{fa ? "حساب را از " : "Choose an account from the "}
         <Link href="/finance/trial-balance">{fa ? "بیلانس آزمایشی" : "Trial balance"}</Link>{fa ? " انتخاب کنید." : "."}</p> : null}
+      {view ? <div className="admin-form-actions report-filters">
+        <button className="treasury-button" type="button" onClick={() => window.print()}>{fa ? "چاپ" : "Print"}</button>
+        <ReportExportButton report="account-statement" fa={fa} query={`accountId=${view.account.id}&${rangeQuery(view.range)}`} />
+      </div> : null}
       {error ? <div className="treasury-message error" role="alert"><AppIcon name="alert" size={16} /><span>{error}</span></div> : null}
       {view ? (
         <section className="module-content-card" aria-label={fa ? "صورت‌حساب" : "Account statement"}>
+          <ReportPrintHeader fa={fa} title={{ en: `Account statement · ${title}`, fa: `صورت‌حساب · ${title}` }} period={rangeLabel(view.range, fa)} currency={view.account.currency} />
           <h2>{rangeLabel(view.range, fa)}</h2>
           <dl className="safe-figures">
             <div><dt>{fa ? "افتتاحیه" : "Opening"}</dt><dd dir="ltr">{reportAmount(view.opening.debit)} Dr · {reportAmount(view.opening.credit)} Cr</dd></div>
