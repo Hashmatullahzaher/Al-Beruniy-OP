@@ -94,6 +94,32 @@ test("another lender can be new or known, and an AFN Safe takes its currency fro
   expect(posted[0]).toMatchObject({ lenderType: "COMPANY", lenderName: "New Lender Ltd", lenderBusinessPartyId: null, shareholderProfileId: null, currencyCode: "AFN", liabilityLedgerAccountId: otherAccount });
 });
 
+test("after a loan is recorded, another can be recorded at once: an empty form and a request of its own", async ({ page }) => {
+  const posted = await mock(page);
+  await page.goto("/finance/add-money");
+  await page.getByRole("button", { name: /Other loan/ }).click();
+  const record = async (name: string, amount: string) => {
+    const form = page.getByRole("form", { name: "Record loan" });
+    await expect(form.getByRole("textbox", { name: "Name" })).toHaveValue("");
+    await expect(form.getByLabel(/^Amount/)).toHaveValue("");
+    await form.getByRole("textbox", { name: "Name" }).fill(name);
+    await form.getByLabel("Which Safe did it go into?").selectOption({ label: "AFN Safe · AFN" });
+    await form.getByLabel("Amount (AFN)").fill(amount);
+    await form.getByRole("button", { name: "Record loan" }).click();
+    await expect(page.getByRole("status").filter({ hasText: "Loan recorded." })).toBeVisible();
+  };
+  await record("First Lender", "7000");
+  // The page used to stop here: "Loan recorded." and no way to start again without leaving it.
+  await expect(page.getByRole("form", { name: "Record loan" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Record another loan" }).click();
+  await record("Second Lender", "9000");
+  // Choosing the same source again also opens a fresh form.
+  await page.getByRole("button", { name: /Other loan/ }).click();
+  await expect(page.getByRole("form", { name: "Record loan" }).getByRole("textbox", { name: "Name" })).toHaveValue("");
+  expect(posted.map((body) => [body.lenderName, body.amount])).toEqual([["First Lender", "7000"], ["Second Lender", "9000"]]);
+  expect(posted[0]?.idempotencyKey, "a second loan is a new request, never a retry of the first").not.toBe(posted[1]?.idempotencyKey);
+});
+
 test("without a loan account the form says what to do, and with approval ON it says so first", async ({ page }) => {
   await mock(page, workspace({ options: { ...workspace().options, liabilityAccounts: [] } }));
   await page.goto("/finance/add-money");

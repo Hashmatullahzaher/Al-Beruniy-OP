@@ -41,6 +41,10 @@ const RESERVE = "Reserve USD Safe";
 const AFN_SAFE = "AFN Safe";
 const RESERVE_FA = "صندوق ذخیره";
 const UTILITIES_FA = "برق و آب";
+const FX_SAFE = "FX Test AFN Safe";
+/** A harmless synthetic PDF: a real header and trailer, no content. */
+const PDF = Buffer.from("%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>\nendobj\ntrailer\n<< /Root 1 0 R >>\n%%EOF\n", "utf8");
+const SCANNER = process.env.ABOS_MALWARE_SCANNER === "windows-defender";
 /** The passphrase tests/support/first-run.ts gives every employee it creates on the disposable database. */
 const PASSPHRASE = "Synthetic confidentiality check passphrase 2026";
 /** What only the Finance Manager's permissions may show: people, lenders, references, descriptions and reasons. */
@@ -979,5 +983,205 @@ test.describe.serial("V1 annual simulation 2026", () => {
       expect((await raw(page, path)).text, path).not.toContain("Synthetic Other");
     }
     keep("isolation", isolation);
+  });
+
+  test("documents attach to a shareholder, a loan, an expense, a receipt and the company; each is scanned, served only to those who may read its record, and touches no accounting", async ({ page, browser }) => {
+    test.skip(!SCANNER, "Needs the real scanner: set ABOS_MALWARE_SCANNER=windows-defender.");
+    test.setTimeout(420_000);
+    await manager(page);
+    const asOf = today();
+    const journalsBefore = await journalCount();
+    const attach = async (target: Page, title: string, date: string) => {
+      const panel = target.getByRole("region", { name: "Documents" });
+      const form = panel.getByRole("form", { name: "Attach a document" });
+      await form.getByLabel("Title").fill(title);
+      await form.getByLabel(/^Document date/).fill(date);
+      await form.getByLabel(/^PDF or image file/).setInputFiles({ name: `${title}.pdf`, mimeType: "application/pdf", buffer: PDF });
+      await form.getByRole("button", { name: "Attach document" }).click();
+      await expect(form.getByRole("status")).toContainText("Document attached.");
+      await expect(panel.getByRole("listitem").filter({ hasText: title })).toBeVisible();
+      act("document", 4);
+    };
+
+    // The shareholder's own record.
+    await open(page, "Shareholders");
+    await page.getByRole("button", { name: new RegExp(HOLDER_A) }).click();
+    await expect(page.getByRole("article", { name: HOLDER_A })).toBeVisible();
+    await attach(page, "Synthetic identity paper", "2026-01-02");
+    // The loan.
+    await open(page, "Loans");
+    await page.getByRole("region", { name: "Loans" }).getByRole("link", { name: HOLDER_A }).click();
+    await attach(page, "Synthetic loan note", "2026-04-05");
+    // The expense, from the daily register.
+    await open(page, "Daily transactions");
+    await page.getByRole("form", { name: "Date range" }).getByLabel("From").fill("2026-01-01");
+    const expenseRow = page.locator(".register-table tbody tr").filter({ hasText: "SIM-EXP-0201" });
+    await expenseRow.getByRole("button", { name: "Documents" }).click();
+    await attach(page, "Synthetic supplier invoice", "2026-02-01");
+    // The receipt, from its journal.
+    const trial = await data<TrialBalanceView>(page, `/api/v1/finance/trial-balance?asOf=${asOf}`);
+    const revenue = trial.accounts.find((row) => row.accountCode === "4100")?.accountId ?? "";
+    await page.goto(`/finance/account-statement?accountId=${revenue}&asOf=${asOf}`);
+    await page.getByRole("region", { name: "Account statement" }).locator("tbody tr").first().getByRole("link").first().click();
+    await expect(page.getByRole("region", { name: "Journal", exact: true })).toBeVisible();
+    await attach(page, "Synthetic sale receipt A-101", "2026-03-10");
+    // The company, by the person who keeps its records.
+    const records = await (await browser.newContext()).newPage();
+    await signInAs(records, "sim.company.records");
+    await records.goto("/admin/company");
+    await attach(records, "Synthetic registration certificate", "2026-01-01");
+
+    // Five documents, five subjects, every one scanned clean by the real scanner; attaching posted nothing.
+    const stored = await readOnly<{ link: string; subject: string; title: string; storage: string; outcome: string | null }>(
+      `SELECT l.id::text AS link, l.subject_type AS subject, l.title, d.storage_id::text AS storage,
+              (SELECT r.outcome FROM abos.document_scan_results r WHERE r.document_id = d.id ORDER BY r.scanned_at DESC LIMIT 1) AS outcome
+         FROM abos.document_links l JOIN abos.documents d ON d.id = l.document_id ORDER BY l.subject_type`);
+    expect(stored.map((row) => [row.subject, row.outcome])).toEqual([["COMPANY", "CLEAN"], ["EXPENSE", "CLEAN"], ["LOAN", "CLEAN"], ["RECEIPT", "CLEAN"], ["SHAREHOLDER", "CLEAN"]]);
+    expect(await journalCount()).toBe(journalsBefore);
+    expect(await readOnly("SELECT * FROM abos.document_vault_integrity()")).toEqual([]);
+    const attached = await readOnly<{ n: number }>("SELECT count(*)::int AS n FROM abos.audit_records WHERE action = 'DOCUMENT_ATTACHED'");
+    expect(attached[0]?.n).toBe(5);
+
+    // Opening: the person who may read the record gets the file; the list never names where it is stored.
+    const link = (subject: string) => stored.find((row) => row.subject === subject);
+    const loanFile = await raw(page, `/api/v1/documents/${link("LOAN")?.link}`);
+    expect(loanFile.status).toBe(200);
+    expect(loanFile.text.startsWith("%PDF-1.4")).toBe(true);
+    const loans = await data<LoanWorkspace>(page, "/api/v1/finance/loans");
+    const usdLoan = loans.loans?.find((item) => item.currency === "USD");
+    const list = await raw(page, `/api/v1/documents?subjectType=LOAN&subjectId=${usdLoan?.id}`);
+    expect(list.status).toBe(200);
+    for (const row of stored) expect(list.text, "no storage object is named").not.toContain(row.storage);
+    expect(list.text).not.toMatch(/storageId|[A-Za-z]:\\\\|private-documents|documents-preview/);
+    // The Finance Manager does not manage company details, so the company's document is not theirs to open.
+    const unknown = await raw(page, `/api/v1/documents/${randomUUID()}`);
+    const companyFile = await raw(page, `/api/v1/documents/${link("COMPANY")?.link}`);
+    expect(unknown.status).toBe(404);
+    expect(companyFile.status).toBe(404);
+    expect(companyFile.text).toBe(unknown.text);
+    // The report-only reader and the Safe's keeper can open none of them: each is refused exactly as an address that names nothing.
+    const access: Record<string, number[]> = {};
+    for (const login of ["sim.report.reader", "sim.safe.keeper"]) {
+      const person = await (await browser.newContext()).newPage();
+      await signInAs(person, login);
+      const nothing = await raw(person, `/api/v1/documents/${randomUUID()}`);
+      access[login] = [];
+      for (const row of stored) {
+        const answer = await raw(person, `/api/v1/documents/${row.link}`);
+        access[login]?.push(answer.status);
+        expect(answer.status, `${login} and the ${row.subject} document`).toBe(404);
+        expect(answer.text).toBe(nothing.text);
+      }
+      await person.context().close();
+    }
+    // The records keeper opens the company's document and none of Finance's.
+    expect((await raw(records, `/api/v1/documents/${link("COMPANY")?.link}`)).status).toBe(200);
+    expect((await raw(records, `/api/v1/documents/${link("LOAN")?.link}`)).status).toBe(404);
+    await records.context().close();
+    // Nothing can replace or remove an attached document: the runtime has no such route, and the tables refuse it.
+    expect((await page.evaluate(async (url) => (await fetch(url, { method: "DELETE" })).status, `/api/v1/documents/${link("LOAN")?.link}`))).toBe(405);
+    keep("documents", { attached: stored.map((row) => [row.subject, row.title, row.outcome]), refusedFor: access });
+  });
+
+  test("a separate FX test on its own AFN Safe: a mixed carrying basis realizes one gain and two losses, exactly as worked out by hand, and nets to nothing", async ({ page }) => {
+    test.setTimeout(420_000);
+    await manager(page);
+    const asOf = today();
+
+    // A second AFN Safe, so the year's own AFN Safe stays untouched. Rates on file: 3 Nov 70, 10 Nov 65, 17 Nov 80 AFN to the dollar.
+    await open(page, "Chart of Accounts");
+    await createAccount(page, { code: "1130", name: "FX Test AFN Cash", type: "ASSET", control: "CASH", currency: "AFN" });
+    await open(page, "Finance setup");
+    await page.getByRole("button", { name: "Add account" }).click();
+    const treasury = page.getByRole("form", { name: "Treasury account" });
+    await treasury.getByLabel("Name (English) *").fill(FX_SAFE);
+    await treasury.getByLabel("Type *").selectOption({ label: "Safe" });
+    await treasury.getByLabel("Currency *").selectOption("AFN");
+    await treasury.getByLabel("Chart of Accounts account *").selectOption({ label: "1130 · FX Test AFN Cash" });
+    await treasury.getByRole("button", { name: "Save" }).click();
+    await expect(page.getByRole("status").filter({ hasText: "Treasury account saved" })).toBeVisible();
+
+    // Two loans into the same Safe at different rates. Worked out by hand, before anything is posted:
+    //   3 Nov, 140,000 AFN at 70 = 2,000.00 USD.   Safe: 140,000 AFN carrying 2,000.00.
+    //  10 Nov,  65,000 AFN at 65 = 1,000.00 USD.   Safe: 205,000 AFN carrying 3,000.00.
+    await open(page, "Add money");
+    await page.getByRole("region", { name: "Where is this money coming from?" }).getByRole("button", { name: /Other loan/ }).click();
+    const lend = async (lender: string, amount: string, day: string) => {
+      const form = page.getByRole("form", { name: "Record loan" });
+      await form.getByLabel("Who lent the money?").selectOption({ label: "A company" });
+      await form.getByRole("textbox", { name: "Name" }).fill(lender);
+      await form.getByLabel("Which Safe did it go into?").selectOption({ label: `${FX_SAFE} · AFN` });
+      await form.getByLabel("Amount (AFN)").fill(amount);
+      await form.getByLabel("Date").fill(day);
+      await form.getByRole("button", { name: "Record loan" }).click();
+      await expect(page.getByText("Loan recorded.")).toBeVisible();
+    };
+    await lend("Synthetic FX Lender One", "140000", "2026-11-03");
+    // The second loan is recorded from the same page, straight after the first.
+    await page.getByRole("button", { name: "Record another loan" }).click();
+    await lend("Synthetic FX Lender Two", "65000", "2026-11-10");
+    expect(await ledgerBalances()).toMatchObject({ "1130": "3000.00", "2520": "-3000.00" });
+
+    // Three repayments on 17 November, each expected result worked out by hand from the two carrying values:
+    //  a) Lender One, 70,000 AFN. The Safe gives up 3,000.00 x 70,000 / 205,000 = 1,024.39. The loan drops by 2,000.00 x 70,000 / 140,000 = 1,000.00.
+    //     More was given up than was owed: a loss of 24.39.           Safe: 135,000 AFN carrying 1,975.61.
+    //  b) Lender Two, 65,000 AFN (all of it). The Safe gives up 1,975.61 x 65,000 / 135,000 = 951.22. The loan drops by 1,000.00.
+    //     Less was given up than was owed: a gain of 48.78.            Safe: 70,000 AFN carrying 1,024.39.
+    //  c) Lender One, the last 70,000 AFN. The Safe gives up all it carries, 1,024.39. The loan drops by its last 1,000.00: a loss of 24.39.
+    //  Everything borrowed was repaid in the same currency, so the gains and losses must cancel: 48.78 - 24.39 - 24.39 = 0.00.
+    const repay = async (lender: string, amount: string, result: RegExp) => {
+      await open(page, "Loans");
+      await page.getByRole("region", { name: "Loans" }).getByRole("link", { name: lender }).click();
+      await page.getByRole("button", { name: "Repay" }).click();
+      const form = page.getByRole("form", { name: "Repay loan" });
+      await form.getByLabel("From which Safe?").selectOption({ label: FX_SAFE });
+      await form.getByLabel("Amount (AFN)").fill(amount);
+      await form.getByLabel("Date").fill("2026-11-17");
+      await form.getByRole("button", { name: "Record repayment" }).click();
+      await expect(page.locator(".treasury-message.success").filter({ hasText: "Repayment recorded." })).toContainText(result);
+    };
+    await repay("Synthetic FX Lender One", "70000", /Realized FX loss: 24\.39 USD\./);
+    expect(await ledgerBalances()).toMatchObject({ "1130": "1975.61", "2520": "-2000.00", "5910": "24.39" });
+    await repay("Synthetic FX Lender Two", "65000", /Realized FX gain: 48\.78 USD\./);
+    expect(await ledgerBalances()).toMatchObject({ "1130": "1024.39", "2520": "-1000.00", "4910": "-48.78", "5910": "24.39" });
+    await repay("Synthetic FX Lender One", "70000", /Realized FX loss: 24\.39 USD\./);
+
+    // Nothing is left in the Safe or owed on either loan, in AFN or in accounting value, and the FX accounts cancel to the cent.
+    const balances = await ledgerBalances();
+    expect(balances).toMatchObject({ "1130": "0.00", "2520": "0.00", "4910": "-48.78", "5910": "48.78" });
+    const loans = await data<LoanWorkspace>(page, "/api/v1/finance/loans");
+    for (const lender of ["Synthetic FX Lender One", "Synthetic FX Lender Two"]) {
+      const loan = loans.loans?.find((item) => item.lender.name === lender);
+      expectAmount(loan?.outstanding, "0", `${lender} still owed`);
+      expectAmount(loan?.baseOutstanding, "0", `${lender} carrying value`);
+    }
+    const safes = await data<TreasuryStatementView>(page, "/api/v1/finance/safe-statement");
+    const fxSafe = (await data<TreasuryStatementView>(page, `/api/v1/finance/safe-statement?accountId=${safes.accounts.find((account) => account.nameEn === FX_SAFE)?.id}&asOf=${asOf}`)).statement;
+    expectAmount(fxSafe?.closing.native, "0", "FX test Safe balance");
+    expectAmount(fxSafe?.closing.base, "0", "FX test Safe carrying value");
+    expect(fxSafe?.carryingStatus).toBe("OK");
+    expect(fxSafe?.reconciliation.matches).toBe(true);
+
+    // The statements show the FX on its own lines, and the year's result and position are exactly what they were.
+    const income = await data<IncomeStatementView>(page, `/api/v1/finance/income-statement?asOf=${asOf}`);
+    expectAmount(income.income.find((row) => row.code === "4910")?.amount, "48.78", "Realized FX Gain on the income statement");
+    expectAmount(income.expenses.find((row) => row.code === "5910")?.amount, "48.78", "Realized FX Loss on the income statement");
+    expectAmount(income.netResult, ORACLE.netProfit, "net profit after the FX test");
+    const summary = await data<ManagementSummaryView>(page, `/api/v1/finance/financial-summary?asOf=${asOf}`);
+    expectAmount(summary.profit.income, ORACLE.revenue, "summary income leaves realized FX out");
+    expectAmount(summary.profit.expenses, ORACLE.expenses, "summary expenses leave realized FX out");
+    expectAmount(summary.profit.realizedFxGain, "48.78", "summary realized FX gain");
+    expectAmount(summary.profit.realizedFxLoss, "48.78", "summary realized FX loss");
+    expectAmount(summary.profit.netResult, ORACLE.netProfit, "summary net result after the FX test");
+    const sheet = await data<BalanceSheetView>(page, `/api/v1/finance/balance-sheet?asOf=${asOf}`);
+    expectAmount(sheet.totalAssets, ORACLE.assets, "total assets after the FX test");
+    expectAmount(sheet.totalLiabilities, ORACLE.liabilities, "total liabilities after the FX test");
+    expectAmount(sheet.totalEquity, ORACLE.equity, "total equity after the FX test");
+    expect(sheet.validation.balanced).toBe(true);
+    const trial = await data<TrialBalanceView>(page, `/api/v1/finance/trial-balance?asOf=${asOf}`);
+    expect(trial.balanced).toBe(true);
+    keep("fxTest", { ledger: { "1130": balances["1130"], "2520": balances["2520"], "4910": balances["4910"], "5910": balances["5910"] },
+      incomeStatementNet: income.netResult, summaryProfit: summary.profit, safeClosing: fxSafe?.closing });
+    keep("actionsPerWorkflow", actions);
   });
 });

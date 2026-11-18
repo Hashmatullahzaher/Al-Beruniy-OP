@@ -22,7 +22,7 @@ const LENDER_TYPES: readonly { value: Exclude<LenderType, "SHAREHOLDER">; en: st
   { value: "SUPPLIER", en: "A supplier", fa: "یک تأمین‌کننده" }, { value: "OTHER", en: "Someone else", fa: "دیگری" }
 ];
 
-function LoanForm({ source, view, fa }: Readonly<{ source: Source; view: LoanWorkspace; fa: boolean }>) {
+function LoanForm({ source, view, fa, onAnother }: Readonly<{ source: Source; view: LoanWorkspace; fa: boolean; onAnother: () => void }>) {
   const shareholder = source === "SHAREHOLDER_LOAN";
   const options = view.options;
   const accounts = options?.liabilityAccounts.filter((account) => account.control === (shareholder ? "SHAREHOLDER_LOAN" : "LOAN_PAYABLE")) ?? [];
@@ -52,7 +52,9 @@ function LoanForm({ source, view, fa }: Readonly<{ source: Source; view: LoanWor
 
   if (saved) return <p className="treasury-message success" role="status">
     {saved.status === "POSTED" ? (fa ? "قرض ثبت شد." : "Loan recorded.") : (fa ? "قرض برای تأیید فرستاده شد." : "Loan sent for approval.")}{" "}
-    <Link href={saved.loanId ? `/finance/loans?loanId=${saved.loanId}` : "/finance/loans"}>{fa ? "دیدن قرض" : "View the loan"}</Link></p>;
+    <Link href={saved.loanId ? `/finance/loans?loanId=${saved.loanId}` : "/finance/loans"}>{fa ? "دیدن قرض" : "View the loan"}</Link>{" "}
+    {/* A new form is a new request: its own key, so a second loan can never be mistaken for a retry of the first. */}
+    <button className="treasury-button" type="button" onClick={onAnother}>{fa ? "ثبت قرض دیگر" : "Record another loan"}</button></p>;
   if (accounts.length === 0) return <p className="treasury-message" role="status">
     {fa ? "نخست یک حساب بدهی قرض در " : "First create a loan liability account in the "}<Link href={`/finance/accounts?new=${shareholder ? "SHAREHOLDER_LOAN" : "LOAN_PAYABLE"}`}>{fa ? "جدول حساب‌ها" : "Chart of Accounts"}</Link>{fa ? " بسازید." : "."}</p>;
   return (
@@ -103,14 +105,16 @@ export function AddMoneyWorkspace() {
   const fa = locale === "fa";
   const [view, setView] = useState<LoanWorkspace | null>(null);
   const [source, setSource] = useState<Source | null>(null);
+  // Each choice of a source, and each "Record another loan", opens a fresh form; the options are read again so a lender just added is listed.
+  const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     let current = true;
     void api<LoanWorkspace>("/api/v1/finance/loans").then((result) => { if (current && result.ok) setView(result.data); });
     return () => { current = false; };
-  }, []);
+  }, [attempt]);
   const canLoan = view?.permissions.canRecord === true;
   const choice = (value: Source, title: { en: string; fa: string }, hint: { en: string; fa: string }) => (
-    <button key={value} type="button" className="treasury-card" aria-pressed={source === value} onClick={() => setSource(value)} disabled={!canLoan}>
+    <button key={value} type="button" className="treasury-card" aria-pressed={source === value} onClick={() => { setSource(value); setAttempt((count) => count + 1); }} disabled={!canLoan}>
       <strong>{title[fa ? "fa" : "en"]}</strong><span className="admin-hint">{hint[fa ? "fa" : "en"]}</span></button>);
   return (
     <div className="module-workspace add-money-workspace">
@@ -127,7 +131,7 @@ export function AddMoneyWorkspace() {
             <span className="admin-hint">{fa ? "پولی که از پیش در صندوق بود." : "Money that was already in a Safe."}</span></Link>
         </div>
       </section>
-      {source && view ? <section className="module-content-card" aria-label={fa ? "جزئیات قرض" : "Loan details"}><LoanForm key={source} source={source} view={view} fa={fa} /></section> : null}
+      {source && view ? <section className="module-content-card" aria-label={fa ? "جزئیات قرض" : "Loan details"}><LoanForm key={`${source}-${attempt}`} source={source} view={view} fa={fa} onAnother={() => setAttempt((count) => count + 1)} /></section> : null}
     </div>
   );
 }
