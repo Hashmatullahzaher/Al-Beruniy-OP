@@ -13,6 +13,7 @@ import { useSession } from "@/components/SessionProvider";
 import { publicEnvironment } from "@/lib/env";
 import { signedOutFooter } from "@/lib/environment-copy";
 import { operationalRoutes, sectionHeadings } from "@/lib/operational-routes";
+import { stageZeroAvailable } from "@/lib/stage-zero";
 
 interface AppShellProps {
   readonly children: ReactNode;
@@ -49,7 +50,7 @@ export function AppShell({ children }: AppShellProps) {
   const operationalSearchResults = normalizedQuery
     ? visibleRoutes.filter((route) => `${route.en} ${route.fa}`.toLowerCase().includes(normalizedQuery))
     : [];
-  const demoSearchResults = normalizedQuery && !signedIn
+  const demoSearchResults = normalizedQuery && !signedIn && stageZeroAvailable
     ? workspaceRoutes.filter((route) => route.label.toLowerCase().includes(normalizedQuery))
     : [];
 
@@ -93,7 +94,7 @@ export function AppShell({ children }: AppShellProps) {
           </nav>
         ) : (
           <nav className="navigation" aria-label={fa ? "ناوبری اصلی" : "Primary navigation"}>
-            {workspaceRoutes.map((route) => {
+            {(stageZeroAvailable ? workspaceRoutes : []).map((route) => {
               const active = pathname === route.path || (route.path !== "/" && pathname.startsWith(`${route.path}/`));
               return (
                 <Link key={route.id} href={route.path} aria-current={active ? "page" : undefined} onClick={() => setMenuOpen(false)}>
@@ -113,8 +114,9 @@ export function AppShell({ children }: AppShellProps) {
           <span className="boundary-dot" aria-hidden="true" />
           {signedIn
             ? <span><strong>{fa ? "عملیات" : "Operations"}</strong><small>{fa ? "دسترسی کنترل‌شده" : "Controlled access"}</small></span>
-            : <span><strong>{fa ? "پیش‌نمایش عمومی" : "Public preview"}</strong><small>{fa ? "برای دیدن داده‌های شرکت وارد شوید" : "Sign in to see company data"}</small></span>}
-          <span className="shell-badge">{signedIn ? "V1" : (fa ? "پیش‌نمایش" : "PREVIEW")}</span>
+            : <span><strong>{stageZeroAvailable ? (fa ? "پیش‌نمایش عمومی" : "Public preview") : (fa ? "ورود لازم است" : "Sign-in required")}</strong>
+              <small>{fa ? "برای دیدن داده‌های شرکت وارد شوید" : "Sign in to see company data"}</small></span>}
+          <span className="shell-badge">{signedIn || !stageZeroAvailable ? "V1" : (fa ? "پیش‌نمایش" : "PREVIEW")}</span>
         </div>
       </aside>
 
@@ -132,7 +134,7 @@ export function AppShell({ children }: AppShellProps) {
           <div className="workspace-search">
             <label className="sr-only" htmlFor="workspace-search">{fa ? "جستجوی بخش‌ها" : "Search workspaces"}</label>
             <AppIcon name="search" size={18} />
-            <input id="workspace-search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={locale === "fa" ? "جستجوی پروژه‌ها، واحدها، گزارش‌ها..." : "Search projects, units, clients, reports..."} autoComplete="off" />
+            <input id="workspace-search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder={signedIn || !stageZeroAvailable ? (fa ? "جستجوی صفحه‌ها…" : "Search pages…") : (fa ? "جستجوی پروژه‌ها، واحدها، گزارش‌ها..." : "Search projects, units, clients, reports...")} autoComplete="off" />
             {operationalSearchResults.length > 0 || demoSearchResults.length > 0 ? (
               <div className="search-results" role="navigation" aria-label={fa ? "نتایج جستجو" : "Workspace search results"}>
                 {signedIn
